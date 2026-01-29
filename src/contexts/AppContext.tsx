@@ -8,8 +8,11 @@ interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   currentUser: Employee | null;
+  adminUser: Employee | null;
   login: (pin: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  loginAdmin: (pin: string) => Promise<boolean>;
+  logoutAdmin: () => Promise<void>;
   isPaused: boolean;
   pauseSession: () => Promise<void>;
   resumeSession: (pin: string) => Promise<boolean>;
@@ -30,6 +33,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<POSMode>("retail");
   const [language, setLanguageState] = useState<Language>("en");
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [adminUser, setAdminUser] = useState<Employee | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [shiftStart, setShiftStart] = useState<number | null>(null);
@@ -112,16 +116,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const login = async (pin: string): Promise<boolean> => {
     const employees = await db.getAll<Employee>("employees");
-    const user = employees.find(emp => emp.pin === pin);
+    const user = employees.find(emp => emp.pin === pin && emp.role === "cashier");
     
     if (user) {
       setCurrentUser(user);
-      if (user.role === "cashier") {
-        setShiftStart(Date.now());
-      }
+      setShiftStart(Date.now());
       return true;
     }
     return false;
+  };
+
+  const loginAdmin = async (pin: string): Promise<boolean> => {
+    const employees = await db.getAll<Employee>("employees");
+    const admin = employees.find(emp => emp.pin === pin && emp.role === "admin");
+    
+    if (admin) {
+      setAdminUser(admin);
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAdmin = async () => {
+    setAdminUser(null);
   };
 
   const logout = async () => {
@@ -300,8 +317,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         language,
         setLanguage,
         currentUser,
+        adminUser,
         login,
         logout,
+        loginAdmin,
+        logoutAdmin,
         isPaused,
         pauseSession,
         resumeSession,

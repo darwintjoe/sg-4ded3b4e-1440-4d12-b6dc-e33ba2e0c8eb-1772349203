@@ -2,17 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApp } from "@/contexts/AppContext";
-import { Settings, Clock } from "lucide-react";
+import { Shield, X } from "lucide-react";
 import { translate } from "@/lib/translations";
-import { LanguageSelector } from "@/components/LanguageSelector";
 
-interface LoginScreenProps {
-  onAdminClick: () => void;
-  onAttendanceClick: () => void;
-}
-
-export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProps) {
-  const { login, resumeSession, isPaused, language } = useApp();
+export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
+  const { loginAdmin, language } = useApp();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
 
@@ -33,40 +27,29 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
       return;
     }
 
-    const success = isPaused ? await resumeSession(pin) : await login(pin);
-    if (success) {
-      setPin("");
-      setError("");
-    } else {
+    const success = await loginAdmin(pin);
+    if (!success) {
       setError(translate("login.invalid", language));
       setPin("");
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-900 dark:to-slate-800 p-4">
-      {/* Top Left Icons */}
-      <div className="absolute top-4 left-4 flex gap-2">
-        <Button variant="outline" size="lg" onClick={onAdminClick} className="h-14 w-14">
-          <Settings className="h-6 w-6" />
-        </Button>
-        <Button variant="outline" size="lg" onClick={onAttendanceClick} className="h-14 w-14">
-          <Clock className="h-6 w-6" />
-        </Button>
-      </div>
-
-      {/* Top Right Language Selector */}
-      <div className="absolute top-4 right-4">
-        <LanguageSelector />
-      </div>
-
-      <Card className="w-full max-w-md shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100 dark:from-slate-900 dark:to-slate-800 p-4">
+      <Card className="w-full max-w-md shadow-2xl border-2 border-amber-500">
         <CardHeader className="text-center pb-2">
-          <CardTitle className="text-4xl font-black tracking-tight">
-            {translate("login.title", language)}
+          <div className="flex items-center justify-between mb-2">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <X className="h-5 w-5" />
+            </Button>
+            <Shield className="h-8 w-8 text-amber-600 mx-auto" />
+            <div className="w-10"></div>
+          </div>
+          <CardTitle className="text-3xl font-black tracking-tight text-amber-700 dark:text-amber-500">
+            ADMIN LOGIN
           </CardTitle>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-            {isPaused ? "Session Paused - Re-enter PIN" : translate("login.subtitle", language)}
+            {translate("login.adminSubtitle", language)}
           </p>
         </CardHeader>
 
@@ -78,7 +61,7 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
                 key={i}
                 className={`h-4 w-4 rounded-full border-2 transition-all ${
                   i < pin.length
-                    ? "bg-blue-600 border-blue-600 scale-110"
+                    ? "bg-amber-600 border-amber-600 scale-110"
                     : "bg-slate-200 border-slate-300 dark:bg-slate-700 dark:border-slate-600"
                 }`}
               />
@@ -98,7 +81,7 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
                 key={num}
                 variant="outline"
                 onClick={() => handlePinInput(num.toString())}
-                className="h-16 text-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900"
+                className="h-16 text-xl font-semibold hover:bg-amber-100 dark:hover:bg-amber-900"
               >
                 {num}
               </Button>
@@ -113,13 +96,13 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
             <Button
               variant="outline"
               onClick={() => handlePinInput("0")}
-              className="h-16 text-xl font-semibold hover:bg-blue-100 dark:hover:bg-blue-900"
+              className="h-16 text-xl font-semibold hover:bg-amber-100 dark:hover:bg-amber-900"
             >
               0
             </Button>
             <Button
               onClick={handleLogin}
-              className="h-16 text-lg font-bold bg-green-600 hover:bg-green-700"
+              className="h-16 text-lg font-bold bg-amber-600 hover:bg-amber-700"
             >
               ✓
             </Button>

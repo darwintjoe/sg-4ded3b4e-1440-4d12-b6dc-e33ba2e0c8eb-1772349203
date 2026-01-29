@@ -5,59 +5,63 @@ export const translations: Record<Language, Record<string, string>> = {
     // Login & Auth
     "login.title": "SELL MORE",
     "login.subtitle": "Enter your PIN to continue",
-    "login.button": "Login",
+    "login.adminSubtitle": "Enter admin PIN to access dashboard",
+    "login.invalid": "Invalid PIN",
     "login.clockIn": "Clock In",
     "login.clockOut": "Clock Out",
-    "login.invalid": "Invalid PIN",
-    "login.success": "Login successful",
     
     // Attendance
-    "attendance.clockedIn": "Clocked In Successfully",
-    "attendance.clockedOut": "Clocked Out Successfully",
+    "attendance.title": "ATTENDANCE",
+    "attendance.subtitle": "Select mode and enter your PIN",
+    "attendance.clockedIn": "Clocked in successfully!",
+    "attendance.clockedOut": "Clocked out successfully!",
     "attendance.alreadyClockedIn": "Already clocked in today",
     "attendance.notClockedIn": "Not clocked in yet",
     
+    // Admin
+    "admin.subtitle": "System configuration and management",
+    "admin.settings": "Settings",
+    "admin.items": "Item Master",
+    "admin.employees": "Employees",
+    "admin.reports": "Reports",
+    "admin.backup": "Backup",
+
     // POS Screen
     "pos.search": "Search items or scan barcode...",
     "pos.cart": "Cart",
     "pos.empty": "Cart is empty",
     "pos.subtotal": "Subtotal",
     "pos.tax": "Tax",
-    "pos.total": "TOTAL",
-    "pos.pause": "Pause",
-    "pos.logout": "Logout",
+    "pos.total": "Total",
     "pos.payment": "Payment",
-    "pos.clear": "Clear",
-    "pos.mode.retail": "Retail",
-    "pos.mode.cafe": "Cafe",
-    
+
     // Payment
     "payment.title": "Payment",
-    "payment.amount": "Amount to Pay",
+    "payment.method": "Payment Method",
     "payment.cash": "Cash",
-    "payment.qrisStatic": "QRIS (Static)",
-    "payment.qrisDynamic": "QRIS (Dynamic)",
+    "payment.qrisStatic": "QRIS Static",
+    "payment.qrisDynamic": "QRIS Dynamic",
     "payment.voucher": "Voucher",
+    "payment.amount": "Amount",
+    "payment.qrisRef": "QRIS Reference (optional)",
+    "payment.add": "Add Payment",
     "payment.paid": "Paid",
     "payment.remaining": "Remaining",
     "payment.change": "Change",
     "payment.complete": "Complete Sale",
-    "payment.cancel": "Cancel",
-    
+    "payment.success": "Transaction completed successfully!",
+
     // Settings
-    "settings.title": "Settings",
-    "settings.language": "Language",
     "settings.mode": "POS Mode",
+    "settings.language": "Language",
     "settings.printer": "Printer Width",
-    "settings.googleDrive": "Google Drive",
-    "settings.link": "Link Account",
-    "settings.linked": "Linked",
-    
+
     // Reports
-    "reports.title": "Reports",
-    "reports.query": "Ask anything about your sales...",
+    "reports.title": "AI Reports",
+    "reports.query": "Ask a question about your sales...",
     "reports.examples": "Examples: total sales today, cash vs QRIS breakdown, employee attendance",
-    
+    "reports.loading": "Generating report...",
+
     // Common
     "common.loading": "Loading...",
     "common.error": "Error",
@@ -66,65 +70,72 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.confirm": "Confirm",
     "common.save": "Save",
     "common.delete": "Delete",
+    "common.edit": "Edit",
+    "common.add": "Add",
+    "common.logout": "Logout"
   },
   
   id: {
     // Login & Auth
     "login.title": "SELL MORE",
     "login.subtitle": "Masukkan PIN Anda untuk melanjutkan",
-    "login.button": "Masuk",
-    "login.clockIn": "Absen Masuk",
-    "login.clockOut": "Absen Keluar",
+    "login.adminSubtitle": "Masukkan PIN admin untuk akses dashboard",
     "login.invalid": "PIN tidak valid",
-    "login.success": "Login berhasil",
+    "login.clockIn": "Masuk",
+    "login.clockOut": "Keluar",
     
     // Attendance
-    "attendance.clockedIn": "Absen Masuk Berhasil",
-    "attendance.clockedOut": "Absen Keluar Berhasil",
+    "attendance.title": "ABSENSI",
+    "attendance.subtitle": "Pilih mode dan masukkan PIN Anda",
+    "attendance.clockedIn": "Berhasil absen masuk!",
+    "attendance.clockedOut": "Berhasil absen keluar!",
     "attendance.alreadyClockedIn": "Sudah absen masuk hari ini",
     "attendance.notClockedIn": "Belum absen masuk",
     
+    // Admin
+    "admin.subtitle": "Konfigurasi dan manajemen sistem",
+    "admin.settings": "Pengaturan",
+    "admin.items": "Data Barang",
+    "admin.employees": "Karyawan",
+    "admin.reports": "Laporan",
+    "admin.backup": "Cadangan",
+
     // POS Screen
-    "pos.search": "Cari barang atau scan barcode...",
+    "pos.search": "Cari barang atau pindai barcode...",
     "pos.cart": "Keranjang",
     "pos.empty": "Keranjang kosong",
     "pos.subtotal": "Subtotal",
     "pos.tax": "Pajak",
-    "pos.total": "TOTAL",
-    "pos.pause": "Jeda",
-    "pos.logout": "Keluar",
+    "pos.total": "Total",
     "pos.payment": "Pembayaran",
-    "pos.clear": "Hapus",
-    "pos.mode.retail": "Retail",
-    "pos.mode.cafe": "Kafe",
-    
+
     // Payment
     "payment.title": "Pembayaran",
-    "payment.amount": "Jumlah yang Harus Dibayar",
+    "payment.method": "Metode Pembayaran",
     "payment.cash": "Tunai",
-    "payment.qrisStatic": "QRIS (Statis)",
-    "payment.qrisDynamic": "QRIS (Dinamis)",
+    "payment.qrisStatic": "QRIS Statis",
+    "payment.qrisDynamic": "QRIS Dinamis",
     "payment.voucher": "Voucher",
+    "payment.amount": "Jumlah",
+    "payment.qrisRef": "Referensi QRIS (opsional)",
+    "payment.add": "Tambah Pembayaran",
     "payment.paid": "Dibayar",
     "payment.remaining": "Sisa",
     "payment.change": "Kembalian",
-    "payment.complete": "Selesaikan Penjualan",
-    "payment.cancel": "Batal",
-    
+    "payment.complete": "Selesaikan Transaksi",
+    "payment.success": "Transaksi berhasil diselesaikan!",
+
     // Settings
-    "settings.title": "Pengaturan",
-    "settings.language": "Bahasa",
     "settings.mode": "Mode POS",
+    "settings.language": "Bahasa",
     "settings.printer": "Lebar Printer",
-    "settings.googleDrive": "Google Drive",
-    "settings.link": "Hubungkan Akun",
-    "settings.linked": "Terhubung",
-    
+
     // Reports
-    "reports.title": "Laporan",
-    "reports.query": "Tanyakan apa saja tentang penjualan Anda...",
-    "reports.examples": "Contoh: total penjualan hari ini, breakdown tunai vs QRIS, absensi karyawan",
-    
+    "reports.title": "Laporan AI",
+    "reports.query": "Tanyakan tentang penjualan Anda...",
+    "reports.examples": "Contoh: total penjualan hari ini, tunai vs QRIS, absensi karyawan",
+    "reports.loading": "Membuat laporan...",
+
     // Common
     "common.loading": "Memuat...",
     "common.error": "Kesalahan",
@@ -133,65 +144,72 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.confirm": "Konfirmasi",
     "common.save": "Simpan",
     "common.delete": "Hapus",
+    "common.edit": "Edit",
+    "common.add": "Tambah",
+    "common.logout": "Keluar"
   },
   
   zh: {
     // Login & Auth
     "login.title": "SELL MORE",
-    "login.subtitle": "输入您的 PIN 码以继续",
-    "login.button": "登录",
+    "login.subtitle": "输入您的PIN码以继续",
+    "login.adminSubtitle": "输入管理员PIN码访问仪表板",
+    "login.invalid": "PIN码无效",
     "login.clockIn": "打卡上班",
     "login.clockOut": "打卡下班",
-    "login.invalid": "PIN 码无效",
-    "login.success": "登录成功",
     
     // Attendance
-    "attendance.clockedIn": "打卡上班成功",
-    "attendance.clockedOut": "打卡下班成功",
+    "attendance.title": "考勤",
+    "attendance.subtitle": "选择模式并输入您的PIN码",
+    "attendance.clockedIn": "打卡上班成功！",
+    "attendance.clockedOut": "打卡下班成功！",
     "attendance.alreadyClockedIn": "今天已经打卡上班",
     "attendance.notClockedIn": "尚未打卡上班",
     
+    // Admin
+    "admin.subtitle": "系统配置和管理",
+    "admin.settings": "设置",
+    "admin.items": "商品管理",
+    "admin.employees": "员工",
+    "admin.reports": "报表",
+    "admin.backup": "备份",
+
     // POS Screen
-    "pos.search": "搜索商品或扫描条形码...",
+    "pos.search": "搜索商品或扫描条码...",
     "pos.cart": "购物车",
     "pos.empty": "购物车为空",
     "pos.subtotal": "小计",
     "pos.tax": "税",
     "pos.total": "总计",
-    "pos.pause": "暂停",
-    "pos.logout": "登出",
     "pos.payment": "付款",
-    "pos.clear": "清空",
-    "pos.mode.retail": "零售",
-    "pos.mode.cafe": "咖啡厅",
-    
+
     // Payment
     "payment.title": "付款",
-    "payment.amount": "应付金额",
+    "payment.method": "付款方式",
     "payment.cash": "现金",
-    "payment.qrisStatic": "QRIS（静态）",
-    "payment.qrisDynamic": "QRIS（动态）",
+    "payment.qrisStatic": "QRIS静态",
+    "payment.qrisDynamic": "QRIS动态",
     "payment.voucher": "优惠券",
+    "payment.amount": "金额",
+    "payment.qrisRef": "QRIS参考号（可选）",
+    "payment.add": "添加付款",
     "payment.paid": "已付",
     "payment.remaining": "剩余",
     "payment.change": "找零",
-    "payment.complete": "完成销售",
-    "payment.cancel": "取消",
-    
+    "payment.complete": "完成交易",
+    "payment.success": "交易成功完成！",
+
     // Settings
-    "settings.title": "设置",
+    "settings.mode": "POS模式",
     "settings.language": "语言",
-    "settings.mode": "POS 模式",
     "settings.printer": "打印机宽度",
-    "settings.googleDrive": "Google 云端硬盘",
-    "settings.link": "链接账户",
-    "settings.linked": "已链接",
-    
+
     // Reports
-    "reports.title": "报告",
-    "reports.query": "询问有关您的销售的任何信息...",
-    "reports.examples": "示例：今天的总销售额，现金与 QRIS 细分，员工考勤",
-    
+    "reports.title": "AI报表",
+    "reports.query": "询问有关您销售的问题...",
+    "reports.examples": "示例：今日总销售额，现金与QRIS对比，员工考勤",
+    "reports.loading": "生成报表中...",
+
     // Common
     "common.loading": "加载中...",
     "common.error": "错误",
@@ -200,6 +218,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.confirm": "确认",
     "common.save": "保存",
     "common.delete": "删除",
+    "common.edit": "编辑",
+    "common.add": "添加",
+    "common.logout": "退出"
   }
 };
 

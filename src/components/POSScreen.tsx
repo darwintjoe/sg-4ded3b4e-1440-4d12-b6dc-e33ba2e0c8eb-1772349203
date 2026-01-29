@@ -5,14 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
-import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, UserCheck, UserX, BarChart3, Settings } from "lucide-react";
+import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock } from "lucide-react";
 
-export function POSScreen() {
-  const { currentUser, logout, cart, clearCart, cartTotal, pauseSession, mode, language, clockIn, clockOut } = useApp();
+interface POSScreenProps {
+  onAdminClick: () => void;
+  onAttendanceClick: () => void;
+}
+
+export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
+  const { currentUser, logout, cart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
-  const [showClockDialog, setShowClockDialog] = useState(false);
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
@@ -29,6 +34,16 @@ export function POSScreen() {
       {/* Header */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
+          {/* Admin & Attendance Icons (Top Left) */}
+          <Button variant="ghost" size="sm" onClick={onAdminClick}>
+            <Settings className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onAttendanceClick}>
+            <Clock className="h-5 w-5" />
+          </Button>
+          
+          <div className="h-8 w-px bg-slate-300 dark:bg-slate-600" />
+          
           <h1 className="text-2xl font-black tracking-tight">SELL MORE</h1>
           <Badge variant="outline" className="text-xs">
             {translate(`pos.mode.${mode}`, language)}
@@ -36,14 +51,7 @@ export function POSScreen() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowClockDialog(!showClockDialog)}>
-            <UserCheck className="h-4 w-4" />
-          </Button>
-          {currentUser?.role === "admin" && (
-            <Button variant="ghost" size="sm" onClick={() => setReportsOpen(true)}>
-              <BarChart3 className="h-4 w-4" />
-            </Button>
-          )}
+          <LanguageSelector />
           <Button variant="ghost" size="sm" onClick={pauseSession}>
             <PauseCircle className="h-4 w-4" />
           </Button>
@@ -55,23 +63,6 @@ export function POSScreen() {
           </span>
         </div>
       </div>
-
-      {/* Clock In/Out Quick Access */}
-      {showClockDialog && (
-        <div className="bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800 px-4 py-2 flex items-center justify-between">
-          <span className="text-sm font-medium">Quick Attendance</span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => {/* TODO: Quick clock in */}}>
-              <UserCheck className="h-4 w-4 mr-1" />
-              Clock In
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => {/* TODO: Quick clock out */}}>
-              <UserX className="h-4 w-4 mr-1" />
-              Clock Out
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
