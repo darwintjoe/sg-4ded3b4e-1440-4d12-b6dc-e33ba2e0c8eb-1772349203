@@ -13,7 +13,6 @@ import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { LineChart } from "@/components/charts/LineChart";
-import { Heatmap } from "@/components/charts/Heatmap";
 
 type DateRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -71,10 +70,6 @@ export function ReportsPanel() {
   // Revenue trend data
   const [revenueTrendData, setRevenueTrendData] = useState<Array<{ name: string; value: number }>>([]);
   const [trendInsight, setTrendInsight] = useState<string>("");
-
-  // Heatmap data
-  const [heatmapData, setHeatmapData] = useState<Array<{ day: string; hour: number; value: number }>>([]);
-  const [peakHourInsight, setPeakHourInsight] = useState<string>("");
 
   useEffect(() => {
     loadReports();
@@ -166,72 +161,6 @@ export function ReportsPanel() {
     }
   };
 
-  const loadHourlyHeatmap = async () => {
-    try {
-      // Get last 7 days of transactions
-      const today = new Date();
-      const sevenDaysAgo = new Date(today);
-      sevenDaysAgo.setDate(today.getDate() - 7);
-      
-      const startDate = sevenDaysAgo.toISOString().split("T")[0];
-      const endDate = today.toISOString().split("T")[0];
-      
-      const allTransactions = await db.getAll<any>("transactions");
-      const filtered = allTransactions.filter((t: any) => {
-        const txDate = t.timestamp.split("T")[0];
-        return txDate >= startDate && txDate <= endDate;
-      });
-      
-      // Group by day and hour
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const heatData: Array<{ day: string; hour: number; value: number }> = [];
-      
-      const countMap = new Map<string, number>();
-      
-      filtered.forEach((t: any) => {
-        const date = new Date(t.timestamp);
-        const day = dayNames[date.getDay()];
-        const hour = date.getHours();
-        
-        const key = `${day}-${hour}`;
-        countMap.set(key, (countMap.get(key) || 0) + 1);
-      });
-      
-      // Convert to array format for heatmap
-      dayNames.forEach(day => {
-        for (let hour = 6; hour <= 22; hour++) {
-          const key = `${day}-${hour}`;
-          heatData.push({
-            day,
-            hour,
-            value: countMap.get(key) || 0
-          });
-        }
-      });
-      
-      setHeatmapData(heatData);
-      
-      // Find peak hour
-      let maxValue = 0;
-      let peakDay = "";
-      let peakHour = 0;
-      
-      heatData.forEach(cell => {
-        if (cell.value > maxValue) {
-          maxValue = cell.value;
-          peakDay = cell.day;
-          peakHour = cell.hour;
-        }
-      });
-      
-      if (maxValue > 0) {
-        setPeakHourInsight(`🕐 Peak hours: ${peakDay} at ${peakHour}:00 (${maxValue} transactions)`);
-      }
-    } catch (error) {
-      console.error("Error loading heatmap:", error);
-    }
-  };
-
   const loadReports = async () => {
     const { startDate, endDate } = getDateRangeBounds();
     
@@ -243,8 +172,7 @@ export function ReportsPanel() {
       loadSalesReport(startDate, endDate, useMonthly),
       loadTopItems(startDate, endDate, useMonthly),
       loadAttendanceReport(startDate, endDate, useMonthly),
-      loadRevenueTrend(),
-      loadHourlyHeatmap()
+      loadRevenueTrend()
     ]);
   };
 
@@ -567,10 +495,9 @@ export function ReportsPanel() {
     csv += `Late Count,${attendanceStats.lateCount}\n\n`;
     
     // === INSIGHTS ===
-    if (trendInsight || peakHourInsight) {
+    if (trendInsight) {
       csv += "=== INSIGHTS ===\n";
       if (trendInsight) csv += `Revenue Trend: ${trendInsight}\n`;
-      if (peakHourInsight) csv += `Peak Hours: ${peakHourInsight}\n`;
       csv += "\n";
     }
     
@@ -771,15 +698,6 @@ export function ReportsPanel() {
                   ) : (
                     <div className="flex h-full items-center justify-center text-slate-400">
                       No revenue trend data available
-                    </div>
-                  )}
-                </div>
-                <div className="h-[300px] w-full">
-                  {heatmapData.length > 0 ? (
-                    <Heatmap data={heatmapData} height={300} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-slate-400">
-                      No heatmap data available
                     </div>
                   )}
                 </div>
