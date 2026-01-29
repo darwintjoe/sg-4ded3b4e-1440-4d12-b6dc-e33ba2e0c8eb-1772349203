@@ -134,7 +134,7 @@ export function SettingsPanel() {
               <Label>Receipt Width</Label>
               <Select
                 value={settings.printerWidth?.toString() ?? "80"}
-                onValueChange={(value) => updateSetting("printerWidth", parseInt(value))}
+                onValueChange={(value) => updateSetting("printerWidth", parseInt(value, 10))}
               >
                 <SelectTrigger>
                   <SelectValue />

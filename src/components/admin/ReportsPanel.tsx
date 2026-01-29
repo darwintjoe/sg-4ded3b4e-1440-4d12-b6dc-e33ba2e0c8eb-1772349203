@@ -450,7 +450,7 @@ export function ReportsPanel() {
     
     // Build comprehensive CSV with all tabs data
     let csv = "SELL MORE - Comprehensive Report\n";
-    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += `Generated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n`;
     csv += `Period: ${startDate} to ${endDate}\n`;
     csv += `View Mode: ${chartViewMode.toUpperCase()}\n\n`;
     

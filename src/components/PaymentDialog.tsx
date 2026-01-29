@@ -60,38 +60,45 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
       ...(change > 0 ? { change } : {})
     };
 
-    // 1. Add to hot transactions
-    await db.add("transactions", transaction);
+    try {
+      // 1. Add to hot transactions
+      await db.add("transactions", transaction);
 
-    // 2. Update Daily Summaries (Parallel execution for speed)
-    const itemUpdates = cart.map(item => {
-      const dailyItem: DailyItemSales = {
-        itemId: item.itemId,
-        sku: item.sku,
-        itemName: item.name,
-        businessDate: currentShift.businessDate,
-        totalQuantity: item.quantity,
-        totalRevenue: item.totalPrice,
-        transactionCount: 1
-      };
-      return db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
-    });
+      // 2. Update Daily Summaries (Parallel execution for speed)
+      const itemUpdates = cart.map(item => {
+        const dailyItem: DailyItemSales = {
+          itemId: item.itemId,
+          sku: item.sku,
+          itemName: item.name,
+          businessDate: currentShift.businessDate,
+          totalQuantity: item.quantity,
+          totalRevenue: item.totalPrice,
+          transactionCount: 1
+        };
+        return db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
+      });
 
-    const paymentUpdates = payments.map(p => {
-      const dailyPayment: DailyPaymentSales = {
-        method: p.method,
-        businessDate: currentShift.businessDate,
-        totalAmount: p.amount,
-        transactionCount: 1
-      };
-      return db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
-    });
+      const paymentUpdates = payments.map(p => {
+        const dailyPayment: DailyPaymentSales = {
+          method: p.method,
+          businessDate: currentShift.businessDate,
+          totalAmount: p.amount,
+          transactionCount: 1
+        };
+        return db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
+      });
 
-    await Promise.all([...itemUpdates, ...paymentUpdates]);
+      await Promise.all([...itemUpdates, ...paymentUpdates]);
 
-    clearCart();
-    setPayments([]);
-    onClose();
+      // Only clear cart after successful save
+      clearCart();
+      setPayments([]);
+      onClose();
+    } catch (error) {
+      console.error("Error saving transaction:", error);
+      alert("Failed to save transaction. Please try again or contact support.");
+      // Don't clear cart - allow user to retry
+    }
   };
 
   const paymentMethods: { method: PaymentMethod; label: string; icon: any }[] = [

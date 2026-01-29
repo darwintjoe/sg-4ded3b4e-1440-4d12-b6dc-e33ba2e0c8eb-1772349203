@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,9 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
-import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock } from "lucide-react";
+import { db } from "@/lib/db";
+import { Item, CartItem } from "@/types";
+import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock, Package } from "lucide-react";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -15,19 +17,64 @@ interface POSScreenProps {
 }
 
 export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
-  const { currentUser, logout, cart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
+  const { currentUser, logout, cart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [items, setItems] = useState<Item[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
   const tax = subtotal * TAX_RATE;
   const total = subtotal + tax;
 
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const loadItems = async () => {
+    try {
+      const allItems = await db.getAll<Item>("items");
+      setItems(allItems);
+    } catch (error) {
+      console.error("Error loading items:", error);
+    }
+  };
+
   const handlePayment = () => {
     if (cart.length === 0) return;
     setPaymentOpen(true);
   };
+
+  const handleItemClick = (item: Item) => {
+    if (!item.id) return;
+
+    const cartItem: CartItem = {
+      itemId: item.id,
+      sku: item.sku || `ITEM-${item.id}`,
+      name: item.name,
+      quantity: 1,
+      basePrice: item.price,
+      totalPrice: item.price,
+      variant: item.variants && item.variants.length > 0 ? item.variants[0].name : undefined,
+      modifiers: []
+    };
+
+    addToCart(cartItem);
+  };
+
+  const categories = ["All", ...new Set(items.map(item => item.category))];
+
+  const filteredItems = items.filter(item => {
+    const matchesSearch = 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+    
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
@@ -74,24 +121,73 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
               <Input
                 placeholder={translate("pos.search", language)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 h-12 text-lg"
               />
             </div>
 
-            {/* Items Grid - Placeholder */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                >
-                  <div className="aspect-square bg-slate-100 dark:bg-slate-700 rounded-md mb-2"></div>
-                  <p className="font-semibold text-sm">Item {i}</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">SKU-00{i}</p>
-                  <p className="text-lg font-bold mt-2">Rp {(i * 10000).toLocaleString()}</p>
+            {/* Category Filter */}
+            {categories.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className="whitespace-nowrap"
+                  >
+                    {category}
+                  </Button>
+                ))}
+              </div>
+            )}
+
+            {/* Items Grid */}
+            {filteredItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                <Package className="h-20 w-20 text-slate-300" />
+                <div>
+                  <p className="text-lg font-semibold text-slate-600 dark:text-slate-400">
+                    {items.length === 0 ? "No items available" : "No items found"}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
+                    {items.length === 0 
+                      ? "Ask admin to add items from the admin panel" 
+                      : "Try adjusting your search or category filter"}
+                  </p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => handleItemClick(item)}
+                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-lg hover:border-blue-500 dark:hover:border-blue-400 transition-all cursor-pointer group"
+                  >
+                    <div className="aspect-square bg-slate-100 dark:bg-slate-700 rounded-md mb-2 flex items-center justify-center group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors">
+                      <Package className="h-10 w-10 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    </div>
+                    <p className="font-semibold text-sm line-clamp-2 mb-1">{item.name}</p>
+                    {item.sku && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mb-2">{item.sku}</p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <p className="text-lg font-bold text-blue-600">
+                        Rp {item.price.toLocaleString("id-ID")}
+                      </p>
+                      {item.variants && item.variants.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {item.variants.length}v
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -112,21 +208,32 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
           {/* Cart Items */}
           <div className="flex-1 overflow-auto p-4 space-y-2">
             {cart.length === 0 ? (
-              <p className="text-center text-slate-500 dark:text-slate-400 py-8">
-                {translate("pos.empty", language)}
-              </p>
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
+                <ShoppingCart className="h-16 w-16 text-slate-300" />
+                <p className="text-slate-500 dark:text-slate-400">
+                  {translate("pos.empty", language)}
+                </p>
+              </div>
             ) : (
               cart.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-1"
+                  className="bg-slate-50 dark:bg-slate-900 rounded-lg p-3 space-y-1 group relative"
                 >
-                  <div className="flex justify-between">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFromCart(idx)}
+                    className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3 text-red-600" />
+                  </Button>
+                  <div className="flex justify-between pr-8">
                     <span className="font-semibold text-sm">{item.name}</span>
-                    <span className="font-bold">Rp {item.totalPrice.toLocaleString()}</span>
+                    <span className="font-bold">Rp {item.totalPrice.toLocaleString("id-ID")}</span>
                   </div>
                   <div className="text-xs text-slate-600 dark:text-slate-400">
-                    {item.quantity}x @ Rp {item.basePrice.toLocaleString()}
+                    {item.quantity}x @ Rp {item.basePrice.toLocaleString("id-ID")}
                   </div>
                   {item.variant && (
                     <div className="text-xs text-blue-600 dark:text-blue-400">
@@ -148,17 +255,17 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span>{translate("pos.subtotal", language)}</span>
-                <span>Rp {subtotal.toLocaleString()}</span>
+                <span>Rp {subtotal.toLocaleString("id-ID")}</span>
               </div>
               <div className="flex justify-between">
                 <span>{translate("pos.tax", language)} (11%)</span>
-                <span>Rp {tax.toLocaleString()}</span>
+                <span>Rp {tax.toLocaleString("id-ID")}</span>
               </div>
             </div>
             <div className="bg-slate-900 dark:bg-slate-950 text-white p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-base font-medium">{translate("pos.total", language)}</span>
-                <span className="text-3xl font-black">Rp {total.toLocaleString()}</span>
+                <span className="text-3xl font-black">Rp {total.toLocaleString("id-ID")}</span>
               </div>
             </div>
             <Button
