@@ -131,7 +131,7 @@ class Database {
     });
   }
 
-  async update<T>(storeName: string, data: T): Promise<void> {
+  async put<T>(storeName: string, data: T): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {

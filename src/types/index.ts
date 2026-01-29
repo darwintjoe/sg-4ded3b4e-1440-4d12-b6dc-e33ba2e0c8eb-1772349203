@@ -105,3 +105,5 @@ export interface AppSettings {
   googleDriveLinked: boolean;
   language: Language;
 }
+
+export type Settings = AppSettings;

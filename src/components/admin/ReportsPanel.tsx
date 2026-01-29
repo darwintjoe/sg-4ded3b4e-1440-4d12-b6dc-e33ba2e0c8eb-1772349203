@@ -38,7 +38,7 @@ export function ReportsPanel() {
   };
 
   const calculateSalesStats = () => {
-    const totalRevenue = transactions.reduce((sum, t) => sum + t.totalAmount, 0);
+    const totalRevenue = transactions.reduce((sum, t) => sum + t.total, 0);
     const totalReceipts = transactions.length;
     
     const paymentBreakdown = {
@@ -75,10 +75,10 @@ export function ReportsPanel() {
 
   const exportToCSV = () => {
     // Simple CSV export
-    let csv = "Timestamp,Employee,Total,Payment Methods\n";
+    let csv = "Timestamp,Cashier,Total,Payment Methods\n";
     transactions.forEach((t) => {
       const methods = t.payments.map((p) => `${p.method}:${p.amount}`).join("|");
-      csv += `${new Date(t.timestamp).toLocaleString()},${t.employeeName},${t.totalAmount},${methods}\n`;
+      csv += `${new Date(t.timestamp).toLocaleString()},${t.cashierName},${t.total},${methods}\n`;
     });
     
     const blob = new Blob([csv], { type: "text/csv" });
@@ -213,14 +213,14 @@ export function ReportsPanel() {
                       className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                     >
                       <div>
-                        <p className="font-medium">{t.employeeName}</p>
+                        <p className="font-medium">{t.cashierName}</p>
                         <p className="text-xs text-slate-500">
                           {new Date(t.timestamp).toLocaleString()}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-black text-green-600">
-                          Rp {t.totalAmount.toLocaleString("id-ID")}
+                          Rp {t.total.toLocaleString("id-ID")}
                         </p>
                         <p className="text-xs text-slate-500">
                           {t.payments.map((p) => p.method).join(", ")}

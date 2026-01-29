@@ -71,7 +71,8 @@ export function EmployeesPanel() {
     setEditingEmployee({
       name: "",
       pin: "",
-      role: "employee"
+      role: "employee",
+      createdAt: Date.now()
     });
     setIsDialogOpen(true);
   };
