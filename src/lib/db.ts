@@ -13,7 +13,7 @@ interface DBConfig {
 
 const DB_CONFIG: DBConfig = {
   name: "sell_more_db",
-  version: 4, // Increment version for new stores
+  version: 5, // Increment version for new stores
   stores: [
     {
       name: "transactions",
@@ -66,6 +66,14 @@ const DB_CONFIG: DBConfig = {
         { name: "shiftId", keyPath: "shiftId", unique: true },
         { name: "businessDate", keyPath: "businessDate", unique: false },
         { name: "cashierId", keyPath: "cashierId", unique: false }
+      ]
+    },
+    {
+      name: "dailyAttendance",
+      keyPath: "id",
+      indexes: [
+        { name: "date", keyPath: "date", unique: false },
+        { name: "employeeId", keyPath: "employeeId", unique: false }
       ]
     },
     {
