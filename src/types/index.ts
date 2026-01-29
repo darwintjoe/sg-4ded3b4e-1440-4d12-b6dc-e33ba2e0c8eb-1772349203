@@ -2,12 +2,25 @@ export type POSMode = "retail" | "cafe";
 
 export type UserRole = "admin" | "cashier" | "employee";
 
+export type Language = "en" | "id" | "zh";
+
+export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "voucher";
+
 export interface Employee {
   id?: number;
   name: string;
   pin: string;
   role: UserRole;
   createdAt: number;
+}
+
+export interface AttendanceRecord {
+  id?: number;
+  employeeId: number;
+  employeeName: string;
+  clockIn: number;
+  clockOut?: number;
+  date: string; // YYYY-MM-DD format for easy querying
 }
 
 export interface Item {
@@ -41,6 +54,12 @@ export interface CartItem {
   totalPrice: number;
 }
 
+export interface PaymentRecord {
+  method: PaymentMethod;
+  amount: number;
+  qrisRef?: string; // For QRIS transaction reference
+}
+
 export interface Transaction {
   id?: number;
   timestamp: number;
@@ -51,7 +70,23 @@ export interface Transaction {
   subtotal: number;
   tax: number;
   total: number;
-  paymentMethod: string;
+  payments: PaymentRecord[]; // Changed from single paymentMethod to array
+  change?: number;
+}
+
+export interface ShiftReport {
+  cashierId: number;
+  cashierName: string;
+  shiftStart: number;
+  shiftEnd: number;
+  totalReceipts: number;
+  totalAmount: number;
+  paymentBreakdown: {
+    cash: number;
+    qrisStatic: number;
+    qrisDynamic: number;
+    voucher: number;
+  };
 }
 
 export interface PauseState {
@@ -68,4 +103,5 @@ export interface AppSettings {
   printerWidth: 58 | 80;
   taxRate: number;
   googleDriveLinked: boolean;
+  language: Language;
 }
