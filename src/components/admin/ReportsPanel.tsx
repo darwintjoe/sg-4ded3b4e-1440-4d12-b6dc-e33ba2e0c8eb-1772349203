@@ -557,45 +557,106 @@ export function ReportsPanel() {
           </TabsContent>
 
           <TabsContent value="items" className="space-y-4">
-            {topItems.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top 10 Best Sellers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {topItems.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white font-bold text-sm">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <p className="font-medium">{item.itemName}</p>
-                            <p className="text-xs text-slate-500">{item.quantity} units sold</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-green-600">
-                            Rp {item.revenue.toLocaleString("id-ID")}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-4">
+                <CardTitle>Top Items Report</CardTitle>
+                <div className="flex items-center gap-3 no-print">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600 dark:text-slate-400">Show:</label>
+                    <Select value={itemTopN.toString()} onValueChange={(val) => setItemTopN(Number(val) as 10 | 20)}>
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">Top 10</SelectItem>
+                        <SelectItem value="20">Top 20</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="p-12">
-                <div className="text-center space-y-4">
-                  <TrendingUp className="h-16 w-16 mx-auto text-slate-300" />
-                  <p className="text-slate-500">No sales data for this period</p>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600 dark:text-slate-400">By:</label>
+                    <Select value={itemMetric} onValueChange={(val) => setItemMetric(val as "quantity" | "revenue")}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quantity">Quantity</SelectItem>
+                        <SelectItem value="revenue">Revenue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600 dark:text-slate-400">Chart:</label>
+                    <Select value={itemChartType} onValueChange={(val) => setItemChartType(val as "pie" | "bar")}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bar">Bar</SelectItem>
+                        <SelectItem value="pie">Pie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-600 dark:text-slate-400">Period:</label>
+                    <Select value={itemTimeRange} onValueChange={(val) => setItemTimeRange(val as "daily" | "mtd" | "ytd")}>
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Today</SelectItem>
+                        <SelectItem value="mtd">MTD</SelectItem>
+                        <SelectItem value="ytd">YTD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              </Card>
-            )}
+              </CardHeader>
+              <CardContent>
+                {topItems.length > 0 ? (
+                  <div className="h-[500px] w-full">
+                    {itemChartType === "pie" ? (
+                      <PieChart 
+                        data={topItems.map((item, idx) => ({
+                          name: item.itemName,
+                          value: itemMetric === "quantity" ? item.quantity : item.revenue,
+                          color: item.itemName.startsWith("🔹") 
+                            ? "#94a3b8" 
+                            : `hsl(${(idx * 360) / Math.min(itemTopN, topItems.length - 1)}, 70%, 60%)`
+                        }))}
+                        height={500}
+                        showPercentage={false}
+                      />
+                    ) : (
+                      <HorizontalBarChart 
+                        data={topItems.map((item, idx) => ({
+                          name: item.itemName,
+                          value: itemMetric === "quantity" ? item.quantity : item.revenue,
+                          color: item.itemName.startsWith("🔹") 
+                            ? "#94a3b8" 
+                            : `hsl(${(idx * 360) / Math.min(itemTopN, topItems.length - 1)}, 70%, 60%)`
+                        }))}
+                        height={500}
+                        valueFormatter={itemMetric === "revenue" 
+                          ? (val) => `Rp ${val.toLocaleString("id-ID")}`
+                          : undefined
+                        }
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex h-[400px] items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <TrendingUp className="h-16 w-16 mx-auto text-slate-300" />
+                      <p className="text-slate-500">No sales data for this period</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
