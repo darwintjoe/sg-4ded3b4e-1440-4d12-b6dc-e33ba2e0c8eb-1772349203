@@ -10,6 +10,8 @@ import { translate } from "@/lib/translations";
 import { useApp } from "@/contexts/AppContext";
 import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Printer } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
+import { PieChart } from "@/components/charts/PieChart";
+import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 
 type DateRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -47,6 +49,12 @@ export function ReportsPanel() {
     revenue: number;
   }>>([]);
 
+  // Item report controls
+  const [itemTopN, setItemTopN] = useState<10 | 20>(10);
+  const [itemMetric, setItemMetric] = useState<"quantity" | "revenue">("quantity");
+  const [itemChartType, setItemChartType] = useState<"pie" | "bar">("bar");
+  const [itemTimeRange, setItemTimeRange] = useState<"daily" | "mtd" | "ytd">("mtd");
+
   // Attendance stats
   const [attendanceStats, setAttendanceStats] = useState({
     totalEmployees: 0,
@@ -55,9 +63,12 @@ export function ReportsPanel() {
     lateCount: 0
   });
 
+  // Attendance time range
+  const [attendanceTimeRange, setAttendanceTimeRange] = useState<"mtd" | "ytd">("mtd");
+
   useEffect(() => {
     loadReports();
-  }, [dateRange, customStart, customEnd]);
+  }, [dateRange, customStart, customEnd, itemTopN, itemMetric, itemTimeRange, attendanceTimeRange]);
 
   const getDateRangeBounds = (): { startDate: string; endDate: string } => {
     const today = new Date().toISOString().split("T")[0];
@@ -223,15 +234,30 @@ export function ReportsPanel() {
           itemMap.set(item.itemId, existing);
         });
         
-        const sorted = Array.from(itemMap.values())
-          .sort((a, b) => b.quantity - a.quantity)
-          .slice(0, 10);
+        // Sort by selected metric
+        const sortKey = itemMetric === "quantity" ? "quantity" : "revenue";
+        const sorted = Array.from(itemMap.values()).sort((a, b) => b[sortKey] - a[sortKey]);
         
-        setTopItems(sorted.map(item => ({
+        // Take top N and aggregate the rest as "Other Items"
+        const topN = sorted.slice(0, itemTopN);
+        const others = sorted.slice(itemTopN);
+        
+        const result = topN.map(item => ({
           itemName: item.name,
           quantity: item.quantity,
           revenue: item.revenue
-        })));
+        }));
+        
+        // Add "Other Items" if there are more items
+        if (others.length > 0) {
+          result.push({
+            itemName: "🔹 Other Items",
+            quantity: others.reduce((sum, item) => sum + item.quantity, 0),
+            revenue: others.reduce((sum, item) => sum + item.revenue, 0)
+          });
+        }
+        
+        setTopItems(result);
       } else {
         // Query daily item sales for short ranges
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
@@ -246,15 +272,30 @@ export function ReportsPanel() {
           itemMap.set(item.itemId, existing);
         });
         
-        const sorted = Array.from(itemMap.values())
-          .sort((a, b) => b.quantity - a.quantity)
-          .slice(0, 10);
+        // Sort by selected metric
+        const sortKey = itemMetric === "quantity" ? "quantity" : "revenue";
+        const sorted = Array.from(itemMap.values()).sort((a, b) => b[sortKey] - a[sortKey]);
         
-        setTopItems(sorted.map(item => ({
+        // Take top N and aggregate the rest as "Other Items"
+        const topN = sorted.slice(0, itemTopN);
+        const others = sorted.slice(itemTopN);
+        
+        const result = topN.map(item => ({
           itemName: item.name,
           quantity: item.quantity,
           revenue: item.revenue
-        })));
+        }));
+        
+        // Add "Other Items" if there are more items
+        if (others.length > 0) {
+          result.push({
+            itemName: "🔹 Other Items",
+            quantity: others.reduce((sum, item) => sum + item.quantity, 0),
+            revenue: others.reduce((sum, item) => sum + item.revenue, 0)
+          });
+        }
+        
+        setTopItems(result);
       }
     } catch (error) {
       console.error("Error loading top items:", error);
