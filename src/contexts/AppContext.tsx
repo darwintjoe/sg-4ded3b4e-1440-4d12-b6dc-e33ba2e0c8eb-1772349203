@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, ShiftReport } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
 import { db } from "@/lib/db";
 
 interface AppContextType {
@@ -24,7 +24,7 @@ interface AppContextType {
   cartTotal: number;
   clockIn: (pin: string) => Promise<{ success: boolean; message: string }>;
   clockOut: (pin: string) => Promise<{ success: boolean; message: string }>;
-  shiftStart: number | null;
+  currentShift: Shift | null;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -36,7 +36,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [adminUser, setAdminUser] = useState<Employee | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [shiftStart, setShiftStart] = useState<number | null>(null);
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
 
   useEffect(() => {
     initializeApp();
@@ -94,7 +94,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Seed default language setting
       const langSetting = await db.getById<{ key: string; language: Language }>("settings", "language");
       if (!langSetting) {
         await db.add("settings", { key: "language", language: "en" });
@@ -114,13 +113,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await db.put("settings", { key: "language", language: lang });
   };
 
+  const getBusinessDate = (): string => {
+    return new Date().toISOString().split("T")[0];
+  };
+
+  const generateShiftId = async (businessDate: string): Promise<string> => {
+    const existingShifts = await db.searchByIndex<Shift>("shifts", "businessDate", businessDate);
+    const shiftNumber = existingShifts.length + 1;
+    return `${businessDate}-shift-${shiftNumber}`;
+  };
+
   const login = async (pin: string): Promise<boolean> => {
     const employees = await db.getAll<Employee>("employees");
     const user = employees.find(emp => emp.pin === pin && emp.role === "cashier");
     
     if (user) {
+      const businessDate = getBusinessDate();
+      const calendarDayStart = new Date().toISOString().split("T")[0];
+      const shiftId = await generateShiftId(businessDate);
+      
+      const newShift: Shift = {
+        shiftId,
+        businessDate,
+        cashierId: user.id!,
+        cashierName: user.name,
+        shiftStart: Date.now(),
+        calendarDayStart,
+        status: "active"
+      };
+      
+      await db.add("shifts", newShift);
       setCurrentUser(user);
-      setShiftStart(Date.now());
+      setCurrentShift(newShift);
       return true;
     }
     return false;
@@ -142,28 +166,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    if (currentUser?.role === "cashier" && shiftStart) {
-      await generateShiftReportAndBackup();
+    if (currentUser?.role === "cashier" && currentShift) {
+      await closeShiftAndGenerateSummaries();
     }
     setCurrentUser(null);
-    setShiftStart(null);
+    setCurrentShift(null);
     clearCart();
   };
 
-  const generateShiftReportAndBackup = async () => {
-    if (!currentUser || !shiftStart) return;
+  const closeShiftAndGenerateSummaries = async () => {
+    if (!currentUser || !currentShift) return;
 
     try {
       const shiftEnd = Date.now();
-      const transactions = await db.searchByIndex<any>(
-        "transactions",
-        "cashierId",
-        currentUser.id!
-      );
+      
+      // Close shift
+      const updatedShift: Shift = {
+        ...currentShift,
+        shiftEnd,
+        status: "closed"
+      };
+      await db.put("shifts", updatedShift);
 
-      const shiftTransactions = transactions.filter(
-        (t: any) => t.timestamp >= shiftStart && t.timestamp <= shiftEnd
-      );
+      // Generate daily shift summary
+      await generateDailyShiftSummary(updatedShift);
+
+      // Check if month changed, trigger monthly rollup
+      await checkAndRollupMonthly();
+
+      // Move cold data (older than 7 business days)
+      await archiveColdData();
+
+      // Trigger backup to Google Drive (fire-and-forget)
+      triggerBackupToGoogleDrive();
+
+      // Send shift report as calendar event (fire-and-forget)
+      sendShiftReportToCalendar(updatedShift);
+    } catch (error) {
+      console.error("Error closing shift:", error);
+    }
+  };
+
+  const generateDailyShiftSummary = async (shift: Shift) => {
+    try {
+      const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
 
       const paymentBreakdown = {
         cash: 0,
@@ -172,42 +218,177 @@ export function AppProvider({ children }: { children: ReactNode }) {
         voucher: 0
       };
 
-      let totalAmount = 0;
+      let totalRevenue = 0;
 
-      shiftTransactions.forEach((t: any) => {
-        totalAmount += t.total;
-        if (t.payments && Array.isArray(t.payments)) {
-          t.payments.forEach((p: any) => {
-            if (p.method === "cash") paymentBreakdown.cash += p.amount;
-            else if (p.method === "qris-static") paymentBreakdown.qrisStatic += p.amount;
-            else if (p.method === "qris-dynamic") paymentBreakdown.qrisDynamic += p.amount;
-            else if (p.method === "voucher") paymentBreakdown.voucher += p.amount;
-          });
-        }
+      shiftTransactions.forEach((t) => {
+        totalRevenue += t.total;
+        t.payments.forEach((p) => {
+          if (p.method === "cash") paymentBreakdown.cash += p.amount;
+          else if (p.method === "qris-static") paymentBreakdown.qrisStatic += p.amount;
+          else if (p.method === "qris-dynamic") paymentBreakdown.qrisDynamic += p.amount;
+          else if (p.method === "voucher") paymentBreakdown.voucher += p.amount;
+        });
       });
 
-      const shiftReport: ShiftReport = {
-        cashierId: currentUser.id!,
-        cashierName: currentUser.name,
-        shiftStart,
-        shiftEnd,
+      const hoursWorked = shift.shiftEnd ? (shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60) : 0;
+
+      const summary: DailyShiftSummary = {
+        shiftId: shift.shiftId,
+        businessDate: shift.businessDate,
+        cashierId: shift.cashierId,
+        cashierName: shift.cashierName,
+        totalRevenue,
         totalReceipts: shiftTransactions.length,
-        totalAmount,
-        paymentBreakdown
+        paymentBreakdown,
+        hoursWorked
       };
 
-      console.log("Shift Report Generated:", shiftReport);
-      triggerBackupAndCalendarEvent(shiftReport);
+      await db.add("dailyShiftSummary", summary);
     } catch (error) {
-      console.error("Error generating shift report:", error);
+      console.error("Error generating daily shift summary:", error);
     }
   };
 
-  const triggerBackupAndCalendarEvent = async (report: ShiftReport) => {
+  const checkAndRollupMonthly = async () => {
     try {
-      console.log("Backup + Calendar Event triggered (fire-and-forget)");
-      console.log("Report:", report);
-      // TODO: Implement Google Drive backup and Calendar event push
+      const today = getBusinessDate();
+      const currentMonth = today.substring(0, 7); // YYYY-MM
+
+      const lastRollup = await db.getById<{ key: string; value: string }>("settings", "lastMonthlyRollup");
+      const lastMonth = lastRollup?.value;
+
+      if (lastMonth && lastMonth !== currentMonth) {
+        // Month changed, rollup previous month
+        await rollupMonthlyData(lastMonth);
+      }
+
+      // Update last rollup date
+      await db.put("settings", { key: "lastMonthlyRollup", value: currentMonth });
+    } catch (error) {
+      console.error("Error checking monthly rollup:", error);
+    }
+  };
+
+  const rollupMonthlyData = async (month: string) => {
+    try {
+      // Rollup item sales
+      const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
+      const monthlyItemsMap = new Map<number, { quantity: number; revenue: number; count: number; sku: string; name: string }>();
+
+      dailyItems.forEach((item) => {
+        if (item.businessDate.startsWith(month)) {
+          const existing = monthlyItemsMap.get(item.itemId) || { quantity: 0, revenue: 0, count: 0, sku: item.sku, name: item.itemName };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          existing.count += item.transactionCount;
+          monthlyItemsMap.set(item.itemId, existing);
+        }
+      });
+
+      for (const [itemId, data] of monthlyItemsMap.entries()) {
+        const monthlyItem: MonthlyItemSales = {
+          itemId,
+          sku: data.sku,
+          itemName: data.name,
+          month,
+          totalQuantity: data.quantity,
+          totalRevenue: data.revenue,
+          transactionCount: data.count
+        };
+        await db.upsert("monthlyItemSales", ["month", "itemId"], monthlyItem);
+      }
+
+      // Rollup sales summary
+      const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+      let totalRevenue = 0;
+      let totalReceipts = 0;
+      const paymentTotals = { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0 };
+
+      dailyPayments.forEach((payment) => {
+        if (payment.businessDate.startsWith(month)) {
+          totalRevenue += payment.totalAmount;
+          totalReceipts += payment.transactionCount;
+          
+          if (payment.method === "cash") paymentTotals.cash += payment.totalAmount;
+          else if (payment.method === "qris-static") paymentTotals.qrisStatic += payment.totalAmount;
+          else if (payment.method === "qris-dynamic") paymentTotals.qrisDynamic += payment.totalAmount;
+          else if (payment.method === "voucher") paymentTotals.voucher += payment.totalAmount;
+        }
+      });
+
+      const monthlySummary: MonthlySalesSummary = {
+        month,
+        totalRevenue,
+        totalReceipts,
+        cashAmount: paymentTotals.cash,
+        qrisStaticAmount: paymentTotals.qrisStatic,
+        qrisDynamicAmount: paymentTotals.qrisDynamic,
+        voucherAmount: paymentTotals.voucher
+      };
+      await db.upsert("monthlySalesSummary", ["month"], monthlySummary);
+
+      // Rollup attendance
+      const attendance = await db.getAll<AttendanceRecord>("attendance");
+      const monthlyAttendanceMap = new Map<number, { hours: number; days: number; late: number; name: string }>();
+
+      attendance.forEach((record) => {
+        if (record.date.startsWith(month) && record.clockOut) {
+          const hours = (record.clockOut - record.clockIn) / (1000 * 60 * 60);
+          const existing = monthlyAttendanceMap.get(record.employeeId) || { hours: 0, days: 0, late: 0, name: record.employeeName };
+          existing.hours += hours;
+          existing.days += 1;
+          // TODO: Calculate late based on shift start time from settings
+          monthlyAttendanceMap.set(record.employeeId, existing);
+        }
+      });
+
+      for (const [employeeId, data] of monthlyAttendanceMap.entries()) {
+        const monthlyAttendance: MonthlyAttendanceSummary = {
+          employeeId,
+          employeeName: data.name,
+          month,
+          totalHours: data.hours,
+          daysWorked: data.days,
+          lateCount: data.late
+        };
+        await db.upsert("monthlyAttendanceSummary", ["month", "employeeId"], monthlyAttendance);
+      }
+
+      console.log(`Monthly rollup completed for ${month}`);
+    } catch (error) {
+      console.error("Error rolling up monthly data:", error);
+    }
+  };
+
+  const archiveColdData = async () => {
+    try {
+      const today = getBusinessDate();
+      const cutoffDate = new Date(today);
+      cutoffDate.setDate(cutoffDate.getDate() - 7);
+      const cutoffString = cutoffDate.toISOString().split("T")[0];
+
+      const archivedCount = await db.moveToArchive("transactions", "transactionsArchive", cutoffString);
+      console.log(`Archived ${archivedCount} transactions older than ${cutoffString}`);
+    } catch (error) {
+      console.error("Error archiving cold data:", error);
+    }
+  };
+
+  const triggerBackupToGoogleDrive = async () => {
+    try {
+      console.log("Google Drive backup triggered (fire-and-forget)");
+      // TODO: Implement actual Google Drive backup
+      // Include: master data, all summaries, hot transactions only
+    } catch (error) {
+      // Silent fail
+    }
+  };
+
+  const sendShiftReportToCalendar = async (shift: Shift) => {
+    try {
+      console.log("Calendar event triggered (fire-and-forget)");
+      console.log("Shift:", shift);
+      // TODO: Implement Google Calendar event push
     } catch (error) {
       // Silent fail
     }
@@ -284,11 +465,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const user = employees.find(emp => emp.id === pauseState.cashierId && emp.pin === pin);
     
     if (user) {
+      // Restore shift
+      const shifts = await db.searchByIndex<Shift>("shifts", "cashierId", user.id!);
+      const activeShift = shifts.find(s => s.status === "active");
+      
       setCurrentUser(user);
       setCart(pauseState.cart);
       setModeState(pauseState.mode);
       setIsPaused(false);
-      setShiftStart(pauseState.timestamp);
+      setCurrentShift(activeShift || null);
       await db.delete("pauseState", 1);
       return true;
     }
@@ -333,7 +518,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cartTotal,
         clockIn,
         clockOut,
-        shiftStart
+        currentShift
       }}
     >
       {children}

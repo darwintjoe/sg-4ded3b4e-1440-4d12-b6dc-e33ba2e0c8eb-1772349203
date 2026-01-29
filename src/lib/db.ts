@@ -13,7 +13,7 @@ interface DBConfig {
 
 const DB_CONFIG: DBConfig = {
   name: "sell_more_db",
-  version: 3, // Increment version for new stores
+  version: 4, // Increment version for new stores
   stores: [
     {
       name: "transactions",
@@ -275,8 +275,18 @@ class Database {
         );
 
         if (existing) {
-          // Update existing record
-          const updated = { ...existing, ...data, id: existing.id };
+          // Update existing record - merge data and increment counters
+          const updated = { ...existing };
+          Object.keys(data).forEach((key) => {
+            if (key === "id") return; // Skip ID
+            if (typeof data[key] === "number" && typeof existing[key] === "number") {
+              // Sum numeric fields (quantities, revenues, counts)
+              updated[key] = existing[key] + data[key];
+            } else {
+              // Overwrite non-numeric fields
+              updated[key] = data[key];
+            }
+          });
           const request = store.put(updated);
           request.onsuccess = () => resolve();
           request.onerror = () => reject(request.error);
@@ -321,6 +331,37 @@ class Database {
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
+  }
+
+  async moveToArchive(storeName: string, archiveStoreName: string, beforeDate: string): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    try {
+      // Get records older than cutoff date
+      const allRecords = await this.searchByIndex<any>(storeName, "businessDate", IDBKeyRange.upperBound(beforeDate, true));
+      
+      if (allRecords.length === 0) return 0;
+
+      // Add to archive store
+      await this.addBatch(archiveStoreName, allRecords);
+
+      // Delete from hot store
+      const transaction = this.db!.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+      
+      await Promise.all(allRecords.map((record) => {
+        return new Promise<void>((resolve, reject) => {
+          const request = store.delete(record.id);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }));
+
+      return allRecords.length;
+    } catch (error) {
+      console.error("Error moving to archive:", error);
+      return 0;
+    }
   }
 }
 
