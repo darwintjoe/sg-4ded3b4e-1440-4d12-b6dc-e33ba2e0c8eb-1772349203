@@ -13,14 +13,82 @@ interface DBConfig {
 
 const DB_CONFIG: DBConfig = {
   name: "sell_more_db",
-  version: 2, // Increment version for new store
+  version: 3, // Increment version for new stores
   stores: [
     {
       name: "transactions",
       keyPath: "id",
       indexes: [
+        { name: "businessDate", keyPath: "businessDate", unique: false },
         { name: "timestamp", keyPath: "timestamp", unique: false },
+        { name: "cashierId", keyPath: "cashierId", unique: false },
+        { name: "shiftId", keyPath: "shiftId", unique: false }
+      ]
+    },
+    {
+      name: "transactionsArchive",
+      keyPath: "id",
+      indexes: [
+        { name: "businessDate", keyPath: "businessDate", unique: false },
+        { name: "timestamp", keyPath: "timestamp", unique: false }
+      ]
+    },
+    {
+      name: "shifts",
+      keyPath: "id",
+      indexes: [
+        { name: "shiftId", keyPath: "shiftId", unique: true },
+        { name: "businessDate", keyPath: "businessDate", unique: false },
+        { name: "cashierId", keyPath: "cashierId", unique: false },
+        { name: "status", keyPath: "status", unique: false }
+      ]
+    },
+    {
+      name: "dailyItemSales",
+      keyPath: "id",
+      indexes: [
+        { name: "businessDate", keyPath: "businessDate", unique: false },
+        { name: "itemId", keyPath: "itemId", unique: false }
+      ]
+    },
+    {
+      name: "dailyPaymentSales",
+      keyPath: "id",
+      indexes: [
+        { name: "businessDate", keyPath: "businessDate", unique: false },
+        { name: "method", keyPath: "method", unique: false }
+      ]
+    },
+    {
+      name: "dailyShiftSummary",
+      keyPath: "id",
+      indexes: [
+        { name: "shiftId", keyPath: "shiftId", unique: true },
+        { name: "businessDate", keyPath: "businessDate", unique: false },
         { name: "cashierId", keyPath: "cashierId", unique: false }
+      ]
+    },
+    {
+      name: "monthlyItemSales",
+      keyPath: "id",
+      indexes: [
+        { name: "month", keyPath: "month", unique: false },
+        { name: "itemId", keyPath: "itemId", unique: false }
+      ]
+    },
+    {
+      name: "monthlySalesSummary",
+      keyPath: "id",
+      indexes: [
+        { name: "month", keyPath: "month", unique: true }
+      ]
+    },
+    {
+      name: "monthlyAttendanceSummary",
+      keyPath: "id",
+      indexes: [
+        { name: "month", keyPath: "month", unique: false },
+        { name: "employeeId", keyPath: "employeeId", unique: false }
       ]
     },
     {
@@ -154,6 +222,73 @@ class Database {
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+    });
+  }
+
+  async addBatch<T>(storeName: string, records: T[]): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
+    if (records.length === 0) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+
+      let completed = 0;
+      let hasError = false;
+
+      records.forEach((record) => {
+        const request = store.add(record);
+        
+        request.onsuccess = () => {
+          completed++;
+          if (completed === records.length && !hasError) {
+            resolve();
+          }
+        };
+        
+        request.onerror = () => {
+          if (!hasError) {
+            hasError = true;
+            reject(request.error);
+          }
+        };
+      });
+    });
+  }
+
+  async upsert<T extends Record<string, any>>(
+    storeName: string,
+    keyFields: string[],
+    data: T
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    return new Promise(async (resolve, reject) => {
+      try {
+        const transaction = this.db!.transaction(storeName, "readwrite");
+        const store = transaction.objectStore(storeName);
+        
+        // Try to find existing record by compound key
+        const allRecords = await this.getAll<T>(storeName);
+        const existing = allRecords.find((record) =>
+          keyFields.every((field) => record[field] === data[field])
+        );
+
+        if (existing) {
+          // Update existing record
+          const updated = { ...existing, ...data, id: existing.id };
+          const request = store.put(updated);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        } else {
+          // Insert new record
+          const request = store.add(data);
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        }
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 
