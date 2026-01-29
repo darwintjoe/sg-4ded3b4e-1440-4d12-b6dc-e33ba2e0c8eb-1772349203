@@ -1,12 +1,18 @@
-import React from 'react'
+import { useApp } from "@/contexts/AppContext";
+import { LoginScreen } from "@/components/LoginScreen";
+import { POSScreen } from "@/components/POSScreen";
+import { SEO } from "@/components/SEO";
 
 export default function Home() {
+  const { currentUser, isPaused } = useApp();
+
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold text-foreground">Hello World</h1>
-        <p className="text-lg text-muted-foreground">This is going to be your softgen app, start by describing your project.</p>
-      </div>
-    </main>
-  )
+    <>
+      <SEO
+        title="SELL MORE - Mobile POS System"
+        description="Offline-first point of sale system optimized for retail and cafe/restaurant businesses"
+      />
+      {!currentUser || isPaused ? <LoginScreen /> : <POSScreen />}
+    </>
+  );
 }
