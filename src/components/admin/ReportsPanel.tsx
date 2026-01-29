@@ -261,7 +261,21 @@ export function ReportsPanel() {
       } else {
         // Query daily item sales for short ranges
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+        
+        // Apply itemTimeRange filter
+        let filtered: DailyItemSales[];
+        const today = new Date().toISOString().split("T")[0];
+        
+        if (itemTimeRange === "daily") {
+          filtered = allDaily.filter(d => d.businessDate === today);
+        } else if (itemTimeRange === "mtd") {
+          const monthStart = today.substring(0, 8) + "01";
+          filtered = allDaily.filter(d => d.businessDate >= monthStart && d.businessDate <= today);
+        } else {
+          // ytd
+          const yearStart = today.substring(0, 4) + "-01-01";
+          filtered = allDaily.filter(d => d.businessDate >= yearStart && d.businessDate <= today);
+        }
         
         const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
         
@@ -304,9 +318,22 @@ export function ReportsPanel() {
 
   const loadAttendanceReport = async (startDate: string, endDate: string, useMonthly: boolean) => {
     try {
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Override date range based on attendanceTimeRange
+      let actualStartDate: string;
+      const actualEndDate: string = today;
+      
+      if (attendanceTimeRange === "mtd") {
+        actualStartDate = today.substring(0, 8) + "01"; // First day of current month
+      } else {
+        // ytd
+        actualStartDate = today.substring(0, 4) + "-01-01"; // First day of current year
+      }
+      
       if (useMonthly) {
-        const startMonth = startDate.substring(0, 7);
-        const endMonth = endDate.substring(0, 7);
+        const startMonth = actualStartDate.substring(0, 7);
+        const endMonth = actualEndDate.substring(0, 7);
         
         const allMonthly = await db.getAll<MonthlyAttendanceSummary>("monthlyAttendanceSummary");
         const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
@@ -332,7 +359,7 @@ export function ReportsPanel() {
         });
       } else {
         const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
-        const filtered = allDaily.filter(d => d.date >= startDate && d.date <= endDate);
+        const filtered = allDaily.filter(d => d.date >= actualStartDate && d.date <= actualEndDate);
         
         const employeeMap = new Map<number, { hours: number; late: number }>();
         
@@ -660,6 +687,24 @@ export function ReportsPanel() {
           </TabsContent>
 
           <TabsContent value="attendance" className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-4">
+                <CardTitle>Attendance Summary</CardTitle>
+                <div className="flex items-center gap-2 no-print">
+                  <label className="text-sm text-slate-600 dark:text-slate-400">Period:</label>
+                  <Select value={attendanceTimeRange} onValueChange={(val) => setAttendanceTimeRange(val as "mtd" | "ytd")}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mtd">MTD</SelectItem>
+                      <SelectItem value="ytd">YTD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
+            </Card>
+            
             <div className="grid gap-4 md:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
