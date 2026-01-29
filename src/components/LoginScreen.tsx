@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApp } from "@/contexts/AppContext";
-import { CheckCircle2, LogIn, UserCheck, UserX, Globe } from "lucide-react";
+import { CheckCircle2, LogIn, UserCheck, UserX, Globe, Shield } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { Language } from "@/types";
 
@@ -12,7 +12,7 @@ export function LoginScreen() {
   const [error, setError] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [mode, setMode] = useState<"login" | "clockIn" | "clockOut">("login");
+  const [mode, setMode] = useState<"login" | "admin" | "clockIn" | "clockOut">("login");
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -86,7 +86,7 @@ export function LoginScreen() {
   };
 
   const handleSubmit = () => {
-    if (mode === "login") handleLogin();
+    if (mode === "login" || mode === "admin") handleLogin();
     else if (mode === "clockIn") handleClockIn();
     else handleClockOut();
   };
@@ -140,34 +140,72 @@ export function LoginScreen() {
           </div>
 
           {/* Mode Selector */}
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <Button
               variant={mode === "login" ? "default" : "outline"}
               onClick={() => setMode("login")}
-              className="flex-1"
-              size="sm"
+              className="h-16"
             >
-              <LogIn className="h-4 w-4 mr-2" />
-              {translate("login.button", language)}
+              <div className="flex flex-col items-center gap-1">
+                <LogIn className="h-5 w-5" />
+                <span className="text-xs font-semibold">Cashier</span>
+              </div>
+            </Button>
+            <Button
+              variant={mode === "admin" ? "default" : "outline"}
+              onClick={() => setMode("admin")}
+              className="h-16 bg-amber-500 hover:bg-amber-600 border-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700"
+              style={mode === "admin" ? { backgroundColor: "#d97706", borderColor: "#d97706" } : {}}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <Shield className="h-5 w-5" />
+                <span className="text-xs font-semibold">Admin</span>
+              </div>
             </Button>
             <Button
               variant={mode === "clockIn" ? "default" : "outline"}
               onClick={() => setMode("clockIn")}
-              className="flex-1"
-              size="sm"
+              className="h-16"
             >
-              <UserCheck className="h-4 w-4 mr-2" />
-              {translate("login.clockIn", language)}
+              <div className="flex flex-col items-center gap-1">
+                <UserCheck className="h-5 w-5" />
+                <span className="text-xs font-semibold">{translate("login.clockIn", language)}</span>
+              </div>
             </Button>
             <Button
               variant={mode === "clockOut" ? "default" : "outline"}
               onClick={() => setMode("clockOut")}
-              className="flex-1"
-              size="sm"
+              className="h-16"
             >
-              <UserX className="h-4 w-4 mr-2" />
-              {translate("login.clockOut", language)}
+              <div className="flex flex-col items-center gap-1">
+                <UserX className="h-5 w-5" />
+                <span className="text-xs font-semibold">{translate("login.clockOut", language)}</span>
+              </div>
             </Button>
+          </div>
+
+          {/* Mode Indicator */}
+          <div className="text-center py-2">
+            {mode === "admin" && (
+              <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                🛡️ Administrator Access
+              </p>
+            )}
+            {mode === "login" && (
+              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                Cashier Login
+              </p>
+            )}
+            {mode === "clockIn" && (
+              <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                {translate("login.clockIn", language)}
+              </p>
+            )}
+            {mode === "clockOut" && (
+              <p className="text-sm font-medium text-red-600 dark:text-red-400">
+                {translate("login.clockOut", language)}
+              </p>
+            )}
           </div>
 
           {/* PIN Display */}
