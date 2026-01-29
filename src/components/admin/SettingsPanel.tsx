@@ -24,6 +24,20 @@ export function SettingsPanel() {
     const allSettings = await db.getAll<SettingsType>("settings");
     if (allSettings.length > 0) {
       setSettings(allSettings[0]);
+    } else {
+      const defaultSettings: SettingsType = {
+        id: "default",
+        mode: "retail",
+        taxRate: 0,
+        currency: "USD",
+        language: "en",
+        printerWidth: 80,
+        businessName: "My Store",
+        receiptFooter: "Thank you for your purchase!",
+        googleDriveLinked: false
+      };
+      await db.put("settings", defaultSettings);
+      setSettings(defaultSettings);
     }
   };
 
@@ -88,7 +102,7 @@ export function SettingsPanel() {
               <Input
                 type="number"
                 step="0.01"
-                value={settings.taxRate}
+                value={settings.taxRate ?? 0}
                 onChange={(e) => updateSetting("taxRate", parseFloat(e.target.value) || 0)}
               />
             </div>
@@ -120,7 +134,7 @@ export function SettingsPanel() {
             <div className="space-y-2">
               <Label>Receipt Width</Label>
               <Select
-                value={settings.printerWidth.toString()}
+                value={settings.printerWidth?.toString() ?? "80"}
                 onValueChange={(value) => updateSetting("printerWidth", parseInt(value))}
               >
                 <SelectTrigger>
@@ -157,7 +171,7 @@ export function SettingsPanel() {
             <div className="space-y-2">
               <Label>Business Name</Label>
               <Input
-                value={settings.businessName}
+                value={settings.businessName ?? ""}
                 onChange={(e) => updateSetting("businessName", e.target.value)}
                 placeholder="My Store"
               />
@@ -166,7 +180,7 @@ export function SettingsPanel() {
             <div className="space-y-2">
               <Label>Receipt Footer Text</Label>
               <Input
-                value={settings.receiptFooter || ""}
+                value={settings.receiptFooter ?? ""}
                 onChange={(e) => updateSetting("receiptFooter", e.target.value)}
                 placeholder="Thank you for your purchase!"
               />
