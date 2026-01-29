@@ -130,7 +130,7 @@ export function ReportsPanel() {
       } else {
         // Query daily summaries for short date ranges
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-        const filtered = allDaily.filter(d => d.date >= startDate && d.date <= endDate);
+        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
         const paymentBreakdown = {
           cash: 0,
@@ -196,7 +196,7 @@ export function ReportsPanel() {
       } else {
         // Query daily item sales for short ranges
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        const filtered = allDaily.filter(d => d.date >= startDate && d.date <= endDate);
+        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
         const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
         

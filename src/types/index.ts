@@ -88,6 +88,17 @@ export interface Shift {
   status: "active" | "closed";
 }
 
+export interface DailyAttendance {
+  id?: number;
+  employeeId: number;
+  employeeName: string;
+  date: string;              // YYYY-MM-DD
+  clockIn: number;
+  clockOut: number;
+  hoursWorked: number;
+  isLate: boolean;
+}
+
 export interface DailyItemSales {
   id?: number;
   itemId: number;
