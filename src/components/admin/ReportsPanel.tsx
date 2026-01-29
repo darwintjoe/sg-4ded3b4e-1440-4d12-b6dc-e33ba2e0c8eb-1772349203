@@ -712,6 +712,32 @@ export function ReportsPanel() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-4">
+                <CardTitle>Analytics Overview</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="h-[300px] w-full">
+                  {revenueTrendData.length > 0 ? (
+                    <LineChart data={revenueTrendData} height={300} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      No revenue trend data available
+                    </div>
+                  )}
+                </div>
+                <div className="h-[300px] w-full">
+                  {heatmapData.length > 0 ? (
+                    <Heatmap data={heatmapData} height={300} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      No heatmap data available
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="items" className="space-y-4">
