@@ -8,7 +8,8 @@ import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
 import { translate } from "@/lib/translations";
 import { useApp } from "@/contexts/AppContext";
-import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap } from "lucide-react";
+import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Printer } from "lucide-react";
+import { StackedBarChart } from "@/components/charts/StackedBarChart";
 
 type DateRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -21,6 +22,10 @@ export function ReportsPanel() {
   const [customEnd, setCustomEnd] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+
+  // Chart data
+  const [salesChartData, setSalesChartData] = useState<any[]>([]);
+  const [chartViewMode, setChartViewMode] = useState<"daily" | "monthly">("daily");
 
   // Sales data
   const [salesStats, setSalesStats] = useState({
@@ -103,6 +108,8 @@ export function ReportsPanel() {
 
   const loadSalesReport = async (startDate: string, endDate: string, useMonthly: boolean) => {
     try {
+      setChartViewMode(useMonthly ? "monthly" : "daily");
+      
       if (useMonthly) {
         // Query monthly summaries for fast multi-year reports
         const startMonth = startDate.substring(0, 7);
@@ -110,6 +117,16 @@ export function ReportsPanel() {
         
         const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
         const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
+        
+        // Prepare chart data
+        const chartData = filtered.map(m => ({
+          name: m.month,
+          cash: m.cashAmount,
+          qrisStatic: m.qrisStaticAmount,
+          qrisDynamic: m.qrisDynamicAmount,
+          voucher: m.voucherAmount
+        }));
+        setSalesChartData(chartData);
         
         const totalRevenue = filtered.reduce((sum, m) => sum + m.totalRevenue, 0);
         const totalReceipts = filtered.reduce((sum, m) => sum + m.totalReceipts, 0);
@@ -132,6 +149,28 @@ export function ReportsPanel() {
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
+        // Group by date for chart
+        const dateMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number }>();
+        
+        // Initialize all dates in range with 0 (optional, skipping for brevity but good for continuous chart)
+        
+        filtered.forEach(d => {
+          const existing = dateMap.get(d.businessDate) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0 };
+          if (d.method === "cash") existing.cash += d.totalAmount;
+          else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
+          else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
+          else if (d.method === "voucher") existing.voucher += d.totalAmount;
+          dateMap.set(d.businessDate, existing);
+        });
+
+        const chartData = Array.from(dateMap.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([date, data]) => ({
+            name: date.substring(5), // Show MM-DD
+            ...data
+          }));
+        setSalesChartData(chartData);
+
         const paymentBreakdown = {
           cash: 0,
           qrisStatic: 0,
@@ -303,257 +342,286 @@ export function ReportsPanel() {
     a.click();
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold">Reports & Analytics</h2>
-          <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-            <Zap className="h-4 w-4 text-green-600" />
-            <span className="text-xs font-bold text-green-700 dark:text-green-400">LIGHTNING FAST</span>
+    <div className="space-y-6 print:space-y-4">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #reports-content, #reports-content * {
+            visibility: visible;
+          }
+          #reports-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .print-break {
+            page-break-after: always;
+          }
+        }
+      `}</style>
+
+      <div id="reports-content" className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold">Reports & Analytics</h2>
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full no-print">
+              <Zap className="h-4 w-4 text-green-600" />
+              <span className="text-xs font-bold text-green-700 dark:text-green-400">LIGHTNING FAST</span>
+            </div>
+          </div>
+          <div className="flex gap-2 no-print">
+            <Select value={dateRange} onValueChange={(val) => setDateRange(val as DateRange)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="week">Last 7 Days</SelectItem>
+                <SelectItem value="month">Last 30 Days</SelectItem>
+                <SelectItem value="year">Last Year</SelectItem>
+                <SelectItem value="custom">Custom Range</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {dateRange === "custom" && (
+              <>
+                <Input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-auto"
+                />
+                <span className="self-center text-slate-500">to</span>
+                <Input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-auto"
+                />
+              </>
+            )}
+            
+            <Button onClick={handlePrint} variant="outline" className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+            <Button onClick={exportToCSV} variant="outline" className="gap-2">
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Select value={dateRange} onValueChange={(val) => setDateRange(val as DateRange)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="week">Last 7 Days</SelectItem>
-              <SelectItem value="month">Last 30 Days</SelectItem>
-              <SelectItem value="year">Last Year</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {dateRange === "custom" && (
-            <>
-              <Input
-                type="date"
-                value={customStart}
-                onChange={(e) => setCustomStart(e.target.value)}
-                className="w-auto"
-              />
-              <span className="self-center text-slate-500">to</span>
-              <Input
-                type="date"
-                value={customEnd}
-                onChange={(e) => setCustomEnd(e.target.value)}
-                className="w-auto"
-              />
-            </>
-          )}
-          
-          <Button onClick={exportToCSV} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
 
-      <Tabs defaultValue="sales" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="sales">Sales Overview</TabsTrigger>
-          <TabsTrigger value="items">Top Items</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="sales" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 no-print">
+            <TabsTrigger value="sales">Sales Overview</TabsTrigger>
+            <TabsTrigger value="items">Top Items</TabsTrigger>
+            <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="sales" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
+          <TabsContent value="sales" className="space-y-4">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Total Revenue
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-green-600">
-                  Rp {salesStats.totalRevenue.toLocaleString("id-ID")}
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div>
+                  <CardTitle>Sales Overview</CardTitle>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {chartViewMode === "daily" ? "Daily Breakdown (MTD)" : "Monthly Breakdown (YTD)"}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Total Receipts
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-blue-600">
-                  {salesStats.totalReceipts}
+                <div className="text-right">
+                  <p className="text-2xl font-black text-green-600">
+                    Rp {salesStats.totalRevenue.toLocaleString("id-ID")}
+                  </p>
+                  <p className="text-sm text-slate-500">{salesStats.totalReceipts} transactions</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Avg Transaction
-                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-purple-600">
-                  Rp {Math.round(salesStats.avgTransaction).toLocaleString("id-ID")}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Cash Sales
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-emerald-600">
-                  Rp {salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Method Breakdown</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <span className="font-medium">💵 Cash</span>
-                <span className="font-black text-green-700 dark:text-green-400">
-                  Rp {salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <span className="font-medium">📱 QRIS Static</span>
-                <span className="font-black text-blue-700 dark:text-blue-400">
-                  Rp {salesStats.paymentBreakdown.qrisStatic.toLocaleString("id-ID")}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <span className="font-medium">💳 QRIS Dynamic</span>
-                <span className="font-black text-purple-700 dark:text-purple-400">
-                  Rp {salesStats.paymentBreakdown.qrisDynamic.toLocaleString("id-ID")}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <span className="font-medium">🎟️ Voucher</span>
-                <span className="font-black text-amber-700 dark:text-amber-400">
-                  Rp {salesStats.paymentBreakdown.voucher.toLocaleString("id-ID")}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="items" className="space-y-4">
-          {topItems.length > 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Top 10 Best Sellers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {topItems.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white font-bold text-sm">
-                          {index + 1}
-                        </div>
-                        <div>
-                          <p className="font-medium">{item.itemName}</p>
-                          <p className="text-xs text-slate-500">{item.quantity} units sold</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-green-600">
-                          Rp {item.revenue.toLocaleString("id-ID")}
-                        </p>
-                      </div>
+              <CardContent className="pt-4">
+                <div className="h-[400px] w-full">
+                  {salesChartData.length > 0 ? (
+                    <StackedBarChart data={salesChartData} height={400} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      No data available for this period
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="p-12">
-              <div className="text-center space-y-4">
-                <TrendingUp className="h-16 w-16 mx-auto text-slate-300" />
-                <p className="text-slate-500">No sales data for this period</p>
-              </div>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent value="attendance" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Total Employees
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-blue-600">
-                  {attendanceStats.totalEmployees}
+                  )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Total Hours
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-green-600">
-                  {attendanceStats.totalHours.toFixed(1)}h
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Total Revenue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-green-600">
+                    Rp {salesStats.totalRevenue.toLocaleString("id-ID")}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Avg Hours/Employee
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-purple-600">
-                  {attendanceStats.avgHoursPerEmployee.toFixed(1)}h
-                </div>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Total Receipts
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-blue-600">
+                    {salesStats.totalReceipts}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  Late Count
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-red-600">
-                  {attendanceStats.lateCount}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Avg Transaction
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-purple-600">
+                    Rp {Math.round(salesStats.avgTransaction).toLocaleString("id-ID")}
+                  </div>
+                </CardContent>
+              </Card>
 
-          {attendanceStats.totalEmployees === 0 && (
-            <Card className="p-12">
-              <div className="text-center space-y-4">
-                <Users className="h-16 w-16 mx-auto text-slate-300" />
-                <p className="text-slate-500">No attendance records for this period</p>
-              </div>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Cash Sales
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-emerald-600">
+                    Rp {salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="items" className="space-y-4">
+            {topItems.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top 10 Best Sellers</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {topItems.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white font-bold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{item.itemName}</p>
+                            <p className="text-xs text-slate-500">{item.quantity} units sold</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-black text-green-600">
+                            Rp {item.revenue.toLocaleString("id-ID")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="p-12">
+                <div className="text-center space-y-4">
+                  <TrendingUp className="h-16 w-16 mx-auto text-slate-300" />
+                  <p className="text-slate-500">No sales data for this period</p>
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="attendance" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Total Employees
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-blue-600">
+                    {attendanceStats.totalEmployees}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Total Hours
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-green-600">
+                    {attendanceStats.totalHours.toFixed(1)}h
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Avg Hours/Employee
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-purple-600">
+                    {attendanceStats.avgHoursPerEmployee.toFixed(1)}h
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Late Count
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-black text-red-600">
+                    {attendanceStats.lateCount}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {attendanceStats.totalEmployees === 0 && (
+              <Card className="p-12">
+                <div className="text-center space-y-4">
+                  <Users className="h-16 w-16 mx-auto text-slate-300" />
+                  <p className="text-slate-500">No attendance records for this period</p>
+                </div>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

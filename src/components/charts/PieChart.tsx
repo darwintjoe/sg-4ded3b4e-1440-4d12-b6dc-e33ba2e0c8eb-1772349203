@@ -51,8 +51,8 @@ export function PieChart({ data, height = 400, showPercentage = true }: PieChart
   };
 
   const renderCustomLabel = (entry: any) => {
-    const percentage = ((entry.value / total) * 100).toFixed(1);
-    return percentage > 5 ? `${percentage}%` : "";
+    const rawPercentage = (entry.value / total) * 100;
+    return rawPercentage > 5 ? `${rawPercentage.toFixed(1)}%` : "";
   };
 
   return (
