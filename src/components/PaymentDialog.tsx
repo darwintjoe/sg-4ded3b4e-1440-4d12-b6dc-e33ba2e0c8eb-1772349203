@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,16 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [qrisRef, setQrisRef] = useState("");
+
+  // Reset payment state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setPayments([]);
+      setAmount("");
+      setQrisRef("");
+      setSelectedMethod("cash");
+    }
+  }, [open]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);

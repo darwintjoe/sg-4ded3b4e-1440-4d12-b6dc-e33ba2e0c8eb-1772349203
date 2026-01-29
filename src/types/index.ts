@@ -11,6 +11,7 @@ export interface Employee {
   name: string;
   pin: string;
   role: UserRole;
+  joinDate?: number; // Timestamp when employee joined
   createdAt: number;
 }
 
@@ -25,12 +26,13 @@ export interface AttendanceRecord {
 
 export interface Item {
   id?: number;
-  sku: string;
+  sku?: string;
   name: string;
   category: string;
   price: number;
   variants?: ItemVariant[];
   modifiers?: ItemModifier[];
+  isActive?: boolean; // Default true, set false to suspend item
 }
 
 export interface ItemVariant {

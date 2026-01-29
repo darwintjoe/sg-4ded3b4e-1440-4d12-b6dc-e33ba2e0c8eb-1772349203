@@ -9,7 +9,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem } from "@/types";
-import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock, Package } from "lucide-react";
+import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock, Package, Pause } from "lucide-react";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -85,9 +85,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
           <Button variant="ghost" size="sm" onClick={onAdminClick}>
             <Settings className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={onAttendanceClick}>
-            <Clock className="h-5 w-5" />
-          </Button>
+          {currentUser?.role === "admin" && (
+            <Button variant="ghost" size="sm" onClick={onAttendanceClick}>
+              <Clock className="h-5 w-5" />
+            </Button>
+          )}
           
           <div className="h-8 w-px bg-slate-300 dark:bg-slate-600" />
           
