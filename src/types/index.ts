@@ -63,6 +63,8 @@ export interface PaymentRecord {
 export interface Transaction {
   id?: number;
   timestamp: number;
+  businessDate: string;      // YYYY-MM-DD (shift start date)
+  shiftId: string;           // "2026-01-28-shift-1"
   cashierId: number;
   cashierName: string;
   mode: POSMode;
@@ -70,8 +72,88 @@ export interface Transaction {
   subtotal: number;
   tax: number;
   total: number;
-  payments: PaymentRecord[]; // Changed from single paymentMethod to array
+  payments: PaymentRecord[];
   change?: number;
+}
+
+export interface Shift {
+  id?: number;
+  shiftId: string;           // "2026-01-28-shift-1"
+  businessDate: string;      // YYYY-MM-DD (assigned to shift)
+  cashierId: number;
+  cashierName: string;
+  shiftStart: number;        // Login timestamp
+  shiftEnd?: number;         // Logout timestamp
+  calendarDayStart: string;  // YYYY-MM-DD (actual calendar date)
+  status: "active" | "closed";
+}
+
+export interface DailyItemSales {
+  id?: number;
+  itemId: number;
+  sku: string;
+  itemName: string;
+  businessDate: string;      // YYYY-MM-DD
+  totalQuantity: number;
+  totalRevenue: number;
+  transactionCount: number;
+}
+
+export interface DailyPaymentSales {
+  id?: number;
+  method: PaymentMethod;
+  businessDate: string;      // YYYY-MM-DD
+  totalAmount: number;
+  transactionCount: number;
+}
+
+export interface DailyShiftSummary {
+  id?: number;
+  shiftId: string;
+  businessDate: string;
+  cashierId: number;
+  cashierName: string;
+  totalRevenue: number;
+  totalReceipts: number;
+  paymentBreakdown: {
+    cash: number;
+    qrisStatic: number;
+    qrisDynamic: number;
+    voucher: number;
+  };
+  hoursWorked: number;
+}
+
+export interface MonthlyItemSales {
+  id?: number;
+  itemId: number;
+  sku: string;
+  itemName: string;
+  month: string;             // YYYY-MM
+  totalQuantity: number;
+  totalRevenue: number;
+  transactionCount: number;
+}
+
+export interface MonthlySalesSummary {
+  id?: number;
+  month: string;             // YYYY-MM
+  totalRevenue: number;
+  totalReceipts: number;
+  cashAmount: number;
+  qrisStaticAmount: number;
+  qrisDynamicAmount: number;
+  voucherAmount: number;
+}
+
+export interface MonthlyAttendanceSummary {
+  id?: number;
+  employeeId: number;
+  employeeName: string;
+  month: string;             // YYYY-MM
+  totalHours: number;
+  daysWorked: number;
+  lateCount: number;
 }
 
 export interface ShiftReport {
