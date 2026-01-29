@@ -412,13 +412,14 @@ export function ReportsPanel() {
               </>
             )}
             
-            <Button onClick={handlePrint} variant="outline" className="gap-2">
-              <Printer className="h-4 w-4" />
-              Print
-            </Button>
             <Button onClick={exportToCSV} variant="outline" className="gap-2">
               <Download className="h-4 w-4" />
               Export CSV
+            </Button>
+            
+            <Button onClick={handlePrint} variant="outline" className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print
             </Button>
           </div>
         </div>
