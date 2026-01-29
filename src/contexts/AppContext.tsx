@@ -106,12 +106,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setMode = async (newMode: POSMode) => {
     setModeState(newMode);
-    await db.update("settings", { key: "mode", mode: newMode });
+    await db.put("settings", { key: "mode", mode: newMode });
   };
 
   const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
-    await db.update("settings", { key: "language", language: lang });
+    await db.put("settings", { key: "language", language: lang });
   };
 
   const login = async (pin: string): Promise<boolean> => {
@@ -256,7 +256,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     activeRecord.clockOut = Date.now();
-    await db.update("attendance", activeRecord);
+    await db.put("attendance", activeRecord);
 
     return { success: true, message: "attendance.clockedOut" };
   };
@@ -272,7 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       mode
     };
 
-    await db.update("pauseState", pauseState);
+    await db.put("pauseState", pauseState);
     setIsPaused(true);
   };
 

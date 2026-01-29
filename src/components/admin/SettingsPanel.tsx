@@ -166,8 +166,8 @@ export function SettingsPanel() {
             <div className="space-y-2">
               <Label>Receipt Footer Text</Label>
               <Input
-                value={settings.businessName}
-                onChange={(e) => updateSetting("businessName", e.target.value)}
+                value={settings.receiptFooter || ""}
+                onChange={(e) => updateSetting("receiptFooter", e.target.value)}
                 placeholder="Thank you for your purchase!"
               />
             </div>

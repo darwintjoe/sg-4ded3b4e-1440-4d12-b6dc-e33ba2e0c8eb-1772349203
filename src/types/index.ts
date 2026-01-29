@@ -104,6 +104,8 @@ export interface AppSettings {
   taxRate: number;
   googleDriveLinked: boolean;
   language: Language;
+  businessName?: string;
+  receiptFooter?: string;
 }
 
 export type Settings = AppSettings;
