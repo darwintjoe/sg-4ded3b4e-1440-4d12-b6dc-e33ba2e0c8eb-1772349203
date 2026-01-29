@@ -12,6 +12,8 @@ import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Prin
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
+import { LineChart } from "@/components/charts/LineChart";
+import { Heatmap } from "@/components/charts/Heatmap";
 
 type DateRange = "today" | "week" | "month" | "year" | "custom";
 
@@ -66,6 +68,14 @@ export function ReportsPanel() {
   // Attendance time range
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<"mtd" | "ytd">("mtd");
 
+  // Revenue trend data
+  const [revenueTrendData, setRevenueTrendData] = useState<Array<{ name: string; value: number }>>([]);
+  const [trendInsight, setTrendInsight] = useState<string>("");
+
+  // Heatmap data
+  const [heatmapData, setHeatmapData] = useState<Array<{ day: string; hour: number; value: number }>>([]);
+  const [peakHourInsight, setPeakHourInsight] = useState<string>("");
+
   useEffect(() => {
     loadReports();
   }, [dateRange, customStart, customEnd, itemTopN, itemMetric, itemTimeRange, attendanceTimeRange]);
@@ -103,6 +113,125 @@ export function ReportsPanel() {
     }
   };
 
+  const loadRevenueTrend = async () => {
+    try {
+      // Get last 30 days of revenue data
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      
+      const startDate = thirtyDaysAgo.toISOString().split("T")[0];
+      const endDate = today.toISOString().split("T")[0];
+      
+      const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+      const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+      
+      // Group by date
+      const dateMap = new Map<string, number>();
+      filtered.forEach(d => {
+        const existing = dateMap.get(d.businessDate) || 0;
+        dateMap.set(d.businessDate, existing + d.totalAmount);
+      });
+      
+      // Convert to array and sort
+      const trendData = Array.from(dateMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, value]) => ({
+          name: date.substring(5), // MM-DD format
+          value
+        }));
+      
+      setRevenueTrendData(trendData);
+      
+      // Calculate trend insight
+      if (trendData.length >= 14) {
+        const lastWeek = trendData.slice(-7);
+        const prevWeek = trendData.slice(-14, -7);
+        
+        const lastWeekAvg = lastWeek.reduce((sum, d) => sum + d.value, 0) / lastWeek.length;
+        const prevWeekAvg = prevWeek.reduce((sum, d) => sum + d.value, 0) / prevWeek.length;
+        
+        const change = ((lastWeekAvg - prevWeekAvg) / prevWeekAvg) * 100;
+        
+        if (change > 5) {
+          setTrendInsight(`📈 Revenue growing ${change.toFixed(1)}% week-over-week`);
+        } else if (change < -5) {
+          setTrendInsight(`📉 Revenue declining ${Math.abs(change).toFixed(1)}% week-over-week`);
+        } else {
+          setTrendInsight(`📊 Revenue stable (${change > 0 ? '+' : ''}${change.toFixed(1)}% change)`);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading revenue trend:", error);
+    }
+  };
+
+  const loadHourlyHeatmap = async () => {
+    try {
+      // Get last 7 days of transactions
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      
+      const startDate = sevenDaysAgo.toISOString().split("T")[0];
+      const endDate = today.toISOString().split("T")[0];
+      
+      const allTransactions = await db.getAll<any>("transactions");
+      const filtered = allTransactions.filter((t: any) => {
+        const txDate = t.timestamp.split("T")[0];
+        return txDate >= startDate && txDate <= endDate;
+      });
+      
+      // Group by day and hour
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const heatData: Array<{ day: string; hour: number; value: number }> = [];
+      
+      const countMap = new Map<string, number>();
+      
+      filtered.forEach((t: any) => {
+        const date = new Date(t.timestamp);
+        const day = dayNames[date.getDay()];
+        const hour = date.getHours();
+        
+        const key = `${day}-${hour}`;
+        countMap.set(key, (countMap.get(key) || 0) + 1);
+      });
+      
+      // Convert to array format for heatmap
+      dayNames.forEach(day => {
+        for (let hour = 6; hour <= 22; hour++) {
+          const key = `${day}-${hour}`;
+          heatData.push({
+            day,
+            hour,
+            value: countMap.get(key) || 0
+          });
+        }
+      });
+      
+      setHeatmapData(heatData);
+      
+      // Find peak hour
+      let maxValue = 0;
+      let peakDay = "";
+      let peakHour = 0;
+      
+      heatData.forEach(cell => {
+        if (cell.value > maxValue) {
+          maxValue = cell.value;
+          peakDay = cell.day;
+          peakHour = cell.hour;
+        }
+      });
+      
+      if (maxValue > 0) {
+        setPeakHourInsight(`🕐 Peak hours: ${peakDay} at ${peakHour}:00 (${maxValue} transactions)`);
+      }
+    } catch (error) {
+      console.error("Error loading heatmap:", error);
+    }
+  };
+
   const loadReports = async () => {
     const { startDate, endDate } = getDateRangeBounds();
     
@@ -113,7 +242,9 @@ export function ReportsPanel() {
     await Promise.all([
       loadSalesReport(startDate, endDate, useMonthly),
       loadTopItems(startDate, endDate, useMonthly),
-      loadAttendanceReport(startDate, endDate, useMonthly)
+      loadAttendanceReport(startDate, endDate, useMonthly),
+      loadRevenueTrend(),
+      loadHourlyHeatmap()
     ]);
   };
 
