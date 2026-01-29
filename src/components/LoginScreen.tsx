@@ -44,7 +44,7 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
   };
 
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-zinc-900 via-amber-950 to-yellow-900 p-4 overflow-hidden relative">
+    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] via-[#2d2520] to-[#1a1a1a] p-4 overflow-hidden relative">
       {/* Top Bar */}
       <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-10">
         <div className="flex gap-2">
