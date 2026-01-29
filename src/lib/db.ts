@@ -276,15 +276,17 @@ class Database {
 
         if (existing) {
           // Update existing record - merge data and increment counters
-          const updated = { ...existing };
-          Object.keys(data).forEach((key) => {
+          const updated = { ...existing } as any;
+          const inputData = data as any;
+          
+          Object.keys(inputData).forEach((key) => {
             if (key === "id") return; // Skip ID
-            if (typeof data[key] === "number" && typeof existing[key] === "number") {
+            if (typeof inputData[key] === "number" && typeof updated[key] === "number") {
               // Sum numeric fields (quantities, revenues, counts)
-              updated[key] = existing[key] + data[key];
+              updated[key] = updated[key] + inputData[key];
             } else {
               // Overwrite non-numeric fields
-              updated[key] = data[key];
+              updated[key] = inputData[key];
             }
           });
           const request = store.put(updated);

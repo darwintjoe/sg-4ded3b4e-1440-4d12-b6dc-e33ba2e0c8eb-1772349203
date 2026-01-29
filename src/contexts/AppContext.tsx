@@ -410,10 +410,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { success: false, message: "attendance.alreadyClockedIn" };
     }
 
+    const clockInTime = Date.now();
+
     await db.add("attendance", {
       employeeId: employee.id!,
       employeeName: employee.name,
-      clockIn: Date.now(),
+      clockIn: clockInTime,
       date: today
     });
 
@@ -436,8 +438,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return { success: false, message: "attendance.notClockedIn" };
     }
 
-    activeRecord.clockOut = Date.now();
+    const clockOutTime = Date.now();
+    const hoursWorked = (clockOutTime - activeRecord.clockIn) / (1000 * 60 * 60);
+
+    activeRecord.clockOut = clockOutTime;
     await db.put("attendance", activeRecord);
+
+    // Update dailyAttendance summary (upsert pattern)
+    const dailyAttendance: any = {
+      employeeId: employee.id!,
+      employeeName: employee.name,
+      date: today,
+      clockIn: activeRecord.clockIn,
+      clockOut: clockOutTime,
+      hoursWorked,
+      isLate: false // TODO: Compare with shift start time from settings
+    };
+
+    await db.upsert("dailyAttendance", ["date", "employeeId"], dailyAttendance);
 
     return { success: true, message: "attendance.clockedOut" };
   };

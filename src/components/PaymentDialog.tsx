@@ -3,7 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PaymentMethod, PaymentRecord, Transaction } from "@/types";
+import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { CheckCircle2, DollarSign, QrCode, Ticket } from "lucide-react";
@@ -17,7 +17,7 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDialogProps) {
-  const { language, cart, clearCart, currentUser, mode } = useApp();
+  const { language, cart, clearCart, currentUser, mode, currentShift } = useApp();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
@@ -43,12 +43,14 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
   };
 
   const completeSale = async () => {
-    if (remaining > 0) return;
+    if (remaining > 0 || !currentUser || !currentShift) return;
 
     const transaction: Transaction = {
       timestamp: Date.now(),
-      cashierId: currentUser!.id!,
-      cashierName: currentUser!.name,
+      businessDate: currentShift.businessDate,
+      shiftId: currentShift.shiftId,
+      cashierId: currentUser.id!,
+      cashierName: currentUser.name,
       mode,
       items: cart,
       subtotal,
@@ -58,7 +60,35 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
       ...(change > 0 ? { change } : {})
     };
 
+    // 1. Add to hot transactions
     await db.add("transactions", transaction);
+
+    // 2. Update Daily Summaries (Parallel execution for speed)
+    const itemUpdates = cart.map(item => {
+      const dailyItem: DailyItemSales = {
+        itemId: item.itemId,
+        sku: item.sku,
+        itemName: item.name,
+        businessDate: currentShift.businessDate,
+        totalQuantity: item.quantity,
+        totalRevenue: item.totalPrice,
+        transactionCount: 1
+      };
+      return db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
+    });
+
+    const paymentUpdates = payments.map(p => {
+      const dailyPayment: DailyPaymentSales = {
+        method: p.method,
+        businessDate: currentShift.businessDate,
+        totalAmount: p.amount,
+        transactionCount: 1
+      };
+      return db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
+    });
+
+    await Promise.all([...itemUpdates, ...paymentUpdates]);
+
     clearCart();
     setPayments([]);
     onClose();
