@@ -519,26 +519,73 @@ export function ReportsPanel() {
 
   const exportToCSV = () => {
     const { startDate, endDate } = getDateRangeBounds();
-    let csv = "Report Type,Period,Metric,Value\n";
     
-    csv += `Sales,${startDate} to ${endDate},Total Revenue,${salesStats.totalRevenue}\n`;
-    csv += `Sales,${startDate} to ${endDate},Total Receipts,${salesStats.totalReceipts}\n`;
-    csv += `Sales,${startDate} to ${endDate},Cash,${salesStats.paymentBreakdown.cash}\n`;
-    csv += `Sales,${startDate} to ${endDate},QRIS Static,${salesStats.paymentBreakdown.qrisStatic}\n`;
-    csv += `Sales,${startDate} to ${endDate},QRIS Dynamic,${salesStats.paymentBreakdown.qrisDynamic}\n`;
-    csv += `Sales,${startDate} to ${endDate},Voucher,${salesStats.paymentBreakdown.voucher}\n`;
+    // Build comprehensive CSV with all tabs data
+    let csv = "SELL MORE - Comprehensive Report\n";
+    csv += `Generated: ${new Date().toLocaleString()}\n`;
+    csv += `Period: ${startDate} to ${endDate}\n`;
+    csv += `View Mode: ${chartViewMode.toUpperCase()}\n\n`;
     
-    csv += `\nTop Items,Item Name,Quantity,Revenue\n`;
-    topItems.forEach(item => {
-      csv += `Top Items,${item.itemName},${item.quantity},${item.revenue}\n`;
+    // === SALES OVERVIEW ===
+    csv += "=== SALES OVERVIEW ===\n";
+    csv += "Metric,Value\n";
+    csv += `Total Revenue,Rp ${salesStats.totalRevenue.toLocaleString("id-ID")}\n`;
+    csv += `Total Receipts,${salesStats.totalReceipts}\n`;
+    csv += `Average Transaction,Rp ${Math.round(salesStats.avgTransaction).toLocaleString("id-ID")}\n`;
+    csv += `Cash Sales,Rp ${salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}\n`;
+    csv += `QRIS Static,Rp ${salesStats.paymentBreakdown.qrisStatic.toLocaleString("id-ID")}\n`;
+    csv += `QRIS Dynamic,Rp ${salesStats.paymentBreakdown.qrisDynamic.toLocaleString("id-ID")}\n`;
+    csv += `Voucher,Rp ${salesStats.paymentBreakdown.voucher.toLocaleString("id-ID")}\n\n`;
+    
+    // Sales chart data
+    if (salesChartData.length > 0) {
+      csv += "Daily/Monthly Breakdown\n";
+      csv += "Date,Cash,QRIS Static,QRIS Dynamic,Voucher,Total\n";
+      salesChartData.forEach(row => {
+        const total = (row.cash || 0) + (row.qrisStatic || 0) + (row.qrisDynamic || 0) + (row.voucher || 0);
+        csv += `${row.name},${row.cash || 0},${row.qrisStatic || 0},${row.qrisDynamic || 0},${row.voucher || 0},${total}\n`;
+      });
+      csv += "\n";
+    }
+    
+    // === TOP ITEMS ===
+    csv += "=== TOP ITEMS REPORT ===\n";
+    csv += `Filter: Top ${itemTopN} by ${itemMetric.toUpperCase()} (${itemTimeRange.toUpperCase()})\n`;
+    csv += "Rank,Item Name,Quantity Sold,Revenue\n";
+    topItems.forEach((item, idx) => {
+      csv += `${idx + 1},${item.itemName},${item.quantity},Rp ${item.revenue.toLocaleString("id-ID")}\n`;
     });
+    csv += "\n";
     
-    const blob = new Blob([csv], { type: "text/csv" });
+    // === ATTENDANCE ===
+    csv += "=== ATTENDANCE SUMMARY ===\n";
+    csv += `Period: ${attendanceTimeRange.toUpperCase()}\n`;
+    csv += "Metric,Value\n";
+    csv += `Total Employees,${attendanceStats.totalEmployees}\n`;
+    csv += `Total Hours Worked,${attendanceStats.totalHours.toFixed(1)} hours\n`;
+    csv += `Average Hours per Employee,${attendanceStats.avgHoursPerEmployee.toFixed(1)} hours\n`;
+    csv += `Late Count,${attendanceStats.lateCount}\n\n`;
+    
+    // === INSIGHTS ===
+    if (trendInsight || peakHourInsight) {
+      csv += "=== INSIGHTS ===\n";
+      if (trendInsight) csv += `Revenue Trend: ${trendInsight}\n`;
+      if (peakHourInsight) csv += `Peak Hours: ${peakHourInsight}\n`;
+      csv += "\n";
+    }
+    
+    csv += "=== END OF REPORT ===\n";
+    
+    // Download
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `report-${startDate}-to-${endDate}.csv`;
+    a.download = `sell-more-report-${startDate}-to-${endDate}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handlePrint = () => {
