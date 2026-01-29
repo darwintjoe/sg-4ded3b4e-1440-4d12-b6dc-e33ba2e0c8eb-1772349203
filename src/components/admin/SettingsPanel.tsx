@@ -26,10 +26,9 @@ export function SettingsPanel() {
       setSettings(allSettings[0]);
     } else {
       const defaultSettings: SettingsType = {
-        id: "default",
+        key: "default",
         mode: "retail",
         taxRate: 0,
-        currency: "USD",
         language: "en",
         printerWidth: 80,
         businessName: "My Store",
