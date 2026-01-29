@@ -50,20 +50,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const seedDefaultData = async () => {
-    const employees = await db.getAll<Employee>("employees");
-    if (employees.length === 0) {
-      await db.add("employees", {
-        name: "Admin",
-        pin: "0000",
-        role: "admin",
-        createdAt: Date.now()
-      });
-      await db.add("employees", {
-        name: "Cashier 1",
-        pin: "1111",
-        role: "cashier",
-        createdAt: Date.now()
-      });
+    try {
+      // Check if admin exists using the unique index
+      const admins = await db.searchByIndex<Employee>("employees", "pin", "0000");
+      
+      if (admins.length === 0) {
+        try {
+          await db.add("employees", {
+            name: "Admin",
+            pin: "0000",
+            role: "admin",
+            createdAt: Date.now()
+          });
+        } catch (e) {
+          // Ignore unique constraint error if it raced
+          console.log("Admin seeding skipped (exists)");
+        }
+      }
+
+      const cashiers = await db.searchByIndex<Employee>("employees", "pin", "1111");
+      if (cashiers.length === 0) {
+        try {
+          await db.add("employees", {
+            name: "Cashier 1",
+            pin: "1111",
+            role: "cashier",
+            createdAt: Date.now()
+          });
+        } catch (e) {
+          console.log("Cashier seeding skipped (exists)");
+        }
+      }
+    } catch (error) {
+      console.error("Error seeding data:", error);
     }
   };
 
