@@ -383,7 +383,7 @@ export function ItemsPanel() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".csv, text/csv, application/csv, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             onChange={handleCSVImport}
             className="hidden"
           />
