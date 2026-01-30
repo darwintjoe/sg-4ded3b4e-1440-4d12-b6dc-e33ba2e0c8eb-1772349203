@@ -13,7 +13,7 @@ interface DBConfig {
 
 const DB_CONFIG: DBConfig = {
   name: "sell_more_db",
-  version: 5, // Increment version for new stores
+  version: 6, // Increment version for cashierSession store
   stores: [
     {
       name: "transactions",
