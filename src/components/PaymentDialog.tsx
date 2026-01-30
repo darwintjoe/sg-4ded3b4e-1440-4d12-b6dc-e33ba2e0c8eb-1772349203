@@ -37,6 +37,13 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
   const remaining = Math.max(0, total - totalPaid);
   const change = Math.max(0, totalPaid - total);
 
+  // Auto-fill amount with remaining balance
+  useEffect(() => {
+    if (remaining > 0) {
+      setAmount(remaining.toString());
+    }
+  }, [remaining]);
+
   const addPayment = () => {
     const paymentAmount = parseFloat(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) return;
