@@ -32,7 +32,6 @@ export function CartItemEditDialog({
   const [quantity, setQuantity] = useState(1);
   const [unitPrice, setUnitPrice] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -79,33 +78,13 @@ export function CartItemEditDialog({
   };
 
   const handleCancel = () => {
-    if (hasChanges) {
-      setShowCancelConfirm(true);
-    } else {
-      onClose();
-    }
-  };
-
-  const handleConfirmCancel = () => {
-    setShowCancelConfirm(false);
-    // Small delay to ensure AlertDialog closes before main Dialog
-    setTimeout(() => {
-      setHasChanges(false);
-      onClose();
-    }, 50);
-  };
-
-  const handleContinueEditing = () => {
-    setShowCancelConfirm(false);
+    onClose();
   };
 
   const handleConfirmDelete = () => {
     setShowDeleteConfirm(false);
-    // Small delay to ensure AlertDialog closes before triggering delete
-    setTimeout(() => {
-      onDelete();
-      onClose();
-    }, 50);
+    onDelete();
+    onClose();
   };
 
   const totalPrice = quantity * unitPrice;
@@ -250,47 +229,24 @@ export function CartItemEditDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="max-w-[90vw] sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.confirmDelete", language)}</AlertDialogTitle>
             <AlertDialogDescription>
-              {translate("pos.confirmDeleteMessage", language)} "{item.name}"?
+              {translate("pos.confirmDeleteDesc", language)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)} className="rounded-xl">
+            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)}>
               {translate("common.cancel", language)}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 rounded-xl"
+              className="bg-red-600 hover:bg-red-700"
             >
               {translate("common.delete", language)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{translate("pos.discardChanges", language)}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {translate("pos.discardChangesMessage", language)}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleContinueEditing} className="rounded-xl">
-              {translate("common.continueEditing", language)}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmCancel}
-              className="bg-red-600 hover:bg-red-700 rounded-xl"
-            >
-              {translate("common.discard", language)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
