@@ -88,8 +88,11 @@ export function CartItemEditDialog({
 
   const handleConfirmCancel = () => {
     setShowCancelConfirm(false);
-    setHasChanges(false);
-    onClose();
+    // Small delay to ensure AlertDialog closes before main Dialog
+    setTimeout(() => {
+      setHasChanges(false);
+      onClose();
+    }, 50);
   };
 
   const handleContinueEditing = () => {
@@ -98,8 +101,11 @@ export function CartItemEditDialog({
 
   const handleConfirmDelete = () => {
     setShowDeleteConfirm(false);
-    onDelete();
-    onClose();
+    // Small delay to ensure AlertDialog closes before triggering delete
+    setTimeout(() => {
+      onDelete();
+      onClose();
+    }, 50);
   };
 
   const totalPrice = quantity * unitPrice;
