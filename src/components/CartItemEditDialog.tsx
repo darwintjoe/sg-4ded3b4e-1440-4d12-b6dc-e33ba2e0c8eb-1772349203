@@ -88,6 +88,7 @@ export function CartItemEditDialog({
 
   const handleConfirmCancel = () => {
     setShowCancelConfirm(false);
+    setHasChanges(false);
     onClose();
   };
 
@@ -105,7 +106,11 @@ export function CartItemEditDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleCancel}>
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleCancel();
+        }
+      }}>
         <DialogContent className="sm:max-w-[420px] max-w-[90vw] rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">{translate("pos.editItem", language)}</DialogTitle>

@@ -250,10 +250,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setShowItemPicker(e.target.value.length > 0);
+              setShowItemPicker(e.target.value.trim().length > 0);
             }}
             onFocus={() => {
-              if (searchQuery.length > 0) setShowItemPicker(true);
+              if (searchQuery.trim().length > 0) setShowItemPicker(true);
             }}
             className="pl-10 h-12 text-base"
           />
