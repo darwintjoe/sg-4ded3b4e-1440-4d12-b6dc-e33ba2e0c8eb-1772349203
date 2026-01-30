@@ -57,9 +57,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.confirmDeleteMessage": "Remove this item from cart",
     "pos.unsavedChanges": "Unsaved Changes",
     "pos.unsavedChangesMessage": "You have unsaved changes. Discard them?",
+    "pos.discardChanges": "Discard Changes?",
+    "pos.discardChangesMessage": "You have unsaved changes. Are you sure you want to discard them?",
     "common.ok": "OK",
     "common.continueEditing": "Continue Editing",
-    "common.discardChanges": "Discard Changes"
+    "common.discardChanges": "Discard Changes",
+    "common.discard": "Discard",
 
     // Payment
     "payment.title": "Payment",
@@ -76,6 +79,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "payment.change": "Change",
     "payment.complete": "Complete Sale",
     "payment.success": "Transaction completed successfully!",
+    "payment.cancel": "Cancel",
 
     // Settings
     "settings.mode": "POS Mode",
@@ -157,6 +161,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.confirmDeleteMessage": "Hapus barang ini dari keranjang",
     "pos.unsavedChanges": "Perubahan Belum Disimpan",
     "pos.unsavedChangesMessage": "Anda memiliki perubahan yang belum disimpan. Buang?",
+    "pos.discardChanges": "Buang Perubahan?",
+    "pos.discardChangesMessage": "Anda memiliki perubahan yang belum disimpan. Yakin ingin membuangnya?",
+    "common.ok": "OK",
+    "common.continueEditing": "Lanjut Edit",
+    "common.discardChanges": "Buang Perubahan",
+    "common.discard": "Buang",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -173,6 +183,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "payment.change": "Kembalian",
     "payment.complete": "Selesaikan Transaksi",
     "payment.success": "Transaksi berhasil diselesaikan!",
+    "payment.cancel": "Batal",
 
     // Settings
     "settings.mode": "Mode POS",
@@ -195,10 +206,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.delete": "Hapus",
     "common.edit": "Edit",
     "common.add": "Tambah",
-    "common.logout": "Keluar",
-    "common.ok": "OK",
-    "common.continueEditing": "Lanjut Edit",
-    "common.discardChanges": "Buang Perubahan"
+    "common.logout": "Keluar"
   },
   
   zh: {
@@ -257,6 +265,12 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.confirmDeleteMessage": "从购物车中删除此商品",
     "pos.unsavedChanges": "未保存的更改",
     "pos.unsavedChangesMessage": "您有未保存的更改。放弃它们？",
+    "pos.discardChanges": "放弃更改？",
+    "pos.discardChangesMessage": "您有未保存的更改。确定要放弃吗？",
+    "common.ok": "确定",
+    "common.continueEditing": "继续编辑",
+    "common.discardChanges": "放弃更改",
+    "common.discard": "放弃",
 
     // Payment
     "payment.title": "付款",
@@ -273,6 +287,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "payment.change": "找零",
     "payment.complete": "完成交易",
     "payment.success": "交易成功完成！",
+    "payment.cancel": "取消",
 
     // Settings
     "settings.mode": "POS模式",
@@ -295,10 +310,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.delete": "删除",
     "common.edit": "编辑",
     "common.add": "添加",
-    "common.logout": "退出",
-    "common.ok": "确定",
-    "common.continueEditing": "继续编辑",
-    "common.discardChanges": "放弃更改"
+    "common.logout": "退出"
   }
 };
 

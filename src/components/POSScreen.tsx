@@ -373,7 +373,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
 
       {/* Fixed Bottom Footer */}
       <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-3 py-3 flex-shrink-0 shadow-lg">
-        <div className="space-y-2 text-sm mb-3">
+        <div className="space-y-2 text-sm mb-3 px-3">
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
             <span className="font-semibold text-right min-w-[120px]">Rp {subtotal.toLocaleString("id-ID")}</span>
