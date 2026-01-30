@@ -101,8 +101,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       addToCart(cartItem);
     }
 
-    setShowItemPicker(false);
+    // Clear search text but keep picker open and keyboard focused
     setSearchQuery("");
+    // Keep showItemPicker open so user can continue searching
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {

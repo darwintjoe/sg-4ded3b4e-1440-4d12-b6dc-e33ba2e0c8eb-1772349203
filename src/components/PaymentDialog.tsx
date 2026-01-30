@@ -134,11 +134,18 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
             </div>
             {payments.length > 0 && (
               <>
-                <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                  <span>{translate("payment.paid", language)}</span>
-                  <span className="font-bold">Rp {totalPaid.toLocaleString()}</span>
+                <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">
+                  <div className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">
+                    {translate("payment.paid", language)}
+                  </div>
+                  {payments.map((p, idx) => (
+                    <div key={idx} className="flex justify-between text-sm text-green-600 dark:text-green-400 pl-2">
+                      <span className="capitalize">{p.method.replace("-", " ")}</span>
+                      <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm border-t border-slate-300 dark:border-slate-600 pt-2">
                   <span>{translate("payment.remaining", language)}</span>
                   <span className="font-bold">Rp {remaining.toLocaleString()}</span>
                 </div>

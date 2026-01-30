@@ -155,8 +155,13 @@ class Database {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const oldVersion = event.oldVersion;
+        const newVersion = event.newVersion || DB_CONFIG.version;
+
+        console.log(`Upgrading database from v${oldVersion} to v${newVersion}`);
 
         DB_CONFIG.stores.forEach((storeConfig) => {
+          // Create store if it doesn't exist
           if (!db.objectStoreNames.contains(storeConfig.name)) {
             const store = db.createObjectStore(storeConfig.name, {
               keyPath: storeConfig.keyPath,
@@ -164,10 +169,16 @@ class Database {
             });
 
             storeConfig.indexes?.forEach((index) => {
-              store.createIndex(index.name, index.keyPath, { unique: index.unique });
+              if (!store.indexNames.contains(index.name)) {
+                store.createIndex(index.name, index.keyPath, { unique: index.unique });
+              }
             });
           }
         });
+      };
+
+      request.onblocked = () => {
+        console.warn("Database upgrade blocked. Please close other tabs.");
       };
     });
   }
