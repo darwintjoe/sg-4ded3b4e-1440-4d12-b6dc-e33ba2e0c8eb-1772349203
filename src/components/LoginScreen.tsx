@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
 import { Settings, Clock } from "lucide-react";
@@ -12,9 +12,18 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProps) {
-  const { login, resumeSession, isPaused, language } = useApp();
+  const { login, resumeSession, isPaused, language, currentUser } = useApp();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [sessionMessage, setSessionMessage] = useState("");
+
+  useEffect(() => {
+    // Show session restoration message if user is already logged in
+    if (currentUser && !isPaused) {
+      setSessionMessage(translate("login.sessionRestored", language));
+      setTimeout(() => setSessionMessage(""), 3000);
+    }
+  }, [currentUser, isPaused, language]);
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -74,6 +83,17 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
           <div className="bg-red-500/20 border-2 border-red-500 rounded-xl px-4 py-2 max-w-md mx-auto">
             <p className="text-center text-sm text-red-300 font-semibold">
               {error}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Session Restored Message */}
+      {sessionMessage && (
+        <div className="absolute top-20 left-4 right-4 z-20 animate-in fade-in slide-in-from-top-2">
+          <div className="bg-green-500/20 border-2 border-green-500 rounded-xl px-4 py-2 max-w-md mx-auto">
+            <p className="text-center text-sm text-green-300 font-semibold">
+              {sessionMessage}
             </p>
           </div>
         </div>

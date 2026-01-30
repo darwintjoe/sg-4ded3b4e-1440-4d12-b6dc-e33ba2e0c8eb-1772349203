@@ -30,6 +30,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [allowPriceOverride, setAllowPriceOverride] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [logoutBlockReason, setLogoutBlockReason] = useState("");
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
@@ -158,6 +160,21 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
     setShowClearConfirm(false);
   };
 
+  const handleLogoutClick = () => {
+    if (cart.length > 0) {
+      setLogoutBlockReason(translate("pos.cannotLogoutWithCart", language));
+      setShowLogoutConfirm(true);
+    } else {
+      setLogoutBlockReason("");
+      setShowLogoutConfirm(true);
+    }
+  };
+
+  const handleConfirmLogout = () => {
+    logout();
+    setShowLogoutConfirm(false);
+  };
+
   const filteredItems = items.filter(item => {
     if (!searchQuery.trim()) return false;
     const query = searchQuery.toLowerCase();
@@ -209,7 +226,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={logout}
+            onClick={handleLogoutClick}
             className="flex-1 h-10"
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -419,6 +436,39 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             >
               {translate("pos.clearAll", language)}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Logout Confirmation */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {logoutBlockReason ? translate("pos.cannotLogout", language) : translate("pos.confirmLogout", language)}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {logoutBlockReason || translate("pos.confirmLogoutMessage", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {logoutBlockReason ? (
+              <AlertDialogAction onClick={() => setShowLogoutConfirm(false)}>
+                {translate("common.ok", language)}
+              </AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogCancel onClick={() => setShowLogoutConfirm(false)}>
+                  {translate("common.cancel", language)}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleConfirmLogout}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {translate("pos.endShift", language)}
+                </AlertDialogAction>
+              </>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

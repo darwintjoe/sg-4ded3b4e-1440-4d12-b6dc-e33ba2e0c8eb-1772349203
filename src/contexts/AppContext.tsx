@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession } from "@/types";
 import { db } from "@/lib/db";
 
 interface AppContextType {
@@ -10,7 +10,7 @@ interface AppContextType {
   currentUser: Employee | null;
   adminUser: Employee | null;
   login: (pin: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: () => Promise<{ success: boolean; message: string }>;
   loginAdmin: (pin: string) => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
   isPaused: boolean;
@@ -25,6 +25,7 @@ interface AppContextType {
   clockIn: (pin: string) => Promise<{ success: boolean; message: string }>;
   clockOut: (pin: string) => Promise<{ success: boolean; message: string }>;
   currentShift: Shift | null;
+  hasActiveSession: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,10 +38,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isPaused, setIsPaused] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [hasActiveSession, setHasActiveSession] = useState(false);
 
   useEffect(() => {
     initializeApp();
   }, []);
+
+  // Auto-save cart state whenever it changes
+  useEffect(() => {
+    if (currentUser && currentShift) {
+      saveSessionState();
+    }
+  }, [cart, currentUser, currentShift]);
 
   const initializeApp = async () => {
     await db.init();
@@ -53,6 +62,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Check for active cashier session
+    const activeSession = await db.getById<CashierSession>("cashierSession", 1);
+    if (activeSession && activeSession.shiftActive) {
+      setHasActiveSession(true);
+      // Don't auto-login, require relogin for security
+      // But preserve the session data for restoration
+    }
+
     const pauseState = await db.getById<PauseState>("pauseState", 1);
     if (pauseState) {
       setIsPaused(true);
@@ -61,6 +78,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     await seedDefaultData();
+  };
+
+  const saveSessionState = async () => {
+    if (!currentUser || !currentShift) return;
+
+    try {
+      const session: CashierSession = {
+        id: 1,
+        employeeId: currentUser.id!,
+        employeeName: currentUser.name,
+        loginTime: currentShift.shiftStart,
+        lastActivity: Date.now(),
+        cartState: cart,
+        shiftActive: true,
+        mode
+      };
+      await db.put("cashierSession", session);
+    } catch (error) {
+      console.error("Error saving session state:", error);
+    }
+  };
+
+  const restoreSessionState = async (employee: Employee): Promise<boolean> => {
+    try {
+      const session = await db.getById<CashierSession>("cashierSession", 1);
+      if (!session || !session.shiftActive) return false;
+      if (session.employeeId !== employee.id) return false;
+
+      // Restore shift
+      const shifts = await db.searchByIndex<Shift>("shifts", "cashierId", employee.id!);
+      const activeShift = shifts.find(s => s.status === "active");
+      
+      if (activeShift) {
+        setCurrentShift(activeShift);
+        setCart(session.cartState);
+        setModeState(session.mode);
+        setHasActiveSession(false);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error("Error restoring session:", error);
+      return false;
+    }
   };
 
   const seedDefaultData = async () => {
@@ -128,6 +190,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const user = employees.find(emp => emp.pin === pin && emp.role === "cashier");
     
     if (user) {
+      // Check if there's an active session to restore
+      const restored = await restoreSessionState(user);
+      if (restored) {
+        setCurrentUser(user);
+        return true;
+      }
+
+      // No session to restore, create new shift
       const businessDate = getBusinessDate();
       const calendarDayStart = new Date().toISOString().split("T")[0];
       const shiftId = await generateShiftId(businessDate);
@@ -145,6 +215,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await db.add("shifts", newShift);
       setCurrentUser(user);
       setCurrentShift(newShift);
+      
+      // Create session
+      const session: CashierSession = {
+        id: 1,
+        employeeId: user.id!,
+        employeeName: user.name,
+        loginTime: Date.now(),
+        lastActivity: Date.now(),
+        cartState: [],
+        shiftActive: true,
+        mode
+      };
+      await db.put("cashierSession", session);
+      setHasActiveSession(false);
+      
       return true;
     }
     return false;
@@ -165,13 +250,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAdminUser(null);
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<{ success: boolean; message: string }> => {
+    // Validation: Cannot logout with items in cart
+    if (cart.length > 0) {
+      return {
+        success: false,
+        message: "pos.logoutWithCartError"
+      };
+    }
+
     if (currentUser?.role === "cashier" && currentShift) {
       await closeShiftAndGenerateSummaries();
     }
+
+    // Clear session
+    try {
+      await db.delete("cashierSession", 1);
+    } catch (e) {
+      console.error("Error clearing session:", e);
+    }
+
     setCurrentUser(null);
     setCurrentShift(null);
+    setHasActiveSession(false);
     clearCart();
+    
+    return {
+      success: true,
+      message: "pos.logoutSuccess"
+    };
   };
 
   const closeShiftAndGenerateSummaries = async () => {
@@ -536,7 +643,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cartTotal,
         clockIn,
         clockOut,
-        currentShift
+        currentShift,
+        hasActiveSession
       }}
     >
       {children}

@@ -132,6 +132,10 @@ const DB_CONFIG: DBConfig = {
     {
       name: "pauseState",
       keyPath: "id"
+    },
+    {
+      name: "cashierSession",
+      keyPath: "id"
     }
   ]
 };

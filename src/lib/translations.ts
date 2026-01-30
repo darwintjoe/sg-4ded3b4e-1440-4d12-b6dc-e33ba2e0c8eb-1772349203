@@ -9,6 +9,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "login.invalid": "Invalid PIN",
     "login.clockIn": "Clock In",
     "login.clockOut": "Clock Out",
+    "login.sessionRestored": "Session restored - welcome back!",
     
     // Attendance
     "attendance.title": "ATTENDANCE",
@@ -37,6 +38,11 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.pause": "Pause",
     "pos.attendance": "Attendance",
     "pos.logout": "Logout",
+    "pos.endShift": "End Shift",
+    "pos.confirmLogout": "End Shift?",
+    "pos.confirmLogoutMessage": "Are you sure you want to end your shift and logout?",
+    "pos.cannotLogout": "Cannot Logout",
+    "pos.cannotLogoutWithCart": "Cannot logout with items in cart. Complete or clear the transaction first.",
     "pos.clearCart": "Clear Cart",
     "pos.confirmClearCart": "Clear Cart?",
     "pos.confirmClearCartMessage": "Remove all items from cart?",
@@ -100,6 +106,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "login.invalid": "PIN tidak valid",
     "login.clockIn": "Masuk",
     "login.clockOut": "Keluar",
+    "login.sessionRestored": "Sesi dipulihkan - selamat datang kembali!",
     
     // Attendance
     "attendance.title": "ABSENSI",
@@ -128,6 +135,11 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.pause": "Jeda",
     "pos.attendance": "Absensi",
     "pos.logout": "Keluar",
+    "pos.endShift": "Akhiri Shift",
+    "pos.confirmLogout": "Akhiri Shift?",
+    "pos.confirmLogoutMessage": "Apakah Anda yakin ingin mengakhiri shift dan keluar?",
+    "pos.cannotLogout": "Tidak Dapat Keluar",
+    "pos.cannotLogoutWithCart": "Tidak dapat keluar dengan barang di keranjang. Selesaikan atau kosongkan transaksi terlebih dahulu.",
     "pos.clearCart": "Kosongkan Keranjang",
     "pos.confirmClearCart": "Kosongkan Keranjang?",
     "pos.confirmClearCartMessage": "Hapus semua barang dari keranjang?",
@@ -181,6 +193,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.edit": "Edit",
     "common.add": "Tambah",
     "common.logout": "Keluar",
+    "common.ok": "OK",
     "common.continueEditing": "Lanjut Edit",
     "common.discardChanges": "Buang Perubahan"
   },
@@ -193,6 +206,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "login.invalid": "PIN码无效",
     "login.clockIn": "打卡上班",
     "login.clockOut": "打卡下班",
+    "login.sessionRestored": "会话已恢复 - 欢迎回来！",
     
     // Attendance
     "attendance.title": "考勤",
@@ -221,6 +235,11 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.pause": "暂停",
     "pos.attendance": "考勤",
     "pos.logout": "退出",
+    "pos.endShift": "结束班次",
+    "pos.confirmLogout": "结束班次？",
+    "pos.confirmLogoutMessage": "您确定要结束班次并退出吗？",
+    "pos.cannotLogout": "无法退出",
+    "pos.cannotLogoutWithCart": "购物车中有商品时无法退出。请先完成或清空交易。",
     "pos.clearCart": "清空购物车",
     "pos.confirmClearCart": "清空购物车？",
     "pos.confirmClearCartMessage": "从购物车中删除所有商品？",
@@ -274,6 +293,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.edit": "编辑",
     "common.add": "添加",
     "common.logout": "退出",
+    "common.ok": "确定",
     "common.continueEditing": "继续编辑",
     "common.discardChanges": "放弃更改"
   }

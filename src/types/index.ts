@@ -192,6 +192,18 @@ export interface PauseState {
   mode: POSMode;
 }
 
+export interface CashierSession {
+  id?: number;
+  employeeId: number;
+  employeeName: string;
+  role: UserRole;
+  loginTime: number;
+  lastActivity: number;
+  cartState: CartItem[];
+  shiftActive: boolean;
+  mode: POSMode;
+}
+
 export interface AppSettings {
   key: string;
   mode: POSMode;

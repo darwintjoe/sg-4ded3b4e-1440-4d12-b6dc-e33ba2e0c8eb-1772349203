@@ -33,7 +33,6 @@ export function CartItemEditDialog({
   const [unitPrice, setUnitPrice] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -79,11 +78,7 @@ export function CartItemEditDialog({
   };
 
   const handleCancel = () => {
-    if (hasChanges) {
-      setShowCancelConfirm(true);
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   const handleConfirmDelete = () => {
@@ -93,7 +88,6 @@ export function CartItemEditDialog({
   };
 
   const handleConfirmCancel = () => {
-    setShowCancelConfirm(false);
     onClose();
   };
 
@@ -253,26 +247,6 @@ export function CartItemEditDialog({
               className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
               {translate("common.delete", language)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Cancel Confirmation Dialog */}
-      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{translate("pos.unsavedChanges", language)}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {translate("pos.unsavedChangesMessage", language)}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowCancelConfirm(false)} className="rounded-xl">
-              {translate("common.continueEditing", language)}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmCancel} className="rounded-xl">
-              {translate("common.discardChanges", language)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
