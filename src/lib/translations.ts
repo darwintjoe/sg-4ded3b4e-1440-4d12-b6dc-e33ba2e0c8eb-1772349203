@@ -63,6 +63,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.continueEditing": "Continue Editing",
     "common.discardChanges": "Discard Changes",
     "common.discard": "Discard",
+    "common.yes": "Yes",
+    "common.no": "No",
+    "pos.confirmRemoveItem": "Are you sure you want to remove this item?",
+    "pos.confirmDiscardChanges": "Are you sure you want to discard your changes?",
 
     // Payment
     "payment.title": "Payment",
@@ -167,6 +171,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.continueEditing": "Lanjut Edit",
     "common.discardChanges": "Buang Perubahan",
     "common.discard": "Buang",
+    "common.yes": "Ya",
+    "common.no": "Tidak",
+    "pos.confirmRemoveItem": "Apakah Anda yakin ingin menghapus item ini?",
+    "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan Anda?",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -206,7 +214,11 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.delete": "Hapus",
     "common.edit": "Edit",
     "common.add": "Tambah",
-    "common.logout": "Keluar"
+    "common.logout": "Keluar",
+    "common.yes": "Ya",
+    "common.no": "Tidak",
+    "pos.confirmRemoveItem": "Apakah Anda yakin ingin menghapus barang ini?",
+    "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan?"
   },
   
   zh: {
@@ -271,6 +283,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.continueEditing": "继续编辑",
     "common.discardChanges": "放弃更改",
     "common.discard": "放弃",
+    "common.yes": "是",
+    "common.no": "否",
+    "pos.confirmRemoveItem": "您确定要删除此商品吗？",
+    "pos.confirmDiscardChanges": "您确定要放弃更改吗？",
 
     // Payment
     "payment.title": "付款",
