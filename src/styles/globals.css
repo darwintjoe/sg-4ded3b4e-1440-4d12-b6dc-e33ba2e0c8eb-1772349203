@@ -59,6 +59,21 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
   }
+  
+  /* Fullscreen app-like experience */
+  html, body {
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    width: 100vw;
+    position: fixed;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #__next {
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 /* POS-specific styles */
@@ -70,6 +85,7 @@
 .pos-screen {
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* Smooth transitions for cart updates */
@@ -86,4 +102,22 @@
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Hide scrollbars but keep scrolling functional */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.dark .overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
 }
