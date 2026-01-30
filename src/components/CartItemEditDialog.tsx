@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,7 @@ export function CartItemEditDialog({
   const [quantity, setQuantity] = useState(1);
   const [unitPrice, setUnitPrice] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -78,16 +79,25 @@ export function CartItemEditDialog({
   };
 
   const handleCancel = () => {
+    if (hasChanges) {
+      setShowCancelConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    setShowCancelConfirm(false);
     onClose();
+  };
+
+  const handleContinueEditing = () => {
+    setShowCancelConfirm(false);
   };
 
   const handleConfirmDelete = () => {
     setShowDeleteConfirm(false);
     onDelete();
-    onClose();
-  };
-
-  const handleConfirmCancel = () => {
     onClose();
   };
 
@@ -247,6 +257,29 @@ export function CartItemEditDialog({
               className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
               {translate("common.delete", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("pos.discardChanges", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate("pos.discardChangesMessage", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleContinueEditing} className="rounded-xl">
+              {translate("common.continueEditing", language)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCancel}
+              className="bg-red-600 hover:bg-red-700 rounded-xl"
+            >
+              {translate("common.discard", language)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

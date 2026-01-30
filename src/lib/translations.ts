@@ -57,6 +57,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.confirmDeleteMessage": "Remove this item from cart",
     "pos.unsavedChanges": "Unsaved Changes",
     "pos.unsavedChangesMessage": "You have unsaved changes. Discard them?",
+    "common.ok": "OK",
+    "common.continueEditing": "Continue Editing",
+    "common.discardChanges": "Discard Changes"
 
     // Payment
     "payment.title": "Payment",

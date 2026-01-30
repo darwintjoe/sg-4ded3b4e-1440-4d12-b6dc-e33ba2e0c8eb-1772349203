@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
@@ -101,9 +103,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       addToCart(cartItem);
     }
 
-    // Clear search text but keep picker open and keyboard focused
+    // Clear search text and refocus input to keep keyboard open
     setSearchQuery("");
-    // Keep showItemPicker open so user can continue searching
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
@@ -241,6 +245,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 z-10" />
           <Input
+            ref={searchInputRef}
             placeholder={translate("pos.search", language)}
             value={searchQuery}
             onChange={(e) => {
