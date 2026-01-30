@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,8 @@ export function ItemsPanel() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [gs1Loading, setGs1Loading] = useState(false);
   const [validationError, setValidationError] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadItems();
@@ -240,6 +242,28 @@ export function ItemsPanel() {
     a.click();
   };
 
+  const addSampleData = async () => {
+    const sampleItems = [
+      { sku: "TEA-001", name: "Test Tea", price: 15000, category: "Beverages" },
+      { sku: "CAKE-001", name: "Test Cake", price: 45000, category: "Food" },
+      { sku: "SAND-001", name: "Test Sandwich", price: 35000, category: "Food" },
+      { sku: "COFFEE-001", name: "Test Coffee", price: 20000, category: "Beverages" },
+      { sku: "JUICE-001", name: "Test Juice", price: 18000, category: "Beverages" }
+    ];
+
+    let added = 0;
+    for (const item of sampleItems) {
+      const error = await validateUniqueness({ ...item, variants: [], modifiers: [], isActive: true });
+      if (!error) {
+        await db.add("items", { ...item, id: Date.now() + added, variants: [], modifiers: [], isActive: true });
+        added++;
+      }
+    }
+
+    await loadItems();
+    alert(`Added ${added} sample items for testing!`);
+  };
+
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -346,15 +370,32 @@ export function ItemsPanel() {
             Template
           </Button>
 
-          <Button variant="outline" size="sm" className="gap-2 relative">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fileInputRef.current?.click()} 
+            className="gap-2"
+          >
             <Upload className="h-4 w-4" />
             Import CSV
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleCSVImport}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleCSVImport}
+            className="hidden"
+          />
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={addSampleData} 
+            className="gap-2"
+          >
+            <Package className="h-4 w-4" />
+            Add Samples
           </Button>
 
           <Button onClick={handleNewItem} className="gap-2">
