@@ -67,10 +67,6 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.no": "No",
     "pos.confirmRemoveItem": "Are you sure you want to remove this item?",
     "pos.confirmDiscardChanges": "Are you sure you want to discard your changes?",
-    "common.yes": "Yes",
-    "common.no": "No",
-    "pos.confirmRemoveItem": "Are you sure you want to remove this item?",
-    "pos.confirmDiscardChanges": "Are you sure you want to discard your changes?"
 
     // Payment
     "payment.title": "Payment",
@@ -178,11 +174,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.yes": "Ya",
     "common.no": "Tidak",
     "pos.confirmRemoveItem": "Apakah Anda yakin ingin menghapus item ini?",
-    "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan Anda?",
-    "common.yes": "Ya",
-    "common.no": "Tidak",
-    "pos.confirmRemoveItem": "Apakah Anda yakin ingin menghapus barang ini?",
-    "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan?"
+    "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan?",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -295,10 +287,6 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.no": "否",
     "pos.confirmRemoveItem": "您确定要删除此商品吗？",
     "pos.confirmDiscardChanges": "您确定要放弃更改吗？",
-    "common.yes": "是",
-    "common.no": "否",
-    "pos.confirmRemoveItem": "您确定要删除此商品吗？",
-    "pos.confirmDiscardChanges": "您确定要放弃更改吗？"
 
     // Payment
     "payment.title": "付款",
