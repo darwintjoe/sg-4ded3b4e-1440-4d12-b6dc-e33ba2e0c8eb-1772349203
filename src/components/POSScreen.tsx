@@ -3,13 +3,15 @@ import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
+import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Item, CartItem } from "@/types";
-import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock, Package, X } from "lucide-react";
+import { Item, CartItem, AppSettings } from "@/types";
+import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings, Clock, X } from "lucide-react";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -17,12 +19,16 @@ interface POSScreenProps {
 }
 
 export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
-  const { currentUser, logout, cart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
+  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showItemPicker, setShowItemPicker] = useState(false);
+  const [editingItem, setEditingItem] = useState<{ item: CartItem; index: number } | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [allowPriceOverride, setAllowPriceOverride] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
@@ -31,7 +37,20 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
 
   useEffect(() => {
     loadItems();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const settings = await db.getAll<AppSettings>("settings");
+      const priceOverrideSetting = settings.find(s => s.allowPriceOverride !== undefined);
+      if (priceOverrideSetting) {
+        setAllowPriceOverride(priceOverrideSetting.allowPriceOverride || false);
+      }
+    } catch (error) {
+      console.error("Error loading settings:", error);
+    }
+  };
 
   const loadItems = async () => {
     try {
@@ -50,20 +69,76 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const handleItemClick = (item: Item) => {
     if (!item.id) return;
 
-    const cartItem: CartItem = {
-      itemId: item.id,
-      sku: item.sku || `ITEM-${item.id}`,
-      name: item.name,
-      quantity: 1,
-      basePrice: item.price,
-      totalPrice: item.price,
-      variant: item.variants && item.variants.length > 0 ? item.variants[0].name : undefined,
-      modifiers: []
-    };
+    // Check if item already exists in cart
+    const existingIndex = cart.findIndex(
+      cartItem => cartItem.itemId === item.id && !cartItem.variant && (!cartItem.modifiers || cartItem.modifiers.length === 0)
+    );
 
-    addToCart(cartItem);
+    if (existingIndex !== -1) {
+      // Item exists, increment quantity
+      const updatedCart = [...cart];
+      updatedCart[existingIndex] = {
+        ...updatedCart[existingIndex],
+        quantity: updatedCart[existingIndex].quantity + 1,
+        totalPrice: updatedCart[existingIndex].basePrice * (updatedCart[existingIndex].quantity + 1)
+      };
+      setCart(updatedCart);
+    } else {
+      // New item, add to cart
+      const cartItem: CartItem = {
+        itemId: item.id,
+        sku: item.sku || `ITEM-${item.id}`,
+        name: item.name,
+        quantity: 1,
+        basePrice: item.price,
+        totalPrice: item.price,
+        variant: undefined,
+        modifiers: []
+      };
+      addToCart(cartItem);
+    }
+
     setShowItemPicker(false);
     setSearchQuery("");
+  };
+
+  const handleLongPressStart = (item: CartItem, index: number) => {
+    const timer = setTimeout(() => {
+      setEditingItem({ item, index });
+    }, 500); // 500ms long press
+    setLongPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleSaveEdit = (updatedItem: CartItem) => {
+    if (editingItem) {
+      const updatedCart = [...cart];
+      updatedCart[editingItem.index] = updatedItem;
+      setCart(updatedCart);
+      setEditingItem(null);
+    }
+  };
+
+  const handleDeleteEdit = () => {
+    if (editingItem) {
+      removeFromCart(editingItem.index);
+      setEditingItem(null);
+    }
+  };
+
+  const handleClearCart = () => {
+    setShowClearConfirm(true);
+  };
+
+  const handleConfirmClear = () => {
+    clearCart();
+    setShowClearConfirm(false);
   };
 
   const filteredItems = items.filter(item => {
@@ -177,7 +252,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
                       )}
                     </div>
                     <div className="flex-shrink-0 ml-3">
-                      <p className="text-base font-bold text-blue-600">
+                      <p className="text-base font-bold text-blue-600 text-right">
                         Rp {item.price.toLocaleString("id-ID")}
                       </p>
                     </div>
@@ -199,8 +274,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
               <Badge variant="secondary" className="text-xs">{cart.length}</Badge>
             </div>
             {cart.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clearCart} className="h-8">
-                <Trash2 className="h-4 w-4 text-red-600" />
+              <Button variant="ghost" size="sm" onClick={handleClearCart} className="h-8">
+                <Trash2 className="h-4 w-4 text-red-600 mr-1" />
+                <span className="text-xs">{translate("pos.clearAll", language)}</span>
               </Button>
             )}
           </div>
@@ -216,33 +292,37 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             cart.map((item, idx) => (
               <div
                 key={idx}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1 group relative"
+                onTouchStart={() => handleLongPressStart(item, idx)}
+                onTouchEnd={handleLongPressEnd}
+                onMouseDown={() => handleLongPressStart(item, idx)}
+                onMouseUp={handleLongPressEnd}
+                onMouseLeave={handleLongPressEnd}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1 cursor-pointer active:bg-slate-50 dark:active:bg-slate-750 transition-colors"
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFromCart(idx)}
-                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="h-3 w-3 text-red-600" />
-                </Button>
-                <div className="flex justify-between pr-8">
-                  <span className="font-semibold text-sm">{item.name}</span>
-                  <span className="font-bold text-sm">Rp {item.totalPrice.toLocaleString("id-ID")}</span>
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">
-                  {item.quantity}x @ Rp {item.basePrice.toLocaleString("id-ID")}
-                </div>
-                {item.variant && (
-                  <div className="text-xs text-blue-600 dark:text-blue-400">
-                    Variant: {item.variant}
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{item.name}</p>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0">
+                        {item.quantity}x
+                      </Badge>
+                      <span>@ Rp {item.basePrice.toLocaleString("id-ID")}</span>
+                    </div>
+                    {item.variant && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                        {item.variant}
+                      </div>
+                    )}
+                    {item.modifiers && item.modifiers.length > 0 && (
+                      <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                        + {item.modifiers.join(", ")}
+                      </div>
+                    )}
                   </div>
-                )}
-                {item.modifiers && item.modifiers.length > 0 && (
-                  <div className="text-xs text-green-600 dark:text-green-400">
-                    + {item.modifiers.join(", ")}
+                  <div className="flex-shrink-0 text-right">
+                    <p className="font-bold text-base">Rp {item.totalPrice.toLocaleString("id-ID")}</p>
                   </div>
-                )}
+                </div>
               </div>
             ))
           )}
@@ -254,18 +334,18 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
         <div className="space-y-2 text-sm mb-3">
           <div className="flex justify-between">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
-            <span className="font-semibold">Rp {subtotal.toLocaleString("id-ID")}</span>
+            <span className="font-semibold text-right">Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.tax", language)} (11%)</span>
-            <span className="font-semibold">Rp {tax.toLocaleString("id-ID")}</span>
+            <span className="font-semibold text-right">Rp {tax.toLocaleString("id-ID")}</span>
           </div>
         </div>
         
         <div className="bg-slate-900 dark:bg-slate-950 text-white p-3 rounded-lg mb-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium">{translate("pos.total", language)}</span>
-            <span className="text-2xl font-black">Rp {total.toLocaleString("id-ID")}</span>
+            <span className="text-2xl font-black text-right">Rp {total.toLocaleString("id-ID")}</span>
           </div>
         </div>
         
@@ -290,6 +370,39 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
         open={reportsOpen}
         onClose={() => setReportsOpen(false)}
       />
+
+      <CartItemEditDialog
+        open={editingItem !== null}
+        onClose={() => setEditingItem(null)}
+        item={editingItem?.item || null}
+        onSave={handleSaveEdit}
+        onDelete={handleDeleteEdit}
+        allowPriceOverride={allowPriceOverride}
+        language={language}
+      />
+
+      {/* Clear Cart Confirmation */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("pos.confirmClearCart", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate("pos.confirmClearCartMessage", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowClearConfirm(false)}>
+              {translate("common.cancel", language)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClear}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {translate("pos.clearAll", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -201,6 +201,7 @@ export interface AppSettings {
   language: Language;
   businessName?: string;
   receiptFooter?: string;
+  allowPriceOverride?: boolean; // Allow cashiers to override prices
 }
 
 export type Settings = AppSettings;

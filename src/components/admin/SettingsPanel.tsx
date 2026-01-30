@@ -122,6 +122,19 @@ export function SettingsPanel() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label>Allow Price Override</Label>
+                <p className="text-xs text-slate-500">
+                  Let cashiers adjust item prices during checkout
+                </p>
+              </div>
+              <Switch
+                checked={settings.allowPriceOverride ?? false}
+                onCheckedChange={(checked) => updateSetting("allowPriceOverride", checked)}
+              />
+            </div>
           </CardContent>
         </Card>
 

@@ -34,6 +34,23 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.tax": "Tax",
     "pos.total": "Total",
     "pos.payment": "Payment",
+    "pos.pause": "Pause",
+    "pos.attendance": "Attendance",
+    "pos.logout": "Logout",
+    "pos.clearCart": "Clear Cart",
+    "pos.confirmClearCart": "Clear Cart?",
+    "pos.confirmClearCartMessage": "Remove all items from cart?",
+    "pos.editItem": "Edit Item",
+    "pos.quantity": "Quantity",
+    "pos.unitPrice": "Unit Price",
+    "pos.overrideEnabled": "Override Enabled",
+    "pos.overrideDisabled": "Price Locked",
+    "pos.priceOverrideWarning": "Price override will only apply to this transaction",
+    "pos.deleteItem": "Remove Item",
+    "pos.confirmDelete": "Remove Item?",
+    "pos.confirmDeleteMessage": "Remove this item from cart",
+    "pos.unsavedChanges": "Unsaved Changes",
+    "pos.unsavedChangesMessage": "You have unsaved changes. Discard them?",
 
     // Payment
     "payment.title": "Payment",
@@ -108,6 +125,23 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.tax": "Pajak",
     "pos.total": "Total",
     "pos.payment": "Pembayaran",
+    "pos.pause": "Jeda",
+    "pos.attendance": "Absensi",
+    "pos.logout": "Keluar",
+    "pos.clearCart": "Kosongkan Keranjang",
+    "pos.confirmClearCart": "Kosongkan Keranjang?",
+    "pos.confirmClearCartMessage": "Hapus semua barang dari keranjang?",
+    "pos.editItem": "Edit Barang",
+    "pos.quantity": "Jumlah",
+    "pos.unitPrice": "Harga Satuan",
+    "pos.overrideEnabled": "Override Aktif",
+    "pos.overrideDisabled": "Harga Terkunci",
+    "pos.priceOverrideWarning": "Perubahan harga hanya untuk transaksi ini",
+    "pos.deleteItem": "Hapus Barang",
+    "pos.confirmDelete": "Hapus Barang?",
+    "pos.confirmDeleteMessage": "Hapus barang ini dari keranjang",
+    "pos.unsavedChanges": "Perubahan Belum Disimpan",
+    "pos.unsavedChangesMessage": "Anda memiliki perubahan yang belum disimpan. Buang?",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -146,7 +180,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.delete": "Hapus",
     "common.edit": "Edit",
     "common.add": "Tambah",
-    "common.logout": "Keluar"
+    "common.logout": "Keluar",
+    "common.continueEditing": "Lanjut Edit",
+    "common.discardChanges": "Buang Perubahan"
   },
   
   zh: {
@@ -182,6 +218,23 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.tax": "税",
     "pos.total": "总计",
     "pos.payment": "付款",
+    "pos.pause": "暂停",
+    "pos.attendance": "考勤",
+    "pos.logout": "退出",
+    "pos.clearCart": "清空购物车",
+    "pos.confirmClearCart": "清空购物车？",
+    "pos.confirmClearCartMessage": "从购物车中删除所有商品？",
+    "pos.editItem": "编辑商品",
+    "pos.quantity": "数量",
+    "pos.unitPrice": "单价",
+    "pos.overrideEnabled": "价格覆盖已启用",
+    "pos.overrideDisabled": "价格已锁定",
+    "pos.priceOverrideWarning": "价格覆盖仅适用于此交易",
+    "pos.deleteItem": "删除商品",
+    "pos.confirmDelete": "删除商品？",
+    "pos.confirmDeleteMessage": "从购物车中删除此商品",
+    "pos.unsavedChanges": "未保存的更改",
+    "pos.unsavedChangesMessage": "您有未保存的更改。放弃它们？",
 
     // Payment
     "payment.title": "付款",
@@ -220,7 +273,9 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.delete": "删除",
     "common.edit": "编辑",
     "common.add": "添加",
-    "common.logout": "退出"
+    "common.logout": "退出",
+    "common.continueEditing": "继续编辑",
+    "common.discardChanges": "放弃更改"
   }
 };
 
