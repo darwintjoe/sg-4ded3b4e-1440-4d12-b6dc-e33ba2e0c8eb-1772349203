@@ -1,5 +1,5 @@
 import { db } from "./db";
-import type { Item, Employee, Transaction, AttendanceRecord, Shift, POSMode, Language } from "@/types";
+import type { Item, Employee, Transaction, AttendanceRecord, Shift, POSMode, Language, CartItem } from "@/types";
 
 interface TestResult {
   testCase: string;
@@ -10,7 +10,7 @@ interface TestResult {
   timestamp: number;
 }
 
-interface TestReport {
+export interface TestReport {
   startTime: number;
   endTime: number;
   totalTests: number;
@@ -94,7 +94,7 @@ export class AutomatedTester {
     // Clear all stores except settings
     const stores = ["items", "employees", "transactions", "attendance", "shifts", "pauseState"];
     for (const store of stores) {
-      await db.clearStore(store);
+      await db.clear(store);
     }
     
     console.log("✅ Test environment ready");
@@ -106,15 +106,15 @@ export class AutomatedTester {
 
     // Seed employees
     const employees: Employee[] = [
-      { name: "Admin User", pin: "0000", role: "admin", joinDate: Date.now() - 365 * 24 * 60 * 60 * 1000 },
-      { name: "Test Cashier", pin: "1111", role: "cashier", joinDate: Date.now() - 180 * 24 * 60 * 60 * 1000 },
-      { name: "John Employee", pin: "2222", role: "employee", joinDate: Date.now() - 90 * 24 * 60 * 60 * 1000 },
-      { name: "Jane Employee", pin: "3333", role: "employee", joinDate: Date.now() - 60 * 24 * 60 * 60 * 1000 }
+      { name: "Admin User", pin: "0000", role: "admin", joinDate: Date.now() - 365 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "Test Cashier", pin: "1111", role: "cashier", joinDate: Date.now() - 180 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "John Employee", pin: "2222", role: "employee", joinDate: Date.now() - 90 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "Jane Employee", pin: "3333", role: "employee", joinDate: Date.now() - 60 * 24 * 60 * 60 * 1000, createdAt: Date.now() }
     ];
 
     for (const emp of employees) {
       const id = await db.add("employees", emp);
-      this.testData.employees.push({ ...emp, id });
+      this.testData.employees.push({ ...emp, id: Number(id) });
     }
 
     // Seed items
@@ -128,7 +128,7 @@ export class AutomatedTester {
 
     for (const item of items) {
       const id = await db.add("items", item);
-      this.testData.items.push({ ...item, id });
+      this.testData.items.push({ ...item, id: Number(id) });
     }
 
     console.log(`✅ Seeded ${employees.length} employees and ${items.length} items`);
@@ -169,11 +169,10 @@ export class AutomatedTester {
           employeeName: employee!.name,
           date: new Date().toISOString().split("T")[0],
           clockIn: Date.now(),
-          status: "present"
         };
         
         const recordId = await db.add("attendance", attendanceRecord);
-        this.assert(recordId > 0, "Attendance record should be created");
+        this.assert(Number(recordId) > 0, "Attendance record should be created");
       }
     );
   }
@@ -247,9 +246,17 @@ export class AutomatedTester {
       "2.4: Successful Payment - Cart Cleared",
       "POS Cart & Sales Flow",
       async () => {
+        const item = this.testData.items[0];
         const transaction: Transaction = {
           items: [
-            { itemId: this.testData.items[0].id!, itemName: "Test Coffee", itemPrice: 25000, quantity: 2, subtotal: 50000 }
+            { 
+              itemId: item.id!, 
+              sku: item.sku || "UNKNOWN",
+              name: item.name, 
+              basePrice: item.price, 
+              quantity: 2, 
+              totalPrice: item.price * 2 
+            }
           ],
           subtotal: 50000,
           tax: 0,
@@ -259,12 +266,13 @@ export class AutomatedTester {
           cashierId: this.testData.employees[1].id!,
           cashierName: "Test Cashier",
           timestamp: Date.now(),
-          shiftId: 1,
-          mode: "retail"
+          shiftId: "test-shift",
+          mode: "retail",
+          businessDate: new Date().toISOString().split("T")[0]
         };
         
         const txnId = await db.add("transactions", transaction);
-        this.assert(txnId > 0, "Transaction should be saved");
+        this.assert(Number(txnId) > 0, "Transaction should be saved");
         
         // Verify transaction saved correctly
         const saved = await db.getById<Transaction>("transactions", txnId);
@@ -282,20 +290,28 @@ export class AutomatedTester {
       "4.1: Cashier Triggers PAUSE",
       "Pause Mode",
       async () => {
+        const item = this.testData.items[0];
+        const cartItem: CartItem = {
+          itemId: item.id!,
+          sku: item.sku || "UNKNOWN",
+          name: item.name,
+          basePrice: item.price,
+          quantity: 1,
+          totalPrice: item.price
+        };
+
         const pauseState = {
           id: 1,
           cashierId: this.testData.employees[1].id!,
-          cart: [
-            { itemId: this.testData.items[0].id!, name: "Test Coffee", price: 25000, quantity: 1 }
-          ],
+          cart: [cartItem],
           timestamp: Date.now(),
           mode: "retail" as POSMode
         };
         
         await db.put("pauseState", pauseState);
         
-        const saved = await db.getById("pauseState", 1);
-        this.assert(saved !== null, "Pause state should be saved");
+        const saved = await db.getById<any>("pauseState", 1);
+        this.assert(saved !== undefined, "Pause state should be saved");
         this.assertEqual(saved.cart.length, 1, "Cart should be preserved in pause state");
       }
     );
@@ -307,9 +323,9 @@ export class AutomatedTester {
       "Pause Mode",
       async () => {
         // Simulate browser refresh by re-reading from IndexedDB
-        const pauseState = await db.getById("pauseState", 1);
+        const pauseState = await db.getById<any>("pauseState", 1);
         
-        this.assert(pauseState !== null, "Pause state should persist in IndexedDB");
+        this.assert(pauseState !== undefined, "Pause state should persist in IndexedDB");
         this.assert(pauseState.cart.length > 0, "Cart should be restored");
         this.assertEqual(pauseState.mode, "retail", "Mode should be restored");
       }
@@ -321,8 +337,8 @@ export class AutomatedTester {
       "4.3: Cashier Re-login - Cart Restored",
       "Pause Mode",
       async () => {
-        const pauseState = await db.getById("pauseState", 1);
-        this.assert(pauseState !== null, "Pause state should exist");
+        const pauseState = await db.getById<any>("pauseState", 1);
+        this.assert(pauseState !== undefined, "Pause state should exist");
         
         // Verify cashier can resume
         const employees = await db.getAll<Employee>("employees");
@@ -334,7 +350,7 @@ export class AutomatedTester {
         // Clear pause state after resume
         await db.delete("pauseState", 1);
         const cleared = await db.getById("pauseState", 1);
-        this.assert(cleared === null, "Pause state should be cleared after resume");
+        this.assert(cleared === undefined, "Pause state should be cleared after resume");
       }
     );
   }
@@ -348,8 +364,16 @@ export class AutomatedTester {
       "6.1: Single Cash Payment",
       "Payments",
       async () => {
+        const item = this.testData.items[0];
         const transaction: Transaction = {
-          items: [{ itemId: 1, itemName: "Test Item", itemPrice: 50000, quantity: 1, subtotal: 50000 }],
+          items: [{ 
+            itemId: item.id!, 
+            sku: item.sku!,
+            name: item.name, 
+            basePrice: 50000, 
+            quantity: 1, 
+            totalPrice: 50000 
+          }],
           subtotal: 50000,
           tax: 0,
           total: 50000,
@@ -358,12 +382,13 @@ export class AutomatedTester {
           cashierId: this.testData.employees[1].id!,
           cashierName: "Test Cashier",
           timestamp: Date.now(),
-          shiftId: 1,
-          mode: "retail"
+          shiftId: "test-shift",
+          mode: "retail",
+          businessDate: new Date().toISOString().split("T")[0]
         };
         
         const txnId = await db.add("transactions", transaction);
-        this.assert(txnId > 0, "Transaction should be saved");
+        this.assert(Number(txnId) > 0, "Transaction should be saved");
         
         const saved = await db.getById<Transaction>("transactions", txnId);
         this.assertEqual(saved?.payments[0].method, "cash", "Payment method should be cash");
@@ -377,8 +402,16 @@ export class AutomatedTester {
       "6.2: Mixed Payment (Cash + QRIS)",
       "Payments",
       async () => {
+        const item = this.testData.items[0];
         const transaction: Transaction = {
-          items: [{ itemId: 1, itemName: "Test Item", itemPrice: 100000, quantity: 1, subtotal: 100000 }],
+          items: [{ 
+            itemId: item.id!, 
+            sku: item.sku!,
+            name: item.name, 
+            basePrice: 100000, 
+            quantity: 1, 
+            totalPrice: 100000 
+          }],
           subtotal: 100000,
           tax: 0,
           total: 100000,
@@ -390,8 +423,9 @@ export class AutomatedTester {
           cashierId: this.testData.employees[1].id!,
           cashierName: "Test Cashier",
           timestamp: Date.now(),
-          shiftId: 1,
-          mode: "retail"
+          shiftId: "test-shift",
+          mode: "retail",
+          businessDate: new Date().toISOString().split("T")[0]
         };
         
         const txnId = await db.add("transactions", transaction);
@@ -410,8 +444,16 @@ export class AutomatedTester {
       "6.3: Overpayment - Change Calculated",
       "Payments",
       async () => {
+        const item = this.testData.items[0];
         const transaction: Transaction = {
-          items: [{ itemId: 1, itemName: "Test Item", itemPrice: 50000, quantity: 1, subtotal: 50000 }],
+          items: [{ 
+            itemId: item.id!, 
+            sku: item.sku!,
+            name: item.name, 
+            basePrice: 50000, 
+            quantity: 1, 
+            totalPrice: 50000 
+          }],
           subtotal: 50000,
           tax: 0,
           total: 50000,
@@ -420,8 +462,9 @@ export class AutomatedTester {
           cashierId: this.testData.employees[1].id!,
           cashierName: "Test Cashier",
           timestamp: Date.now(),
-          shiftId: 1,
-          mode: "retail"
+          shiftId: "test-shift",
+          mode: "retail",
+          businessDate: new Date().toISOString().split("T")[0]
         };
         
         const txnId = await db.add("transactions", transaction);
@@ -454,7 +497,7 @@ export class AutomatedTester {
         };
         
         const itemId = await db.add("items", newItem);
-        this.assert(itemId > 0, "Item should be created");
+        this.assert(Number(itemId) > 0, "Item should be created");
         
         const saved = await db.getById<Item>("items", itemId);
         this.assertEqual(saved?.name, "Automated Test Item", "Item name should match");
@@ -496,7 +539,14 @@ export class AutomatedTester {
         const testItem = this.testData.items[0];
         
         const transaction: Transaction = {
-          items: [{ itemId: testItem.id!, itemName: testItem.name, itemPrice: testItem.price, quantity: 1, subtotal: testItem.price }],
+          items: [{ 
+            itemId: testItem.id!, 
+            sku: testItem.sku!,
+            name: testItem.name, 
+            basePrice: testItem.price, 
+            quantity: 1, 
+            totalPrice: testItem.price 
+          }],
           subtotal: testItem.price,
           tax: 0,
           total: testItem.price,
@@ -505,8 +555,9 @@ export class AutomatedTester {
           cashierId: this.testData.employees[1].id!,
           cashierName: "Test Cashier",
           timestamp: Date.now(),
-          shiftId: 1,
-          mode: "retail"
+          shiftId: "test-shift",
+          mode: "retail",
+          businessDate: new Date().toISOString().split("T")[0]
         };
         
         await db.add("transactions", transaction);
@@ -558,11 +609,12 @@ export class AutomatedTester {
           name: "Automated Test Employee",
           pin: "9999",
           role: "employee",
-          joinDate: Date.now()
+          joinDate: Date.now(),
+          createdAt: Date.now()
         };
         
         const empId = await db.add("employees", newEmployee);
-        this.assert(empId > 0, "Employee should be created");
+        this.assert(Number(empId) > 0, "Employee should be created");
         
         const saved = await db.getById<Employee>("employees", empId);
         this.assertEqual(saved?.name, "Automated Test Employee", "Employee name should match");
