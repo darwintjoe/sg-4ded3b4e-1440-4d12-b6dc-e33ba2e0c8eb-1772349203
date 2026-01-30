@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useApp } from "@/contexts/AppContext";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Edit, Trash2, Search, Package, ArrowUpDown, Upload, AlertCircle, Download } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Package, ArrowUpDown, Upload, AlertCircle } from "lucide-react";
 
 type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc";
@@ -232,16 +232,6 @@ export function ItemsPanel() {
     }
   };
 
-  const downloadCSVTemplate = () => {
-    const template = "sku,name,price,category\nPROD-001,Sample Item,25000,General\nPROD-002,Another Item,15000,Beverages";
-    const blob = new Blob([template], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "items_template.csv";
-    a.click();
-  };
-
   const addSampleData = async () => {
     const sampleItems = [
       { sku: "TEA-001", name: "Test Tea", price: 15000, category: "Beverages" },
@@ -268,45 +258,128 @@ export function ItemsPanel() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    const lines = text.split("\n").filter(l => l.trim());
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-    
-    let imported = 0;
-    let skipped = 0;
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter(l => l.trim());
+      
+      if (lines.length < 2) {
+        alert("CSV file is empty or has no data rows");
+        return;
+      }
 
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(",").map(v => v.trim());
-      const row: any = {};
-      headers.forEach((h, idx) => {
-        row[h] = values[idx];
-      });
+      // Parse headers
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+      
+      console.log("📋 CSV Headers detected:", headers);
 
-      if (row.name && row.price) {
-        const newItem: Item = {
-          sku: row.sku || "",
-          name: row.name,
-          price: parseFloat(row.price) || 0,
-          category: row.category || "General",
-          variants: [],
-          modifiers: [],
-          isActive: true
-        };
+      // Smart column mapping helper
+      const findColumn = (headers: string[], patterns: string[]): number => {
+        return headers.findIndex(h => 
+          patterns.some(p => h.includes(p.toLowerCase()))
+        );
+      };
 
-        // Check uniqueness before import
-        const error = await validateUniqueness(newItem);
-        if (!error) {
-          await db.add("items", { ...newItem, id: Date.now() + i });
+      // Map columns to fields
+      const columnMap = {
+        sku: findColumn(headers, ['sku', 'code', 'barcode', 'item code']),
+        name: findColumn(headers, ['name', 'product', 'item']),
+        price: findColumn(headers, ['price', 'cost', 'amount']),
+        category: findColumn(headers, ['category', 'type', 'group'])
+      };
+
+      console.log("🗺️ Column mappings:", columnMap);
+
+      let imported = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      // Process each data row
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map(v => v.trim());
+          
+          // Extract values using column mappings
+          const sku = columnMap.sku !== -1 ? values[columnMap.sku] : "";
+          const name = columnMap.name !== -1 ? values[columnMap.name] : "";
+          const priceStr = columnMap.price !== -1 ? values[columnMap.price] : "0";
+          const category = columnMap.category !== -1 ? values[columnMap.category] : "";
+
+          console.log(`📦 Row ${i}:`, { sku, name, priceStr, category });
+
+          // Validation
+          if (!name || name.length === 0) {
+            errors.push(`Row ${i}: Missing product name`);
+            skipped++;
+            continue;
+          }
+
+          const price = parseFloat(priceStr);
+          if (isNaN(price) || price <= 0) {
+            errors.push(`Row ${i}: Invalid price "${priceStr}"`);
+            skipped++;
+            continue;
+          }
+
+          // Auto-detect category from SKU if not provided
+          let finalCategory = category;
+          if (!finalCategory && sku) {
+            if (sku.startsWith("B")) finalCategory = "Beverages";
+            else if (sku.startsWith("S")) finalCategory = "Snacks";
+            else finalCategory = "General";
+          } else if (!finalCategory) {
+            finalCategory = "General";
+          }
+
+          // Build new item
+          const newItem: Item = {
+            sku: sku || "",
+            name: name,
+            price: price,
+            category: finalCategory,
+            variants: [],
+            modifiers: [],
+            isActive: true
+          };
+
+          // Check uniqueness
+          const uniqueError = await validateUniqueness(newItem);
+          if (uniqueError) {
+            errors.push(`Row ${i}: ${uniqueError}`);
+            skipped++;
+            continue;
+          }
+
+          // Import item
+          await db.add("items", { ...newItem, id: Date.now() + imported });
           imported++;
-        } else {
+          
+          console.log(`✅ Imported: ${name}`);
+
+        } catch (rowError: any) {
+          errors.push(`Row ${i}: ${rowError.message}`);
           skipped++;
         }
       }
-    }
 
-    await loadItems();
-    alert(`Import complete!\nImported: ${imported}\nSkipped (duplicates): ${skipped}`);
-    event.target.value = "";
+      await loadItems();
+
+      // Show detailed results
+      let message = `Import complete!\nImported: ${imported}\nSkipped: ${skipped}`;
+      if (errors.length > 0 && errors.length <= 10) {
+        message += "\n\nErrors:\n" + errors.slice(0, 10).join("\n");
+      } else if (errors.length > 10) {
+        message += `\n\n${errors.length} errors occurred. Check console for details.`;
+        console.error("❌ Import errors:", errors);
+      }
+
+      alert(message);
+      event.target.value = "";
+
+    } catch (error: any) {
+      console.error("❌ CSV Import failed:", error);
+      alert(`Import failed: ${error.message}`);
+      event.target.value = "";
+    }
   };
 
   const filteredItems = items
@@ -364,11 +437,6 @@ export function ItemsPanel() {
               Hide Inactive
             </Label>
           </div>
-
-          <Button variant="outline" size="sm" onClick={downloadCSVTemplate} className="gap-2">
-            <Download className="h-4 w-4" />
-            Template
-          </Button>
 
           <Button 
             variant="outline" 
