@@ -102,14 +102,14 @@ export function CartItemEditDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleCancel}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[420px] max-w-[90vw] rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">{translate("pos.editItem", language)}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             {/* Item Info */}
-            <div className="space-y-1">
+            <div className="space-y-1 bg-slate-50 dark:bg-slate-900 rounded-lg p-3">
               <p className="font-semibold text-base">{item.name}</p>
               {item.sku && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">{item.sku}</p>
@@ -124,7 +124,7 @@ export function CartItemEditDialog({
                   variant="outline"
                   size="icon"
                   onClick={() => handleQuantityChange(-1)}
-                  className="h-12 w-12"
+                  className="h-14 w-14 rounded-xl"
                 >
                   <Minus className="h-5 w-5" />
                 </Button>
@@ -137,7 +137,7 @@ export function CartItemEditDialog({
                       setQuantity(Math.max(0, val));
                       setHasChanges(true);
                     }}
-                    className="text-center text-2xl font-bold h-12"
+                    className="text-center text-3xl font-bold h-14 rounded-xl"
                     min="0"
                   />
                 </div>
@@ -145,7 +145,7 @@ export function CartItemEditDialog({
                   variant="outline"
                   size="icon"
                   onClick={() => handleQuantityChange(1)}
-                  className="h-12 w-12"
+                  className="h-14 w-14 rounded-xl"
                 >
                   <Plus className="h-5 w-5" />
                 </Button>
@@ -167,12 +167,12 @@ export function CartItemEditDialog({
                     type="number"
                     value={unitPrice}
                     onChange={(e) => handlePriceChange(e.target.value)}
-                    className="pl-12 text-lg font-semibold h-12"
+                    className="pl-12 text-lg font-semibold h-12 rounded-xl"
                     min="0"
                     step="1000"
                   />
                 </div>
-                <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800">
+                <Alert className="bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800 rounded-xl">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
                     {translate("pos.priceOverrideWarning", language)}
@@ -184,7 +184,7 @@ export function CartItemEditDialog({
             {!allowPriceOverride && (
               <div className="space-y-2">
                 <Label>{translate("pos.unitPrice", language)}</Label>
-                <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 text-center">
+                <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-3 text-center">
                   <p className="text-lg font-bold">Rp {unitPrice.toLocaleString("id-ID")}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     ({translate("pos.priceOverrideDisabled", language)})
@@ -194,7 +194,7 @@ export function CartItemEditDialog({
             )}
 
             {/* Total Price */}
-            <div className="bg-slate-900 dark:bg-slate-950 rounded-lg p-4">
+            <div className="bg-slate-900 dark:bg-slate-950 rounded-xl p-4">
               <div className="flex justify-between items-center text-white">
                 <span className="text-sm font-medium">{translate("pos.total", language)}</span>
                 <span className="text-2xl font-black">Rp {totalPrice.toLocaleString("id-ID")}</span>
@@ -205,7 +205,7 @@ export function CartItemEditDialog({
             <Button
               variant="outline"
               onClick={() => setShowDeleteConfirm(true)}
-              className="w-full border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+              className="w-full border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950 rounded-xl"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {translate("pos.deleteItem", language)}
@@ -213,10 +213,22 @@ export function CartItemEditDialog({
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={handleCancel} className="flex-1">
+            <Button 
+              variant="outline" 
+              onClick={handleCancel} 
+              className="flex-1 rounded-xl"
+            >
               {translate("common.cancel", language)}
             </Button>
-            <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700">
+            <Button 
+              onClick={handleSave} 
+              disabled={!hasChanges}
+              className={`flex-1 rounded-xl transition-all ${
+                hasChanges 
+                  ? "bg-green-600 hover:bg-green-700 text-white" 
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+              }`}
+            >
               {translate("common.save", language)}
             </Button>
           </DialogFooter>
@@ -225,7 +237,7 @@ export function CartItemEditDialog({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.confirmDelete", language)}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -233,12 +245,12 @@ export function CartItemEditDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)}>
+            <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)} className="rounded-xl">
               {translate("common.cancel", language)}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 rounded-xl"
             >
               {translate("common.delete", language)}
             </AlertDialogAction>
@@ -248,7 +260,7 @@ export function CartItemEditDialog({
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.unsavedChanges", language)}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -256,10 +268,10 @@ export function CartItemEditDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowCancelConfirm(false)}>
+            <AlertDialogCancel onClick={() => setShowCancelConfirm(false)} className="rounded-xl">
               {translate("common.continueEditing", language)}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmCancel}>
+            <AlertDialogAction onClick={handleConfirmCancel} className="rounded-xl">
               {translate("common.discardChanges", language)}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -29,6 +29,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [allowPriceOverride, setAllowPriceOverride] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
 
   const TAX_RATE = 0.11;
   const subtotal = cartTotal;
@@ -102,11 +103,26 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
     setSearchQuery("");
   };
 
-  const handleLongPressStart = (item: CartItem, index: number) => {
+  const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
+    setTouchStartPos({ x: clientX, y: clientY });
     const timer = setTimeout(() => {
       setEditingItem({ item, index });
-    }, 500); // 500ms long press
+      setTouchStartPos(null);
+    }, 500);
     setLongPressTimer(timer);
+  };
+
+  const handleLongPressMove = (clientX: number, clientY: number) => {
+    if (touchStartPos && longPressTimer) {
+      const deltaX = Math.abs(clientX - touchStartPos.x);
+      const deltaY = Math.abs(clientY - touchStartPos.y);
+      // If finger moved more than 10px, cancel long press
+      if (deltaX > 10 || deltaY > 10) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+        setTouchStartPos(null);
+      }
+    }
   };
 
   const handleLongPressEnd = () => {
@@ -114,6 +130,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       clearTimeout(longPressTimer);
       setLongPressTimer(null);
     }
+    setTouchStartPos(null);
   };
 
   const handleSaveEdit = (updatedItem: CartItem) => {
@@ -292,9 +309,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             cart.map((item, idx) => (
               <div
                 key={idx}
-                onTouchStart={() => handleLongPressStart(item, idx)}
+                onTouchStart={(e) => handleLongPressStart(item, idx, e.touches[0].clientX, e.touches[0].clientY)}
+                onTouchMove={(e) => handleLongPressMove(e.touches[0].clientX, e.touches[0].clientY)}
                 onTouchEnd={handleLongPressEnd}
-                onMouseDown={() => handleLongPressStart(item, idx)}
+                onMouseDown={(e) => handleLongPressStart(item, idx, e.clientX, e.clientY)}
+                onMouseMove={(e) => handleLongPressMove(e.clientX, e.clientY)}
                 onMouseUp={handleLongPressEnd}
                 onMouseLeave={handleLongPressEnd}
                 className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1 cursor-pointer active:bg-slate-50 dark:active:bg-slate-750 transition-colors"
@@ -319,7 +338,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
                       </div>
                     )}
                   </div>
-                  <div className="flex-shrink-0 text-right">
+                  <div className="flex-shrink-0 text-right min-w-[100px]">
                     <p className="font-bold text-base">Rp {item.totalPrice.toLocaleString("id-ID")}</p>
                   </div>
                 </div>
@@ -332,13 +351,13 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       {/* Fixed Bottom Footer */}
       <div className="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-3 py-3 flex-shrink-0 shadow-lg">
         <div className="space-y-2 text-sm mb-3">
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
-            <span className="font-semibold text-right">Rp {subtotal.toLocaleString("id-ID")}</span>
+            <span className="font-semibold text-right min-w-[120px]">Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.tax", language)} (11%)</span>
-            <span className="font-semibold text-right">Rp {tax.toLocaleString("id-ID")}</span>
+            <span className="font-semibold text-right min-w-[120px]">Rp {tax.toLocaleString("id-ID")}</span>
           </div>
         </div>
         
