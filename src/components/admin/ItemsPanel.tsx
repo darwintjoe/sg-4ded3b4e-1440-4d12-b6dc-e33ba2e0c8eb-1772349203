@@ -9,11 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "sku" | "name" | "price";
@@ -476,6 +477,23 @@ export function ItemsPanel() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Importing Progress Overlay */}
+      {importing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl">
+            <div className="text-center space-y-2">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+              <h3 className="text-xl font-semibold">Importing Items...</h3>
+              <p className="text-sm text-slate-500">Processing your CSV file</p>
+            </div>
+            <div className="space-y-2">
+              <Progress value={importProgress} className="h-3" />
+              <p className="text-center text-sm font-medium text-blue-600">{importProgress}%</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
         {/* Row 1: Search + Filters */}
@@ -520,6 +538,7 @@ export function ItemsPanel() {
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Upload className="h-4 w-4" />
@@ -530,6 +549,7 @@ export function ItemsPanel() {
             variant="outline" 
             size="sm" 
             onClick={handleCSVExport}
+            disabled={importing}
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Download className="h-4 w-4" />
