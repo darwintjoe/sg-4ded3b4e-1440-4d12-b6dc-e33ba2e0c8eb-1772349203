@@ -14,9 +14,9 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("items");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 pb-20">
-      {/* Compact Header */}
-      <div className="border-b bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10">
+    <div className="flex flex-col h-[100dvh] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 border-b bg-white dark:bg-slate-800 shadow-sm z-30">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight">ADMIN</h1>
           <div className="flex items-center gap-2">
@@ -28,16 +28,18 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto">
-        {activeTab === "settings" && <SettingsPanel />}
-        {activeTab === "items" && <ItemsPanel />}
-        {activeTab === "employees" && <EmployeesPanel />}
-        {activeTab === "reports" && <ReportsPanel />}
+      {/* Main Content Area - Fills remaining space */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full max-w-7xl mx-auto">
+          {activeTab === "settings" && <SettingsPanel />}
+          {activeTab === "items" && <ItemsPanel />}
+          {activeTab === "employees" && <EmployeesPanel />}
+          {activeTab === "reports" && <ReportsPanel />}
+        </div>
       </div>
 
-      {/* Bottom Navigation - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t shadow-lg z-20">
+      {/* Fixed Bottom Navigation */}
+      <div className="flex-shrink-0 bg-white dark:bg-slate-800 border-t shadow-lg z-30">
         <div className="max-w-7xl mx-auto px-2">
           <div className="grid grid-cols-4 gap-1">
             <button
