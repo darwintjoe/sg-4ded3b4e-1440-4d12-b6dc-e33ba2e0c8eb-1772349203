@@ -34,7 +34,9 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
       )}
     >
       <td className="py-3 px-4 font-mono text-sm">{item.sku || "-"}</td>
-      <td className="py-3 px-4 font-medium">{item.name}</td>
+      <td className="py-3 px-4 font-medium" style={{ fontFamily: "'Roboto Condensed', sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "200px" }}>
+        {item.name}
+      </td>
       <td className="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
         {item.price.toLocaleString("id-ID")}
       </td>
@@ -46,6 +48,7 @@ export function ItemsPanel() {
   const { language } = useApp();
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categories, setCategories] = useState<string[]>([]);
@@ -475,33 +478,38 @@ export function ItemsPanel() {
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
         {/* Row 1: Search + Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[120px]">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
             <Input
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              onFocus={() => setSearchExpanded(true)}
+              onBlur={() => setSearchExpanded(false)}
+              className={cn(
+                "transition-all duration-200 pl-10",
+                searchExpanded ? "w-full sm:w-64" : "w-24"
+              )}
             />
           </div>
 
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
+            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-auto min-w-[140px] whitespace-nowrap">
+            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
@@ -515,20 +523,20 @@ export function ItemsPanel() {
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
-            className="gap-2 whitespace-nowrap"
+            className="gap-2 whitespace-nowrap text-sm"
           >
             <Upload className="h-4 w-4" />
-            <span>Import CSV</span>
+            <span>Import</span>
           </Button>
 
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleCSVExport}
-            className="gap-2 whitespace-nowrap"
+            className="gap-2 whitespace-nowrap text-sm"
           >
             <Download className="h-4 w-4" />
-            <span>Export CSV</span>
+            <span>Export</span>
           </Button>
 
           <input
@@ -551,7 +559,7 @@ export function ItemsPanel() {
                 <th className="py-3 px-4 text-left w-[100px]">
                   <button
                     onClick={() => handleSort("sku")}
-                    className="flex items-center gap-1 font-semibold hover:text-blue-600"
+                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
                   >
                     SKU
                     <ArrowUpDown className="h-3 w-3" />
@@ -560,7 +568,7 @@ export function ItemsPanel() {
                 <th className="py-3 px-4 text-left">
                   <button
                     onClick={() => handleSort("name")}
-                    className="flex items-center gap-1 font-semibold hover:text-blue-600"
+                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
                   >
                     Name
                     <ArrowUpDown className="h-3 w-3" />
@@ -569,7 +577,7 @@ export function ItemsPanel() {
                 <th className="py-3 px-4 text-right w-[120px]">
                   <button
                     onClick={() => handleSort("price")}
-                    className="flex items-center gap-1 font-semibold hover:text-blue-600 ml-auto"
+                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
                   >
                     Price
                     <ArrowUpDown className="h-3 w-3" />
@@ -582,7 +590,7 @@ export function ItemsPanel() {
             <tbody>
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="text-center py-12 text-slate-500">
+                  <td colSpan={3} className="text-center py-12 text-slate-500 text-sm">
                     {searchQuery ? "No items found" : "No items yet"}
                   </td>
                 </tr>
