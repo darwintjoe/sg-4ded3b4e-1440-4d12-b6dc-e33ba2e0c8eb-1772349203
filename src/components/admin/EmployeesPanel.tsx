@@ -8,10 +8,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
 import { useLongPress } from "@/hooks/use-long-press";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "name" | "pin" | "joinDate";
@@ -66,6 +68,7 @@ export function EmployeesPanel() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [roleComboboxOpen, setRoleComboboxOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +81,15 @@ export function EmployeesPanel() {
         return word.charAt(0).toUpperCase() + word.slice(1);
       })
       .join(' ');
+  };
+
+  // Get all unique roles from employees
+  const getAllRoles = (): string[] => {
+    const rolesSet = new Set<string>(["admin", "cashier", "employee"]); // Default roles
+    employees.forEach(emp => {
+      if (emp.role) rolesSet.add(emp.role.toLowerCase());
+    });
+    return Array.from(rolesSet).sort();
   };
 
   useEffect(() => {
@@ -473,19 +485,56 @@ export function EmployeesPanel() {
 
                 <div className="space-y-2">
                   <Label>Role <span className="text-red-500">*</span></Label>
-                  <Select
-                    value={editingEmployee.role}
-                    onValueChange={(value) => handleFieldChange("role", value as UserRole)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="cashier">Cashier</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={roleComboboxOpen} onOpenChange={setRoleComboboxOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={roleComboboxOpen}
+                        className="w-full justify-between"
+                      >
+                        <span className="capitalize">
+                          {editingEmployee.role || "Select role..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search or type new role..."
+                          value={editingEmployee.role}
+                          onValueChange={(value) => handleFieldChange("role", value)}
+                        />
+                        <CommandList>
+                          <CommandEmpty>Press Enter to use this role</CommandEmpty>
+                          <CommandGroup>
+                            {getAllRoles().map((role) => (
+                              <CommandItem
+                                key={role}
+                                value={role}
+                                onSelect={(selectedRole) => {
+                                  handleFieldChange("role", selectedRole);
+                                  setRoleComboboxOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editingEmployee.role?.toLowerCase() === role
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <span className="capitalize">{role}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-slate-500/60">Select existing or type new role</p>
                 </div>
 
                 <div className="space-y-2">
