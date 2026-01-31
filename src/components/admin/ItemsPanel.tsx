@@ -8,11 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2 } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "sku" | "name" | "price";
@@ -59,8 +61,20 @@ export function ItemsPanel() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [canDelete, setCanDelete] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper function to capitalize first letter of each word
+  const capitalizeWords = (str: string) => {
+    return str
+      .split(' ')
+      .map(word => {
+        if (word.length === 0) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ');
+  };
 
   useEffect(() => {
     loadItems();
@@ -218,6 +232,12 @@ export function ItemsPanel() {
 
   const handleFieldChange = (field: keyof Item, value: any) => {
     if (!editingItem) return;
+    
+    // Auto-capitalize name field
+    if (field === "name" && typeof value === "string") {
+      value = capitalizeWords(value);
+    }
+    
     setEditingItem({ ...editingItem, [field]: value });
     setHasUnsavedChanges(true);
   };
@@ -542,11 +562,60 @@ export function ItemsPanel() {
 
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Input
-                  value={editingItem.category}
-                  onChange={(e) => handleFieldChange("category", e.target.value)}
-                  placeholder="Beverages"
-                />
+                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={categoryOpen}
+                      className="w-full justify-between"
+                    >
+                      {editingItem.category || "Select or type category..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Search or type new category..." 
+                        onValueChange={(value) => {
+                          // Allow typing custom category
+                          if (value && !categories.includes(value)) {
+                            handleFieldChange("category", capitalizeWords(value));
+                          }
+                        }}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          Press Enter to create "{editingItem.category}"
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {categories.map((cat) => (
+                            <CommandItem
+                              key={cat}
+                              value={cat}
+                              onSelect={(currentValue) => {
+                                handleFieldChange("category", currentValue);
+                                setCategoryOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {cat}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-xs text-slate-500">
+                  Select existing or type new category
+                </p>
               </div>
 
               {editingItem.id && (

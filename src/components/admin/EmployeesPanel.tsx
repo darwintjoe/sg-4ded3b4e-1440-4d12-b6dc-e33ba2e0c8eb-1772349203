@@ -69,6 +69,17 @@ export function EmployeesPanel() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper function to capitalize first letter of each word
+  const capitalizeWords = (str: string) => {
+    return str
+      .split(' ')
+      .map(word => {
+        if (word.length === 0) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ');
+  };
+
   useEffect(() => {
     loadEmployees();
   }, []);
@@ -189,6 +200,12 @@ export function EmployeesPanel() {
 
   const handleFieldChange = (field: keyof Employee, value: any) => {
     if (!editingEmployee) return;
+    
+    // Auto-capitalize name field
+    if (field === "name" && typeof value === "string") {
+      value = capitalizeWords(value);
+    }
+    
     setEditingEmployee({ ...editingEmployee, [field]: value });
     setHasUnsavedChanges(true);
   };
