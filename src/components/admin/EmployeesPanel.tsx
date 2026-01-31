@@ -453,7 +453,7 @@ export function EmployeesPanel() {
         <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
           <Card className="m-3 overflow-hidden">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-50 dark:bg-slate-900">
                 <TableRow>
                   <TableHead>
                     <button onClick={() => handleSort("name")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
