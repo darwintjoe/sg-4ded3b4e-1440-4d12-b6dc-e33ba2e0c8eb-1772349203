@@ -81,8 +81,8 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
       // 1. Add to hot transactions
       await db.add("transactions", transaction);
 
-      // 2. Update Daily Summaries (Parallel execution for speed)
-      const itemUpdates = cart.map(item => {
+      // 2. Update Daily Item Sales (sequential to avoid transaction conflicts)
+      for (const item of cart) {
         const dailyItem: DailyItemSales = {
           itemId: item.itemId,
           sku: item.sku,
@@ -92,20 +92,19 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
           totalRevenue: item.totalPrice,
           transactionCount: 1
         };
-        return db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
-      });
+        await db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
+      }
 
-      const paymentUpdates = payments.map(p => {
+      // 3. Update Daily Payment Sales (sequential to avoid transaction conflicts)
+      for (const p of payments) {
         const dailyPayment: DailyPaymentSales = {
           method: p.method,
           businessDate: currentShift.businessDate,
           totalAmount: p.amount,
           transactionCount: 1
         };
-        return db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
-      });
-
-      await Promise.all([...itemUpdates, ...paymentUpdates]);
+        await db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
+      }
 
       // Only clear cart after successful save
       clearCart();
