@@ -201,7 +201,7 @@ export function ItemsPanel() {
   };
 
   const handleNewItem = () => {
-    setEditingItem({
+    const newItem = {
       name: "",
       sku: "",
       price: 0,
@@ -209,7 +209,9 @@ export function ItemsPanel() {
       variants: [],
       modifiers: [],
       isActive: true
-    });
+    };
+    setEditingItem(newItem);
+    setOriginalItem({ ...newItem });
     setPriceDisplay("");
     setHasUnsavedChanges(false);
     setValidationError("");
@@ -219,6 +221,7 @@ export function ItemsPanel() {
 
   const handleEditItem = async (item: Item) => {
     setEditingItem({ ...item });
+    setOriginalItem({ ...item });
     setPriceDisplay(formatPrice(item.price));
     setHasUnsavedChanges(false);
     setValidationError("");
@@ -233,11 +236,33 @@ export function ItemsPanel() {
     setIsDialogOpen(true);
   };
 
+  const [originalItem, setOriginalItem] = useState<Item | null>(null);
+
+  const hasActualChanges = (): boolean => {
+    if (!editingItem || !originalItem) return false;
+    
+    // Compare each field, treating empty strings and undefined as equivalent
+    const normalize = (val: any) => {
+      if (val === "" || val === null || val === undefined) return "";
+      if (typeof val === "string") return val.trim();
+      return val;
+    };
+
+    return (
+      normalize(editingItem.name) !== normalize(originalItem.name) ||
+      normalize(editingItem.sku) !== normalize(originalItem.sku) ||
+      editingItem.price !== originalItem.price ||
+      normalize(editingItem.category) !== normalize(originalItem.category) ||
+      editingItem.isActive !== originalItem.isActive
+    );
+  };
+
   const handleCloseDialog = () => {
-    if (hasUnsavedChanges) {
+    if (hasActualChanges()) {
       if (confirm("You have unsaved changes. Discard them?")) {
         setIsDialogOpen(false);
         setEditingItem(null);
+        setOriginalItem(null);
         setHasUnsavedChanges(false);
         setValidationError("");
         setPriceDisplay("");
@@ -245,6 +270,7 @@ export function ItemsPanel() {
     } else {
       setIsDialogOpen(false);
       setEditingItem(null);
+      setOriginalItem(null);
       setValidationError("");
       setPriceDisplay("");
     }
@@ -553,7 +579,7 @@ export function ItemsPanel() {
           handleCloseDialog();
         }
       }}>
-        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
           {editingItem && (
             <>
               {/* Fixed Header */}

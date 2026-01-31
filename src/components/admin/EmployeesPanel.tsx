@@ -65,10 +65,29 @@ export function EmployeesPanel() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [originalEmployee, setOriginalEmployee] = useState<Employee | null>(null);
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const hasActualChanges = (): boolean => {
+    if (!editingEmployee || !originalEmployee) return false;
+    
+    const normalize = (val: any) => {
+      if (val === "" || val === null || val === undefined) return "";
+      if (typeof val === "string") return val.trim();
+      return val;
+    };
+
+    return (
+      normalize(editingEmployee.name) !== normalize(originalEmployee.name) ||
+      normalize(editingEmployee.pin) !== normalize(originalEmployee.pin) ||
+      normalize(editingEmployee.role) !== normalize(originalEmployee.role) ||
+      editingEmployee.joinDate !== originalEmployee.joinDate ||
+      editingEmployee.isActive !== originalEmployee.isActive
+    );
+  };
 
   const capitalizeWords = (str: string) => {
     return str
@@ -169,14 +188,16 @@ export function EmployeesPanel() {
   };
 
   const handleNewEmployee = () => {
-    setEditingEmployee({
+    const newEmployee = {
       name: "",
       pin: "",
       role: "employee",
       joinDate: Date.now(),
       createdAt: Date.now(),
       isActive: true
-    });
+    };
+    setEditingEmployee(newEmployee);
+    setOriginalEmployee({ ...newEmployee });
     setHasUnsavedChanges(false);
     setValidationError("");
     setIsDialogOpen(true);
@@ -184,22 +205,25 @@ export function EmployeesPanel() {
 
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee({ ...employee });
+    setOriginalEmployee({ ...employee });
     setHasUnsavedChanges(false);
     setValidationError("");
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
-    if (hasUnsavedChanges) {
+    if (hasActualChanges()) {
       if (confirm("You have unsaved changes. Discard them?")) {
         setIsDialogOpen(false);
         setEditingEmployee(null);
+        setOriginalEmployee(null);
         setHasUnsavedChanges(false);
         setValidationError("");
       }
     } else {
       setIsDialogOpen(false);
       setEditingEmployee(null);
+      setOriginalEmployee(null);
       setValidationError("");
     }
   };
@@ -439,7 +463,7 @@ export function EmployeesPanel() {
           handleCloseDialog();
         }
       }}>
-        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
           {editingEmployee && (
             <>
               {/* Fixed Header */}
