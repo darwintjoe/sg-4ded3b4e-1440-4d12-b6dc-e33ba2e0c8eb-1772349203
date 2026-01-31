@@ -227,7 +227,13 @@ export interface AppSettings {
   key: string;
   mode: POSMode;
   printerWidth: 58 | 80;
-  taxRate: number;
+  tax1Enabled: boolean;
+  tax1Label: string;
+  tax1Rate: number;
+  tax1Inclusive: boolean;
+  tax2Enabled: boolean;
+  tax2Label: string;
+  tax2Rate: number;
   googleDriveLinked: boolean;
   language: Language;
   businessName?: string;

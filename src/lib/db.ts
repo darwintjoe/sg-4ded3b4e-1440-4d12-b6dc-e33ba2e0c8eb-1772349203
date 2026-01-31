@@ -15,7 +15,13 @@ import {
 export interface Settings {
   id: number;
   mode: "retail" | "cafe";
-  taxRate: number;
+  tax1Enabled: boolean;
+  tax1Label: string;
+  tax1Rate: number;
+  tax1Inclusive: boolean;
+  tax2Enabled: boolean;
+  tax2Label: string;
+  tax2Rate: number;
   language: "en" | "id" | "zh";
   allowPriceOverride: boolean;
   printerWidth: "58mm" | "80mm";
@@ -409,7 +415,13 @@ class Database {
       const defaultSettings: Settings = {
         id: 1,
         mode: "retail",
-        taxRate: 10,
+        tax1Enabled: true,
+        tax1Label: "PPN",
+        tax1Rate: 10,
+        tax1Inclusive: false,
+        tax2Enabled: false,
+        tax2Label: "GST",
+        tax2Rate: 5,
         language: "en",
         allowPriceOverride: true,
         printerWidth: "58mm",

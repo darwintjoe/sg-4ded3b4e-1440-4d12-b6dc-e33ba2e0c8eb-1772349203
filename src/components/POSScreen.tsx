@@ -32,13 +32,49 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
+  const [taxSettings, setTaxSettings] = useState<{
+    tax1Enabled: boolean;
+    tax1Label: string;
+    tax1Rate: number;
+    tax1Inclusive: boolean;
+    tax2Enabled: boolean;
+    tax2Label: string;
+    tax2Rate: number;
+  }>({
+    tax1Enabled: true,
+    tax1Label: "PPN",
+    tax1Rate: 10,
+    tax1Inclusive: false,
+    tax2Enabled: false,
+    tax2Label: "GST",
+    tax2Rate: 5
+  });
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const TAX_RATE = 0.11;
-  const subtotal = cartTotal;
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
+  // Calculate subtotal and taxes based on dual tax system
+  const itemsTotal = cartTotal;
+  let subtotal = itemsTotal;
+  let tax1Amount = 0;
+  let tax2Amount = 0;
+
+  // Step 1: Extract Tax 1 if inclusive
+  if (taxSettings.tax1Enabled && taxSettings.tax1Inclusive) {
+    subtotal = itemsTotal / (1 + taxSettings.tax1Rate / 100);
+    tax1Amount = itemsTotal - subtotal;
+  }
+
+  // Step 2: Calculate Tax 1 if exclusive
+  if (taxSettings.tax1Enabled && !taxSettings.tax1Inclusive) {
+    tax1Amount = subtotal * (taxSettings.tax1Rate / 100);
+  }
+
+  // Step 3: Calculate Tax 2 (always exclusive)
+  if (taxSettings.tax2Enabled) {
+    tax2Amount = subtotal * (taxSettings.tax2Rate / 100);
+  }
+
+  const total = subtotal + (taxSettings.tax1Inclusive ? 0 : tax1Amount) + tax2Amount;
 
   useEffect(() => {
     loadItems();
@@ -48,9 +84,18 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const loadSettings = async () => {
     try {
       const settings = await db.getAll<AppSettings>("settings");
-      const priceOverrideSetting = settings.find(s => s.allowPriceOverride !== undefined);
-      if (priceOverrideSetting) {
-        setAllowPriceOverride(priceOverrideSetting.allowPriceOverride || false);
+      const currentSettings = settings[0];
+      if (currentSettings) {
+        setAllowPriceOverride(currentSettings.allowPriceOverride || false);
+        setTaxSettings({
+          tax1Enabled: currentSettings.tax1Enabled ?? true,
+          tax1Label: currentSettings.tax1Label ?? "PPN",
+          tax1Rate: currentSettings.tax1Rate ?? 10,
+          tax1Inclusive: currentSettings.tax1Inclusive ?? false,
+          tax2Enabled: currentSettings.tax2Enabled ?? false,
+          tax2Label: currentSettings.tax2Label ?? "GST",
+          tax2Rate: currentSettings.tax2Rate ?? 5
+        });
       }
     } catch (error) {
       console.error("Error loading settings:", error);
@@ -378,10 +423,28 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
             <span className="font-semibold text-right min-w-[120px]">Rp {subtotal.toLocaleString("id-ID")}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-600 dark:text-slate-400">{translate("pos.tax", language)} (11%)</span>
-            <span className="font-semibold text-right min-w-[120px]">Rp {tax.toLocaleString("id-ID")}</span>
-          </div>
+          {taxSettings.tax1Enabled && tax1Amount > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 dark:text-slate-400">
+                {taxSettings.tax1Label} {taxSettings.tax1Rate}%
+              </span>
+              <span className="font-semibold text-right min-w-[120px]">Rp {tax1Amount.toLocaleString("id-ID")}</span>
+            </div>
+          )}
+          {taxSettings.tax2Enabled && tax2Amount > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 dark:text-slate-400">
+                {taxSettings.tax2Label} {taxSettings.tax2Rate}%
+              </span>
+              <span className="font-semibold text-right min-w-[120px]">Rp {tax2Amount.toLocaleString("id-ID")}</span>
+            </div>
+          )}
+          {taxSettings.tax1Enabled && taxSettings.tax1Inclusive && (
+            <div className="flex items-start gap-1 text-xs text-slate-500 dark:text-slate-400 italic">
+              <span>ⓘ</span>
+              <span>Prices inclusive of {taxSettings.tax1Label} {taxSettings.tax1Rate}%</span>
+            </div>
+          )}
         </div>
         
         <div className="bg-slate-900 dark:bg-slate-950 text-white p-3 rounded-lg mb-3">
@@ -405,7 +468,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
         onClose={() => setPaymentOpen(false)}
         total={total}
         subtotal={subtotal}
-        tax={tax}
+        tax={tax1Amount + tax2Amount}
+        tax1Amount={taxSettings.tax1Enabled ? tax1Amount : 0}
+        tax1Label={taxSettings.tax1Enabled ? taxSettings.tax1Label : ""}
+        tax1Rate={taxSettings.tax1Enabled ? taxSettings.tax1Rate : 0}
+        tax1Inclusive={taxSettings.tax1Enabled && taxSettings.tax1Inclusive}
+        tax2Amount={taxSettings.tax2Enabled ? tax2Amount : 0}
+        tax2Label={taxSettings.tax2Enabled ? taxSettings.tax2Label : ""}
+        tax2Rate={taxSettings.tax2Enabled ? taxSettings.tax2Rate : 0}
       />
 
       <ReportsDialog

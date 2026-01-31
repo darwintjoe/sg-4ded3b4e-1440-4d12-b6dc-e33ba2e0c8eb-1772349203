@@ -14,9 +14,29 @@ interface PaymentDialogProps {
   total: number;
   subtotal: number;
   tax: number;
+  tax1Amount?: number;
+  tax1Label?: string;
+  tax1Rate?: number;
+  tax1Inclusive?: boolean;
+  tax2Amount?: number;
+  tax2Label?: string;
+  tax2Rate?: number;
 }
 
-export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDialogProps) {
+export function PaymentDialog({ 
+  open, 
+  onClose, 
+  total, 
+  subtotal, 
+  tax,
+  tax1Amount = 0,
+  tax1Label = "",
+  tax1Rate = 0,
+  tax1Inclusive = false,
+  tax2Amount = 0,
+  tax2Label = "",
+  tax2Rate = 0
+}: PaymentDialogProps) {
   const { language, cart, clearCart, currentUser, mode, currentShift } = useApp();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
@@ -124,6 +144,9 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
     { method: "voucher", label: translate("payment.voucher", language), icon: Ticket }
   ];
 
+  const showTax1 = tax1Amount > 0 && tax1Label;
+  const showTax2 = tax2Amount > 0 && tax2Label;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -135,8 +158,30 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
           {/* Amount Display */}
           <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg space-y-2">
             <div className="flex justify-between text-sm">
+              <span>{translate("payment.subtotal", language)}</span>
+              <span className="font-bold">Rp {subtotal.toLocaleString()}</span>
+            </div>
+            {showTax1 && (
+              <div className="flex justify-between text-sm">
+                <span>{tax1Label} {tax1Rate}%</span>
+                <span className="font-bold">Rp {tax1Amount.toLocaleString()}</span>
+              </div>
+            )}
+            {showTax2 && (
+              <div className="flex justify-between text-sm">
+                <span>{tax2Label} {tax2Rate}%</span>
+                <span className="font-bold">Rp {tax2Amount.toLocaleString()}</span>
+              </div>
+            )}
+            {tax1Inclusive && tax1Label && (
+              <div className="flex items-start gap-1 text-xs text-slate-600 dark:text-slate-400 italic">
+                <span>ⓘ</span>
+                <span>Prices inclusive of {tax1Label} {tax1Rate}%</span>
+              </div>
+            )}
+            <div className="flex justify-between text-base font-bold border-t border-slate-300 dark:border-slate-600 pt-2">
               <span>{translate("payment.amount", language)}</span>
-              <span className="font-bold">Rp {total.toLocaleString()}</span>
+              <span>Rp {total.toLocaleString()}</span>
             </div>
             {payments.length > 0 && (
               <>

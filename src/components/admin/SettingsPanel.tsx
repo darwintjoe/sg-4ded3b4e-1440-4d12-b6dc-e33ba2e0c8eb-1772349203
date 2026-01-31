@@ -28,7 +28,13 @@ export function SettingsPanel() {
       const defaultSettings: SettingsType = {
         key: "default",
         mode: "retail",
-        taxRate: 0,
+        tax1Enabled: true,
+        tax1Label: "PPN",
+        tax1Rate: 10,
+        tax1Inclusive: false,
+        tax2Enabled: false,
+        tax2Label: "GST",
+        tax2Rate: 5,
         language: "en",
         printerWidth: 80,
         businessName: "My Store",
@@ -96,14 +102,70 @@ export function SettingsPanel() {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Tax Rate (%)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={settings.taxRate ?? 0}
-                onChange={(e) => updateSetting("taxRate", parseFloat(e.target.value) || 0)}
-              />
+            <div className="space-y-3 pt-2">
+              <Label className="text-base font-semibold">Tax Settings</Label>
+              
+              <div className="space-y-3 border rounded-lg p-3 bg-slate-50 dark:bg-slate-900">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={settings.tax1Enabled ?? true}
+                    onCheckedChange={(checked) => updateSetting("tax1Enabled", checked)}
+                  />
+                  <Label className="flex-shrink-0">Tax 1</Label>
+                  <Input
+                    placeholder="Label"
+                    value={settings.tax1Label ?? "PPN"}
+                    onChange={(e) => updateSetting("tax1Label", e.target.value)}
+                    disabled={!settings.tax1Enabled}
+                    className="w-24"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="%"
+                    value={settings.tax1Rate ?? 10}
+                    onChange={(e) => updateSetting("tax1Rate", parseFloat(e.target.value) || 0)}
+                    disabled={!settings.tax1Enabled}
+                    className="w-20"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={settings.tax1Inclusive ?? false}
+                      onCheckedChange={(checked) => updateSetting("tax1Inclusive", checked)}
+                      disabled={!settings.tax1Enabled}
+                    />
+                    <Label className="text-xs whitespace-nowrap">Inclusive</Label>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={settings.tax2Enabled ?? false}
+                    onCheckedChange={(checked) => updateSetting("tax2Enabled", checked)}
+                  />
+                  <Label className="flex-shrink-0">Tax 2</Label>
+                  <Input
+                    placeholder="Label"
+                    value={settings.tax2Label ?? "GST"}
+                    onChange={(e) => updateSetting("tax2Label", e.target.value)}
+                    disabled={!settings.tax2Enabled}
+                    className="w-24"
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="%"
+                    value={settings.tax2Rate ?? 5}
+                    onChange={(e) => updateSetting("tax2Rate", parseFloat(e.target.value) || 0)}
+                    disabled={!settings.tax2Enabled}
+                    className="w-20"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                Tax 1 can be inclusive (price includes tax). Tax 2 is always exclusive (added on top).
+              </p>
             </div>
 
             <div className="space-y-2">
