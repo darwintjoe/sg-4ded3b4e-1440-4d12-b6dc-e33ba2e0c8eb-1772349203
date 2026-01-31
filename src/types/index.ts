@@ -11,9 +11,19 @@ export interface Employee {
   name: string;
   pin: string;
   role: UserRole;
-  joinDate?: number; // Timestamp when employee joined
+  joinDate?: number;
   createdAt: number;
-  isActive?: boolean; // Default true, set false when employee resigns
+  isActive?: boolean;
+}
+
+export interface Attendance {
+  id?: number;
+  employeeId: number;
+  employeeName: string;
+  businessDate: string;
+  clockIn: number;
+  clockOut?: number;
+  hoursWorked?: number;
 }
 
 export interface AttendanceRecord {
@@ -22,7 +32,7 @@ export interface AttendanceRecord {
   employeeName: string;
   clockIn: number;
   clockOut?: number;
-  date: string; // YYYY-MM-DD format for easy querying
+  date: string;
 }
 
 export interface Item {
@@ -33,7 +43,7 @@ export interface Item {
   price: number;
   variants?: ItemVariant[];
   modifiers?: ItemModifier[];
-  isActive?: boolean; // Default true, set false to suspend item
+  isActive?: boolean;
 }
 
 export interface ItemVariant {
@@ -60,14 +70,14 @@ export interface CartItem {
 export interface PaymentRecord {
   method: PaymentMethod;
   amount: number;
-  qrisRef?: string; // For QRIS transaction reference
+  qrisRef?: string;
 }
 
 export interface Transaction {
   id?: number;
   timestamp: number;
-  businessDate: string;      // YYYY-MM-DD (shift start date)
-  shiftId: string;           // "2026-01-28-shift-1"
+  businessDate: string;
+  shiftId: string;
   cashierId: number;
   cashierName: string;
   mode: POSMode;
@@ -81,13 +91,13 @@ export interface Transaction {
 
 export interface Shift {
   id?: number;
-  shiftId: string;           // "2026-01-28-shift-1"
-  businessDate: string;      // YYYY-MM-DD (assigned to shift)
+  shiftId: string;
+  businessDate: string;
   cashierId: number;
   cashierName: string;
-  shiftStart: number;        // Login timestamp
-  shiftEnd?: number;         // Logout timestamp
-  calendarDayStart: string;  // YYYY-MM-DD (actual calendar date)
+  shiftStart: number;
+  shiftEnd?: number;
+  calendarDayStart: string;
   status: "active" | "closed";
 }
 
@@ -95,7 +105,7 @@ export interface DailyAttendance {
   id?: number;
   employeeId: number;
   employeeName: string;
-  date: string;              // YYYY-MM-DD
+  date: string;
   clockIn: number;
   clockOut: number;
   hoursWorked: number;
@@ -107,7 +117,7 @@ export interface DailyItemSales {
   itemId: number;
   sku: string;
   itemName: string;
-  businessDate: string;      // YYYY-MM-DD
+  businessDate: string;
   totalQuantity: number;
   totalRevenue: number;
   transactionCount: number;
@@ -116,7 +126,7 @@ export interface DailyItemSales {
 export interface DailyPaymentSales {
   id?: number;
   method: PaymentMethod;
-  businessDate: string;      // YYYY-MM-DD
+  businessDate: string;
   totalAmount: number;
   transactionCount: number;
 }
@@ -143,15 +153,23 @@ export interface MonthlyItemSales {
   itemId: number;
   sku: string;
   itemName: string;
-  month: string;             // YYYY-MM
+  month: string;
   totalQuantity: number;
   totalRevenue: number;
   transactionCount: number;
 }
 
+export interface MonthlyPaymentSales {
+  id?: number;
+  method: PaymentMethod;
+  month: string;
+  totalAmount: number;
+  transactionCount: number;
+}
+
 export interface MonthlySalesSummary {
   id?: number;
-  month: string;             // YYYY-MM
+  month: string;
   totalRevenue: number;
   totalReceipts: number;
   cashAmount: number;
@@ -164,7 +182,7 @@ export interface MonthlyAttendanceSummary {
   id?: number;
   employeeId: number;
   employeeName: string;
-  month: string;             // YYYY-MM
+  month: string;
   totalHours: number;
   daysWorked: number;
   lateCount: number;
@@ -214,7 +232,7 @@ export interface AppSettings {
   language: Language;
   businessName?: string;
   receiptFooter?: string;
-  allowPriceOverride?: boolean; // Allow cashiers to override prices
+  allowPriceOverride?: boolean;
 }
 
 export type Settings = AppSettings;

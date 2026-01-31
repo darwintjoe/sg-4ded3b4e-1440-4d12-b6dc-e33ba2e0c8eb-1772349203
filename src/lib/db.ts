@@ -1,221 +1,162 @@
-// Local database abstraction using IndexedDB for offline-first architecture
-// Optimized for low-end Android (4GB RAM / 128GB ROM)
+// src/lib/db.ts - IndexedDB wrapper with proper transaction handling
 
-interface DBConfig {
-  name: string;
-  version: number;
-  stores: {
-    name: string;
-    keyPath: string;
-    indexes?: { name: string; keyPath: string; unique: boolean }[];
-  }[];
+import {
+  Item,
+  Employee,
+  Transaction,
+  Shift,
+  Attendance,
+  DailyItemSales,
+  DailyPaymentSales,
+  MonthlyItemSales,
+  MonthlyPaymentSales,
+} from "@/types";
+
+export interface Settings {
+  id: number;
+  mode: "retail" | "cafe";
+  taxRate: number;
+  language: "en" | "id" | "zh";
+  allowPriceOverride: boolean;
+  printerWidth: "58mm" | "80mm";
+  businessName: string;
+  receiptFooter: string;
+  googleDriveBackup: boolean;
 }
-
-const DB_CONFIG: DBConfig = {
-  name: "sell_more_db",
-  version: 7, // Increment version for SKU index uniqueness fix
-  stores: [
-    {
-      name: "transactions",
-      keyPath: "id",
-      indexes: [
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "timestamp", keyPath: "timestamp", unique: false },
-        { name: "cashierId", keyPath: "cashierId", unique: false },
-        { name: "shiftId", keyPath: "shiftId", unique: false }
-      ]
-    },
-    {
-      name: "transactionsArchive",
-      keyPath: "id",
-      indexes: [
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "timestamp", keyPath: "timestamp", unique: false }
-      ]
-    },
-    {
-      name: "shifts",
-      keyPath: "id",
-      indexes: [
-        { name: "shiftId", keyPath: "shiftId", unique: true },
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "cashierId", keyPath: "cashierId", unique: false },
-        { name: "status", keyPath: "status", unique: false }
-      ]
-    },
-    {
-      name: "dailyItemSales",
-      keyPath: "id",
-      indexes: [
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "itemId", keyPath: "itemId", unique: false }
-      ]
-    },
-    {
-      name: "dailyPaymentSales",
-      keyPath: "id",
-      indexes: [
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "method", keyPath: "method", unique: false }
-      ]
-    },
-    {
-      name: "dailyShiftSummary",
-      keyPath: "id",
-      indexes: [
-        { name: "shiftId", keyPath: "shiftId", unique: true },
-        { name: "businessDate", keyPath: "businessDate", unique: false },
-        { name: "cashierId", keyPath: "cashierId", unique: false }
-      ]
-    },
-    {
-      name: "dailyAttendance",
-      keyPath: "id",
-      indexes: [
-        { name: "date", keyPath: "date", unique: false },
-        { name: "employeeId", keyPath: "employeeId", unique: false }
-      ]
-    },
-    {
-      name: "monthlyItemSales",
-      keyPath: "id",
-      indexes: [
-        { name: "month", keyPath: "month", unique: false },
-        { name: "itemId", keyPath: "itemId", unique: false }
-      ]
-    },
-    {
-      name: "monthlySalesSummary",
-      keyPath: "id",
-      indexes: [
-        { name: "month", keyPath: "month", unique: true }
-      ]
-    },
-    {
-      name: "monthlyAttendanceSummary",
-      keyPath: "id",
-      indexes: [
-        { name: "month", keyPath: "month", unique: false },
-        { name: "employeeId", keyPath: "employeeId", unique: false }
-      ]
-    },
-    {
-      name: "items",
-      keyPath: "id",
-      indexes: [
-        { name: "sku", keyPath: "sku", unique: false },
-        { name: "name", keyPath: "name", unique: false },
-        { name: "category", keyPath: "category", unique: false }
-      ]
-    },
-    {
-      name: "employees",
-      keyPath: "id",
-      indexes: [
-        { name: "pin", keyPath: "pin", unique: true },
-        { name: "role", keyPath: "role", unique: false }
-      ]
-    },
-    {
-      name: "attendance",
-      keyPath: "id",
-      indexes: [
-        { name: "employeeId", keyPath: "employeeId", unique: false },
-        { name: "date", keyPath: "date", unique: false },
-        { name: "clockIn", keyPath: "clockIn", unique: false }
-      ]
-    },
-    {
-      name: "settings",
-      keyPath: "key"
-    },
-    {
-      name: "pauseState",
-      keyPath: "id"
-    },
-    {
-      name: "cashierSession",
-      keyPath: "id"
-    }
-  ]
-};
 
 class Database {
   private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
 
   async init(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version);
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
-      request.onerror = () => reject(request.error);
+    this.initPromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open("SellMoreDB", 2);
+
+      request.onerror = () => {
+        reject(new Error("Failed to open database"));
+      };
+
       request.onsuccess = () => {
         this.db = request.result;
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
         const db = (event.target as IDBOpenDBRequest).result;
         const oldVersion = event.oldVersion;
-        const newVersion = event.newVersion || DB_CONFIG.version;
 
-        console.log(`Upgrading database from v${oldVersion} to v${newVersion}`);
+        // Create stores if they don't exist
+        if (!db.objectStoreNames.contains("settings")) {
+          db.createObjectStore("settings", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("items")) {
+          const itemStore = db.createObjectStore("items", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          itemStore.createIndex("sku", "sku", { unique: false });
+          itemStore.createIndex("barcode", "barcode", { unique: false });
+          itemStore.createIndex("active", "active", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("employees")) {
+          const empStore = db.createObjectStore("employees", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          empStore.createIndex("pin", "pin", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("transactions")) {
+          const txStore = db.createObjectStore("transactions", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          txStore.createIndex("businessDate", "businessDate", { unique: false });
+          txStore.createIndex("shiftId", "shiftId", { unique: false });
+          txStore.createIndex("cashierId", "cashierId", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("shifts")) {
+          const shiftStore = db.createObjectStore("shifts", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          shiftStore.createIndex("businessDate", "businessDate", { unique: false });
+          shiftStore.createIndex("cashierId", "cashierId", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("attendance")) {
+          const attStore = db.createObjectStore("attendance", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          attStore.createIndex("employeeId", "employeeId", { unique: false });
+          attStore.createIndex("businessDate", "businessDate", { unique: false });
+        }
 
-        DB_CONFIG.stores.forEach((storeConfig) => {
-          // Create store if it doesn't exist
-          if (!db.objectStoreNames.contains(storeConfig.name)) {
-            const store = db.createObjectStore(storeConfig.name, {
-              keyPath: storeConfig.keyPath,
-              autoIncrement: storeConfig.keyPath === "id"
+        // Version 2: Add daily/monthly summary stores
+        if (oldVersion < 2) {
+          if (!db.objectStoreNames.contains("dailyItemSales")) {
+            const dailyItemStore = db.createObjectStore("dailyItemSales", {
+              keyPath: "id",
+              autoIncrement: true,
             });
-
-            storeConfig.indexes?.forEach((index) => {
-              if (!store.indexNames.contains(index.name)) {
-                store.createIndex(index.name, index.keyPath, { unique: index.unique });
-              }
-            });
-          } else {
-            // Store exists, check if we need to update indexes
-            const transaction = (event.target as IDBOpenDBRequest).transaction;
-            if (transaction) {
-              const store = transaction.objectStore(storeConfig.name);
-              
-              storeConfig.indexes?.forEach((index) => {
-                // If index exists but uniqueness changed, recreate it
-                if (store.indexNames.contains(index.name)) {
-                  const existingIndex = store.index(index.name);
-                  // IndexedDB doesn't expose unique property directly, so we recreate for items store on v7
-                  if (storeConfig.name === "items" && index.name === "sku" && oldVersion < 7) {
-                    console.log(`Recreating SKU index to allow non-unique values`);
-                    store.deleteIndex(index.name);
-                    store.createIndex(index.name, index.keyPath, { unique: index.unique });
-                  }
-                } else {
-                  // Create missing index
-                  store.createIndex(index.name, index.keyPath, { unique: index.unique });
-                }
-              });
-            }
+            dailyItemStore.createIndex("businessDate", "businessDate", { unique: false });
+            dailyItemStore.createIndex("itemId", "itemId", { unique: false });
+            dailyItemStore.createIndex(
+              "businessDate_itemId",
+              ["businessDate", "itemId"],
+              { unique: true }
+            );
           }
-        });
-      };
 
-      request.onblocked = () => {
-        console.warn("Database upgrade blocked. Please close other tabs.");
+          if (!db.objectStoreNames.contains("dailyPaymentSales")) {
+            const dailyPaymentStore = db.createObjectStore("dailyPaymentSales", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            dailyPaymentStore.createIndex("businessDate", "businessDate", { unique: false });
+            dailyPaymentStore.createIndex("method", "method", { unique: false });
+            dailyPaymentStore.createIndex(
+              "businessDate_method",
+              ["businessDate", "method"],
+              { unique: true }
+            );
+          }
+
+          if (!db.objectStoreNames.contains("monthlyItemSales")) {
+            const monthlyItemStore = db.createObjectStore("monthlyItemSales", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            monthlyItemStore.createIndex("yearMonth", "yearMonth", { unique: false });
+            monthlyItemStore.createIndex("itemId", "itemId", { unique: false });
+            monthlyItemStore.createIndex(
+              "yearMonth_itemId",
+              ["yearMonth", "itemId"],
+              { unique: true }
+            );
+          }
+
+          if (!db.objectStoreNames.contains("monthlyPaymentSales")) {
+            const monthlyPaymentStore = db.createObjectStore("monthlyPaymentSales", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            monthlyPaymentStore.createIndex("yearMonth", "yearMonth", { unique: false });
+            monthlyPaymentStore.createIndex("method", "method", { unique: false });
+            monthlyPaymentStore.createIndex(
+              "yearMonth_method",
+              ["yearMonth", "method"],
+              { unique: true }
+            );
+          }
+        }
       };
     });
-  }
 
-  async add<T>(storeName: string, data: T): Promise<IDBValidKey> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, "readwrite");
-      const store = transaction.objectStore(storeName);
-      const request = store.add(data);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    return this.initPromise;
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
@@ -226,12 +167,17 @@ class Database {
       const store = transaction.objectStore(storeName);
       const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve(request.result as T[]);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   }
 
-  async getById<T>(storeName: string, id: IDBValidKey): Promise<T | undefined> {
+  async getById<T>(storeName: string, id: number): Promise<T | undefined> {
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -239,8 +185,31 @@ class Database {
       const store = transaction.objectStore(storeName);
       const request = store.get(id);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve(request.result as T | undefined);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async add<T>(storeName: string, data: Omit<T, "id">): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+      const request = store.add(data);
+
+      request.onsuccess = () => {
+        resolve(request.result as number);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   }
 
@@ -252,12 +221,21 @@ class Database {
       const store = transaction.objectStore(storeName);
       const request = store.put(data);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   }
 
-  async delete(storeName: string, id: IDBValidKey): Promise<void> {
+  async update<T>(storeName: string, data: T): Promise<void> {
+    return this.put(storeName, data);
+  }
+
+  async delete(storeName: string, id: number): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -265,87 +243,97 @@ class Database {
       const store = transaction.objectStore(storeName);
       const request = store.delete(id);
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   }
 
-  async addBatch<T>(storeName: string, records: T[]): Promise<void> {
+  async searchByIndex<T>(
+    storeName: string,
+    indexName: string,
+    value: any
+  ): Promise<T[]> {
     if (!this.db) throw new Error("Database not initialized");
-    if (records.length === 0) return;
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, "readwrite");
+      const transaction = this.db!.transaction(storeName, "readonly");
       const store = transaction.objectStore(storeName);
+      const index = store.index(indexName);
+      const request = index.getAll(value);
 
-      let completed = 0;
-      let hasError = false;
+      request.onsuccess = () => {
+        resolve(request.result as T[]);
+      };
 
-      records.forEach((record) => {
-        const request = store.add(record);
-        
-        request.onsuccess = () => {
-          completed++;
-          if (completed === records.length && !hasError) {
-            resolve();
-          }
-        };
-        
-        request.onerror = () => {
-          if (!hasError) {
-            hasError = true;
-            reject(request.error);
-          }
-        };
-      });
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
+  }
+
+  async moveToArchive(storeName: string, id: number): Promise<void> {
+    // For now, just mark as inactive/archived
+    const record = await this.getById<any>(storeName, id);
+    if (record) {
+      record.isActive = false;
+      record.archivedAt = Date.now();
+      await this.put(storeName, record);
+    }
   }
 
   async upsert<T extends Record<string, any>>(
     storeName: string,
     keyFields: string[],
-    data: T
+    data: Partial<T>
   ): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    return new Promise(async (resolve, reject) => {
-      try {
-        const transaction = this.db!.transaction(storeName, "readwrite");
-        const store = transaction.objectStore(storeName);
-        
-        // Try to find existing record by compound key
-        const allRecords = await this.getAll<T>(storeName);
-        const existing = allRecords.find((record) =>
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(storeName, "readwrite");
+      const store = transaction.objectStore(storeName);
+
+      // Get all records in one read operation
+      const getAllRequest = store.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const allRecords = getAllRequest.result as T[];
+        const existing = allRecords.find((record: T) =>
           keyFields.every((field) => record[field] === data[field])
         );
 
         if (existing) {
-          // Update existing record - merge data and increment counters
-          const updated = { ...existing } as any;
-          const inputData = data as any;
-          
-          Object.keys(inputData).forEach((key) => {
-            if (key === "id") return; // Skip ID
-            if (typeof inputData[key] === "number" && typeof updated[key] === "number") {
-              // Sum numeric fields (quantities, revenues, counts)
-              updated[key] = updated[key] + inputData[key];
+          // Update existing record (merge numeric fields, replace others)
+          const updated: Record<string, any> = { ...existing };
+          Object.keys(data).forEach((key) => {
+            if (key === "id") return;
+            const dataValue = data[key];
+            const existingValue = updated[key];
+            if (typeof dataValue === "number" && typeof existingValue === "number") {
+              updated[key] = existingValue + dataValue;
             } else {
-              // Overwrite non-numeric fields
-              updated[key] = inputData[key];
+              updated[key] = dataValue;
             }
           });
-          const request = store.put(updated);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+
+          const putRequest = store.put(updated);
+          putRequest.onsuccess = () => resolve();
+          putRequest.onerror = () => reject(putRequest.error);
         } else {
           // Insert new record
-          const request = store.add(data);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          const addRequest = store.add(data);
+          addRequest.onsuccess = () => resolve();
+          addRequest.onerror = () => reject(addRequest.error);
         }
-      } catch (error) {
-        reject(error);
-      }
+      };
+
+      getAllRequest.onerror = () => {
+        reject(getAllRequest.error);
+      };
     });
   }
 
@@ -357,58 +345,140 @@ class Database {
       const store = transaction.objectStore(storeName);
       const request = store.clear();
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve();
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
     });
   }
 
-  async searchByIndex<T>(
-    storeName: string,
-    indexName: string,
-    query: IDBValidKey | IDBKeyRange
-  ): Promise<T[]> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, "readonly");
-      const store = transaction.objectStore(storeName);
-      const index = store.index(indexName);
-      const request = index.getAll(query);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  async moveToArchive(storeName: string, archiveStoreName: string, beforeDate: string): Promise<number> {
-    if (!this.db) throw new Error("Database not initialized");
-
-    try {
-      // Get records older than cutoff date
-      const allRecords = await this.searchByIndex<any>(storeName, "businessDate", IDBKeyRange.upperBound(beforeDate, true));
-      
-      if (allRecords.length === 0) return 0;
-
-      // Add to archive store
-      await this.addBatch(archiveStoreName, allRecords);
-
-      // Delete from hot store
-      const transaction = this.db!.transaction(storeName, "readwrite");
-      const store = transaction.objectStore(storeName);
-      
-      await Promise.all(allRecords.map((record) => {
-        return new Promise<void>((resolve, reject) => {
-          const request = store.delete(record.id);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }));
-
-      return allRecords.length;
-    } catch (error) {
-      console.error("Error moving to archive:", error);
-      return 0;
+  // Settings
+  async getSettings(): Promise<Settings> {
+    const settings = await this.getById<Settings>("settings", 1);
+    if (!settings) {
+      const defaultSettings: Settings = {
+        id: 1,
+        mode: "retail",
+        taxRate: 10,
+        language: "en",
+        allowPriceOverride: true,
+        printerWidth: "58mm",
+        businessName: "Sell More",
+        receiptFooter: "Thank you for your purchase!",
+        googleDriveBackup: false,
+      };
+      await this.put("settings", defaultSettings);
+      return defaultSettings;
     }
+    return settings;
+  }
+
+  async updateSettings(settings: Settings): Promise<void> {
+    await this.put("settings", settings);
+  }
+
+  // Items
+  async getItems(): Promise<Item[]> {
+    return this.getAll<Item>("items");
+  }
+
+  async getItemById(id: number): Promise<Item | undefined> {
+    return this.getById<Item>("items", id);
+  }
+
+  async addItem(item: Omit<Item, "id">): Promise<number> {
+    return this.add<Item>("items", item);
+  }
+
+  async updateItem(item: Item): Promise<void> {
+    if (!item.id) throw new Error("Item must have an id to update");
+    await this.put("items", item);
+  }
+
+  async deleteItem(id: number): Promise<void> {
+    await this.delete("items", id);
+  }
+
+  // Employees
+  async getEmployees(): Promise<Employee[]> {
+    return this.getAll<Employee>("employees");
+  }
+
+  async getEmployeeById(id: number): Promise<Employee | undefined> {
+    return this.getById<Employee>("employees", id);
+  }
+
+  async addEmployee(employee: Omit<Employee, "id">): Promise<number> {
+    return this.add<Employee>("employees", employee);
+  }
+
+  async updateEmployee(employee: Employee): Promise<void> {
+    if (!employee.id) throw new Error("Employee must have an id to update");
+    await this.put("employees", employee);
+  }
+
+  async deleteEmployee(id: number): Promise<void> {
+    await this.delete("employees", id);
+  }
+
+  // Transactions
+  async getTransactions(): Promise<Transaction[]> {
+    return this.getAll<Transaction>("transactions");
+  }
+
+  async addTransaction(transaction: Omit<Transaction, "id">): Promise<number> {
+    return this.add<Transaction>("transactions", transaction);
+  }
+
+  // Shifts
+  async getShifts(): Promise<Shift[]> {
+    return this.getAll<Shift>("shifts");
+  }
+
+  async addShift(shift: Omit<Shift, "id">): Promise<number> {
+    return this.add<Shift>("shifts", shift);
+  }
+
+  async updateShift(shift: Shift): Promise<void> {
+    if (!shift.id) throw new Error("Shift must have an id to update");
+    await this.put("shifts", shift);
+  }
+
+  // Attendance
+  async getAttendance(): Promise<Attendance[]> {
+    return this.getAll<Attendance>("attendance");
+  }
+
+  async addAttendance(attendance: Omit<Attendance, "id">): Promise<number> {
+    return this.add<Attendance>("attendance", attendance);
+  }
+
+  async updateAttendance(attendance: Attendance): Promise<void> {
+    if (!attendance.id) throw new Error("Attendance must have an id to update");
+    await this.put("attendance", attendance);
+  }
+
+  // Daily Item Sales
+  async getDailyItemSales(): Promise<DailyItemSales[]> {
+    return this.getAll<DailyItemSales>("dailyItemSales");
+  }
+
+  // Daily Payment Sales
+  async getDailyPaymentSales(): Promise<DailyPaymentSales[]> {
+    return this.getAll<DailyPaymentSales>("dailyPaymentSales");
+  }
+
+  // Monthly Item Sales
+  async getMonthlyItemSales(): Promise<MonthlyItemSales[]> {
+    return this.getAll<MonthlyItemSales>("monthlyItemSales");
+  }
+
+  // Monthly Payment Sales
+  async getMonthlyPaymentSales(): Promise<MonthlyPaymentSales[]> {
+    return this.getAll<MonthlyPaymentSales>("monthlyPaymentSales");
   }
 }
 
