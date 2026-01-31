@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,17 +18,15 @@ import { cn } from "@/lib/utils";
 type SortField = "name" | "pin" | "joinDate";
 type SortDirection = "asc" | "desc";
 
-// Extracted component for long-press
 const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Employee) => void }) => {
   const longPressHandlers = useLongPress({
     onLongPress: () => onEdit(employee),
-    onClick: () => {}, // Prevent accidental edits on single tap
+    onClick: () => {},
     delay: 500,
   });
 
   const formatDate = (timestamp?: number) => {
     if (!timestamp) return "-";
-    // Format: 14 Jan 26
     const date = new Date(timestamp);
     return date.toLocaleDateString("en-GB", {
       day: "numeric",
@@ -72,7 +70,6 @@ export function EmployeesPanel() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper function to capitalize first letter of each word
   const capitalizeWords = (str: string) => {
     return str
       .split(' ')
@@ -83,9 +80,8 @@ export function EmployeesPanel() {
       .join(' ');
   };
 
-  // Get all unique roles from employees
   const getAllRoles = (): string[] => {
-    const rolesSet = new Set<string>(["admin", "cashier", "employee"]); // Default roles
+    const rolesSet = new Set<string>(["admin", "cashier", "employee"]);
     employees.forEach(emp => {
       if (emp.role) rolesSet.add(emp.role.toLowerCase());
     });
@@ -113,7 +109,6 @@ export function EmployeesPanel() {
   const validateUniqueness = async (employee: Employee): Promise<string | null> => {
     const allEmployees = await db.getAll<Employee>("employees");
     
-    // Check PIN uniqueness - ONLY among ACTIVE employees
     const duplicatePin = allEmployees.find(
       (e) => 
         e.pin === employee.pin && 
@@ -124,7 +119,6 @@ export function EmployeesPanel() {
       return `PIN "${employee.pin}" is already in use by an active employee`;
     }
 
-    // Check Name uniqueness - among ALL employees
     const duplicateName = allEmployees.find(
       (e) => e.name.toLowerCase() === employee.name.toLowerCase() && e.id !== employee.id
     );
@@ -213,7 +207,6 @@ export function EmployeesPanel() {
   const handleFieldChange = (field: keyof Employee, value: any) => {
     if (!editingEmployee) return;
     
-    // Auto-capitalize name field
     if (field === "name" && typeof value === "string") {
       value = capitalizeWords(value);
     }
@@ -228,7 +221,6 @@ export function EmployeesPanel() {
     setRoleSheetOpen(false);
     setRoleSearch("");
     
-    // Close keyboard after role selection
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -256,7 +248,6 @@ export function EmployeesPanel() {
         const values = lines[i].split(",").map(v => v.trim());
         const row: any = {};
         
-        // Simple mapping based on column index if headers match loosely
         headers.forEach((h, idx) => {
           if (h.includes("name")) row.name = values[idx];
           if (h.includes("pin")) row.pin = values[idx];
@@ -340,9 +331,7 @@ export function EmployeesPanel() {
 
   return (
     <div className="p-4 space-y-3">
-      {/* Compact Filter Bar */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Expandable Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
           <Input
@@ -358,7 +347,6 @@ export function EmployeesPanel() {
           />
         </div>
 
-        {/* Status Filter */}
         <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
           <SelectTrigger className="w-[110px]">
             <SelectValue />
@@ -370,7 +358,6 @@ export function EmployeesPanel() {
           </SelectContent>
         </Select>
 
-        {/* Role Filter */}
         <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
           <SelectTrigger className="w-[110px]">
             <SelectValue />
@@ -383,7 +370,6 @@ export function EmployeesPanel() {
           </SelectContent>
         </Select>
 
-        {/* CSV Import */}
         <Button 
           variant="outline" 
           size="sm" 
@@ -402,7 +388,6 @@ export function EmployeesPanel() {
         />
       </div>
 
-      {/* Simplified Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
@@ -442,7 +427,6 @@ export function EmployeesPanel() {
         </div>
       </Card>
 
-      {/* Floating Action Button */}
       <button
         onClick={handleNewEmployee}
         className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-10 transition-transform hover:scale-110"
@@ -450,185 +434,179 @@ export function EmployeesPanel() {
         <Plus className="h-6 w-6" />
       </button>
 
-      {/* Edit/Add Modal - iPhone Style Header */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md h-[90vh] flex flex-col p-0">
-          {/* iPhone-style header with action buttons - non-scrollable */}
-          <SheetHeader className="flex-shrink-0 px-6 py-3 border-b bg-background">
-            <div className="flex items-center justify-between">
-              <Button 
-                variant="ghost" 
-                onClick={handleCloseSheet}
-                className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
-              >
-                Cancel
-              </Button>
-              <SheetTitle className="text-center flex-1">
-                {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}
-              </SheetTitle>
-              <Button 
-                onClick={handleSaveEmployee}
-                disabled={!editingEmployee || !editingEmployee.name || !editingEmployee.pin}
-                className="bg-blue-600 hover:bg-blue-700 -mr-3"
-              >
-                Save
-              </Button>
-            </div>
-          </SheetHeader>
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-md p-0 flex flex-col"
+          style={{ height: '100dvh', maxHeight: '100dvh' }}
+        >
+          <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b bg-background">
+            <Button 
+              variant="ghost" 
+              onClick={handleCloseSheet}
+              className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
+            >
+              Cancel
+            </Button>
+            <SheetTitle className="text-center flex-1">
+              {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}
+            </SheetTitle>
+            <Button 
+              onClick={handleSaveEmployee}
+              disabled={!editingEmployee || !editingEmployee.name || !editingEmployee.pin}
+              className="bg-blue-600 hover:bg-blue-700 -mr-3"
+            >
+              Save
+            </Button>
+          </div>
 
           {editingEmployee && (
-            <>
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <div className="space-y-6">
-                  {validationError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{validationError}</AlertDescription>
-                    </Alert>
-                  )}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="space-y-4 pb-8">
+                {validationError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{validationError}</AlertDescription>
+                  </Alert>
+                )}
 
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Full Name <span className="text-red-500">*</span></Label>
-                      <Input
-                        value={editingEmployee.name}
-                        onChange={(e) => handleFieldChange("name", e.target.value)}
-                        placeholder="John Doe"
-                        className="placeholder:text-slate-400/60"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label>Full Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={editingEmployee.name}
+                    onChange={(e) => handleFieldChange("name", e.target.value)}
+                    placeholder="John Doe"
+                    className="placeholder:text-slate-400/60"
+                  />
+                </div>
 
-                    <div className="space-y-2">
-                      <Label>PIN (4-6 digits) <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={editingEmployee.pin}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, "");
-                          handleFieldChange("pin", value);
-                        }}
-                        placeholder="1234"
-                        className="placeholder:text-slate-400/60"
-                        disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
-                      />
-                      <p className="text-xs text-slate-500/60">
-                        Unique for active employees
-                      </p>
-                    </div>
+                <div className="space-y-2">
+                  <Label>PIN (4-6 digits) <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={editingEmployee.pin}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      handleFieldChange("pin", value);
+                    }}
+                    placeholder="1234"
+                    className="placeholder:text-slate-400/60"
+                    disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
+                  />
+                  <p className="text-xs text-slate-500/60">
+                    Unique for active employees
+                  </p>
+                </div>
 
-                    <div className="space-y-2">
-                      <Label>Role <span className="text-red-500">*</span></Label>
-                      <Sheet open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between"
-                          onClick={() => setRoleSheetOpen(true)}
-                        >
-                          <span className="capitalize">
-                            {editingEmployee.role || "Select or type role..."}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
-                          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-                            <SheetTitle>Select or Add Role</SheetTitle>
-                          </SheetHeader>
-                          <div className="flex-1 overflow-y-auto px-6 pb-2">
-                            <Command className="rounded-lg border">
-                              <CommandInput 
-                                placeholder="Type to search or add new role..." 
-                                value={roleSearch}
-                                onValueChange={setRoleSearch}
-                                className="placeholder:text-slate-400/60"
-                              />
-                              <CommandList>
-                                <CommandEmpty>
-                                  <div className="py-6 text-center text-sm text-slate-500">
-                                    No role found
-                                  </div>
-                                </CommandEmpty>
-                                <CommandGroup>
-                                  {filteredRoles.map((role) => (
-                                    <CommandItem
-                                      key={role}
-                                      value={role}
-                                      onSelect={() => handleRoleSelect(role)}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          editingEmployee.role?.toLowerCase() === role ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      <span className="capitalize">{role}</span>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </div>
-                          {/* Sticky Footer with Create Button */}
-                          {roleSearch && filteredRoles.length === 0 && (
-                            <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
-                              <Button
-                                onClick={() => handleRoleSelect(roleSearch)}
-                                className="w-full"
-                                size="lg"
-                              >
-                                Create "{capitalizeWords(roleSearch)}"
-                              </Button>
-                            </div>
-                          )}
-                        </SheetContent>
-                      </Sheet>
-                      <p className="text-xs text-slate-500/60">Tap to select existing or type new role</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Join Date</Label>
-                      <Input
-                        type="date"
-                        value={
-                          editingEmployee.joinDate
-                            ? new Date(editingEmployee.joinDate).toISOString().split("T")[0]
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const timestamp = new Date(e.target.value).getTime();
-                          handleFieldChange("joinDate", timestamp);
-                        }}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900">
-                      <div className="space-y-1">
-                        <Label>Status</Label>
-                        <p className="text-xs text-slate-500/60">
-                          Toggle to mark as resigned
-                        </p>
+                <div className="space-y-2">
+                  <Label>Role <span className="text-red-500">*</span></Label>
+                  <Sheet open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => setRoleSheetOpen(true)}
+                    >
+                      <span className="capitalize">
+                        {editingEmployee.role || "Select or type role..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                    <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
+                      <div className="px-6 pt-6 pb-4 flex-shrink-0">
+                        <SheetTitle>Select or Add Role</SheetTitle>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="employee-status" className={cn(
-                          "text-sm font-medium",
-                          editingEmployee.isActive === false ? "text-slate-500" : "text-green-600"
-                        )}>
-                          {editingEmployee.isActive === false ? "Resigned" : "Active"}
-                        </Label>
-                        <Switch
-                          id="employee-status"
-                          checked={editingEmployee.isActive !== false}
-                          onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
-                          disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
-                        />
+                      <div className="flex-1 overflow-y-auto px-6 pb-2">
+                        <Command className="rounded-lg border">
+                          <CommandInput 
+                            placeholder="Type to search or add new role..." 
+                            value={roleSearch}
+                            onValueChange={setRoleSearch}
+                            className="placeholder:text-slate-400/60"
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="py-6 text-center text-sm text-slate-500">
+                                No role found
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredRoles.map((role) => (
+                                <CommandItem
+                                  key={role}
+                                  value={role}
+                                  onSelect={() => handleRoleSelect(role)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      editingEmployee.role?.toLowerCase() === role ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="capitalize">{role}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
                       </div>
-                    </div>
+                      {roleSearch && filteredRoles.length === 0 && (
+                        <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
+                          <Button
+                            onClick={() => handleRoleSelect(roleSearch)}
+                            className="w-full"
+                            size="lg"
+                          >
+                            Create "{capitalizeWords(roleSearch)}"
+                          </Button>
+                        </div>
+                      )}
+                    </SheetContent>
+                  </Sheet>
+                  <p className="text-xs text-slate-500/60">Tap to select existing or type new role</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Join Date</Label>
+                  <Input
+                    type="date"
+                    value={
+                      editingEmployee.joinDate
+                        ? new Date(editingEmployee.joinDate).toISOString().split("T")[0]
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const timestamp = new Date(e.target.value).getTime();
+                      handleFieldChange("joinDate", timestamp);
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900">
+                  <div className="space-y-1">
+                    <Label>Status</Label>
+                    <p className="text-xs text-slate-500/60">
+                      Toggle to mark as resigned
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="employee-status" className={cn(
+                      "text-sm font-medium",
+                      editingEmployee.isActive === false ? "text-slate-500" : "text-green-600"
+                    )}>
+                      {editingEmployee.isActive === false ? "Resigned" : "Active"}
+                    </Label>
+                    <Switch
+                      id="employee-status"
+                      checked={editingEmployee.isActive !== false}
+                      onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                      disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
+                    />
                   </div>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>
