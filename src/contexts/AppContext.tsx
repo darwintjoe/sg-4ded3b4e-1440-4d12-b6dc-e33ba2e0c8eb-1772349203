@@ -54,13 +54,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const initializeApp = async () => {
     await db.init();
     
-    const settings = await db.getById<{ key: string; mode: POSMode; language: Language }>("settings", "mode");
-    if (settings) {
-      setModeState(settings.mode);
-      if (settings.language) {
-        setLanguageState(settings.language);
-      }
-    }
+    // Get or create settings
+    const settings = await db.getSettings();
+    setModeState(settings.mode);
+    setLanguageState(settings.language);
 
     // Check for active cashier session
     const activeSession = await db.getById<CashierSession>("cashierSession", 1);
@@ -156,11 +153,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.log("Cashier seeding skipped (exists)");
         }
       }
-
-      const langSetting = await db.getById<{ key: string; language: Language }>("settings", "language");
-      if (!langSetting) {
-        await db.add("settings", { key: "language", language: "en" });
-      }
     } catch (error) {
       console.error("Error seeding data:", error);
     }
@@ -168,12 +160,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setMode = async (newMode: POSMode) => {
     setModeState(newMode);
-    await db.put("settings", { key: "mode", mode: newMode });
+    const settings = await db.getSettings();
+    settings.mode = newMode;
+    await db.updateSettings(settings);
   };
 
   const setLanguage = async (lang: Language) => {
     setLanguageState(lang);
-    await db.put("settings", { key: "language", language: lang });
+    const settings = await db.getSettings();
+    settings.language = lang;
+    await db.updateSettings(settings);
   };
 
   const getBusinessDate = (): string => {
@@ -363,8 +359,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const today = getBusinessDate();
       const currentMonth = today.substring(0, 7); // YYYY-MM
 
-      const lastRollup = await db.getById<{ key: string; value: string }>("settings", "lastMonthlyRollup");
-      const lastMonth = lastRollup?.value;
+      const settings = await db.getSettings();
+      const lastMonth = (settings as any).lastMonthlyRollup;
 
       if (lastMonth && lastMonth !== currentMonth) {
         // Month changed, rollup previous month
@@ -372,7 +368,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       // Update last rollup date
-      await db.put("settings", { key: "lastMonthlyRollup", value: currentMonth });
+      const updatedSettings = { ...settings, lastMonthlyRollup: currentMonth } as any;
+      await db.updateSettings(updatedSettings);
     } catch (error) {
       console.error("Error checking monthly rollup:", error);
     }
