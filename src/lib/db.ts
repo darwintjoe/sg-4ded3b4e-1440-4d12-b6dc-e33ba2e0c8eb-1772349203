@@ -34,7 +34,8 @@ class Database {
     }
 
     this.initPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open("SellMoreDB", 2);
+      // Bump version to 3 to force upgrade
+      const request = indexedDB.open("SellMoreDB", 3);
 
       request.onerror = () => {
         reject(new Error("Failed to open database"));
@@ -94,6 +95,14 @@ class Database {
           attStore.createIndex("employeeId", "employeeId", { unique: false });
           attStore.createIndex("businessDate", "businessDate", { unique: false });
           attStore.createIndex("date", "date", { unique: false });
+        }
+
+        // Add missing stores for session management
+        if (!db.objectStoreNames.contains("cashierSession")) {
+          db.createObjectStore("cashierSession", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("pauseState")) {
+          db.createObjectStore("pauseState", { keyPath: "id" });
         }
 
         // Version 2: Add daily/monthly summary stores
