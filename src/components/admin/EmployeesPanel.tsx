@@ -8,7 +8,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
@@ -68,7 +67,8 @@ export function EmployeesPanel() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
-  const [roleComboboxOpen, setRoleComboboxOpen] = useState(false);
+  const [roleSheetOpen, setRoleSheetOpen] = useState(false);
+  const [roleSearch, setRoleSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -222,6 +222,13 @@ export function EmployeesPanel() {
     setHasUnsavedChanges(true);
   };
 
+  const handleRoleSelect = (role: string) => {
+    const capitalized = capitalizeWords(role);
+    handleFieldChange("role", capitalized);
+    setRoleSheetOpen(false);
+    setRoleSearch("");
+  };
+
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -321,6 +328,10 @@ export function EmployeesPanel() {
         return aVal < bVal ? 1 : -1;
       }
     });
+
+  const filteredRoles = getAllRoles().filter(role =>
+    role.toLowerCase().includes(roleSearch.toLowerCase())
+  );
 
   return (
     <div className="p-4 space-y-3">
@@ -485,56 +496,65 @@ export function EmployeesPanel() {
 
                 <div className="space-y-2">
                   <Label>Role <span className="text-red-500">*</span></Label>
-                  <Popover open={roleComboboxOpen} onOpenChange={setRoleComboboxOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={roleComboboxOpen}
-                        className="w-full justify-between"
-                      >
-                        <span className="capitalize">
-                          {editingEmployee.role || "Select role..."}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0" align="start">
-                      <Command>
-                        <CommandInput
-                          placeholder="Search or type new role..."
-                          value={editingEmployee.role}
-                          onValueChange={(value) => handleFieldChange("role", value)}
-                        />
-                        <CommandList>
-                          <CommandEmpty>Press Enter to use this role</CommandEmpty>
-                          <CommandGroup>
-                            {getAllRoles().map((role) => (
-                              <CommandItem
-                                key={role}
-                                value={role}
-                                onSelect={(selectedRole) => {
-                                  handleFieldChange("role", selectedRole);
-                                  setRoleComboboxOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    editingEmployee.role?.toLowerCase() === role
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                <span className="capitalize">{role}</span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <p className="text-xs text-slate-500/60">Select existing or type new role</p>
+                  <Sheet open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => setRoleSheetOpen(true)}
+                    >
+                      <span className="capitalize">
+                        {editingEmployee.role || "Select or type role..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                    <SheetContent side="bottom" className="h-[80vh]">
+                      <SheetHeader>
+                        <SheetTitle>Select or Add Role</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4">
+                        <Command className="rounded-lg border">
+                          <CommandInput 
+                            placeholder="Type to search or add new role..." 
+                            value={roleSearch}
+                            onValueChange={setRoleSearch}
+                            className="placeholder:text-slate-400/60"
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="p-4 text-center">
+                                <p className="text-sm text-slate-500 mb-3">No role found</p>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleRoleSelect(roleSearch)}
+                                  disabled={!roleSearch.trim()}
+                                >
+                                  Create "{capitalizeWords(roleSearch)}"
+                                </Button>
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredRoles.map((role) => (
+                                <CommandItem
+                                  key={role}
+                                  value={role}
+                                  onSelect={() => handleRoleSelect(role)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      editingEmployee.role?.toLowerCase() === role ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="capitalize">{role}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  <p className="text-xs text-slate-500/60">Tap to select existing or type new role</p>
                 </div>
 
                 <div className="space-y-2">
