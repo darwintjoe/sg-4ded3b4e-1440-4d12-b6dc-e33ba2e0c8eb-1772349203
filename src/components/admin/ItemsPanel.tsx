@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -28,19 +26,19 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
   });
 
   return (
-    <TableRow
+    <tr
       {...longPressHandlers}
       className={cn(
-        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation",
+        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation border-b border-slate-200 dark:border-slate-700",
         item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="font-mono text-sm">{item.sku || "-"}</TableCell>
-      <TableCell className="font-medium">{item.name}</TableCell>
-      <TableCell className="text-right font-bold text-blue-600 dark:text-blue-400">
+      <td className="py-3 px-4 font-mono text-sm">{item.sku || "-"}</td>
+      <td className="py-3 px-4 font-medium">{item.name}</td>
+      <td className="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
         {item.price.toLocaleString("id-ID")}
-      </TableCell>
-    </TableRow>
+      </td>
+    </tr>
   );
 };
 
@@ -48,7 +46,6 @@ export function ItemsPanel() {
   const { language } = useApp();
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchExpanded, setSearchExpanded] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categories, setCategories] = useState<string[]>([]);
@@ -62,6 +59,7 @@ export function ItemsPanel() {
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [priceDisplay, setPriceDisplay] = useState("");
+  const [originalItem, setOriginalItem] = useState<Item | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,6 +183,7 @@ export function ItemsPanel() {
     setValidationError("");
     setIsDialogOpen(false);
     setEditingItem(null);
+    setOriginalItem(null);
     setPriceDisplay("");
   };
 
@@ -196,6 +195,7 @@ export function ItemsPanel() {
       await loadItems();
       setIsDialogOpen(false);
       setEditingItem(null);
+      setOriginalItem(null);
       setPriceDisplay("");
     }
   };
@@ -236,12 +236,9 @@ export function ItemsPanel() {
     setIsDialogOpen(true);
   };
 
-  const [originalItem, setOriginalItem] = useState<Item | null>(null);
-
   const hasActualChanges = (): boolean => {
     if (!editingItem || !originalItem) return false;
     
-    // Compare each field, treating empty strings and undefined as equivalent
     const normalize = (val: any) => {
       if (val === "" || val === null || val === undefined) return "";
       if (typeof val === "string") return val.trim();
@@ -473,81 +470,85 @@ export function ItemsPanel() {
   );
 
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-          <Input
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchExpanded(true)}
-            onBlur={() => setSearchExpanded(false)}
-            className={cn(
-              "transition-all duration-200 pl-10",
-              searchExpanded ? "w-full sm:w-64" : "w-24"
-            )}
-          />
+    <div className="flex flex-col h-full">
+      {/* Fixed Filters Section - Max 2 Rows */}
+      <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
+        {/* Row 1: Search + Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[120px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-auto min-w-[140px] whitespace-nowrap">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Row 2: Import/Export Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2 whitespace-nowrap"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Import CSV</span>
+          </Button>
 
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-auto min-w-[120px] whitespace-nowrap">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleCSVExport}
+            className="gap-2 whitespace-nowrap"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export CSV</span>
+          </Button>
 
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => fileInputRef.current?.click()}
-          className="gap-2 whitespace-nowrap"
-        >
-          <Upload className="h-4 w-4" />
-          <span>Import CSV</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleCSVExport}
-          className="gap-2 whitespace-nowrap"
-        >
-          <Download className="h-4 w-4" />
-          <span>Export CSV</span>
-        </Button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv"
-          onChange={handleCSVImport}
-          className="hidden"
-        />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleCSVImport}
+            className="hidden"
+          />
+        </div>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">
+      {/* Scrollable Table Section */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <table className="w-full">
+            {/* Sticky Table Header */}
+            <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
+              <tr>
+                <th className="py-3 px-4 text-left w-[100px]">
                   <button
                     onClick={() => handleSort("sku")}
                     className="flex items-center gap-1 font-semibold hover:text-blue-600"
@@ -555,8 +556,8 @@ export function ItemsPanel() {
                     SKU
                     <ArrowUpDown className="h-3 w-3" />
                   </button>
-                </TableHead>
-                <TableHead>
+                </th>
+                <th className="py-3 px-4 text-left">
                   <button
                     onClick={() => handleSort("name")}
                     className="flex items-center gap-1 font-semibold hover:text-blue-600"
@@ -564,8 +565,8 @@ export function ItemsPanel() {
                     Name
                     <ArrowUpDown className="h-3 w-3" />
                   </button>
-                </TableHead>
-                <TableHead className="w-[120px] text-right">
+                </th>
+                <th className="py-3 px-4 text-right w-[120px]">
                   <button
                     onClick={() => handleSort("price")}
                     className="flex items-center gap-1 font-semibold hover:text-blue-600 ml-auto"
@@ -573,33 +574,37 @@ export function ItemsPanel() {
                     Price
                     <ArrowUpDown className="h-3 w-3" />
                   </button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+                </th>
+              </tr>
+            </thead>
+
+            {/* Scrollable Table Body */}
+            <tbody>
               {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center py-12 text-slate-500">
+                <tr>
+                  <td colSpan={3} className="text-center py-12 text-slate-500">
                     {searchQuery ? "No items found" : "No items yet"}
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ) : (
                 filteredItems.map((item) => (
                   <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
                 ))
               )}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
-      </Card>
 
-      <button
-        onClick={handleNewItem}
-        className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-10 transition-transform hover:scale-110"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+        {/* Floating Add Button */}
+        <button
+          onClick={handleNewItem}
+          className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-20 transition-transform hover:scale-110"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      </div>
 
+      {/* Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {
           handleCloseDialog();
