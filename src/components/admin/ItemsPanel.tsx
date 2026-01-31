@@ -3,18 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "sku" | "name" | "price";
@@ -61,7 +60,9 @@ export function ItemsPanel() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [canDelete, setCanDelete] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [priceDisplay, setPriceDisplay] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,6 +77,19 @@ export function ItemsPanel() {
       .join(' ');
   };
 
+  // Helper function to format price with thousand separator
+  const formatPrice = (value: number | string): string => {
+    const numValue = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value.toString();
+    if (!numValue || numValue === '0') return '';
+    return parseInt(numValue).toLocaleString('id-ID');
+  };
+
+  // Helper function to parse formatted price to number
+  const parsePrice = (value: string): number => {
+    const cleaned = value.replace(/[^\d]/g, '');
+    return parseInt(cleaned) || 0;
+  };
+
   useEffect(() => {
     loadItems();
   }, []);
@@ -85,6 +99,13 @@ export function ItemsPanel() {
     const uniqueCategories = Array.from(new Set(items.map(item => item.category).filter(Boolean)));
     setCategories(uniqueCategories);
   }, [items]);
+
+  useEffect(() => {
+    // Update price display when editing item changes
+    if (editingItem) {
+      setPriceDisplay(formatPrice(editingItem.price));
+    }
+  }, [editingItem?.id]);
 
   const loadItems = async () => {
     const allItems = await db.getAll<Item>("items");
@@ -170,6 +191,7 @@ export function ItemsPanel() {
     setValidationError("");
     setIsSheetOpen(false);
     setEditingItem(null);
+    setPriceDisplay("");
   };
 
   const handleDeleteItem = async () => {
@@ -180,6 +202,7 @@ export function ItemsPanel() {
       await loadItems();
       setIsSheetOpen(false);
       setEditingItem(null);
+      setPriceDisplay("");
     }
   };
 
@@ -193,6 +216,7 @@ export function ItemsPanel() {
       modifiers: [],
       isActive: true
     });
+    setPriceDisplay("");
     setHasUnsavedChanges(false);
     setValidationError("");
     setCanDelete(true);
@@ -201,6 +225,7 @@ export function ItemsPanel() {
 
   const handleEditItem = async (item: Item) => {
     setEditingItem({ ...item });
+    setPriceDisplay(formatPrice(item.price));
     setHasUnsavedChanges(false);
     setValidationError("");
     
@@ -222,11 +247,13 @@ export function ItemsPanel() {
         setEditingItem(null);
         setHasUnsavedChanges(false);
         setValidationError("");
+        setPriceDisplay("");
       }
     } else {
       setIsSheetOpen(false);
       setEditingItem(null);
       setValidationError("");
+      setPriceDisplay("");
     }
   };
 
@@ -240,6 +267,20 @@ export function ItemsPanel() {
     
     setEditingItem({ ...editingItem, [field]: value });
     setHasUnsavedChanges(true);
+  };
+
+  const handlePriceChange = (value: string) => {
+    const formatted = formatPrice(value);
+    setPriceDisplay(formatted);
+    const numericValue = parsePrice(value);
+    handleFieldChange("price", numericValue);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    const capitalized = capitalizeWords(category);
+    handleFieldChange("category", capitalized);
+    setCategorySheetOpen(false);
+    setCategorySearch("");
   };
 
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -388,6 +429,10 @@ export function ItemsPanel() {
         return aVal < bVal ? 1 : -1;
       }
     });
+
+  const filteredCategories = categories.filter(cat =>
+    cat.toLowerCase().includes(categorySearch.toLowerCase())
+  );
 
   return (
     <div className="p-4 space-y-3">
@@ -555,70 +600,76 @@ export function ItemsPanel() {
               <div className="space-y-2">
                 <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
                 <Input
-                  type="number"
-                  value={editingItem.price}
-                  onChange={(e) => handleFieldChange("price", parseFloat(e.target.value) || 0)}
-                  placeholder="25000"
+                  type="text"
+                  inputMode="numeric"
+                  value={priceDisplay}
+                  onChange={(e) => handlePriceChange(e.target.value)}
+                  placeholder="25,000"
                   className="placeholder:text-slate-400/60"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-                  <PopoverTrigger asChild>
+                <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                  <SheetTrigger asChild>
                     <Button
                       variant="outline"
-                      role="combobox"
-                      aria-expanded={categoryOpen}
                       className="w-full justify-between"
                     >
                       {editingItem.category || "Select or type category..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput 
-                        placeholder="Search or type new category..." 
-                        className="placeholder:text-slate-400/60"
-                        onValueChange={(value) => {
-                          // Allow typing custom category
-                          if (value && !categories.includes(value)) {
-                            handleFieldChange("category", capitalizeWords(value));
-                          }
-                        }}
-                      />
-                      <CommandList>
-                        <CommandEmpty>
-                          Press Enter to create "{editingItem.category}"
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {categories.map((cat) => (
-                            <CommandItem
-                              key={cat}
-                              value={cat}
-                              onSelect={(currentValue) => {
-                                handleFieldChange("category", currentValue);
-                                setCategoryOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  editingItem.category === cat ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {cat}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="h-[80vh]">
+                    <SheetHeader>
+                      <SheetTitle>Select or Add Category</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-4">
+                      <Command className="rounded-lg border">
+                        <CommandInput 
+                          placeholder="Type to search or add new category..." 
+                          value={categorySearch}
+                          onValueChange={setCategorySearch}
+                          className="placeholder:text-slate-400/60"
+                        />
+                        <CommandList>
+                          <CommandEmpty>
+                            <div className="p-4 text-center">
+                              <p className="text-sm text-slate-500 mb-3">No category found</p>
+                              <Button
+                                size="sm"
+                                onClick={() => handleCategorySelect(categorySearch)}
+                                disabled={!categorySearch.trim()}
+                              >
+                                Create "{capitalizeWords(categorySearch)}"
+                              </Button>
+                            </div>
+                          </CommandEmpty>
+                          <CommandGroup>
+                            {filteredCategories.map((cat) => (
+                              <CommandItem
+                                key={cat}
+                                value={cat}
+                                onSelect={() => handleCategorySelect(cat)}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {cat}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </div>
+                  </SheetContent>
+                </Sheet>
                 <p className="text-xs text-slate-500/60">
-                  Select existing or type new category
+                  Tap to select existing or type new category
                 </p>
               </div>
 
