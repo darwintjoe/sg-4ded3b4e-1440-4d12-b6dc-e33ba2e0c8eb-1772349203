@@ -83,7 +83,7 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
 
       // 2. Update Daily Item Sales (sequential to avoid transaction conflicts)
       for (const item of cart) {
-        const dailyItem: DailyItemSales = {
+        const dailyItem: Omit<DailyItemSales, "id"> = {
           itemId: item.itemId,
           sku: item.sku,
           itemName: item.name,
@@ -92,18 +92,18 @@ export function PaymentDialog({ open, onClose, total, subtotal, tax }: PaymentDi
           totalRevenue: item.totalPrice,
           transactionCount: 1
         };
-        await db.upsert("dailyItemSales", ["businessDate", "itemId"], dailyItem);
+        await db.upsertDailyItemSales(dailyItem);
       }
 
       // 3. Update Daily Payment Sales (sequential to avoid transaction conflicts)
       for (const p of payments) {
-        const dailyPayment: DailyPaymentSales = {
+        const dailyPayment: Omit<DailyPaymentSales, "id"> = {
           method: p.method,
           businessDate: currentShift.businessDate,
           totalAmount: p.amount,
           transactionCount: 1
         };
-        await db.upsert("dailyPaymentSales", ["businessDate", "method"], dailyPayment);
+        await db.upsertDailyPaymentSales(dailyPayment);
       }
 
       // Only clear cart after successful save

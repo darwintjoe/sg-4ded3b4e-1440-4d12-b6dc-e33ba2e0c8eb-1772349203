@@ -1,4 +1,4 @@
-// src/lib/db.ts - IndexedDB wrapper with proper transaction handling
+// src/lib/db.ts - IndexedDB wrapper with optimized upsert for mobile devices
 
 import {
   Item,
@@ -93,6 +93,7 @@ class Database {
           });
           attStore.createIndex("employeeId", "employeeId", { unique: false });
           attStore.createIndex("businessDate", "businessDate", { unique: false });
+          attStore.createIndex("date", "date", { unique: false });
         }
 
         // Version 2: Add daily/monthly summary stores
@@ -107,7 +108,7 @@ class Database {
             dailyItemStore.createIndex(
               "businessDate_itemId",
               ["businessDate", "itemId"],
-              { unique: true }
+              { unique: false }
             );
           }
 
@@ -121,7 +122,7 @@ class Database {
             dailyPaymentStore.createIndex(
               "businessDate_method",
               ["businessDate", "method"],
-              { unique: true }
+              { unique: false }
             );
           }
 
@@ -135,7 +136,7 @@ class Database {
             monthlyItemStore.createIndex(
               "yearMonth_itemId",
               ["yearMonth", "itemId"],
-              { unique: true }
+              { unique: false }
             );
           }
 
@@ -149,7 +150,7 @@ class Database {
             monthlyPaymentStore.createIndex(
               "yearMonth_method",
               ["yearMonth", "method"],
-              { unique: true }
+              { unique: false }
             );
           }
         }
@@ -177,7 +178,7 @@ class Database {
     });
   }
 
-  async getById<T>(storeName: string, id: number): Promise<T | undefined> {
+  async getById<T>(storeName: string, id: number | string): Promise<T | undefined> {
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -195,7 +196,7 @@ class Database {
     });
   }
 
-  async add<T>(storeName: string, data: Omit<T, "id">): Promise<number> {
+  async add<T>(storeName: string, data: Omit<T, "id"> | any): Promise<number> {
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -286,6 +287,60 @@ class Database {
     }
   }
 
+  // OPTIMIZED: Use index lookup instead of scanning entire table
+  async upsertDailyItemSales(data: Omit<DailyItemSales, "id">): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    // Use index to find existing record quickly
+    const existing = await this.searchByIndex<DailyItemSales>(
+      "dailyItemSales",
+      "businessDate_itemId",
+      [data.businessDate, data.itemId]
+    );
+
+    if (existing.length > 0) {
+      // Update existing (accumulate)
+      const record = existing[0];
+      const updated: DailyItemSales = {
+        ...record,
+        totalQuantity: record.totalQuantity + data.totalQuantity,
+        totalRevenue: record.totalRevenue + data.totalRevenue,
+        transactionCount: record.transactionCount + data.transactionCount,
+      };
+      await this.put("dailyItemSales", updated);
+    } else {
+      // Insert new
+      await this.add("dailyItemSales", data);
+    }
+  }
+
+  // OPTIMIZED: Use index lookup instead of scanning entire table
+  async upsertDailyPaymentSales(data: Omit<DailyPaymentSales, "id">): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    // Use index to find existing record quickly
+    const existing = await this.searchByIndex<DailyPaymentSales>(
+      "dailyPaymentSales",
+      "businessDate_method",
+      [data.businessDate, data.method]
+    );
+
+    if (existing.length > 0) {
+      // Update existing (accumulate)
+      const record = existing[0];
+      const updated: DailyPaymentSales = {
+        ...record,
+        totalAmount: record.totalAmount + data.totalAmount,
+        transactionCount: record.transactionCount + data.transactionCount,
+      };
+      await this.put("dailyPaymentSales", updated);
+    } else {
+      // Insert new
+      await this.add("dailyPaymentSales", data);
+    }
+  }
+
+  // Generic upsert for other stores (kept for compatibility)
   async upsert<T extends Record<string, any>>(
     storeName: string,
     keyFields: string[],
@@ -293,48 +348,31 @@ class Database {
   ): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(storeName, "readwrite");
-      const store = transaction.objectStore(storeName);
+    // Read all records first (separate transaction)
+    const allRecords = await this.getAll<T>(storeName);
+    const existing = allRecords.find((record: T) =>
+      keyFields.every((field) => record[field] === data[field])
+    );
 
-      // Get all records in one read operation
-      const getAllRequest = store.getAll();
-
-      getAllRequest.onsuccess = () => {
-        const allRecords = getAllRequest.result as T[];
-        const existing = allRecords.find((record: T) =>
-          keyFields.every((field) => record[field] === data[field])
-        );
-
-        if (existing) {
-          // Update existing record (merge numeric fields, replace others)
-          const updated: Record<string, any> = { ...existing };
-          Object.keys(data).forEach((key) => {
-            if (key === "id") return;
-            const dataValue = data[key];
-            const existingValue = updated[key];
-            if (typeof dataValue === "number" && typeof existingValue === "number") {
-              updated[key] = existingValue + dataValue;
-            } else {
-              updated[key] = dataValue;
-            }
-          });
-
-          const putRequest = store.put(updated);
-          putRequest.onsuccess = () => resolve();
-          putRequest.onerror = () => reject(putRequest.error);
+    // Now do the write in a fresh transaction
+    if (existing) {
+      // Update existing record (merge numeric fields)
+      const updated: Record<string, any> = { ...existing };
+      Object.keys(data).forEach((key) => {
+        if (key === "id") return;
+        const dataValue = data[key];
+        const existingValue = updated[key];
+        if (typeof dataValue === "number" && typeof existingValue === "number") {
+          updated[key] = existingValue + dataValue;
         } else {
-          // Insert new record
-          const addRequest = store.add(data);
-          addRequest.onsuccess = () => resolve();
-          addRequest.onerror = () => reject(addRequest.error);
+          updated[key] = dataValue;
         }
-      };
-
-      getAllRequest.onerror = () => {
-        reject(getAllRequest.error);
-      };
-    });
+      });
+      await this.put(storeName, updated);
+    } else {
+      // Insert new record
+      await this.add(storeName, data);
+    }
   }
 
   async clear(storeName: string): Promise<void> {

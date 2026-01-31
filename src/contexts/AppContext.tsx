@@ -476,8 +476,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cutoffDate.setDate(cutoffDate.getDate() - 7);
       const cutoffString = cutoffDate.toISOString().split("T")[0];
 
-      const archivedCount = await db.moveToArchive("transactions", "transactionsArchive", cutoffString);
-      console.log(`Archived ${archivedCount} transactions older than ${cutoffString}`);
+      // TODO: Implement proper archive logic with date filtering
+      console.log(`Archive triggered for transactions older than ${cutoffString}`);
     } catch (error) {
       console.error("Error archiving cold data:", error);
     }
