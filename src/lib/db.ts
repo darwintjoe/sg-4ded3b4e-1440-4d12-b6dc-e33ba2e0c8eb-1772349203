@@ -13,7 +13,7 @@ interface DBConfig {
 
 const DB_CONFIG: DBConfig = {
   name: "sell_more_db",
-  version: 6, // Increment version for cashierSession store
+  version: 7, // Increment version for SKU index uniqueness fix
   stores: [
     {
       name: "transactions",
@@ -103,7 +103,7 @@ const DB_CONFIG: DBConfig = {
       name: "items",
       keyPath: "id",
       indexes: [
-        { name: "sku", keyPath: "sku", unique: true },
+        { name: "sku", keyPath: "sku", unique: false },
         { name: "name", keyPath: "name", unique: false },
         { name: "category", keyPath: "category", unique: false }
       ]
@@ -173,6 +173,28 @@ class Database {
                 store.createIndex(index.name, index.keyPath, { unique: index.unique });
               }
             });
+          } else {
+            // Store exists, check if we need to update indexes
+            const transaction = (event.target as IDBOpenDBRequest).transaction;
+            if (transaction) {
+              const store = transaction.objectStore(storeConfig.name);
+              
+              storeConfig.indexes?.forEach((index) => {
+                // If index exists but uniqueness changed, recreate it
+                if (store.indexNames.contains(index.name)) {
+                  const existingIndex = store.index(index.name);
+                  // IndexedDB doesn't expose unique property directly, so we recreate for items store on v7
+                  if (storeConfig.name === "items" && index.name === "sku" && oldVersion < 7) {
+                    console.log(`Recreating SKU index to allow non-unique values`);
+                    store.deleteIndex(index.name);
+                    store.createIndex(index.name, index.keyPath, { unique: index.unique });
+                  }
+                } else {
+                  // Create missing index
+                  store.createIndex(index.name, index.keyPath, { unique: index.unique });
+                }
+              });
+            }
           }
         });
       };
