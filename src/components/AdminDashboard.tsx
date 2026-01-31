@@ -1,78 +1,94 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApp } from "@/contexts/AppContext";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { ItemsPanel } from "@/components/admin/ItemsPanel";
 import { EmployeesPanel } from "@/components/admin/EmployeesPanel";
 import { ReportsPanel } from "@/components/admin/ReportsPanel";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { LogOut, Settings, Package, Users, BarChart3, Database } from "lucide-react";
+import { LogOut, Settings, Package, Users, BarChart3 } from "lucide-react";
 import { translate } from "@/lib/translations";
 
 export function AdminDashboard() {
   const { logoutAdmin, language } = useApp();
-  const [activeTab, setActiveTab] = useState("settings");
+  const [activeTab, setActiveTab] = useState("items");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 pb-20">
+      {/* Compact Header */}
       <div className="border-b bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tight">ADMIN DASHBOARD</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              {translate("admin.subtitle", language)}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight">ADMIN</h1>
+          <div className="flex items-center gap-2">
             <LanguageSelector />
-            <Button onClick={logoutAdmin} variant="outline" size="lg">
-              <LogOut className="h-5 w-5 mr-2" />
-              {translate("common.logout", language)}
+            <Button onClick={logoutAdmin} variant="ghost" size="sm">
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-2">
-            <TabsTrigger value="settings" className="gap-2 py-3">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Settings</span>
-            </TabsTrigger>
-            <TabsTrigger value="items" className="gap-2 py-3">
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Items</span>
-            </TabsTrigger>
-            <TabsTrigger value="employees" className="gap-2 py-3">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Employees</span>
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2 py-3">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Reports</span>
-            </TabsTrigger>
-          </TabsList>
+      <div className="max-w-7xl mx-auto">
+        {activeTab === "settings" && <SettingsPanel />}
+        {activeTab === "items" && <ItemsPanel />}
+        {activeTab === "employees" && <EmployeesPanel />}
+        {activeTab === "reports" && <ReportsPanel />}
+      </div>
 
-          <TabsContent value="settings">
-            <SettingsPanel />
-          </TabsContent>
+      {/* Bottom Navigation - Fixed */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t shadow-lg z-20">
+        <div className="max-w-7xl mx-auto px-2">
+          <div className="grid grid-cols-4 gap-1">
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex flex-col items-center justify-center py-3 px-2 transition-colors ${
+                activeTab === "settings"
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Settings className="h-5 w-5 mb-1" />
+              <span className="text-xs font-medium">Settings</span>
+            </button>
 
-          <TabsContent value="items">
-            <ItemsPanel />
-          </TabsContent>
+            <button
+              onClick={() => setActiveTab("items")}
+              className={`flex flex-col items-center justify-center py-3 px-2 transition-colors ${
+                activeTab === "items"
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Package className="h-5 w-5 mb-1" />
+              <span className="text-xs font-medium">Items</span>
+            </button>
 
-          <TabsContent value="employees">
-            <EmployeesPanel />
-          </TabsContent>
+            <button
+              onClick={() => setActiveTab("employees")}
+              className={`flex flex-col items-center justify-center py-3 px-2 transition-colors ${
+                activeTab === "employees"
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <Users className="h-5 w-5 mb-1" />
+              <span className="text-xs font-medium">Employees</span>
+            </button>
 
-          <TabsContent value="reports">
-            <ReportsPanel />
-          </TabsContent>
-        </Tabs>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`flex flex-col items-center justify-center py-3 px-2 transition-colors ${
+                activeTab === "reports"
+                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              <BarChart3 className="h-5 w-5 mb-1" />
+              <span className="text-xs font-medium">Reports</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
