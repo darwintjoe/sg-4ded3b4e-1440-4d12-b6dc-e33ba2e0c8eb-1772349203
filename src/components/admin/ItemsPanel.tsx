@@ -414,6 +414,22 @@ export function ItemsPanel() {
     }
   };
 
+  const handleCSVExport = async () => {
+    const allItems = await db.getAll<Item>("items");
+    const headers = ["SKU", "Name", "Price", "Category"];
+    const rows = allItems.map(item => [item.sku || "", item.name, item.price, item.category]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "items.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredItems = items
     .filter((item) => {
       const matchesSearch =
