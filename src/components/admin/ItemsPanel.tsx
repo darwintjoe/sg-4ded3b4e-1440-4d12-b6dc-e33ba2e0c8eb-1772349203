@@ -623,11 +623,11 @@ export function ItemsPanel() {
                           <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </SheetTrigger>
-                      <SheetContent side="bottom" className="max-h-[80vh] flex flex-col p-0">
+                      <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
                         <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
                           <SheetTitle>Select or Add Category</SheetTitle>
                         </SheetHeader>
-                        <div className="flex-1 overflow-y-auto px-6 min-h-[200px]">
+                        <div className="overflow-y-auto px-6 pb-4">
                           <Command className="rounded-lg border">
                             <CommandInput 
                               placeholder="Type to search or add new category..." 
@@ -637,7 +637,7 @@ export function ItemsPanel() {
                             />
                             <CommandList>
                               <CommandEmpty>
-                                <div className="p-4 text-center text-sm text-slate-500">
+                                <div className="py-6 text-center text-sm text-slate-500">
                                   No category found
                                 </div>
                               </CommandEmpty>
