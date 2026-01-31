@@ -533,11 +533,12 @@ export function ItemsPanel() {
               )}
 
               <div className="space-y-2">
-                <Label>Item Name *</Label>
+                <Label>Item Name <span className="text-red-500">*</span></Label>
                 <Input
                   value={editingItem.name}
                   onChange={(e) => handleFieldChange("name", e.target.value)}
                   placeholder="Coffee Latte"
+                  className="placeholder:text-slate-400/60"
                 />
               </div>
 
@@ -547,16 +548,18 @@ export function ItemsPanel() {
                   value={editingItem.sku || ""}
                   onChange={(e) => handleFieldChange("sku", e.target.value)}
                   placeholder="COFFEE-001"
+                  className="placeholder:text-slate-400/60"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Selling Price (Rp) *</Label>
+                <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
                 <Input
                   type="number"
                   value={editingItem.price}
                   onChange={(e) => handleFieldChange("price", parseFloat(e.target.value) || 0)}
                   placeholder="25000"
+                  className="placeholder:text-slate-400/60"
                 />
               </div>
 
@@ -578,6 +581,7 @@ export function ItemsPanel() {
                     <Command>
                       <CommandInput 
                         placeholder="Search or type new category..." 
+                        className="placeholder:text-slate-400/60"
                         onValueChange={(value) => {
                           // Allow typing custom category
                           if (value && !categories.includes(value)) {
@@ -613,7 +617,7 @@ export function ItemsPanel() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500/60">
                   Select existing or type new category
                 </p>
               </div>
@@ -622,7 +626,7 @@ export function ItemsPanel() {
                 <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
                   <div>
                     <p className="font-medium text-sm">Active Status</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500/60">
                       Inactive items hidden from POS
                     </p>
                   </div>

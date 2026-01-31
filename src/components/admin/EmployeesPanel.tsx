@@ -442,16 +442,17 @@ export function EmployeesPanel() {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Full Name *</Label>
+                  <Label>Full Name <span className="text-red-500">*</span></Label>
                   <Input
                     value={editingEmployee.name}
                     onChange={(e) => handleFieldChange("name", e.target.value)}
                     placeholder="John Doe"
+                    className="placeholder:text-slate-400/60"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>PIN (4-6 digits) *</Label>
+                  <Label>PIN (4-6 digits) <span className="text-red-500">*</span></Label>
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -462,15 +463,16 @@ export function EmployeesPanel() {
                       handleFieldChange("pin", value);
                     }}
                     placeholder="1234"
+                    className="placeholder:text-slate-400/60"
                     disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
                   />
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500/60">
                     Unique for active employees
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Role *</Label>
+                  <Label>Role <span className="text-red-500">*</span></Label>
                   <Select
                     value={editingEmployee.role}
                     onValueChange={(value) => handleFieldChange("role", value as UserRole)}
@@ -505,7 +507,7 @@ export function EmployeesPanel() {
                 <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900">
                   <div className="space-y-1">
                     <Label>Status</Label>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500/60">
                       Toggle to mark as resigned
                     </p>
                   </div>
