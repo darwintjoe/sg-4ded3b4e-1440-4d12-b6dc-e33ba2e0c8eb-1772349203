@@ -453,8 +453,8 @@ export function EmployeesPanel() {
       {/* Edit/Add Modal - iPhone Style Header */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
         <SheetContent side="right" className="w-full sm:max-w-md h-[90vh] flex flex-col p-0">
-          {/* iPhone-style header with action buttons */}
-          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+          {/* iPhone-style header with action buttons - non-scrollable */}
+          <SheetHeader className="flex-shrink-0 px-6 py-3 border-b bg-background">
             <div className="flex items-center justify-between">
               <Button 
                 variant="ghost" 
