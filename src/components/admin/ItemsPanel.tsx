@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,11 +20,10 @@ type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
 type StatusFilter = "all" | "active" | "inactive";
 
-// Extracted component to safely use hooks
 const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void }) => {
   const longPressHandlers = useLongPress({
     onLongPress: () => onEdit(item),
-    onClick: () => {}, // Single click does nothing to prevent accidental edits
+    onClick: () => {},
     delay: 500,
   });
 
@@ -66,7 +65,6 @@ export function ItemsPanel() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Helper function to capitalize first letter of each word
   const capitalizeWords = (str: string) => {
     return str
       .split(' ')
@@ -77,14 +75,12 @@ export function ItemsPanel() {
       .join(' ');
   };
 
-  // Helper function to format price with thousand separator
   const formatPrice = (value: number | string): string => {
     const numValue = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value.toString();
     if (!numValue || numValue === '0') return '';
     return parseInt(numValue).toLocaleString('id-ID');
   };
 
-  // Helper function to parse formatted price to number
   const parsePrice = (value: string): number => {
     const cleaned = value.replace(/[^\d]/g, '');
     return parseInt(cleaned) || 0;
@@ -95,13 +91,11 @@ export function ItemsPanel() {
   }, []);
 
   useEffect(() => {
-    // Extract unique categories
     const uniqueCategories = Array.from(new Set(items.map(item => item.category).filter(Boolean)));
     setCategories(uniqueCategories);
   }, [items]);
 
   useEffect(() => {
-    // Update price display when editing item changes
     if (editingItem) {
       setPriceDisplay(formatPrice(editingItem.price));
     }
@@ -229,7 +223,6 @@ export function ItemsPanel() {
     setHasUnsavedChanges(false);
     setValidationError("");
     
-    // Check if item can be deleted
     if (item.id) {
       const deletable = await checkItemCanDelete(item.id);
       setCanDelete(deletable);
@@ -260,7 +253,6 @@ export function ItemsPanel() {
   const handleFieldChange = (field: keyof Item, value: any) => {
     if (!editingItem) return;
     
-    // Auto-capitalize name field
     if (field === "name" && typeof value === "string") {
       value = capitalizeWords(value);
     }
@@ -282,7 +274,6 @@ export function ItemsPanel() {
     setCategorySheetOpen(false);
     setCategorySearch("");
     
-    // Close keyboard after category selection
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -441,9 +432,7 @@ export function ItemsPanel() {
 
   return (
     <div className="p-4 space-y-3">
-      {/* Compact Filter Bar */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Expandable Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
           <Input
@@ -459,7 +448,6 @@ export function ItemsPanel() {
           />
         </div>
 
-        {/* Status Filter */}
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
           <SelectTrigger className="w-[110px]">
             <SelectValue />
@@ -471,7 +459,6 @@ export function ItemsPanel() {
           </SelectContent>
         </Select>
 
-        {/* Category Filter */}
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[120px]">
             <SelectValue />
@@ -484,7 +471,6 @@ export function ItemsPanel() {
           </SelectContent>
         </Select>
 
-        {/* CSV Import */}
         <Button 
           variant="outline" 
           size="sm" 
@@ -504,7 +490,6 @@ export function ItemsPanel() {
         />
       </div>
 
-      {/* Simplified Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
@@ -556,7 +541,6 @@ export function ItemsPanel() {
         </div>
       </Card>
 
-      {/* Floating Action Button */}
       <button
         onClick={handleNewItem}
         className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-10 transition-transform hover:scale-110"
@@ -564,11 +548,14 @@ export function ItemsPanel() {
         <Plus className="h-6 w-6" />
       </button>
 
-      {/* Edit/Add Modal - iPhone Style Header */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md h-[90vh] flex flex-col p-0">
-          {/* iPhone-style header with action buttons - non-scrollable */}
-          <SheetHeader className="flex-shrink-0 px-6 py-3 border-b bg-background">
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-md p-0 flex flex-col"
+          style={{ height: '100dvh', maxHeight: '100dvh' }}
+        >
+          {/* Compact header - NOT scrollable */}
+          <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
             <div className="flex items-center justify-between">
               <Button 
                 variant="ghost" 
@@ -577,9 +564,9 @@ export function ItemsPanel() {
               >
                 Cancel
               </Button>
-              <SheetTitle className="text-center flex-1">
+              <h2 className="text-lg font-semibold text-center flex-1">
                 {editingItem?.id ? "Edit Item" : "Add New Item"}
-              </SheetTitle>
+              </h2>
               <Button 
                 onClick={handleSaveItem}
                 disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
@@ -588,153 +575,147 @@ export function ItemsPanel() {
                 Save
               </Button>
             </div>
-          </SheetHeader>
+          </div>
 
           {editingItem && (
-            <>
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <div className="space-y-4">
-                  {validationError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{validationError}</AlertDescription>
-                    </Alert>
-                  )}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <div className="space-y-4 pb-8">
+                {validationError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{validationError}</AlertDescription>
+                  </Alert>
+                )}
 
-                  <div className="space-y-2">
-                    <Label>Item Name <span className="text-red-500">*</span></Label>
-                    <Input
-                      value={editingItem.name}
-                      onChange={(e) => handleFieldChange("name", e.target.value)}
-                      placeholder="Coffee Latte"
-                      className="placeholder:text-slate-400/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>SKU (Barcode)</Label>
-                    <Input
-                      value={editingItem.sku || ""}
-                      onChange={(e) => handleFieldChange("sku", e.target.value)}
-                      placeholder="COFFEE-001"
-                      className="placeholder:text-slate-400/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      value={priceDisplay}
-                      onChange={(e) => handlePriceChange(e.target.value)}
-                      placeholder="25,000"
-                      className="placeholder:text-slate-400/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
-                      <SheetTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-between"
-                        >
-                          {editingItem.category || "Select or type category..."}
-                          <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
-                        <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-                          <SheetTitle>Select or Add Category</SheetTitle>
-                        </SheetHeader>
-                        <div className="flex-1 overflow-y-auto px-6 pb-2">
-                          <Command className="rounded-lg border">
-                            <CommandInput 
-                              placeholder="Type to search or add new category..." 
-                              value={categorySearch}
-                              onValueChange={setCategorySearch}
-                              className="placeholder:text-slate-400/60"
-                            />
-                            <CommandList>
-                              <CommandEmpty>
-                                <div className="py-6 text-center text-sm text-slate-500">
-                                  No category found
-                                </div>
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {filteredCategories.map((cat) => (
-                                  <CommandItem
-                                    key={cat}
-                                    value={cat}
-                                    onSelect={() => handleCategorySelect(cat)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        editingItem.category === cat ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {cat}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </div>
-                        {/* Sticky Footer with Create Button */}
-                        {categorySearch && filteredCategories.length === 0 && (
-                          <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
-                            <Button
-                              onClick={() => handleCategorySelect(categorySearch)}
-                              className="w-full"
-                              size="lg"
-                            >
-                              Create "{capitalizeWords(categorySearch)}"
-                            </Button>
-                          </div>
-                        )}
-                      </SheetContent>
-                    </Sheet>
-                    <p className="text-xs text-slate-500/60">
-                      Tap to select existing or type new category
-                    </p>
-                  </div>
-
-                  {editingItem.id && (
-                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                      <div>
-                        <p className="font-medium text-sm">Active Status</p>
-                        <p className="text-xs text-slate-500/60">
-                          Inactive items hidden from POS
-                        </p>
-                      </div>
-                      <Switch
-                        checked={editingItem.isActive !== false}
-                        onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
-                      />
-                    </div>
-                  )}
-
-                  {/* Delete button in content area */}
-                  {editingItem.id && (
-                    <div className="pt-4">
-                      <Button
-                        onClick={handleDeleteItem}
-                        disabled={!canDelete}
-                        variant="destructive"
-                        className="w-full"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
-                      </Button>
-                    </div>
-                  )}
+                <div className="space-y-2">
+                  <Label>Item Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={editingItem.name}
+                    onChange={(e) => handleFieldChange("name", e.target.value)}
+                    placeholder="Coffee Latte"
+                    className="placeholder:text-slate-400/60"
+                  />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>SKU (Barcode)</Label>
+                  <Input
+                    value={editingItem.sku || ""}
+                    onChange={(e) => handleFieldChange("sku", e.target.value)}
+                    placeholder="COFFEE-001"
+                    className="placeholder:text-slate-400/60"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={priceDisplay}
+                    onChange={(e) => handlePriceChange(e.target.value)}
+                    placeholder="25,000"
+                    className="placeholder:text-slate-400/60"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      onClick={() => setCategorySheetOpen(true)}
+                    >
+                      {editingItem.category || "Select or type category..."}
+                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                    <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
+                      <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+                        <SheetTitle>Select or Add Category</SheetTitle>
+                      </SheetHeader>
+                      <div className="flex-1 overflow-y-auto px-6 pb-2">
+                        <Command className="rounded-lg border">
+                          <CommandInput 
+                            placeholder="Type to search or add new category..." 
+                            value={categorySearch}
+                            onValueChange={setCategorySearch}
+                            className="placeholder:text-slate-400/60"
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <div className="py-6 text-center text-sm text-slate-500">
+                                No category found
+                              </div>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {filteredCategories.map((cat) => (
+                                <CommandItem
+                                  key={cat}
+                                  value={cat}
+                                  onSelect={() => handleCategorySelect(cat)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {cat}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </div>
+                      {categorySearch && filteredCategories.length === 0 && (
+                        <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
+                          <Button
+                            onClick={() => handleCategorySelect(categorySearch)}
+                            className="w-full"
+                            size="lg"
+                          >
+                            Create "{capitalizeWords(categorySearch)}"
+                          </Button>
+                        </div>
+                      )}
+                    </SheetContent>
+                  </Sheet>
+                  <p className="text-xs text-slate-500/60">
+                    Tap to select existing or type new category
+                  </p>
+                </div>
+
+                {editingItem.id && (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">Active Status</p>
+                      <p className="text-xs text-slate-500/60">
+                        Inactive items hidden from POS
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingItem.isActive !== false}
+                      onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                    />
+                  </div>
+                )}
+
+                {editingItem.id && (
+                  <div className="pt-4">
+                    <Button
+                      onClick={handleDeleteItem}
+                      disabled={!canDelete}
+                      variant="destructive"
+                      className="w-full"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
+                    </Button>
+                  </div>
+                )}
               </div>
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>
