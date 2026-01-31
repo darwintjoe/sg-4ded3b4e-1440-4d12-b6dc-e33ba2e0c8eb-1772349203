@@ -70,6 +70,7 @@ export function EmployeesPanel() {
   const [roleSearch, setRoleSearch] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
   const hasActualChanges = (): boolean => {
     if (!editingEmployee || !originalEmployee) return false;
@@ -158,12 +159,14 @@ export function EmployeesPanel() {
 
     if (!editingEmployee.pin || editingEmployee.pin.length < 4 || editingEmployee.pin.length > 6) {
       setValidationError("PIN must be 4-6 digits");
+      setTimeout(() => pinInputRef.current?.focus(), 100);
       return;
     }
 
     const uniqueError = await validateUniqueness(editingEmployee);
     if (uniqueError) {
       setValidationError(uniqueError);
+      setTimeout(() => pinInputRef.current?.focus(), 100);
       return;
     }
 
@@ -372,7 +375,7 @@ export function EmployeesPanel() {
         </div>
 
         <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-          <SelectTrigger className="w-[110px]">
+          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -383,7 +386,7 @@ export function EmployeesPanel() {
         </Select>
 
         <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
-          <SelectTrigger className="w-[110px]">
+          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -398,10 +401,10 @@ export function EmployeesPanel() {
           variant="outline" 
           size="sm" 
           onClick={() => fileInputRef.current?.click()}
-          className="gap-2"
+          className="gap-2 whitespace-nowrap"
         >
           <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">CSV</span>
+          <span>Import CSV</span>
         </Button>
         <input
           ref={fileInputRef}
@@ -515,6 +518,7 @@ export function EmployeesPanel() {
                   <div className="space-y-2">
                     <Label>PIN (4-6 digits) <span className="text-red-500">*</span></Label>
                     <Input
+                      ref={pinInputRef}
                       type="text"
                       inputMode="numeric"
                       maxLength={6}

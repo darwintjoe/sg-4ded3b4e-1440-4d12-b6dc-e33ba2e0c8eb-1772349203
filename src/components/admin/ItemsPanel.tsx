@@ -13,7 +13,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "sku" | "name" | "price";
@@ -491,7 +491,7 @@ export function ItemsPanel() {
         </div>
 
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-          <SelectTrigger className="w-[110px]">
+          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -502,7 +502,7 @@ export function ItemsPanel() {
         </Select>
 
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[120px]">
+          <SelectTrigger className="w-auto min-w-[120px] whitespace-nowrap">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -517,10 +517,20 @@ export function ItemsPanel() {
           variant="outline" 
           size="sm" 
           onClick={() => fileInputRef.current?.click()}
-          className="gap-2"
+          className="gap-2 whitespace-nowrap"
         >
           <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">CSV</span>
+          <span>Import CSV</span>
+        </Button>
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleCSVExport}
+          className="gap-2 whitespace-nowrap"
+        >
+          <Download className="h-4 w-4" />
+          <span>Export CSV</span>
         </Button>
 
         <input
@@ -748,16 +758,15 @@ export function ItemsPanel() {
                     </div>
                   )}
 
-                  {editingItem.id && (
+                  {editingItem.id && canDelete && (
                     <div className="pt-4">
                       <Button
                         onClick={handleDeleteItem}
-                        disabled={!canDelete}
                         variant="destructive"
                         className="w-full"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
+                        Delete Item
                       </Button>
                     </div>
                   )}
