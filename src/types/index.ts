@@ -13,6 +13,7 @@ export interface Employee {
   role: UserRole;
   joinDate?: number; // Timestamp when employee joined
   createdAt: number;
+  isActive?: boolean; // Default true, set false when employee resigns
 }
 
 export interface AttendanceRecord {

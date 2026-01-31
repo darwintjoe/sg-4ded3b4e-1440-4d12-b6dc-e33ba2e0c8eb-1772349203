@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
-import { Plus, Edit, Trash2, Users, Shield, User, Search, ArrowUpDown, Upload, Download, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Shield, User, Search, ArrowUpDown, Upload, Download, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 type SortField = "name" | "pin" | "joinDate";
 type SortDirection = "asc" | "desc";
@@ -25,6 +25,7 @@ export function EmployeesPanel() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [hideInactive, setHideInactive] = useState(false);
 
   useEffect(() => {
     loadEmployees();
@@ -47,15 +48,18 @@ export function EmployeesPanel() {
   const validateUniqueness = async (employee: Employee): Promise<string | null> => {
     const allEmployees = await db.getAll<Employee>("employees");
     
-    // Check PIN uniqueness
+    // Check PIN uniqueness - ONLY among ACTIVE employees (resigned employees' PINs can be reused)
     const duplicatePin = allEmployees.find(
-      (e) => e.pin === employee.pin && e.id !== employee.id
+      (e) => 
+        e.pin === employee.pin && 
+        e.id !== employee.id &&
+        e.isActive !== false // Only check active employees
     );
     if (duplicatePin) {
-      return `PIN "${employee.pin}" already exists`;
+      return `PIN "${employee.pin}" is already in use by an active employee`;
     }
 
-    // Check Name uniqueness
+    // Check Name uniqueness - among ALL employees (active + inactive)
     const duplicateName = allEmployees.find(
       (e) => e.name.toLowerCase() === employee.name.toLowerCase() && e.id !== employee.id
     );
@@ -90,7 +94,8 @@ export function EmployeesPanel() {
     const employeeToSave = {
       ...editingEmployee,
       joinDate: editingEmployee.joinDate || Date.now(),
-      createdAt: editingEmployee.createdAt || Date.now()
+      createdAt: editingEmployee.createdAt || Date.now(),
+      isActive: editingEmployee.isActive !== false // Default to true if not set
     };
 
     if (employeeToSave.id) {
@@ -121,13 +126,33 @@ export function EmployeesPanel() {
     }
   };
 
+  const handleToggleActive = async (employee: Employee) => {
+    if (!employee.id) return;
+
+    // Prevent deactivating default accounts
+    if (employee.pin === "0000" || employee.pin === "1111") {
+      alert("Cannot deactivate default admin or cashier account");
+      return;
+    }
+
+    const action = employee.isActive !== false ? "mark as resigned" : "reactivate";
+    if (confirm(`Are you sure you want to ${action} "${employee.name}"?`)) {
+      await db.put("employees", {
+        ...employee,
+        isActive: employee.isActive === false ? true : false
+      });
+      await loadEmployees();
+    }
+  };
+
   const handleNewEmployee = () => {
     setEditingEmployee({
       name: "",
       pin: "",
       role: "employee",
       joinDate: Date.now(),
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      isActive: true
     });
     setHasUnsavedChanges(false);
     setValidationError("");
@@ -163,7 +188,7 @@ export function EmployeesPanel() {
   };
 
   const downloadCSVTemplate = () => {
-    const template = "name,pin,role,joinDate\nJohn Doe,1234,cashier,2026-01-15\nJane Smith,5678,employee,2026-01-20";
+    const template = "name,pin,role,joinDate,isActive\nJohn Doe,1234,cashier,2026-01-15,true\nJane Smith,5678,employee,2026-01-20,true";
     const blob = new Blob([template], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -200,12 +225,16 @@ export function EmployeesPanel() {
           }
         }
 
+        // Parse isActive status
+        const isActive = row.isactive !== "false" && row.isactive !== "0";
+
         const newEmployee: Employee = {
           name: row.name,
           pin: row.pin,
           role: (row.role as UserRole) || "employee",
           joinDate,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          isActive
         };
 
         // Check uniqueness before import
@@ -257,6 +286,10 @@ export function EmployeesPanel() {
 
   const filteredEmployees = employees
     .filter((employee) => {
+      // Hide inactive filter
+      if (hideInactive && employee.isActive === false) return false;
+
+      // Search filter
       return (
         employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee.pin.includes(searchQuery)
@@ -284,18 +317,35 @@ export function EmployeesPanel() {
       }
     });
 
+  const activeCount = employees.filter(e => e.isActive !== false).length;
+  const inactiveCount = employees.filter(e => e.isActive === false).length;
+
   return (
     <div className="space-y-6">
       {/* Header Controls */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search by name or PIN..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+        <div className="flex items-center gap-3 flex-1 max-w-2xl">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search by name or PIN..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md border bg-slate-50 dark:bg-slate-900">
+            <Switch
+              id="hide-inactive"
+              checked={hideInactive}
+              onCheckedChange={setHideInactive}
+            />
+            <Label htmlFor="hide-inactive" className="cursor-pointer text-sm font-medium">
+              {hideInactive ? <EyeOff className="h-4 w-4 inline mr-1" /> : <Eye className="h-4 w-4 inline mr-1" />}
+              Hide Resigned
+            </Label>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -322,6 +372,18 @@ export function EmployeesPanel() {
         </div>
       </div>
 
+      {/* Stats Summary */}
+      <div className="flex gap-4">
+        <Card className="p-4 flex-1">
+          <div className="text-2xl font-bold text-green-600">{activeCount}</div>
+          <div className="text-sm text-slate-500">Active Employees</div>
+        </Card>
+        <Card className="p-4 flex-1">
+          <div className="text-2xl font-bold text-slate-400">{inactiveCount}</div>
+          <div className="text-sm text-slate-500">Resigned</div>
+        </Card>
+      </div>
+
       {/* List View Table */}
       {filteredEmployees.length === 0 ? (
         <Card className="p-12">
@@ -337,6 +399,7 @@ export function EmployeesPanel() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Status</TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
@@ -376,7 +439,12 @@ export function EmployeesPanel() {
             </TableHeader>
             <TableBody>
               {filteredEmployees.map((employee) => (
-                <TableRow key={employee.id}>
+                <TableRow key={employee.id} className={employee.isActive === false ? "opacity-50" : ""}>
+                  <TableCell>
+                    <Badge variant={employee.isActive === false ? "outline" : "default"} className="gap-1">
+                      {employee.isActive === false ? "Resigned" : "Active"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="font-medium">{employee.name}</TableCell>
                   <TableCell className="font-mono text-sm">{employee.pin}</TableCell>
                   <TableCell>
@@ -390,6 +458,16 @@ export function EmployeesPanel() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleActive(employee)}
+                        className="h-8 px-2"
+                        title={employee.isActive === false ? "Reactivate" : "Mark as Resigned"}
+                        disabled={employee.pin === "0000" || employee.pin === "1111"}
+                      >
+                        {employee.isActive === false ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -460,7 +538,7 @@ export function EmployeesPanel() {
                     disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
                   />
                   <p className="text-xs text-slate-500">
-                    Must be unique and 4-6 digits only
+                    Must be unique among active employees (resigned employees' PINs can be reused)
                   </p>
                 </div>
 
@@ -501,6 +579,25 @@ export function EmployeesPanel() {
                   <p className="text-xs text-slate-500">
                     When this employee joined your business
                   </p>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="space-y-1">
+                    <Label>Employment Status</Label>
+                    <p className="text-xs text-slate-500">
+                      Set to "Resigned" when employee leaves the company
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="employee-status" className="text-sm font-normal">
+                      {editingEmployee.isActive === false ? "Resigned" : "Active"}
+                    </Label>
+                    <Switch
+                      id="employee-status"
+                      checked={editingEmployee.isActive !== false}
+                      onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                    />
+                  </div>
                 </div>
               </div>
 
