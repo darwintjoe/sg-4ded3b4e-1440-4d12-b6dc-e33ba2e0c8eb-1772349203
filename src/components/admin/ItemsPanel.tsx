@@ -564,18 +564,36 @@ export function ItemsPanel() {
         <Plus className="h-6 w-6" />
       </button>
 
-      {/* Edit/Add Modal */}
+      {/* Edit/Add Modal - iPhone Style Header */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md max-h-[60vh] overflow-y-auto p-0 flex flex-col">
-          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-            <SheetTitle>
-              {editingItem?.id ? "Edit Item" : "Add New Item"}
-            </SheetTitle>
+        <SheetContent side="right" className="w-full sm:max-w-md h-[90vh] flex flex-col p-0">
+          {/* iPhone-style header with action buttons */}
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+            <div className="flex items-center justify-between">
+              <Button 
+                variant="ghost" 
+                onClick={handleCloseSheet}
+                className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
+              >
+                Cancel
+              </Button>
+              <SheetTitle className="text-center flex-1">
+                {editingItem?.id ? "Edit Item" : "Add New Item"}
+              </SheetTitle>
+              <Button 
+                onClick={handleSaveItem}
+                disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
+                className="bg-blue-600 hover:bg-blue-700 -mr-3"
+              >
+                Save
+              </Button>
+            </div>
           </SheetHeader>
 
           {editingItem && (
             <>
-              <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-6 py-4">
                 <div className="space-y-4">
                   {validationError && (
                     <Alert variant="destructive">
@@ -632,7 +650,7 @@ export function ItemsPanel() {
                         <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
                           <SheetTitle>Select or Add Category</SheetTitle>
                         </SheetHeader>
-                        <div className="overflow-y-auto px-6 pb-4">
+                        <div className="flex-1 overflow-y-auto px-6 pb-2">
                           <Command className="rounded-lg border">
                             <CommandInput 
                               placeholder="Type to search or add new category..." 
@@ -699,35 +717,22 @@ export function ItemsPanel() {
                       />
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Sticky Footer with Action Buttons */}
-              <div className="flex-shrink-0 px-6 pb-6 pt-4 border-t bg-background space-y-2">
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={handleCloseSheet} className="flex-1">
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveItem}
-                    disabled={!editingItem.name || editingItem.price <= 0}
-                    className="flex-1"
-                  >
-                    Save
-                  </Button>
+                  {/* Delete button in content area */}
+                  {editingItem.id && (
+                    <div className="pt-4">
+                      <Button
+                        onClick={handleDeleteItem}
+                        disabled={!canDelete}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-
-                {editingItem.id && (
-                  <Button
-                    onClick={handleDeleteItem}
-                    disabled={!canDelete}
-                    variant="destructive"
-                    className="w-full"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
-                  </Button>
-                )}
               </div>
             </>
           )}

@@ -450,18 +450,36 @@ export function EmployeesPanel() {
         <Plus className="h-6 w-6" />
       </button>
 
-      {/* Edit/Add Modal */}
+      {/* Edit/Add Modal - iPhone Style Header */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md max-h-[60vh] overflow-y-auto p-0 flex flex-col">
-          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-            <SheetTitle>
-              {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}
-            </SheetTitle>
+        <SheetContent side="right" className="w-full sm:max-w-md h-[90vh] flex flex-col p-0">
+          {/* iPhone-style header with action buttons */}
+          <SheetHeader className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-background">
+            <div className="flex items-center justify-between">
+              <Button 
+                variant="ghost" 
+                onClick={handleCloseSheet}
+                className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
+              >
+                Cancel
+              </Button>
+              <SheetTitle className="text-center flex-1">
+                {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}
+              </SheetTitle>
+              <Button 
+                onClick={handleSaveEmployee}
+                disabled={!editingEmployee || !editingEmployee.name || !editingEmployee.pin}
+                className="bg-blue-600 hover:bg-blue-700 -mr-3"
+              >
+                Save
+              </Button>
+            </div>
           </SheetHeader>
 
           {editingEmployee && (
             <>
-              <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-6 py-4">
                 <div className="space-y-6">
                   {validationError && (
                     <Alert variant="destructive">
@@ -518,7 +536,7 @@ export function EmployeesPanel() {
                           <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
                             <SheetTitle>Select or Add Role</SheetTitle>
                           </SheetHeader>
-                          <div className="overflow-y-auto px-6 pb-4">
+                          <div className="flex-1 overflow-y-auto px-6 pb-2">
                             <Command className="rounded-lg border">
                               <CommandInput 
                                 placeholder="Type to search or add new role..." 
@@ -608,22 +626,6 @@ export function EmployeesPanel() {
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Sticky Footer with Action Buttons */}
-              <div className="flex-shrink-0 px-6 pb-6 pt-4 border-t bg-background">
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={handleCloseSheet} className="flex-1">
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSaveEmployee}
-                    disabled={!editingEmployee.name || !editingEmployee.pin}
-                    className="flex-1"
-                  >
-                    Save
-                  </Button>
                 </div>
               </div>
             </>
