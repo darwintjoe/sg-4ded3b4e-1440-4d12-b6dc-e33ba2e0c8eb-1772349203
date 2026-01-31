@@ -227,6 +227,11 @@ export function EmployeesPanel() {
     handleFieldChange("role", capitalized);
     setRoleSheetOpen(false);
     setRoleSearch("");
+    
+    // Close keyboard after role selection
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   };
 
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -447,7 +452,7 @@ export function EmployeesPanel() {
 
       {/* Edit/Add Modal */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0 flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-md max-h-[60vh] overflow-y-auto p-0 flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <SheetTitle>
               {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}

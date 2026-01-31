@@ -281,6 +281,11 @@ export function ItemsPanel() {
     handleFieldChange("category", capitalized);
     setCategorySheetOpen(false);
     setCategorySearch("");
+    
+    // Close keyboard after category selection
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   };
 
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -561,7 +566,7 @@ export function ItemsPanel() {
 
       {/* Edit/Add Modal */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0 flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-md max-h-[60vh] overflow-y-auto p-0 flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <SheetTitle>
               {editingItem?.id ? "Edit Item" : "Add New Item"}
