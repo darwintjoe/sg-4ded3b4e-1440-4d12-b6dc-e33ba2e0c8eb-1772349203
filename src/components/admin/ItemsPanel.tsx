@@ -537,7 +537,7 @@ export function ItemsPanel() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv"
+            accept=".csv,text/csv"
             onChange={handleCSVImport}
             className="hidden"
           />
