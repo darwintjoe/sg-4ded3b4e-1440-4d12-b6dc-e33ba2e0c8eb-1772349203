@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -53,7 +53,7 @@ export function ItemsPanel() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [categories, setCategories] = useState<string[]>([]);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -183,7 +183,7 @@ export function ItemsPanel() {
     await loadItems();
     setHasUnsavedChanges(false);
     setValidationError("");
-    setIsSheetOpen(false);
+    setIsDialogOpen(false);
     setEditingItem(null);
     setPriceDisplay("");
   };
@@ -194,7 +194,7 @@ export function ItemsPanel() {
     if (confirm(`Permanently delete "${editingItem.name}"? This cannot be undone.`)) {
       await db.delete("items", editingItem.id);
       await loadItems();
-      setIsSheetOpen(false);
+      setIsDialogOpen(false);
       setEditingItem(null);
       setPriceDisplay("");
     }
@@ -214,7 +214,7 @@ export function ItemsPanel() {
     setHasUnsavedChanges(false);
     setValidationError("");
     setCanDelete(true);
-    setIsSheetOpen(true);
+    setIsDialogOpen(true);
   };
 
   const handleEditItem = async (item: Item) => {
@@ -230,20 +230,20 @@ export function ItemsPanel() {
       setCanDelete(true);
     }
     
-    setIsSheetOpen(true);
+    setIsDialogOpen(true);
   };
 
-  const handleCloseSheet = () => {
+  const handleCloseDialog = () => {
     if (hasUnsavedChanges) {
       if (confirm("You have unsaved changes. Discard them?")) {
-        setIsSheetOpen(false);
+        setIsDialogOpen(false);
         setEditingItem(null);
         setHasUnsavedChanges(false);
         setValidationError("");
         setPriceDisplay("");
       }
     } else {
-      setIsSheetOpen(false);
+      setIsDialogOpen(false);
       setEditingItem(null);
       setValidationError("");
       setPriceDisplay("");
@@ -548,177 +548,183 @@ export function ItemsPanel() {
         <Plus className="h-6 w-6" />
       </button>
 
-      <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent 
-          side="right" 
-          className="w-full sm:max-w-md p-0 flex flex-col"
-          style={{ height: '100dvh', maxHeight: '100dvh' }}
-        >
-          {/* Compact header - NOT scrollable */}
-          <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
-            <div className="flex items-center justify-between">
-              <Button 
-                variant="ghost" 
-                onClick={handleCloseSheet}
-                className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
-              >
-                Cancel
-              </Button>
-              <h2 className="text-lg font-semibold text-center flex-1">
-                {editingItem?.id ? "Edit Item" : "Add New Item"}
-              </h2>
-              <Button 
-                onClick={handleSaveItem}
-                disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
-                className="bg-blue-600 hover:bg-blue-700 -mr-3"
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleCloseDialog();
+        }
+      }}>
+        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0">
           {editingItem && (
-            <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <div className="space-y-4 pb-8">
-                {validationError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{validationError}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Item Name <span className="text-red-500">*</span></Label>
-                  <Input
-                    value={editingItem.name}
-                    onChange={(e) => handleFieldChange("name", e.target.value)}
-                    placeholder="Coffee Latte"
-                    className="placeholder:text-slate-400/60"
-                  />
+            <>
+              {/* Fixed Header */}
+              <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
+                <div className="flex items-center justify-between">
+                  <Button 
+                    variant="ghost" 
+                    onClick={handleCloseDialog}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
+                  >
+                    Cancel
+                  </Button>
+                  <h2 className="text-lg font-semibold">
+                    {editingItem?.id ? "Edit Item" : "Add New Item"}
+                  </h2>
+                  <Button 
+                    onClick={handleSaveItem}
+                    disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
+                    className="bg-blue-600 hover:bg-blue-700 -mr-3"
+                  >
+                    Save
+                  </Button>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label>SKU (Barcode)</Label>
-                  <Input
-                    value={editingItem.sku || ""}
-                    onChange={(e) => handleFieldChange("sku", e.target.value)}
-                    placeholder="COFFEE-001"
-                    className="placeholder:text-slate-400/60"
-                  />
-                </div>
+              {/* Scrollable Content */}
+              <div 
+                className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" 
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <div className="space-y-4 pb-8">
+                  {validationError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{validationError}</AlertDescription>
+                    </Alert>
+                  )}
 
-                <div className="space-y-2">
-                  <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={priceDisplay}
-                    onChange={(e) => handlePriceChange(e.target.value)}
-                    placeholder="25,000"
-                    className="placeholder:text-slate-400/60"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                      onClick={() => setCategorySheetOpen(true)}
-                    >
-                      {editingItem.category || "Select or type category..."}
-                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                    <SheetContent side="bottom" className="max-h-[50vh] flex flex-col p-0">
-                      <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
-                        <SheetTitle>Select or Add Category</SheetTitle>
-                      </SheetHeader>
-                      <div className="flex-1 overflow-y-auto px-6 pb-2">
-                        <Command className="rounded-lg border">
-                          <CommandInput 
-                            placeholder="Type to search or add new category..." 
-                            value={categorySearch}
-                            onValueChange={setCategorySearch}
-                            className="placeholder:text-slate-400/60"
-                          />
-                          <CommandList>
-                            <CommandEmpty>
-                              <div className="py-6 text-center text-sm text-slate-500">
-                                No category found
-                              </div>
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {filteredCategories.map((cat) => (
-                                <CommandItem
-                                  key={cat}
-                                  value={cat}
-                                  onSelect={() => handleCategorySelect(cat)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      editingItem.category === cat ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  {cat}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </div>
-                      {categorySearch && filteredCategories.length === 0 && (
-                        <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
-                          <Button
-                            onClick={() => handleCategorySelect(categorySearch)}
-                            className="w-full"
-                            size="lg"
-                          >
-                            Create "{capitalizeWords(categorySearch)}"
-                          </Button>
-                        </div>
-                      )}
-                    </SheetContent>
-                  </Sheet>
-                  <p className="text-xs text-slate-500/60">
-                    Tap to select existing or type new category
-                  </p>
-                </div>
-
-                {editingItem.id && (
-                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">Active Status</p>
-                      <p className="text-xs text-slate-500/60">
-                        Inactive items hidden from POS
-                      </p>
-                    </div>
-                    <Switch
-                      checked={editingItem.isActive !== false}
-                      onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                  <div className="space-y-2">
+                    <Label>Item Name <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={editingItem.name}
+                      onChange={(e) => handleFieldChange("name", e.target.value)}
+                      placeholder="Coffee Latte"
+                      className="placeholder:text-slate-400/60"
                     />
                   </div>
-                )}
 
-                {editingItem.id && (
-                  <div className="pt-4">
-                    <Button
-                      onClick={handleDeleteItem}
-                      disabled={!canDelete}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
-                    </Button>
+                  <div className="space-y-2">
+                    <Label>SKU (Barcode)</Label>
+                    <Input
+                      value={editingItem.sku || ""}
+                      onChange={(e) => handleFieldChange("sku", e.target.value)}
+                      placeholder="COFFEE-001"
+                      className="placeholder:text-slate-400/60"
+                    />
                   </div>
-                )}
+
+                  <div className="space-y-2">
+                    <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={priceDisplay}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="25,000"
+                      className="placeholder:text-slate-400/60"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Dialog open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between"
+                        onClick={() => setCategorySheetOpen(true)}
+                      >
+                        {editingItem.category || "Select or type category..."}
+                        <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                      <DialogContent className="max-w-md max-h-[50vh] flex flex-col p-0">
+                        <div className="px-6 pt-6 pb-4 flex-shrink-0">
+                          <h3 className="text-lg font-semibold">Select or Add Category</h3>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-6 pb-2">
+                          <Command className="rounded-lg border">
+                            <CommandInput 
+                              placeholder="Type to search or add new category..." 
+                              value={categorySearch}
+                              onValueChange={setCategorySearch}
+                              className="placeholder:text-slate-400/60"
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                <div className="py-6 text-center text-sm text-slate-500">
+                                  No category found
+                                </div>
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {filteredCategories.map((cat) => (
+                                  <CommandItem
+                                    key={cat}
+                                    value={cat}
+                                    onSelect={() => handleCategorySelect(cat)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {cat}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </div>
+                        {categorySearch && filteredCategories.length === 0 && (
+                          <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
+                            <Button
+                              onClick={() => handleCategorySelect(categorySearch)}
+                              className="w-full"
+                              size="lg"
+                            >
+                              Create "{capitalizeWords(categorySearch)}"
+                            </Button>
+                          </div>
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                    <p className="text-xs text-slate-500/60">
+                      Tap to select existing or type new category
+                    </p>
+                  </div>
+
+                  {editingItem.id && (
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">Active Status</p>
+                        <p className="text-xs text-slate-500/60">
+                          Inactive items hidden from POS
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editingItem.isActive !== false}
+                        onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                      />
+                    </div>
+                  )}
+
+                  {editingItem.id && (
+                    <div className="pt-4">
+                      <Button
+                        onClick={handleDeleteItem}
+                        disabled={!canDelete}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {canDelete ? "Delete Item" : "Cannot Delete (Used in Transactions)"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
