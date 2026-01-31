@@ -509,11 +509,11 @@ export function EmployeesPanel() {
                           </span>
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
-                        <SheetContent side="bottom" className="h-[80vh] flex flex-col p-0">
+                        <SheetContent side="bottom" className="max-h-[80vh] flex flex-col p-0">
                           <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
                             <SheetTitle>Select or Add Role</SheetTitle>
                           </SheetHeader>
-                          <div className="flex-1 overflow-y-auto px-6">
+                          <div className="flex-1 overflow-y-auto px-6 min-h-[200px]">
                             <Command className="rounded-lg border">
                               <CommandInput 
                                 placeholder="Type to search or add new role..." 
