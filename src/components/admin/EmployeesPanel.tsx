@@ -188,7 +188,7 @@ export function EmployeesPanel() {
   };
 
   const handleNewEmployee = () => {
-    const newEmployee = {
+    const newEmployee: Employee = {
       name: "",
       pin: "",
       role: "employee",
