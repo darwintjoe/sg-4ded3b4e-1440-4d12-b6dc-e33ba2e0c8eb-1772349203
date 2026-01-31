@@ -561,134 +561,144 @@ export function ItemsPanel() {
 
       {/* Edit/Add Modal */}
       <Sheet open={isSheetOpen} onOpenChange={handleCloseSheet}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0 flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
             <SheetTitle>
               {editingItem?.id ? "Edit Item" : "Add New Item"}
             </SheetTitle>
           </SheetHeader>
 
           {editingItem && (
-            <div className="space-y-4 mt-6">
-              {validationError && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{validationError}</AlertDescription>
-                </Alert>
-              )}
+            <>
+              <div className="flex-1 overflow-y-auto px-6 pb-6">
+                <div className="space-y-4">
+                  {validationError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{validationError}</AlertDescription>
+                    </Alert>
+                  )}
 
-              <div className="space-y-2">
-                <Label>Item Name <span className="text-red-500">*</span></Label>
-                <Input
-                  value={editingItem.name}
-                  onChange={(e) => handleFieldChange("name", e.target.value)}
-                  placeholder="Coffee Latte"
-                  className="placeholder:text-slate-400/60"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Item Name <span className="text-red-500">*</span></Label>
+                    <Input
+                      value={editingItem.name}
+                      onChange={(e) => handleFieldChange("name", e.target.value)}
+                      placeholder="Coffee Latte"
+                      className="placeholder:text-slate-400/60"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label>SKU (Barcode)</Label>
-                <Input
-                  value={editingItem.sku || ""}
-                  onChange={(e) => handleFieldChange("sku", e.target.value)}
-                  placeholder="COFFEE-001"
-                  className="placeholder:text-slate-400/60"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>SKU (Barcode)</Label>
+                    <Input
+                      value={editingItem.sku || ""}
+                      onChange={(e) => handleFieldChange("sku", e.target.value)}
+                      placeholder="COFFEE-001"
+                      className="placeholder:text-slate-400/60"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  value={priceDisplay}
-                  onChange={(e) => handlePriceChange(e.target.value)}
-                  placeholder="25,000"
-                  className="placeholder:text-slate-400/60"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={priceDisplay}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="25,000"
+                      className="placeholder:text-slate-400/60"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
-                  <SheetTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                    >
-                      {editingItem.category || "Select or type category..."}
-                      <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="bottom" className="h-[80vh]">
-                    <SheetHeader>
-                      <SheetTitle>Select or Add Category</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-4">
-                      <Command className="rounded-lg border">
-                        <CommandInput 
-                          placeholder="Type to search or add new category..." 
-                          value={categorySearch}
-                          onValueChange={setCategorySearch}
-                          className="placeholder:text-slate-400/60"
-                        />
-                        <CommandList>
-                          <CommandEmpty>
-                            <div className="p-4 text-center">
-                              <p className="text-sm text-slate-500 mb-3">No category found</p>
-                              <Button
-                                size="sm"
-                                onClick={() => handleCategorySelect(categorySearch)}
-                                disabled={!categorySearch.trim()}
-                              >
-                                Create "{capitalizeWords(categorySearch)}"
-                              </Button>
-                            </div>
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {filteredCategories.map((cat) => (
-                              <CommandItem
-                                key={cat}
-                                value={cat}
-                                onSelect={() => handleCategorySelect(cat)}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    editingItem.category === cat ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {cat}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </div>
-                  </SheetContent>
-                </Sheet>
-                <p className="text-xs text-slate-500/60">
-                  Tap to select existing or type new category
-                </p>
-              </div>
-
-              {editingItem.id && (
-                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">Active Status</p>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Sheet open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                      <SheetTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between"
+                        >
+                          {editingItem.category || "Select or type category..."}
+                          <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </SheetTrigger>
+                      <SheetContent side="bottom" className="h-[80vh] flex flex-col p-0">
+                        <SheetHeader className="px-6 pt-6 pb-4 flex-shrink-0">
+                          <SheetTitle>Select or Add Category</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-y-auto px-6">
+                          <Command className="rounded-lg border">
+                            <CommandInput 
+                              placeholder="Type to search or add new category..." 
+                              value={categorySearch}
+                              onValueChange={setCategorySearch}
+                              className="placeholder:text-slate-400/60"
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                <div className="p-4 text-center text-sm text-slate-500">
+                                  No category found
+                                </div>
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {filteredCategories.map((cat) => (
+                                  <CommandItem
+                                    key={cat}
+                                    value={cat}
+                                    onSelect={() => handleCategorySelect(cat)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {cat}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </div>
+                        {/* Sticky Footer with Create Button */}
+                        {categorySearch && filteredCategories.length === 0 && (
+                          <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
+                            <Button
+                              onClick={() => handleCategorySelect(categorySearch)}
+                              className="w-full"
+                              size="lg"
+                            >
+                              Create "{capitalizeWords(categorySearch)}"
+                            </Button>
+                          </div>
+                        )}
+                      </SheetContent>
+                    </Sheet>
                     <p className="text-xs text-slate-500/60">
-                      Inactive items hidden from POS
+                      Tap to select existing or type new category
                     </p>
                   </div>
-                  <Switch
-                    checked={editingItem.isActive !== false}
-                    onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
-                  />
-                </div>
-              )}
 
-              <div className="flex flex-col gap-2 pt-4 border-t">
+                  {editingItem.id && (
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">Active Status</p>
+                        <p className="text-xs text-slate-500/60">
+                          Inactive items hidden from POS
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editingItem.isActive !== false}
+                        onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sticky Footer with Action Buttons */}
+              <div className="flex-shrink-0 px-6 pb-6 pt-4 border-t bg-background space-y-2">
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={handleCloseSheet} className="flex-1">
                     Cancel
@@ -714,7 +724,7 @@ export function ItemsPanel() {
                   </Button>
                 )}
               </div>
-            </div>
+            </>
           )}
         </SheetContent>
       </Sheet>
