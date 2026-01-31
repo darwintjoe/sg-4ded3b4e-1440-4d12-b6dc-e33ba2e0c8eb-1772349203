@@ -43,9 +43,9 @@ const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Emp
         employee.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="font-medium max-w-[200px] truncate">{employee.name}</TableCell>
-      <TableCell className="font-mono text-sm w-[80px]">{employee.pin}</TableCell>
-      <TableCell className="text-right text-slate-600 dark:text-slate-400 w-[100px] whitespace-nowrap">
+      <TableCell className="text-sm w-[50%] truncate">{employee.name}</TableCell>
+      <TableCell className="text-sm w-[25%]">{employee.pin}</TableCell>
+      <TableCell className="text-right text-sm w-[25%] whitespace-nowrap">
         {formatDate(employee.joinDate)}
       </TableCell>
     </TableRow>
@@ -455,17 +455,17 @@ export function EmployeesPanel() {
             <Table>
               <TableHeader className="bg-slate-50 dark:bg-slate-900">
                 <TableRow>
-                  <TableHead>
+                  <TableHead className="w-[50%]">
                     <button onClick={() => handleSort("name")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
                       Name <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[80px]">
+                  <TableHead className="w-[25%]">
                     <button onClick={() => handleSort("pin")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
                       PIN <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[100px] text-right">
+                  <TableHead className="w-[25%] text-right">
                     <button onClick={() => handleSort("joinDate")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto">
                       Joined <ArrowUpDown className="h-3 w-3" />
                     </button>

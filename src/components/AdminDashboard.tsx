@@ -18,7 +18,12 @@ export function AdminDashboard() {
       {/* Fixed Header */}
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-800 shadow-sm z-30">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight">ADMIN</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {activeTab === "settings" && "SETTINGS"}
+            {activeTab === "items" && "ITEMS"}
+            {activeTab === "employees" && "EMPLOYEES"}
+            {activeTab === "reports" && "REPORTS"}
+          </h1>
           <div className="flex items-center gap-2">
             <LanguageSelector />
             <Button onClick={logoutAdmin} variant="ghost" size="sm">

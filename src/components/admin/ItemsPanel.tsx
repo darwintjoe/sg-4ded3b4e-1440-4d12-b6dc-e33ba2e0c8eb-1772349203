@@ -35,9 +35,9 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
         item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="font-mono text-sm max-w-[100px] truncate">{item.sku || "-"}</TableCell>
-      <TableCell className="font-medium max-w-[200px] truncate">{item.name}</TableCell>
-      <TableCell className="text-right font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
+      <TableCell className="text-sm w-[30%] truncate">{item.sku || "-"}</TableCell>
+      <TableCell className="text-sm w-[50%] truncate">{item.name}</TableCell>
+      <TableCell className="text-right text-sm w-[20%] whitespace-nowrap">
         {item.price.toLocaleString("id-ID")}
       </TableCell>
     </TableRow>
@@ -551,7 +551,7 @@ export function ItemsPanel() {
             <Table>
               <TableHeader className="bg-slate-50 dark:bg-slate-900">
                 <TableRow>
-                  <TableHead className="w-[100px]">
+                  <TableHead className="w-[30%]">
                     <button
                       onClick={() => handleSort("sku")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
@@ -560,7 +560,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="w-[50%]">
                     <button
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
@@ -569,7 +569,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[120px] text-right">
+                  <TableHead className="w-[20%] text-right">
                     <button
                       onClick={() => handleSort("price")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
