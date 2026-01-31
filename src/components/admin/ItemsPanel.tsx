@@ -64,6 +64,10 @@ export function ItemsPanel() {
   const [categorySearch, setCategorySearch] = useState("");
   const [priceDisplay, setPriceDisplay] = useState("");
   const [originalItem, setOriginalItem] = useState<Item | null>(null);
+  
+  // Import Progress State
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -312,12 +316,16 @@ export function ItemsPanel() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setImporting(true);
+    setImportProgress(0);
+
     try {
       const text = await file.text();
       const lines = text.split("\n").filter(l => l.trim());
       
       if (lines.length < 2) {
         alert("CSV file is empty or has no data rows");
+        setImporting(false);
         return;
       }
 
@@ -339,6 +347,10 @@ export function ItemsPanel() {
       let imported = 0;
       let skipped = 0;
       const errors: string[] = [];
+      const totalRows = lines.length - 1;
+      // Calculate delay: At least 1.5s total duration, or 50ms per item max
+      // If very few items, sleep longer per item to make it visible
+      const delayPerItem = Math.max(10, Math.min(100, 1500 / Math.max(1, totalRows)));
 
       for (let i = 1; i < lines.length; i++) {
         try {
@@ -352,6 +364,8 @@ export function ItemsPanel() {
           if (!name || name.length === 0) {
             errors.push(`Row ${i}: Missing product name`);
             skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
             continue;
           }
 
@@ -359,6 +373,8 @@ export function ItemsPanel() {
           if (isNaN(price) || price <= 0) {
             errors.push(`Row ${i}: Invalid price "${priceStr}"`);
             skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
             continue;
           }
 
@@ -385,19 +401,31 @@ export function ItemsPanel() {
           if (uniqueError) {
             errors.push(`Row ${i}: ${uniqueError}`);
             skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
             continue;
           }
 
           await db.add("items", { ...newItem, id: Date.now() + imported });
           imported++;
+          
+          setImportProgress(Math.round((i / totalRows) * 100));
+          await sleep(delayPerItem);
 
         } catch (rowError: any) {
           errors.push(`Row ${i}: ${rowError.message}`);
           skipped++;
+          setImportProgress(Math.round((i / totalRows) * 100));
+          await sleep(delayPerItem);
         }
       }
 
+      setImportProgress(100);
+      await sleep(500); // Pause at 100% for satisfaction
       await loadItems();
+      
+      // Keep showing 100% for a moment before closing
+      setImporting(false);
 
       let message = `Import complete!\nImported: ${imported}\nSkipped: ${skipped}`;
       if (errors.length > 0 && errors.length <= 10) {
@@ -412,6 +440,7 @@ export function ItemsPanel() {
 
     } catch (error: any) {
       console.error("CSV Import failed:", error);
+      setImporting(false);
       alert(`Import failed: ${error.message}`);
       event.target.value = "";
     }
@@ -480,15 +509,20 @@ export function ItemsPanel() {
       {/* Importing Progress Overlay */}
       {importing && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl">
-            <div className="text-center space-y-2">
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
-              <h3 className="text-xl font-semibold">Importing Items...</h3>
-              <p className="text-sm text-slate-500">Processing your CSV file</p>
+              <div className="space-y-1">
+                <h3 className="text-xl font-semibold">Importing Items...</h3>
+                <p className="text-sm text-slate-500">Processing your CSV file</p>
+              </div>
             </div>
             <div className="space-y-2">
-              <Progress value={importProgress} className="h-3" />
-              <p className="text-center text-sm font-medium text-blue-600">{importProgress}%</p>
+              <Progress value={importProgress} className="h-3 w-full" />
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Processing...</span>
+                <span className="font-medium text-blue-600">{importProgress}%</span>
+              </div>
             </div>
           </div>
         </div>
