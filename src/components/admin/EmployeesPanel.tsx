@@ -12,7 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
 import { useLongPress } from "@/hooks/use-long-press";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortField = "name" | "pin" | "joinDate";
@@ -43,9 +43,9 @@ const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Emp
         employee.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="font-medium">{employee.name}</TableCell>
-      <TableCell className="font-mono text-sm">{employee.pin}</TableCell>
-      <TableCell className="text-right text-slate-600 dark:text-slate-400">
+      <TableCell className="font-medium max-w-[200px] truncate">{employee.name}</TableCell>
+      <TableCell className="font-mono text-sm w-[80px]">{employee.pin}</TableCell>
+      <TableCell className="text-right text-slate-600 dark:text-slate-400 w-[100px] whitespace-nowrap">
         {formatDate(employee.joinDate)}
       </TableCell>
     </TableRow>
@@ -55,7 +55,6 @@ const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Emp
 export function EmployeesPanel() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchExpanded, setSearchExpanded] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resigned">("active");
   const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
   
@@ -316,6 +315,27 @@ export function EmployeesPanel() {
     }
   };
 
+  const handleCSVExport = async () => {
+    const allEmployees = await db.getAll<Employee>("employees");
+    const headers = ["Name", "PIN", "Role", "Join Date"];
+    const rows = allEmployees.map(emp => [
+      emp.name,
+      emp.pin,
+      emp.role,
+      emp.joinDate ? new Date(emp.joinDate).toLocaleDateString("en-GB") : ""
+    ]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "employees.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredEmployees = employees
     .filter((employee) => {
       const matchesSearch = 
@@ -357,109 +377,126 @@ export function EmployeesPanel() {
   );
 
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-          <Input
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setSearchExpanded(true)}
-            onBlur={() => setSearchExpanded(false)}
-            className={cn(
-              "transition-all duration-200 pl-10",
-              searchExpanded ? "w-full sm:w-64" : "w-24"
-            )}
+    <div className="flex flex-col h-full">
+      {/* Fixed Filters Section - Max 2 Rows */}
+      <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
+        {/* Row 1: Search + Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[100px] max-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 text-sm"
+            />
+          </div>
+
+          <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="resigned">Resigned</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
+            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="cashier">Cashier</SelectItem>
+              <SelectItem value="employee">Employee</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Row 2: Import/Export Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fileInputRef.current?.click()}
+            className="gap-2 whitespace-nowrap text-sm"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Import</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleCSVExport}
+            className="gap-2 whitespace-nowrap text-sm"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export</span>
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleCSVImport}
+            className="hidden"
           />
         </div>
-
-        <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="resigned">Resigned</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
-          <SelectTrigger className="w-auto min-w-[110px] whitespace-nowrap">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="cashier">Cashier</SelectItem>
-            <SelectItem value="employee">Employee</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => fileInputRef.current?.click()}
-          className="gap-2 whitespace-nowrap"
-        >
-          <Upload className="h-4 w-4" />
-          <span>Import CSV</span>
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv"
-          onChange={handleCSVImport}
-          className="hidden"
-        />
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <button onClick={() => handleSort("name")} className="flex items-center gap-1 font-semibold hover:text-blue-600">
-                    Name <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="w-[80px]">
-                  <button onClick={() => handleSort("pin")} className="flex items-center gap-1 font-semibold hover:text-blue-600">
-                    PIN <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="w-[100px] text-right">
-                  <button onClick={() => handleSort("joinDate")} className="flex items-center gap-1 font-semibold hover:text-blue-600 ml-auto">
-                    Joined <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEmployees.length === 0 ? (
+      {/* Scrollable Table Section */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <Card className="m-3 overflow-hidden">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-12 text-slate-500">
-                    {searchQuery ? "No employees found" : "No employees yet"}
-                  </TableCell>
+                  <TableHead>
+                    <button onClick={() => handleSort("name")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
+                      Name <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[80px]">
+                    <button onClick={() => handleSort("pin")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
+                      PIN <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[100px] text-right">
+                    <button onClick={() => handleSort("joinDate")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto">
+                      Joined <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
                 </TableRow>
-              ) : (
-                filteredEmployees.map((employee) => (
-                  <EmployeeRow key={employee.id} employee={employee} onEdit={handleEditEmployee} />
-                ))
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
+                      {searchQuery ? "No employees found" : "No employees yet"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredEmployees.map((employee) => (
+                    <EmployeeRow key={employee.id} employee={employee} onEdit={handleEditEmployee} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
-      </Card>
 
-      <button
-        onClick={handleNewEmployee}
-        className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-10 transition-transform hover:scale-110"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
+        {/* Floating Add Button */}
+        <button
+          onClick={handleNewEmployee}
+          className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-20 transition-transform hover:scale-110"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) {

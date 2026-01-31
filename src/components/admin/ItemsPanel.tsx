@@ -7,6 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
 import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
@@ -26,21 +28,19 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
   });
 
   return (
-    <tr
+    <TableRow
       {...longPressHandlers}
       className={cn(
-        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation border-b border-slate-200 dark:border-slate-700",
+        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation",
         item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <td className="py-3 px-4 font-mono text-sm">{item.sku || "-"}</td>
-      <td className="py-3 px-4 font-medium" style={{ fontFamily: "'Roboto Condensed', sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "200px" }}>
-        {item.name}
-      </td>
-      <td className="py-3 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
+      <TableCell className="font-mono text-sm max-w-[100px] truncate">{item.sku || "-"}</TableCell>
+      <TableCell className="font-medium max-w-[200px] truncate">{item.name}</TableCell>
+      <TableCell className="text-right font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">
         {item.price.toLocaleString("id-ID")}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 };
 
@@ -478,18 +478,13 @@ export function ItemsPanel() {
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
         {/* Row 1: Search + Filters */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
+          <div className="relative flex-1 min-w-[100px] max-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
             <Input
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchExpanded(true)}
-              onBlur={() => setSearchExpanded(false)}
-              className={cn(
-                "transition-all duration-200 pl-10",
-                searchExpanded ? "w-full sm:w-64" : "w-24"
-              )}
+              className="pl-10 text-sm"
             />
           </div>
 
@@ -552,55 +547,54 @@ export function ItemsPanel() {
       {/* Scrollable Table Section */}
       <div className="flex-1 overflow-hidden relative">
         <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <table className="w-full">
-            {/* Sticky Table Header */}
-            <thead className="bg-slate-50 dark:bg-slate-900 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
-              <tr>
-                <th className="py-3 px-4 text-left w-[100px]">
-                  <button
-                    onClick={() => handleSort("sku")}
-                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                  >
-                    SKU
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="py-3 px-4 text-left">
-                  <button
-                    onClick={() => handleSort("name")}
-                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                  >
-                    Name
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-                <th className="py-3 px-4 text-right w-[120px]">
-                  <button
-                    onClick={() => handleSort("price")}
-                    className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
-                  >
-                    Price
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </th>
-              </tr>
-            </thead>
-
-            {/* Scrollable Table Body */}
-            <tbody>
-              {filteredItems.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                    {searchQuery ? "No items found" : "No items yet"}
-                  </td>
-                </tr>
-              ) : (
-                filteredItems.map((item) => (
-                  <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
-                ))
-              )}
-            </tbody>
-          </table>
+          <Card className="m-3 overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">
+                    <button
+                      onClick={() => handleSort("sku")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
+                    >
+                      SKU
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort("name")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
+                    >
+                      Name
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[120px] text-right">
+                    <button
+                      onClick={() => handleSort("price")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
+                    >
+                      Price
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
+                      {searchQuery ? "No items found" : "No items yet"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredItems.map((item) => (
+                    <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
 
         {/* Floating Add Button */}
