@@ -19,6 +19,31 @@ type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
 type StatusFilter = "all" | "active" | "inactive";
 
+// Extracted component to safely use hooks
+const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void }) => {
+  const longPressHandlers = useLongPress({
+    onLongPress: () => onEdit(item),
+    onClick: () => {}, // Single click does nothing to prevent accidental edits
+    delay: 500,
+  });
+
+  return (
+    <TableRow
+      {...longPressHandlers}
+      className={cn(
+        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation",
+        item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
+      )}
+    >
+      <TableCell className="font-mono text-sm">{item.sku || "-"}</TableCell>
+      <TableCell className="font-medium">{item.name}</TableCell>
+      <TableCell className="text-right font-bold text-blue-600 dark:text-blue-400">
+        {item.price.toLocaleString("id-ID")}
+      </TableCell>
+    </TableRow>
+  );
+};
+
 export function ItemsPanel() {
   const { language } = useApp();
   const [items, setItems] = useState<Item[]>([]);
@@ -452,29 +477,9 @@ export function ItemsPanel() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((item) => {
-                  const longPressHandlers = useLongPress({
-                    onLongPress: () => handleEditItem(item),
-                    onClick: () => handleEditItem(item),
-                  });
-
-                  return (
-                    <TableRow
-                      key={item.id}
-                      {...longPressHandlers}
-                      className={cn(
-                        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800",
-                        item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
-                      )}
-                    >
-                      <TableCell className="font-mono text-sm">{item.sku || "-"}</TableCell>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="text-right font-bold text-blue-600 dark:text-blue-400">
-                        {item.price.toLocaleString("id-ID")}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+                filteredItems.map((item) => (
+                  <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
+                ))
               )}
             </TableBody>
           </Table>

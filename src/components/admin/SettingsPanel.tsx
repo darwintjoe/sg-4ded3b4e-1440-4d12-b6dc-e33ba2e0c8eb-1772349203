@@ -62,12 +62,12 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">System Settings</h2>
-        <Button onClick={handleSave} className="gap-2">
+        <h2 className="text-xl font-bold">System Settings</h2>
+        <Button onClick={handleSave} size="sm" className="gap-2">
           {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-          {saved ? "Saved!" : "Save Changes"}
+          {saved ? "Saved" : "Save"}
         </Button>
       </div>
 

@@ -520,7 +520,7 @@ export function ReportsPanel() {
   };
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-6 p-4 print:space-y-4 print:p-0">
       <style jsx global>{`
         @media print {
           body * {
@@ -545,17 +545,17 @@ export function ReportsPanel() {
       `}</style>
 
       <div id="reports-content" className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-bold">Reports & Analytics</h2>
+            <h2 className="text-xl font-bold">Reports</h2>
             <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full no-print">
-              <Zap className="h-4 w-4 text-green-600" />
-              <span className="text-xs font-bold text-green-700 dark:text-green-400">LIGHTNING FAST</span>
+              <Zap className="h-3 w-3 text-green-600" />
+              <span className="text-[10px] font-bold text-green-700 dark:text-green-400">LIVE</span>
             </div>
           </div>
-          <div className="flex gap-2 no-print">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto no-print">
             <Select value={dateRange} onValueChange={(val) => setDateRange(val as DateRange)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -568,7 +568,7 @@ export function ReportsPanel() {
             </Select>
             
             {dateRange === "custom" && (
-              <>
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Input
                   type="date"
                   value={customStart}
@@ -582,18 +582,20 @@ export function ReportsPanel() {
                   onChange={(e) => setCustomEnd(e.target.value)}
                   className="w-auto"
                 />
-              </>
+              </div>
             )}
             
-            <Button onClick={exportToCSV} variant="outline" className="gap-2">
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-            
-            <Button onClick={handlePrint} variant="outline" className="gap-2">
-              <Printer className="h-4 w-4" />
-              Print
-            </Button>
+            <div className="flex gap-2 ml-auto sm:ml-0">
+              <Button onClick={exportToCSV} variant="outline" size="sm" className="gap-2">
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">CSV</span>
+              </Button>
+              
+              <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
+                <Printer className="h-4 w-4" />
+                <span className="hidden sm:inline">Print</span>
+              </Button>
+            </div>
           </div>
         </div>
 
