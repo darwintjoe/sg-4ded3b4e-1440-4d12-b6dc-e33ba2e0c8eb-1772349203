@@ -158,7 +158,9 @@ export function SettingsPanel() {
     </TooltipProvider>
   );
 
-  const enabledShiftCount = Object.values(settings.shifts).filter(s => s.enabled).length;
+  const enabledShiftCount = settings.shifts 
+    ? Object.values(settings.shifts).filter(s => s.enabled).length 
+    : 1;
 
   return (
     <div className="h-full flex flex-col">
@@ -538,13 +540,18 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-semibold">Shift 1</Label>
                     <Switch
-                      checked={settings.shifts.shift1.enabled}
+                      checked={settings.shifts?.shift1?.enabled ?? true}
                       onCheckedChange={(checked) => {
                         const newSettings = {
                           ...settings,
                           shifts: {
-                            ...settings.shifts,
-                            shift1: { ...settings.shifts.shift1, enabled: checked }
+                            ...(settings.shifts || {}),
+                            shift1: { 
+                              ...(settings.shifts?.shift1 || { name: "Morning Shift", startTime: "09:00", endTime: "18:00" }), 
+                              enabled: checked 
+                            },
+                            shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                            shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                           }
                         };
                         setSettings(newSettings);
@@ -553,24 +560,24 @@ export function SettingsPanel() {
                     />
                   </div>
                   
-                  {settings.shifts.shift1.enabled && (
+                  {(settings.shifts?.shift1?.enabled ?? true) && (
                     <div className="space-y-2">
                       <div>
                         <Label htmlFor="shift1Name" className="text-xs">Name</Label>
                         <Input
                           id="shift1Name"
-                          value={settings.shifts.shift1.name}
+                          value={settings.shifts?.shift1?.name ?? "Morning Shift"}
                           onChange={(e) => setSettings({
                             ...settings,
                             shifts: {
-                              ...settings.shifts,
-                              shift1: { ...settings.shifts.shift1, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: { ...settings.shifts?.shift1, name: e.target.value }
                             }
                           })}
                           onBlur={(e) => updateAndSave({
                             shifts: {
-                              ...settings.shifts,
-                              shift1: { ...settings.shifts.shift1, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: { ...settings.shifts?.shift1, name: e.target.value }
                             }
                           })}
                           placeholder="Morning Shift"
@@ -583,18 +590,18 @@ export function SettingsPanel() {
                           <Input
                             id="shift1Start"
                             type="time"
-                            value={settings.shifts.shift1.startTime}
+                            value={settings.shifts?.shift1?.startTime ?? "09:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift1: { ...settings.shifts.shift1, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: { ...settings.shifts?.shift1, startTime: e.target.value }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift1: { ...settings.shifts.shift1, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: { ...settings.shifts?.shift1, startTime: e.target.value }
                               }
                             })}
                             className="mt-1"
@@ -605,18 +612,18 @@ export function SettingsPanel() {
                           <Input
                             id="shift1End"
                             type="time"
-                            value={settings.shifts.shift1.endTime}
+                            value={settings.shifts?.shift1?.endTime ?? "18:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift1: { ...settings.shifts.shift1, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: { ...settings.shifts?.shift1, endTime: e.target.value }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift1: { ...settings.shifts.shift1, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: { ...settings.shifts?.shift1, endTime: e.target.value }
                               }
                             })}
                             className="mt-1"
@@ -632,13 +639,18 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-semibold">Shift 2</Label>
                     <Switch
-                      checked={settings.shifts.shift2.enabled}
+                      checked={settings.shifts?.shift2?.enabled ?? false}
                       onCheckedChange={(checked) => {
                         const newSettings = {
                           ...settings,
                           shifts: {
-                            ...settings.shifts,
-                            shift2: { ...settings.shifts.shift2, enabled: checked }
+                            ...(settings.shifts || {}),
+                            shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                            shift2: { 
+                              ...(settings.shifts?.shift2 || { name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" }), 
+                              enabled: checked 
+                            },
+                            shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                           }
                         };
                         setSettings(newSettings);
@@ -647,24 +659,28 @@ export function SettingsPanel() {
                     />
                   </div>
                   
-                  {settings.shifts.shift2.enabled && (
+                  {(settings.shifts?.shift2?.enabled ?? false) && (
                     <div className="space-y-2">
                       <div>
                         <Label htmlFor="shift2Name" className="text-xs">Name</Label>
                         <Input
                           id="shift2Name"
-                          value={settings.shifts.shift2.name}
+                          value={settings.shifts?.shift2?.name ?? "Afternoon Shift"}
                           onChange={(e) => setSettings({
                             ...settings,
                             shifts: {
-                              ...settings.shifts,
-                              shift2: { ...settings.shifts.shift2, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                              shift2: { ...settings.shifts?.shift2, name: e.target.value },
+                              shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                             }
                           })}
                           onBlur={(e) => updateAndSave({
                             shifts: {
-                              ...settings.shifts,
-                              shift2: { ...settings.shifts.shift2, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                              shift2: { ...settings.shifts?.shift2, name: e.target.value },
+                              shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                             }
                           })}
                           placeholder="Afternoon Shift"
@@ -677,18 +693,22 @@ export function SettingsPanel() {
                           <Input
                             id="shift2Start"
                             type="time"
-                            value={settings.shifts.shift2.startTime}
+                            value={settings.shifts?.shift2?.startTime ?? "14:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift2: { ...settings.shifts.shift2, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: { ...settings.shifts?.shift2, startTime: e.target.value },
+                                shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift2: { ...settings.shifts.shift2, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: { ...settings.shifts?.shift2, startTime: e.target.value },
+                                shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                               }
                             })}
                             className="mt-1"
@@ -699,18 +719,22 @@ export function SettingsPanel() {
                           <Input
                             id="shift2End"
                             type="time"
-                            value={settings.shifts.shift2.endTime}
+                            value={settings.shifts?.shift2?.endTime ?? "22:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift2: { ...settings.shifts.shift2, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: { ...settings.shifts?.shift2, endTime: e.target.value },
+                                shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift2: { ...settings.shifts.shift2, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: { ...settings.shifts?.shift2, endTime: e.target.value },
+                                shift3: settings.shifts?.shift3 || { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" }
                               }
                             })}
                             className="mt-1"
@@ -726,13 +750,18 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-semibold">Shift 3</Label>
                     <Switch
-                      checked={settings.shifts.shift3.enabled}
+                      checked={settings.shifts?.shift3?.enabled ?? false}
                       onCheckedChange={(checked) => {
                         const newSettings = {
                           ...settings,
                           shifts: {
-                            ...settings.shifts,
-                            shift3: { ...settings.shifts.shift3, enabled: checked }
+                            ...(settings.shifts || {}),
+                            shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                            shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                            shift3: { 
+                              ...(settings.shifts?.shift3 || { name: "Night Shift", startTime: "22:00", endTime: "06:00" }), 
+                              enabled: checked 
+                            }
                           }
                         };
                         setSettings(newSettings);
@@ -741,24 +770,28 @@ export function SettingsPanel() {
                     />
                   </div>
                   
-                  {settings.shifts.shift3.enabled && (
+                  {(settings.shifts?.shift3?.enabled ?? false) && (
                     <div className="space-y-2">
                       <div>
                         <Label htmlFor="shift3Name" className="text-xs">Name</Label>
                         <Input
                           id="shift3Name"
-                          value={settings.shifts.shift3.name}
+                          value={settings.shifts?.shift3?.name ?? "Night Shift"}
                           onChange={(e) => setSettings({
                             ...settings,
                             shifts: {
-                              ...settings.shifts,
-                              shift3: { ...settings.shifts.shift3, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                              shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                              shift3: { ...settings.shifts?.shift3, name: e.target.value }
                             }
                           })}
                           onBlur={(e) => updateAndSave({
                             shifts: {
-                              ...settings.shifts,
-                              shift3: { ...settings.shifts.shift3, name: e.target.value }
+                              ...(settings.shifts || {}),
+                              shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                              shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                              shift3: { ...settings.shifts?.shift3, name: e.target.value }
                             }
                           })}
                           placeholder="Night Shift"
@@ -771,18 +804,22 @@ export function SettingsPanel() {
                           <Input
                             id="shift3Start"
                             type="time"
-                            value={settings.shifts.shift3.startTime}
+                            value={settings.shifts?.shift3?.startTime ?? "22:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift3: { ...settings.shifts.shift3, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                                shift3: { ...settings.shifts?.shift3, startTime: e.target.value }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift3: { ...settings.shifts.shift3, startTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                                shift3: { ...settings.shifts?.shift3, startTime: e.target.value }
                               }
                             })}
                             className="mt-1"
@@ -793,18 +830,22 @@ export function SettingsPanel() {
                           <Input
                             id="shift3End"
                             type="time"
-                            value={settings.shifts.shift3.endTime}
+                            value={settings.shifts?.shift3?.endTime ?? "06:00"}
                             onChange={(e) => setSettings({
                               ...settings,
                               shifts: {
-                                ...settings.shifts,
-                                shift3: { ...settings.shifts.shift3, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                                shift3: { ...settings.shifts?.shift3, endTime: e.target.value }
                               }
                             })}
                             onBlur={(e) => updateAndSave({
                               shifts: {
-                                ...settings.shifts,
-                                shift3: { ...settings.shifts.shift3, endTime: e.target.value }
+                                ...(settings.shifts || {}),
+                                shift1: settings.shifts?.shift1 || { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+                                shift2: settings.shifts?.shift2 || { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+                                shift3: { ...settings.shifts?.shift3, endTime: e.target.value }
                               }
                             })}
                             className="mt-1"
