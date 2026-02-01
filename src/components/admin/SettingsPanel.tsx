@@ -1,79 +1,71 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { useApp } from "@/contexts/AppContext";
-import { translate } from "@/lib/translations";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { db } from "@/lib/db";
-import { Settings as SettingsType, POSMode } from "@/types";
-import { Save, Check, Upload, X } from "lucide-react";
+import { Settings, Language } from "@/types";
+import { Upload, X, Printer, Bluetooth, Check, AlertCircle, Loader2 } from "lucide-react";
+import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 
 export function SettingsPanel() {
-  const { language, mode, setMode } = useApp();
-  const [settings, setSettings] = useState<SettingsType | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Bluetooth printer state
+  const [printerConnecting, setPrinterConnecting] = useState(false);
+  const [printerTesting, setPrinterTesting] = useState(false);
+  const [printerStatus, setPrinterStatus] = useState<"disconnected" | "connected" | "error">("disconnected");
+  const [printerError, setPrinterError] = useState<string | null>(null);
+
   useEffect(() => {
     loadSettings();
+    checkPrinterConnection();
   }, []);
 
-  useEffect(() => {
-    if (settings?.businessLogo) {
-      setLogoPreview(settings.businessLogo);
-    }
-  }, [settings?.businessLogo]);
-
   const loadSettings = async () => {
-    const allSettings = await db.getAll<SettingsType>("settings");
-    if (allSettings.length > 0) {
-      setSettings(allSettings[0]);
+    try {
+      const loadedSettings = await db.getSettings();
+      setSettings(loadedSettings);
+      if (loadedSettings.businessLogo) {
+        setLogoPreview(loadedSettings.businessLogo);
+      }
+    } catch (error) {
+      console.error("Failed to load settings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkPrinterConnection = () => {
+    if (bluetoothPrinter.isConnected()) {
+      setPrinterStatus("connected");
     } else {
-      const defaultSettings: SettingsType = {
-        key: "default",
-        mode: "retail",
-        tax1Enabled: true,
-        tax1Label: "PPN",
-        tax1Rate: 10,
-        tax1Inclusive: false,
-        tax2Enabled: false,
-        tax2Label: "GST",
-        tax2Rate: 5,
-        language: "en",
-        printerWidth: 80,
-        businessName: "My Store",
-        businessLogo: undefined,
-        businessAddress: undefined,
-        taxId: undefined,
-        receiptFooter: "Thank you for your purchase!",
-        googleDriveLinked: false,
-        allowPriceOverride: false
-      };
-      await db.put("settings", defaultSettings);
-      setSettings(defaultSettings);
+      setPrinterStatus("disconnected");
     }
   };
 
   const handleSave = async () => {
     if (!settings) return;
-    
-    await db.put("settings", settings);
-    if (settings.mode !== mode) {
-      setMode(settings.mode);
-    }
-    
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
 
-  const updateSetting = (key: keyof SettingsType, value: any) => {
-    if (!settings) return;
-    setSettings({ ...settings, [key]: value });
+    setSaving(true);
+    try {
+      await db.put("settings", settings);
+      alert("Settings saved successfully!");
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      alert("Failed to save settings. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,7 +73,7 @@ export function SettingsPanel() {
     if (!file) return;
 
     // Validate file type
-    if (!file.type.match(/^image\/(png|jpeg|jpg|gif)$/)) {
+    if (!file.type.startsWith("image/")) {
       alert("Please upload a PNG, JPG, or GIF image");
       return;
     }
@@ -92,324 +84,552 @@ export function SettingsPanel() {
       return;
     }
 
-    // Convert to base64
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
       setLogoPreview(base64);
-      updateSetting("businessLogo", base64);
+      if (settings) {
+        setSettings({ ...settings, businessLogo: base64 });
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  const removeLogo = () => {
+  const handleRemoveLogo = () => {
     setLogoPreview(null);
-    updateSetting("businessLogo", undefined);
+    if (settings) {
+      setSettings({ ...settings, businessLogo: undefined });
+    }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  if (!settings) {
-    return <div className="p-8 text-center">Loading settings...</div>;
+  const handleConnectPrinter = async () => {
+    setPrinterConnecting(true);
+    setPrinterError(null);
+
+    try {
+      const result = await bluetoothPrinter.connect();
+      
+      if (result.success && result.printerName && result.printerId) {
+        setPrinterStatus("connected");
+        if (settings) {
+          setSettings({
+            ...settings,
+            bluetoothPrinterName: result.printerName,
+            bluetoothPrinterId: result.printerId,
+          });
+        }
+      } else {
+        setPrinterStatus("error");
+        setPrinterError(result.error || "Failed to connect to printer");
+      }
+    } catch (error) {
+      setPrinterStatus("error");
+      setPrinterError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setPrinterConnecting(false);
+    }
+  };
+
+  const handleDisconnectPrinter = async () => {
+    await bluetoothPrinter.disconnect();
+    setPrinterStatus("disconnected");
+    if (settings) {
+      setSettings({
+        ...settings,
+        bluetoothPrinterName: undefined,
+        bluetoothPrinterId: undefined,
+      });
+    }
+  };
+
+  const handleTestPrint = async () => {
+    if (!settings) return;
+
+    setPrinterTesting(true);
+    setPrinterError(null);
+
+    try {
+      const result = await bluetoothPrinter.printTest(settings);
+      
+      if (result.success) {
+        alert("Test print sent successfully!");
+      } else {
+        setPrinterError(result.error || "Failed to print test");
+      }
+    } catch (error) {
+      setPrinterError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setPrinterTesting(false);
+    }
+  };
+
+  if (loading || !settings) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading settings...</div>
+      </div>
+    );
   }
 
-  return (
-    <div className="space-y-6 p-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">System Settings</h2>
-        <Button onClick={handleSave} size="sm" className="gap-2">
-          {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-          {saved ? "Saved" : "Save"}
-        </Button>
-      </div>
+  const isBluetoothSupported = bluetoothPrinter.isSupported();
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>POS Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+  return (
+    <div className="space-y-6 p-6">
+      {/* Business Information */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📄 Business Information</CardTitle>
+          <CardDescription>Receipt header information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Business Logo */}
+          <div className="space-y-2">
+            <Label>Business Logo (Optional)</Label>
             <div className="space-y-2">
-              <Label>POS Mode</Label>
-              <Select
-                value={settings.mode}
-                onValueChange={(value) => updateSetting("mode", value as POSMode)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="retail">Retail</SelectItem>
-                  <SelectItem value="cafe">Cafe/Restaurant</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-500">
-                Retail: SKU/item-based sales | Cafe: Modifiers + variants support
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif"
+                onChange={handleLogoUpload}
+                className="cursor-pointer"
+              />
+              <p className="text-xs text-muted-foreground">
+                ℹ️ Logo will be converted to black & white for thermal printing
+              </p>
+              {logoPreview && (
+                <div className="relative inline-block">
+                  <img src={logoPreview} alt="Logo preview" className="h-24 w-auto border rounded" />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                    onClick={handleRemoveLogo}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Business Name */}
+          <div className="space-y-2">
+            <Label htmlFor="businessName">Business Name *</Label>
+            <Input
+              id="businessName"
+              value={settings.businessName}
+              onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+              placeholder="My Store"
+              required
+            />
+          </div>
+
+          {/* Business Address */}
+          <div className="space-y-2">
+            <Label htmlFor="businessAddress">Business Address (Optional)</Label>
+            <Textarea
+              id="businessAddress"
+              value={settings.businessAddress || ""}
+              onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
+              placeholder="123 Main Street&#10;City, State 12345&#10;Country"
+              rows={3}
+            />
+          </div>
+
+          {/* Tax ID */}
+          <div className="space-y-2">
+            <Label htmlFor="taxId">Tax ID / NPWP (Optional)</Label>
+            <Input
+              id="taxId"
+              value={settings.taxId || ""}
+              onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
+              placeholder="NPWP: 12.345.678.9-012.000"
+            />
+          </div>
+
+          {/* Receipt Footer */}
+          <div className="space-y-2">
+            <Label htmlFor="receiptFooter">Receipt Footer (Optional)</Label>
+            <Textarea
+              id="receiptFooter"
+              value={settings.receiptFooter || ""}
+              onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
+              placeholder="Thank you for your purchase!&#10;Visit us again!&#10;www.mystore.com"
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Printer Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🖨️ Printer Settings</CardTitle>
+          <CardDescription>Thermal receipt printer configuration</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Receipt Width */}
+          <div className="space-y-2">
+            <Label>Receipt Width</Label>
+            <RadioGroup
+              value={settings.printerWidth?.toString() || "80"}
+              onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) })}
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="58" id="width-58" />
+                <Label htmlFor="width-58" className="font-normal cursor-pointer">
+                  58mm (Compact)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="80" id="width-80" />
+                <Label htmlFor="width-80" className="font-normal cursor-pointer">
+                  80mm (Standard)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Bluetooth Printer Connection */}
+          <div className="space-y-4">
+            <div>
+              <Label className="text-base">Bluetooth Thermal Printer</Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Connect to ESC/POS compatible thermal printer
               </p>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <Label className="text-base font-semibold">Tax Settings</Label>
-              
-              <div className="space-y-3 border rounded-lg p-3 bg-slate-50 dark:bg-slate-900">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={settings.tax1Enabled ?? true}
-                    onCheckedChange={(checked) => updateSetting("tax1Enabled", checked)}
-                  />
-                  <Label className="flex-shrink-0">Tax 1</Label>
-                  <Input
-                    placeholder="Label"
-                    value={settings.tax1Label ?? "PPN"}
-                    onChange={(e) => updateSetting("tax1Label", e.target.value)}
-                    disabled={!settings.tax1Enabled}
-                    className="w-24"
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="%"
-                    value={settings.tax1Rate ?? 10}
-                    onChange={(e) => updateSetting("tax1Rate", parseFloat(e.target.value) || 0)}
-                    disabled={!settings.tax1Enabled}
-                    className="w-20"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={settings.tax1Inclusive ?? false}
-                      onCheckedChange={(checked) => updateSetting("tax1Inclusive", checked)}
-                      disabled={!settings.tax1Enabled}
-                    />
-                    <Label className="text-xs whitespace-nowrap">Inclusive</Label>
+            {!isBluetoothSupported && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Bluetooth printing not supported on this device.</strong>
+                  <br />
+                  Requirements: Android device with Chrome browser.
+                  <br />
+                  iOS users: Use browser print instead.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {isBluetoothSupported && (
+              <>
+                {/* Connection Status */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    {printerStatus === "disconnected" && (
+                      <>
+                        <div className="h-3 w-3 rounded-full bg-gray-400" />
+                        <span className="text-sm">Not Connected</span>
+                      </>
+                    )}
+                    {printerStatus === "connected" && (
+                      <>
+                        <div className="h-3 w-3 rounded-full bg-green-500" />
+                        <span className="text-sm font-medium">
+                          Connected: {settings.bluetoothPrinterName || "Unknown Printer"}
+                        </span>
+                        <Check className="h-4 w-4 text-green-500" />
+                      </>
+                    )}
+                    {printerStatus === "error" && (
+                      <>
+                        <div className="h-3 w-3 rounded-full bg-red-500" />
+                        <span className="text-sm text-red-500">Connection Error</span>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={settings.tax2Enabled ?? false}
-                    onCheckedChange={(checked) => updateSetting("tax2Enabled", checked)}
-                  />
-                  <Label className="flex-shrink-0">Tax 2</Label>
-                  <Input
-                    placeholder="Label"
-                    value={settings.tax2Label ?? "GST"}
-                    onChange={(e) => updateSetting("tax2Label", e.target.value)}
-                    disabled={!settings.tax2Enabled}
-                    className="w-24"
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="%"
-                    value={settings.tax2Rate ?? 5}
-                    onChange={(e) => updateSetting("tax2Rate", parseFloat(e.target.value) || 0)}
-                    disabled={!settings.tax2Enabled}
-                    className="w-20"
-                  />
+                {/* Connection Buttons */}
+                <div className="flex gap-2">
+                  {printerStatus === "disconnected" && (
+                    <Button
+                      onClick={handleConnectPrinter}
+                      disabled={printerConnecting}
+                      className="flex items-center gap-2"
+                    >
+                      {printerConnecting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Bluetooth className="h-4 w-4" />
+                      )}
+                      {printerConnecting ? "Connecting..." : "Connect Printer"}
+                    </Button>
+                  )}
+
+                  {printerStatus === "connected" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={handleDisconnectPrinter}
+                        className="flex items-center gap-2"
+                      >
+                        <Bluetooth className="h-4 w-4" />
+                        Disconnect
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={handleTestPrint}
+                        disabled={printerTesting}
+                        className="flex items-center gap-2"
+                      >
+                        {printerTesting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Printer className="h-4 w-4" />
+                        )}
+                        {printerTesting ? "Printing..." : "Test Print"}
+                      </Button>
+                    </>
+                  )}
+
+                  {printerStatus === "error" && (
+                    <Button
+                      onClick={handleConnectPrinter}
+                      disabled={printerConnecting}
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      {printerConnecting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Bluetooth className="h-4 w-4" />
+                      )}
+                      Retry Connection
+                    </Button>
+                  )}
                 </div>
-              </div>
 
-              <p className="text-xs text-slate-500">
-                Tax 1 can be inclusive (price includes tax). Tax 2 is always exclusive (added on top).
-              </p>
+                {/* Error Message */}
+                {printerError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{printerError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Requirements & Troubleshooting */}
+                <Alert>
+                  <AlertDescription className="space-y-2">
+                    <div>
+                      <strong>ℹ️ Requirements:</strong>
+                      <ul className="list-disc list-inside text-sm mt-1 space-y-1">
+                        <li>Android device with Chrome browser</li>
+                        <li>Bluetooth enabled on device</li>
+                        <li>Printer powered on and in range</li>
+                        <li>ESC/POS compatible thermal printer</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong>🔧 Troubleshooting:</strong>
+                      <ul className="list-disc list-inside text-sm mt-1 space-y-1">
+                        <li>Turn printer off and on again</li>
+                        <li>Ensure printer is in pairing mode</li>
+                        <li>Check Bluetooth is enabled</li>
+                        <li>Move device closer to printer</li>
+                      </ul>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* POS Mode */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🏪 POS Mode</CardTitle>
+          <CardDescription>Select your business type</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={settings.mode}
+            onValueChange={(value) => setSettings({ ...settings, mode: value as "retail" | "cafe" })}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="retail" id="mode-retail" />
+              <Label htmlFor="mode-retail" className="font-normal cursor-pointer">
+                Retail (Quick checkout)
+              </Label>
             </div>
-
-            <div className="space-y-2">
-              <Label>Default Language</Label>
-              <Select
-                value={settings.language}
-                onValueChange={(value) => updateSetting("language", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">🇬🇧 English</SelectItem>
-                  <SelectItem value="id">🇮🇩 Indonesia</SelectItem>
-                  <SelectItem value="zh">🇨🇳 中文</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="cafe" id="mode-cafe" />
+              <Label htmlFor="mode-cafe" className="font-normal cursor-pointer">
+                Café (Order management)
+              </Label>
             </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
 
+      {/* Tax Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>💰 Tax Settings</CardTitle>
+          <CardDescription>Configure tax rates for your business</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Tax 1 */}
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Allow Price Override</Label>
-                <p className="text-xs text-slate-500">
-                  Let cashiers adjust item prices during checkout
-                </p>
+                <Label htmlFor="tax1-enabled" className="text-base">
+                  Enable Tax 1
+                </Label>
+                <p className="text-sm text-muted-foreground">Primary tax (e.g., VAT, GST)</p>
               </div>
               <Switch
-                checked={settings.allowPriceOverride ?? false}
-                onCheckedChange={(checked) => updateSetting("allowPriceOverride", checked)}
+                id="tax1-enabled"
+                checked={settings.tax1Enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, tax1Enabled: checked })}
               />
             </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Printer Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Receipt Width</Label>
-              <Select
-                value={settings.printerWidth?.toString() ?? "80"}
-                onValueChange={(value) => updateSetting("printerWidth", parseInt(value, 10))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="58">58mm</SelectItem>
-                  <SelectItem value="80">80mm</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Bluetooth Printer</Label>
-                <p className="text-xs text-slate-500">Connect via Bluetooth</p>
-              </div>
-              <Button variant="outline" size="sm">
-                Connect
-              </Button>
-            </div>
-
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-200">
-              ℹ️ Bluetooth printer connection will be available in Capacitor native app
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>📄 Business Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Business Logo (Optional)</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg,image/gif"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload Image
-                </Button>
-                {logoPreview && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={removeLogo}
-                    className="gap-2"
-                  >
-                    <X className="h-4 w-4" />
-                    Remove
-                  </Button>
-                )}
-              </div>
-              {logoPreview && (
-                <div className="mt-2 p-2 border rounded-lg bg-white dark:bg-slate-800">
-                  <img
-                    src={logoPreview}
-                    alt="Business Logo Preview"
-                    className="max-h-24 mx-auto object-contain"
+            {settings.tax1Enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="tax1-label">Tax 1 Label</Label>
+                  <Input
+                    id="tax1-label"
+                    value={settings.tax1Label}
+                    onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
+                    placeholder="VAT"
                   />
                 </div>
-              )}
-              <p className="text-xs text-slate-500">
-                Logo will be converted to black & white for thermal printing. Max 2MB (PNG, JPG, GIF)
-              </p>
-            </div>
 
-            <div className="space-y-2">
-              <Label>
-                Business Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={settings.businessName ?? ""}
-                onChange={(e) => updateSetting("businessName", e.target.value)}
-                placeholder="My Store"
-                required
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tax1-rate">Tax 1 Rate (%)</Label>
+                  <Input
+                    id="tax1-rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={settings.tax1Rate}
+                    onChange={(e) =>
+                      setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>Business Address (Optional)</Label>
-              <Textarea
-                value={settings.businessAddress ?? ""}
-                onChange={(e) => updateSetting("businessAddress", e.target.value)}
-                placeholder="123 Main Street&#10;City, State 12345&#10;Country"
-                rows={3}
-                className="resize-none"
-              />
-            </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="tax1-inclusive"
+                    checked={settings.tax1Inclusive}
+                    onCheckedChange={(checked) => setSettings({ ...settings, tax1Inclusive: checked })}
+                  />
+                  <Label htmlFor="tax1-inclusive" className="font-normal cursor-pointer">
+                    Tax included in prices (inclusive)
+                  </Label>
+                </div>
+              </>
+            )}
+          </div>
 
-            <div className="space-y-2">
-              <Label>Tax ID / NPWP (Optional)</Label>
-              <Input
-                value={settings.taxId ?? ""}
-                onChange={(e) => updateSetting("taxId", e.target.value)}
-                placeholder="NPWP: 12.345.678.9-012.000"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Receipt Footer (Optional)</Label>
-              <Textarea
-                value={settings.receiptFooter ?? ""}
-                onChange={(e) => updateSetting("receiptFooter", e.target.value)}
-                placeholder="Thank you for your purchase!"
-                rows={3}
-                className="resize-none"
-              />
-              <p className="text-xs text-slate-500">
-                Default message will be used if left empty
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Google Drive Backup</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          {/* Tax 2 */}
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label>Google Drive Status</Label>
-                <p className="text-xs text-slate-500">
-                  {settings.googleDriveLinked ? "✅ Connected" : "❌ Not connected"}
-                </p>
+                <Label htmlFor="tax2-enabled" className="text-base">
+                  Enable Tax 2
+                </Label>
+                <p className="text-sm text-muted-foreground">Secondary tax (e.g., Service charge)</p>
               </div>
-              <Button
-                variant={settings.googleDriveLinked ? "outline" : "default"}
-                size="sm"
-                onClick={() => updateSetting("googleDriveLinked", !settings.googleDriveLinked)}
-              >
-                {settings.googleDriveLinked ? "Disconnect" : "Connect"}
-              </Button>
+              <Switch
+                id="tax2-enabled"
+                checked={settings.tax2Enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, tax2Enabled: checked })}
+              />
             </div>
 
-            <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-800 dark:text-amber-200">
-              ℹ️ Backup triggers automatically on cashier logout. Calendar events pushed to admin account.
+            {settings.tax2Enabled && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="tax2-label">Tax 2 Label</Label>
+                  <Input
+                    id="tax2-label"
+                    value={settings.tax2Label}
+                    onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
+                    placeholder="Service Charge"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tax2-rate">Tax 2 Rate (%)</Label>
+                  <Input
+                    id="tax2-rate"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={settings.tax2Rate}
+                    onChange={(e) =>
+                      setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Language */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🌐 Language</CardTitle>
+          <CardDescription>Interface language</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Select
+            value={settings.language}
+            onValueChange={(value) => setSettings({ ...settings, language: value as Language })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="id">Bahasa Indonesia</SelectItem>
+              <SelectItem value="zh">中文 (Chinese)</SelectItem>
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Additional Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>⚙️ Additional Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="allow-price-override">Allow Price Override</Label>
+              <p className="text-sm text-muted-foreground">Cashiers can modify item prices</p>
             </div>
-          </CardContent>
-        </Card>
+            <Switch
+              id="allow-price-override"
+              checked={settings.allowPriceOverride || false}
+              onCheckedChange={(checked) =>
+                setSettings({ ...settings, allowPriceOverride: checked })
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving} size="lg">
+          {saving ? "Saving..." : "💾 Save Settings"}
+        </Button>
       </div>
     </div>
   );

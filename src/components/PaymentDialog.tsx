@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket, Printer } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth } from "lucide-react";
+import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 
 interface PaymentDialogProps {
   open: boolean;
@@ -32,6 +33,8 @@ export function PaymentDialog({
   const [qrisRef, setQrisRef] = useState("");
   const [completed, setCompleted] = useState(false);
   const [change, setChange] = useState(0);
+  const [printing, setPrinting] = useState(false);
+  const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
 
   // Reset payment state when dialog closes
   useEffect(() => {
@@ -42,6 +45,7 @@ export function PaymentDialog({
       setSelectedMethod("cash");
       setCompleted(false);
       setChange(0);
+      setLastTransaction(null);
     }
   }, [open]);
 
@@ -122,11 +126,34 @@ export function PaymentDialog({
         await db.upsertDailyPaymentSales(dailyPayment);
       }
 
+      setLastTransaction(transaction);
       setCompleted(true);
       clearCart();
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction. Please try again or contact support.");
+    }
+  };
+
+  const handlePrintBluetooth = async () => {
+    if (!lastTransaction || !settings || !currentUser) return;
+
+    setPrinting(true);
+    try {
+      const result = await bluetoothPrinter.printReceipt(
+        lastTransaction,
+        settings,
+        currentUser.name
+      );
+
+      if (!result.success) {
+        alert(`Bluetooth print failed: ${result.error}\n\nTry:\n1. Reconnect printer in Settings\n2. Use Browser Print instead`);
+      }
+    } catch (error) {
+      console.error("Bluetooth print error:", error);
+      alert("Failed to print via Bluetooth. Use Browser Print instead.");
+    } finally {
+      setPrinting(false);
     }
   };
 
@@ -157,6 +184,8 @@ export function PaymentDialog({
     { method: "qris-dynamic", label: translate("payment.qrisDynamic", language), icon: QrCode },
     { method: "voucher", label: translate("payment.voucher", language), icon: Ticket }
   ];
+
+  const isBluetoothConnected = bluetoothPrinter.isConnected();
 
   if (completed) {
     return (
@@ -256,12 +285,35 @@ export function PaymentDialog({
               )}
             </div>
 
-            <div className="flex gap-3 w-full">
-              <Button variant="outline" className="flex-1" onClick={handlePrint}>
+            {/* Print Buttons */}
+            <div className="flex flex-col gap-2 w-full">
+              {isBluetoothConnected && (
+                <Button 
+                  variant="default" 
+                  className="w-full bg-blue-600 hover:bg-blue-700" 
+                  onClick={handlePrintBluetooth}
+                  disabled={printing}
+                >
+                  {printing ? (
+                    <>
+                      <Printer className="mr-2 h-4 w-4 animate-pulse" />
+                      Printing...
+                    </>
+                  ) : (
+                    <>
+                      <Bluetooth className="mr-2 h-4 w-4" />
+                      Print via Bluetooth
+                    </>
+                  )}
+                </Button>
+              )}
+              
+              <Button variant="outline" className="w-full" onClick={handlePrint}>
                 <Printer className="mr-2 h-4 w-4" />
-                Print
+                Browser Print
               </Button>
-              <Button className="flex-1" onClick={handleNewSale}>
+              
+              <Button className="w-full" onClick={handleNewSale}>
                 New Sale
               </Button>
             </div>
@@ -271,7 +323,7 @@ export function PaymentDialog({
     );
   }
 
-  // Payment Entry View (existing code reused but simplified)
+  // Payment Entry View
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
