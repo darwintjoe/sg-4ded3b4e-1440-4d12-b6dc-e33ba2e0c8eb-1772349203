@@ -547,191 +547,108 @@ export function SettingsPanel() {
 
             {/* Shift Management */}
             <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Shift Management
-                <Badge variant="secondary" className="ml-auto text-xs">
-                  {enabledShiftCount} {enabledShiftCount === 1 ? "shift" : "shifts"} active
-                </Badge>
+                {t.shiftManagement}
               </h3>
-
               <div className="space-y-3">
                 {/* Shift 1 */}
-                <div className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-semibold">Shift 1</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Shift 1</Label>
                     <Switch
-                      checked={settings.shifts?.shift1?.enabled ?? true}
+                      checked={getSafeShifts(settings).shift1.enabled}
                       onCheckedChange={(checked) => updateShift('shift1', { enabled: checked }, true)}
                     />
                   </div>
-                  
-                  {(settings.shifts?.shift1?.enabled ?? true) && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="shift1Start" className="text-xs">Start</Label>
-                        <Input
-                          id="shift1Start"
-                          type="time"
-                          value={settings.shifts?.shift1?.startTime ?? "09:00"}
-                          onChange={(e) => updateShift('shift1', { startTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="shift1End" className="text-xs">End</Label>
-                        <Input
-                          id="shift1End"
-                          type="time"
-                          value={settings.shifts?.shift1?.endTime ?? "18:00"}
-                          onChange={(e) => updateShift('shift1', { endTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift1.startTime}
+                        onChange={(e) => updateShift('shift1', { startTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
+                        className="h-9"
+                      />
                     </div>
-                  )}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift1.endTime}
+                        onChange={(e) => updateShift('shift1', { endTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Shift 2 */}
-                <div className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-semibold">Shift 2</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Shift 2</Label>
                     <Switch
-                      checked={settings.shifts?.shift2?.enabled ?? false}
+                      checked={getSafeShifts(settings).shift2.enabled}
                       onCheckedChange={(checked) => updateShift('shift2', { enabled: checked }, true)}
                     />
                   </div>
-                  
-                  {(settings.shifts?.shift2?.enabled ?? false) && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="shift2Start" className="text-xs">Start</Label>
-                        <Input
-                          id="shift2Start"
-                          type="time"
-                          value={settings.shifts?.shift2?.startTime ?? "14:00"}
-                          onChange={(e) => updateShift('shift2', { startTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="shift2End" className="text-xs">End</Label>
-                        <Input
-                          id="shift2End"
-                          type="time"
-                          value={settings.shifts?.shift2?.endTime ?? "22:00"}
-                          onChange={(e) => updateShift('shift2', { endTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift2.startTime}
+                        onChange={(e) => updateShift('shift2', { startTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
+                        className="h-9"
+                      />
                     </div>
-                  )}
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift2.endTime}
+                        onChange={(e) => updateShift('shift2', { endTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Shift 3 */}
-                <div className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <Label className="text-sm font-semibold">Shift 3</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Shift 3</Label>
                     <Switch
-                      checked={settings.shifts?.shift3?.enabled ?? false}
+                      checked={getSafeShifts(settings).shift3.enabled}
                       onCheckedChange={(checked) => updateShift('shift3', { enabled: checked }, true)}
                     />
                   </div>
-                  
-                  {(settings.shifts?.shift3?.enabled ?? false) && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor="shift3Start" className="text-xs">Start</Label>
-                        <Input
-                          id="shift3Start"
-                          type="time"
-                          value={settings.shifts?.shift3?.startTime ?? "22:00"}
-                          onChange={(e) => updateShift('shift3', { startTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="shift3End" className="text-xs">End</Label>
-                        <Input
-                          id="shift3End"
-                          type="time"
-                          value={settings.shifts?.shift3?.endTime ?? "06:00"}
-                          onChange={(e) => updateShift('shift3', { endTime: e.target.value })}
-                          onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
-                          className="mt-1"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Start</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift3.startTime}
+                        onChange={(e) => updateShift('shift3', { startTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
+                        className="h-9"
+                      />
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <Separator className="my-4" />
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="requireClockIn" className="text-sm font-normal cursor-pointer">
-                    Require Clock In/Out
-                    <HelpTooltip content="Force employees to clock in before accessing POS" />
-                  </Label>
-                  <Switch
-                    id="requireClockIn"
-                    checked={settings.requireClockIn || false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ ...settings, requireClockIn: checked });
-                      updateAndSave({ requireClockIn: checked });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="trackBreaks" className="text-sm font-normal cursor-pointer">
-                    Track Breaks
-                    <HelpTooltip content="Record break time separately from work hours" />
-                  </Label>
-                  <Switch
-                    id="trackBreaks"
-                    checked={settings.trackBreaks || false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ ...settings, trackBreaks: checked });
-                      updateAndSave({ trackBreaks: checked });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="autoClockOut" className="text-sm font-normal cursor-pointer">
-                    Auto Clock Out at Shift End
-                    <HelpTooltip content="Automatically clock out employees who forget" />
-                  </Label>
-                  <Switch
-                    id="autoClockOut"
-                    checked={settings.autoClockOutAtShiftEnd || false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ ...settings, autoClockOutAtShiftEnd: checked });
-                      updateAndSave({ autoClockOutAtShiftEnd: checked });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="selfCorrection" className="text-sm font-normal cursor-pointer">
-                    Allow Self-Correction
-                    <HelpTooltip content="Let employees fix missed clock-outs within 24 hours" />
-                  </Label>
-                  <Switch
-                    id="selfCorrection"
-                    checked={settings.allowSelfCorrection || false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ ...settings, allowSelfCorrection: checked });
-                      updateAndSave({ allowSelfCorrection: checked });
-                    }}
-                  />
+                    <div>
+                      <Label className="text-xs text-muted-foreground">End</Label>
+                      <Input
+                        type="time"
+                        value={getSafeShifts(settings).shift3.endTime}
+                        onChange={(e) => updateShift('shift3', { endTime: e.target.value }, false)}
+                        onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>
