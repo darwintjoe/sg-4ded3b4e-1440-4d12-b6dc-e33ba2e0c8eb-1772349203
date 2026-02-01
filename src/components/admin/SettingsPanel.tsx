@@ -1,132 +1,100 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { db } from "@/lib/db";
-import { Settings, Language } from "@/types";
-import { Upload, X, Printer, Bluetooth, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useApp } from "@/contexts/AppContext";
+import { Settings, POSMode } from "@/types";
+import { translations } from "@/lib/translations";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
+import { 
+  Store, 
+  Globe, 
+  DollarSign, 
+  Printer, 
+  Link as LinkIcon,
+  Bluetooth,
+  AlertCircle,
+  CheckCircle2,
+  Wifi,
+  Save
+} from "lucide-react";
 
 export function SettingsPanel() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { settings: currentSettings, updateSettings, language } = useApp();
+  const t = translations[language];
+
+  // Local state for form
+  const [settings, setSettings] = useState<Settings>(currentSettings);
   const [saving, setSaving] = useState(false);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Bluetooth printer state
   const [printerConnecting, setPrinterConnecting] = useState(false);
-  const [printerTesting, setPrinterTesting] = useState(false);
-  const [printerStatus, setPrinterStatus] = useState<"disconnected" | "connected" | "error">("disconnected");
+  const [printerConnected, setPrinterConnected] = useState(false);
+  const [printerName, setPrinterName] = useState<string | null>(null);
   const [printerError, setPrinterError] = useState<string | null>(null);
+  const [testPrinting, setTestPrinting] = useState(false);
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState<string>("general");
 
   useEffect(() => {
-    loadSettings();
-    checkPrinterConnection();
+    setSettings(currentSettings);
+  }, [currentSettings]);
+
+  // Check printer connection status on mount
+  useEffect(() => {
+    if (bluetoothPrinter.isSupported() && bluetoothPrinter.isConnected()) {
+      setPrinterConnected(true);
+      setPrinterName(bluetoothPrinter.getPrinterName());
+    }
   }, []);
 
-  const loadSettings = async () => {
-    try {
-      const loadedSettings = await db.getSettings();
-      setSettings(loadedSettings);
-      if (loadedSettings.businessLogo) {
-        setLogoPreview(loadedSettings.businessLogo);
-      }
-    } catch (error) {
-      console.error("Failed to load settings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkPrinterConnection = () => {
-    if (bluetoothPrinter.isConnected()) {
-      setPrinterStatus("connected");
-    } else {
-      setPrinterStatus("disconnected");
-    }
-  };
-
   const handleSave = async () => {
-    if (!settings) return;
-
     setSaving(true);
+    setSaveSuccess(false);
+
     try {
-      await db.put("settings", settings);
-      alert("Settings saved successfully!");
+      await updateSettings(settings);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save settings:", error);
-      alert("Failed to save settings. Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload a PNG, JPG, or GIF image");
-      return;
-    }
-
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Image must be smaller than 2MB");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string;
-      setLogoPreview(base64);
-      if (settings) {
-        setSettings({ ...settings, businessLogo: base64 });
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveLogo = () => {
-    setLogoPreview(null);
-    if (settings) {
-      setSettings({ ...settings, businessLogo: undefined });
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
+  // Bluetooth printer handlers
   const handleConnectPrinter = async () => {
     setPrinterConnecting(true);
     setPrinterError(null);
 
     try {
       const result = await bluetoothPrinter.connect();
-      
+
       if (result.success && result.printerName && result.printerId) {
-        setPrinterStatus("connected");
-        if (settings) {
-          setSettings({
-            ...settings,
-            bluetoothPrinterName: result.printerName,
-            bluetoothPrinterId: result.printerId,
-          });
-        }
+        setPrinterConnected(true);
+        setPrinterName(result.printerName);
+        
+        // Save printer info to settings
+        setSettings(prev => ({
+          ...prev,
+          bluetoothPrinterId: result.printerId,
+          bluetoothPrinterName: result.printerName
+        }));
       } else {
-        setPrinterStatus("error");
         setPrinterError(result.error || "Failed to connect to printer");
       }
     } catch (error) {
-      setPrinterStatus("error");
       setPrinterError(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setPrinterConnecting(false);
@@ -135,274 +103,498 @@ export function SettingsPanel() {
 
   const handleDisconnectPrinter = async () => {
     await bluetoothPrinter.disconnect();
-    setPrinterStatus("disconnected");
-    if (settings) {
-      setSettings({
-        ...settings,
-        bluetoothPrinterName: undefined,
-        bluetoothPrinterId: undefined,
-      });
-    }
+    setPrinterConnected(false);
+    setPrinterName(null);
+    
+    // Clear printer info from settings
+    setSettings(prev => ({
+      ...prev,
+      bluetoothPrinterId: undefined,
+      bluetoothPrinterName: undefined
+    }));
   };
 
   const handleTestPrint = async () => {
-    if (!settings) return;
-
-    setPrinterTesting(true);
+    setTestPrinting(true);
     setPrinterError(null);
 
     try {
       const result = await bluetoothPrinter.printTest(settings);
       
-      if (result.success) {
-        alert("Test print sent successfully!");
-      } else {
-        setPrinterError(result.error || "Failed to print test");
+      if (!result.success) {
+        setPrinterError(result.error || "Test print failed");
       }
     } catch (error) {
-      setPrinterError(error instanceof Error ? error.message : "Unknown error");
+      setPrinterError(error instanceof Error ? error.message : "Test print failed");
     } finally {
-      setPrinterTesting(false);
+      setTestPrinting(false);
     }
   };
-
-  if (loading || !settings) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading settings...</div>
-      </div>
-    );
-  }
 
   const isBluetoothSupported = bluetoothPrinter.isSupported();
 
   return (
     <div className="space-y-6 p-6">
-      {/* Business Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>📄 Business Information</CardTitle>
-          <CardDescription>Receipt header information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Business Logo */}
-          <div className="space-y-2">
-            <Label>Business Logo (Optional)</Label>
-            <div className="space-y-2">
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/gif"
-                onChange={handleLogoUpload}
-                className="cursor-pointer"
-              />
-              <p className="text-xs text-muted-foreground">
-                ℹ️ Logo will be converted to black & white for thermal printing
-              </p>
-              {logoPreview && (
-                <div className="relative inline-block">
-                  <img src={logoPreview} alt="Logo preview" className="h-24 w-auto border rounded" />
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                    onClick={handleRemoveLogo}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Settings</h2>
+          <p className="text-muted-foreground mt-1">
+            Configure your POS system, taxes, printer, and integrations
+          </p>
+        </div>
+        <Button 
+          onClick={handleSave} 
+          disabled={saving}
+          size="lg"
+          className="gap-2"
+        >
+          <Save className="h-4 w-4" />
+          {saving ? "Saving..." : "Save Settings"}
+        </Button>
+      </div>
+
+      {saveSuccess && (
+        <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <AlertDescription className="text-green-800 dark:text-green-200">
+            Settings saved successfully!
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Tabbed Interface */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="general" className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">General</span>
+          </TabsTrigger>
+          <TabsTrigger value="tax" className="gap-2">
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">Tax & Pricing</span>
+          </TabsTrigger>
+          <TabsTrigger value="printer" className="gap-2">
+            <Printer className="h-4 w-4" />
+            <span className="hidden sm:inline">Printer</span>
+          </TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-2">
+            <LinkIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Integrations</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: General Settings */}
+        <TabsContent value="general" className="space-y-6">
+          {/* POS Mode */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Store className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">POS Mode</h3>
             </div>
-          </div>
-
-          {/* Business Name */}
-          <div className="space-y-2">
-            <Label htmlFor="businessName">Business Name *</Label>
-            <Input
-              id="businessName"
-              value={settings.businessName}
-              onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-              placeholder="My Store"
-              required
-            />
-          </div>
-
-          {/* Business Address */}
-          <div className="space-y-2">
-            <Label htmlFor="businessAddress">Business Address (Optional)</Label>
-            <Textarea
-              id="businessAddress"
-              value={settings.businessAddress || ""}
-              onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
-              placeholder="123 Main Street&#10;City, State 12345&#10;Country"
-              rows={3}
-            />
-          </div>
-
-          {/* Tax ID */}
-          <div className="space-y-2">
-            <Label htmlFor="taxId">Tax ID / NPWP (Optional)</Label>
-            <Input
-              id="taxId"
-              value={settings.taxId || ""}
-              onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
-              placeholder="NPWP: 12.345.678.9-012.000"
-            />
-          </div>
-
-          {/* Receipt Footer */}
-          <div className="space-y-2">
-            <Label htmlFor="receiptFooter">Receipt Footer (Optional)</Label>
-            <Textarea
-              id="receiptFooter"
-              value={settings.receiptFooter || ""}
-              onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
-              placeholder="Thank you for your purchase!&#10;Visit us again!&#10;www.mystore.com"
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Printer Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>🖨️ Printer Settings</CardTitle>
-          <CardDescription>Thermal receipt printer configuration</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Receipt Width */}
-          <div className="space-y-2">
-            <Label>Receipt Width</Label>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose the operating mode for your point of sale system
+            </p>
             <RadioGroup
-              value={settings.printerWidth?.toString() || "80"}
-              onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) })}
+              value={settings.mode}
+              onValueChange={(value: POSMode) => setSettings({ ...settings, mode: value })}
+              className="space-y-3"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="58" id="width-58" />
-                <Label htmlFor="width-58" className="font-normal cursor-pointer">
-                  58mm (Compact)
+              <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="retail" id="retail" />
+                <div className="flex-1">
+                  <Label htmlFor="retail" className="cursor-pointer font-medium">
+                    Retail Mode
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    For shops, stores, and retail businesses. Items are sold by unit/quantity.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="cafe" id="cafe" />
+                <div className="flex-1">
+                  <Label htmlFor="cafe" className="cursor-pointer font-medium">
+                    Cafe/Restaurant Mode
+                  </Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    For cafes, restaurants, and food service. Optimized for food orders.
+                  </p>
+                </div>
+              </div>
+            </RadioGroup>
+          </Card>
+
+          {/* Language */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Globe className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Language</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select the display language for the POS interface
+            </p>
+            <RadioGroup
+              value={settings.language}
+              onValueChange={(value: "en" | "id") => setSettings({ ...settings, language: value })}
+              className="space-y-3"
+            >
+              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="en" id="lang-en" />
+                <Label htmlFor="lang-en" className="cursor-pointer flex-1">
+                  English
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="80" id="width-80" />
-                <Label htmlFor="width-80" className="font-normal cursor-pointer">
-                  80mm (Standard)
+              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="id" id="lang-id" />
+                <Label htmlFor="lang-id" className="cursor-pointer flex-1">
+                  Bahasa Indonesia
                 </Label>
               </div>
             </RadioGroup>
-          </div>
+          </Card>
 
-          {/* Bluetooth Printer Connection */}
-          <div className="space-y-4">
-            <div>
-              <Label className="text-base">Bluetooth Thermal Printer</Label>
-              <p className="text-sm text-muted-foreground mt-1">
-                Connect to ESC/POS compatible thermal printer
-              </p>
+          {/* Business Information */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Store className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Business Information</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="businessName">Business Name *</Label>
+                <Input
+                  id="businessName"
+                  value={settings.businessName}
+                  onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                  placeholder="My Store"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Appears on receipts and reports
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="businessAddress">Business Address</Label>
+                <Textarea
+                  id="businessAddress"
+                  value={settings.businessAddress || ""}
+                  onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
+                  placeholder="123 Main Street, City, State 12345"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Printed on receipts (optional)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="taxId">Tax ID / NPWP</Label>
+                <Input
+                  id="taxId"
+                  value={settings.taxId || ""}
+                  onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
+                  placeholder="12.345.678.9-012.000"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tax identification number (optional)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="receiptFooter">Receipt Footer Message</Label>
+                <Textarea
+                  id="receiptFooter"
+                  value={settings.receiptFooter || ""}
+                  onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
+                  placeholder="Thank you for your purchase! Visit us again!"
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Custom message at the bottom of receipts
+                </p>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Tax & Pricing */}
+        <TabsContent value="tax" className="space-y-6">
+          {/* Tax 1 (PPN) */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Tax 1 (Primary)</h3>
+              </div>
+              <Switch
+                checked={settings.tax1Enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, tax1Enabled: checked })}
+              />
             </div>
 
-            {!isBluetoothSupported && (
+            {settings.tax1Enabled && (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tax1Label">Tax Label</Label>
+                    <Input
+                      id="tax1Label"
+                      value={settings.tax1Label}
+                      onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
+                      placeholder="PPN"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tax1Rate">Tax Rate (%)</Label>
+                    <Input
+                      id="tax1Rate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={settings.tax1Rate}
+                      onChange={(e) => setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })}
+                      placeholder="10"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <Switch
+                    id="tax1Inclusive"
+                    checked={settings.tax1Inclusive}
+                    onCheckedChange={(checked) => setSettings({ ...settings, tax1Inclusive: checked })}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="tax1Inclusive" className="cursor-pointer font-medium">
+                      Tax Inclusive Pricing
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Item prices already include this tax. Tax will be calculated backward from the total price.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Tax 2 (GST) */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Tax 2 (Secondary)</h3>
+              </div>
+              <Switch
+                checked={settings.tax2Enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, tax2Enabled: checked })}
+              />
+            </div>
+
+            {settings.tax2Enabled && (
+              <div className="space-y-4 mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tax2Label">Tax Label</Label>
+                    <Input
+                      id="tax2Label"
+                      value={settings.tax2Label}
+                      onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
+                      placeholder="GST"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tax2Rate">Tax Rate (%)</Label>
+                    <Input
+                      id="tax2Rate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={settings.tax2Rate}
+                      onChange={(e) => setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })}
+                      placeholder="5"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                  <Switch
+                    id="tax2Inclusive"
+                    checked={settings.tax2Inclusive}
+                    onCheckedChange={(checked) => setSettings({ ...settings, tax2Inclusive: checked })}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="tax2Inclusive" className="cursor-pointer font-medium">
+                      Tax Inclusive Pricing
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Item prices already include this tax. Tax will be calculated backward from the total price.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Price Override */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Price Override</h3>
+              </div>
+              <Switch
+                checked={settings.allowPriceOverride}
+                onCheckedChange={(checked) => setSettings({ ...settings, allowPriceOverride: checked })}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Allow cashiers to manually adjust item prices during checkout (useful for discounts or custom pricing)
+            </p>
+          </Card>
+
+          {/* Tax Calculation Example */}
+          {(settings.tax1Enabled || settings.tax2Enabled) && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Tax Calculation Example:</strong>
+                <div className="mt-2 space-y-1 text-sm">
+                  {settings.tax1Enabled && (
+                    <div>
+                      • {settings.tax1Label}: {settings.tax1Rate}% {settings.tax1Inclusive ? "(Inclusive)" : "(Exclusive)"}
+                    </div>
+                  )}
+                  {settings.tax2Enabled && (
+                    <div>
+                      • {settings.tax2Label}: {settings.tax2Rate}% {settings.tax2Inclusive ? "(Inclusive)" : "(Exclusive)"}
+                    </div>
+                  )}
+                  <div className="mt-2">
+                    For a 100.000 item price:
+                    <br />
+                    {settings.tax1Inclusive ? (
+                      <>Subtotal: {(100000 / (1 + settings.tax1Rate / 100)).toFixed(0)} + {settings.tax1Label}: {(100000 - 100000 / (1 + settings.tax1Rate / 100)).toFixed(0)} = 100.000</>
+                    ) : (
+                      <>Subtotal: 100.000 + {settings.tax1Label}: {(100000 * settings.tax1Rate / 100).toFixed(0)} = {(100000 * (1 + settings.tax1Rate / 100)).toFixed(0)}</>
+                    )}
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
+
+        {/* Tab 3: Printer Settings */}
+        <TabsContent value="printer" className="space-y-6">
+          {/* Receipt Width */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Printer className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Receipt Paper Width</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Select the paper width of your thermal printer
+            </p>
+            <RadioGroup
+              value={settings.printerWidth.toString()}
+              onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) as 58 | 80 })}
+              className="space-y-3"
+            >
+              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="58" id="width-58" />
+                <Label htmlFor="width-58" className="cursor-pointer flex-1">
+                  58mm (2.25 inches) - Compact
+                </Label>
+              </div>
+              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                <RadioGroupItem value="80" id="width-80" />
+                <Label htmlFor="width-80" className="cursor-pointer flex-1">
+                  80mm (3.15 inches) - Standard
+                </Label>
+              </div>
+            </RadioGroup>
+          </Card>
+
+          {/* Bluetooth Printer */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Bluetooth className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Bluetooth Thermal Printer</h3>
+              {printerConnected && (
+                <Badge variant="default" className="ml-auto gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Connected
+                </Badge>
+              )}
+            </div>
+
+            {!isBluetoothSupported ? (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   <strong>Bluetooth printing not supported on this device.</strong>
-                  <br />
-                  Requirements: Android device with Chrome browser.
-                  <br />
-                  iOS users: Use browser print instead.
+                  <div className="mt-2 space-y-1 text-sm">
+                    <div><strong>Requirements:</strong></div>
+                    <div>• Android device with Chrome browser</div>
+                    <div>• Bluetooth enabled on device</div>
+                    <div className="mt-2">
+                      <strong>iOS users:</strong> Use browser print or WiFi printer instead.
+                    </div>
+                  </div>
                 </AlertDescription>
               </Alert>
-            )}
-
-            {isBluetoothSupported && (
-              <>
+            ) : (
+              <div className="space-y-4">
                 {/* Connection Status */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    {printerStatus === "disconnected" && (
-                      <>
-                        <div className="h-3 w-3 rounded-full bg-gray-400" />
-                        <span className="text-sm">Not Connected</span>
-                      </>
-                    )}
-                    {printerStatus === "connected" && (
-                      <>
-                        <div className="h-3 w-3 rounded-full bg-green-500" />
-                        <span className="text-sm font-medium">
-                          Connected: {settings.bluetoothPrinterName || "Unknown Printer"}
-                        </span>
-                        <Check className="h-4 w-4 text-green-500" />
-                      </>
-                    )}
-                    {printerStatus === "error" && (
-                      <>
-                        <div className="h-3 w-3 rounded-full bg-red-500" />
-                        <span className="text-sm text-red-500">Connection Error</span>
-                      </>
-                    )}
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-3 w-3 rounded-full ${printerConnected ? "bg-green-500" : "bg-gray-300"}`} />
+                    <div>
+                      <p className="font-medium">
+                        {printerConnected ? `Connected: ${printerName}` : "Not Connected"}
+                      </p>
+                      {printerConnected && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Ready to print receipts
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                {/* Connection Buttons */}
-                <div className="flex gap-2">
-                  {printerStatus === "disconnected" && (
+                  {printerConnected ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDisconnectPrinter}
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
                     <Button
                       onClick={handleConnectPrinter}
                       disabled={printerConnecting}
-                      className="flex items-center gap-2"
+                      size="sm"
                     >
-                      {printerConnecting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Bluetooth className="h-4 w-4" />
-                      )}
+                      <Bluetooth className="h-4 w-4 mr-2" />
                       {printerConnecting ? "Connecting..." : "Connect Printer"}
                     </Button>
                   )}
-
-                  {printerStatus === "connected" && (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={handleDisconnectPrinter}
-                        className="flex items-center gap-2"
-                      >
-                        <Bluetooth className="h-4 w-4" />
-                        Disconnect
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={handleTestPrint}
-                        disabled={printerTesting}
-                        className="flex items-center gap-2"
-                      >
-                        {printerTesting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Printer className="h-4 w-4" />
-                        )}
-                        {printerTesting ? "Printing..." : "Test Print"}
-                      </Button>
-                    </>
-                  )}
-
-                  {printerStatus === "error" && (
-                    <Button
-                      onClick={handleConnectPrinter}
-                      disabled={printerConnecting}
-                      variant="outline"
-                      className="flex items-center gap-2"
-                    >
-                      {printerConnecting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Bluetooth className="h-4 w-4" />
-                      )}
-                      Retry Connection
-                    </Button>
-                  )}
                 </div>
+
+                {/* Test Print Button */}
+                {printerConnected && (
+                  <Button
+                    onClick={handleTestPrint}
+                    disabled={testPrinting}
+                    variant="secondary"
+                    className="w-full"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    {testPrinting ? "Printing..." : "Test Print"}
+                  </Button>
+                )}
 
                 {/* Error Message */}
                 {printerError && (
@@ -412,223 +604,131 @@ export function SettingsPanel() {
                   </Alert>
                 )}
 
-                {/* Requirements & Troubleshooting */}
+                {/* Requirements & Tips */}
                 <Alert>
-                  <AlertDescription className="space-y-2">
-                    <div>
-                      <strong>ℹ️ Requirements:</strong>
-                      <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                        <li>Android device with Chrome browser</li>
-                        <li>Bluetooth enabled on device</li>
-                        <li>Printer powered on and in range</li>
-                        <li>ESC/POS compatible thermal printer</li>
-                      </ul>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Setup Requirements:</strong>
+                    <div className="mt-2 space-y-1 text-sm">
+                      <div>✓ ESC/POS compatible thermal printer</div>
+                      <div>✓ Printer powered on and Bluetooth enabled</div>
+                      <div>✓ Printer within Bluetooth range (&lt;10 meters)</div>
+                      <div>✓ Paper loaded correctly in printer</div>
                     </div>
-                    <div>
-                      <strong>🔧 Troubleshooting:</strong>
-                      <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                        <li>Turn printer off and on again</li>
-                        <li>Ensure printer is in pairing mode</li>
-                        <li>Check Bluetooth is enabled</li>
-                        <li>Move device closer to printer</li>
-                      </ul>
+                    <div className="mt-3">
+                      <strong>Troubleshooting:</strong>
+                    </div>
+                    <div className="mt-1 space-y-1 text-sm">
+                      <div>• Connection required on each app launch (browser security)</div>
+                      <div>• If connection fails, restart printer and try again</div>
+                      <div>• Ensure printer is not connected to other devices</div>
+                      <div>• Check printer battery/power level</div>
                     </div>
                   </AlertDescription>
                 </Alert>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* POS Mode */}
-      <Card>
-        <CardHeader>
-          <CardTitle>🏪 POS Mode</CardTitle>
-          <CardDescription>Select your business type</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RadioGroup
-            value={settings.mode}
-            onValueChange={(value) => setSettings({ ...settings, mode: value as "retail" | "cafe" })}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="retail" id="mode-retail" />
-              <Label htmlFor="mode-retail" className="font-normal cursor-pointer">
-                Retail (Quick checkout)
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="cafe" id="mode-cafe" />
-              <Label htmlFor="mode-cafe" className="font-normal cursor-pointer">
-                Café (Order management)
-              </Label>
-            </div>
-          </RadioGroup>
-        </CardContent>
-      </Card>
-
-      {/* Tax Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>💰 Tax Settings</CardTitle>
-          <CardDescription>Configure tax rates for your business</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Tax 1 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="tax1-enabled" className="text-base">
-                  Enable Tax 1
-                </Label>
-                <p className="text-sm text-muted-foreground">Primary tax (e.g., VAT, GST)</p>
+                {/* Supported Printers */}
+                <div className="p-4 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2 text-sm">Supported Printer Models:</h4>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>• Epson TM series (TM-m30, TM-T82, TM-T20)</div>
+                    <div>• Star Micronics TSP series</div>
+                    <div>• Rongta RPP series</div>
+                    <div>• Zjiang ZJ series</div>
+                    <div>• Most ESC/POS compatible thermal printers</div>
+                  </div>
+                </div>
               </div>
-              <Switch
-                id="tax1-enabled"
-                checked={settings.tax1Enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, tax1Enabled: checked })}
-              />
-            </div>
-
-            {settings.tax1Enabled && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="tax1-label">Tax 1 Label</Label>
-                  <Input
-                    id="tax1-label"
-                    value={settings.tax1Label}
-                    onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
-                    placeholder="VAT"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tax1-rate">Tax 1 Rate (%)</Label>
-                  <Input
-                    id="tax1-rate"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={settings.tax1Rate}
-                    onChange={(e) =>
-                      setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="tax1-inclusive"
-                    checked={settings.tax1Inclusive}
-                    onCheckedChange={(checked) => setSettings({ ...settings, tax1Inclusive: checked })}
-                  />
-                  <Label htmlFor="tax1-inclusive" className="font-normal cursor-pointer">
-                    Tax included in prices (inclusive)
-                  </Label>
-                </div>
-              </>
             )}
-          </div>
+          </Card>
+        </TabsContent>
 
-          {/* Tax 2 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="tax2-enabled" className="text-base">
-                  Enable Tax 2
-                </Label>
-                <p className="text-sm text-muted-foreground">Secondary tax (e.g., Service charge)</p>
+        {/* Tab 4: Integrations */}
+        <TabsContent value="integrations" className="space-y-6">
+          {/* Google Drive Backup */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Google Drive Backup</h3>
               </div>
-              <Switch
-                id="tax2-enabled"
-                checked={settings.tax2Enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, tax2Enabled: checked })}
-              />
+              {settings.googleDriveLinked && (
+                <Badge variant="default" className="gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Connected
+                </Badge>
+              )}
             </div>
 
-            {settings.tax2Enabled && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="tax2-label">Tax 2 Label</Label>
-                  <Input
-                    id="tax2-label"
-                    value={settings.tax2Label}
-                    onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
-                    placeholder="Service Charge"
-                  />
+            <p className="text-sm text-muted-foreground mb-4">
+              Automatically backup your data to Google Drive (Coming Soon)
+            </p>
+
+            <div className="space-y-4">
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Google Drive integration coming in future update</span>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="tax2-rate">Tax 2 Rate (%)</Label>
-                  <Input
-                    id="tax2-rate"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={settings.tax2Rate}
-                    onChange={(e) =>
-                      setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })
-                    }
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Language */}
-      <Card>
-        <CardHeader>
-          <CardTitle>🌐 Language</CardTitle>
-          <CardDescription>Interface language</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select
-            value={settings.language}
-            onValueChange={(value) => setSettings({ ...settings, language: value as Language })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="en">English</SelectItem>
-              <SelectItem value="id">Bahasa Indonesia</SelectItem>
-              <SelectItem value="zh">中文 (Chinese)</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Additional Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>⚙️ Additional Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="allow-price-override">Allow Price Override</Label>
-              <p className="text-sm text-muted-foreground">Cashiers can modify item prices</p>
+              <Button variant="outline" disabled className="w-full">
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Connect Google Drive (Coming Soon)
+              </Button>
             </div>
-            <Switch
-              id="allow-price-override"
-              checked={settings.allowPriceOverride || false}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, allowPriceOverride: checked })
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
+          </Card>
 
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} size="lg">
-          {saving ? "Saving..." : "💾 Save Settings"}
+          {/* Future Integrations Placeholder */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Wifi className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">More Integrations</h3>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Additional integrations will be available in future updates
+            </p>
+
+            <div className="grid gap-3">
+              <div className="p-4 border rounded-lg flex items-center justify-between opacity-50">
+                <div>
+                  <p className="font-medium text-sm">WhatsApp Notifications</p>
+                  <p className="text-xs text-muted-foreground">Send receipts via WhatsApp</p>
+                </div>
+                <Badge variant="outline">Coming Soon</Badge>
+              </div>
+
+              <div className="p-4 border rounded-lg flex items-center justify-between opacity-50">
+                <div>
+                  <p className="font-medium text-sm">Email Receipts</p>
+                  <p className="text-xs text-muted-foreground">Send receipts to customer email</p>
+                </div>
+                <Badge variant="outline">Coming Soon</Badge>
+              </div>
+
+              <div className="p-4 border rounded-lg flex items-center justify-between opacity-50">
+                <div>
+                  <p className="font-medium text-sm">Cloud Sync</p>
+                  <p className="text-xs text-muted-foreground">Sync data across multiple devices</p>
+                </div>
+                <Badge variant="outline">Coming Soon</Badge>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Save Button (Fixed Bottom) */}
+      <div className="sticky bottom-0 pt-4 pb-2 bg-background border-t">
+        <Button 
+          onClick={handleSave} 
+          disabled={saving}
+          size="lg"
+          className="w-full gap-2"
+        >
+          <Save className="h-4 w-4" />
+          {saving ? "Saving..." : "Save All Settings"}
         </Button>
       </div>
     </div>
