@@ -391,342 +391,326 @@ export function SettingsPanel() {
 
           {/* TAB 2: POS */}
           <TabsContent value="pos" className="space-y-4 p-4 mt-0">
-            {/* Tax Configuration */}
-            <Card className="p-4">
-              <h3 className="text-base font-medium mb-4 flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-muted-foreground" />
-                {t.taxConfiguration}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="max-w-xs">{t.taxTooltip}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </h3>
-
-              <div className="space-y-4">
-                {/* Tax 1 (Primary) */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">{t.tax1Primary}</Label>
-                    <Switch
-                      checked={settings.tax1Enabled}
-                      onCheckedChange={(checked) => {
-                        updateAndSave({ tax1Enabled: checked });
-                      }}
-                    />
-                  </div>
-                  {settings.tax1Enabled && (
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground">Rate:</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={settings.tax1Rate}
-                        onChange={(e) =>
-                          setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })
-                        }
-                        onBlur={(e) => updateAndSave({ tax1Rate: parseFloat(e.target.value) || 0 })}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tax 2 (Secondary) */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">{t.tax2Secondary}</Label>
-                    <Switch
-                      checked={settings.tax2Enabled}
-                      onCheckedChange={(checked) =>
-                        updateAndSave({ tax2Enabled: checked })
-                      }
-                    />
-                  </div>
-                  {settings.tax2Enabled && (
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm text-muted-foreground">Rate:</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={settings.tax2Rate}
-                        onChange={(e) =>
-                          setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })
-                        }
-                        onBlur={(e) => updateAndSave({ tax2Rate: parseFloat(e.target.value) || 0 })}
-                        className="w-24"
-                      />
-                      <span className="text-sm text-muted-foreground">%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            {/* Price Override */}
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Price Override
-                    <HelpTooltip content="Allow cashiers to adjust item prices during checkout" />
+            {activeTab === "pos" && (
+              <div className="space-y-6">
+                {/* 1. Shift Management */}
+                <Card className="p-4">
+                  <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    {t["settings.shiftManagement"]}
                   </h3>
-                </div>
-                <Switch
-                  checked={settings.allowPriceOverride}
-                  onCheckedChange={(checked) => {
-                    setSettings({ ...settings, allowPriceOverride: checked });
-                    updateAndSave({ allowPriceOverride: checked });
-                  }}
-                />
-              </div>
-            </Card>
 
-            <Separator className="my-4" />
-
-            {/* Shift Management */}
-            <Card className="p-4">
-              <h3 className="text-base font-medium mb-4 flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                {t.shiftManagement}
-              </h3>
-
-              <div className="space-y-4">
-                {/* Shift 1 */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Shift 1</Label>
-                    <Switch
-                      checked={getSafeShifts(settings).shift1.enabled}
-                      onCheckedChange={(checked) =>
-                        updateShift('shift1', { enabled: checked }, true)
-                      }
-                    />
-                  </div>
-                  {getSafeShifts(settings).shift1.enabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Start</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift1.startTime}
-                          onChange={(e) =>
-                            updateShift('shift1', { startTime: e.target.value }, false)
+                  <div className="space-y-4">
+                    {/* Shift 1 */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Shift 1</Label>
+                        <Switch
+                          checked={getSafeShifts(settings).shift1.enabled}
+                          onCheckedChange={(checked) =>
+                            updateShift('shift1', { enabled: checked }, true)
                           }
-                          onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">End</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift1.endTime}
-                          onChange={(e) =>
-                            updateShift('shift1', { endTime: e.target.value }, false)
-                          }
-                          onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
-                        />
-                      </div>
+                      {getSafeShifts(settings).shift1.enabled && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Start</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift1.startTime}
+                              onChange={(e) =>
+                                updateShift('shift1', { startTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">End</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift1.endTime}
+                              onChange={(e) =>
+                                updateShift('shift1', { endTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Shift 2 */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Shift 2</Label>
-                    <Switch
-                      checked={getSafeShifts(settings).shift2.enabled}
-                      onCheckedChange={(checked) =>
-                        updateShift('shift2', { enabled: checked }, true)
-                      }
-                    />
-                  </div>
-                  {getSafeShifts(settings).shift2.enabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Start</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift2.startTime}
-                          onChange={(e) =>
-                            updateShift('shift2', { startTime: e.target.value }, false)
+                    {/* Shift 2 */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Shift 2</Label>
+                        <Switch
+                          checked={getSafeShifts(settings).shift2.enabled}
+                          onCheckedChange={(checked) =>
+                            updateShift('shift2', { enabled: checked }, true)
                           }
-                          onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">End</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift2.endTime}
-                          onChange={(e) =>
-                            updateShift('shift2', { endTime: e.target.value }, false)
-                          }
-                          onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
-                        />
-                      </div>
+                      {getSafeShifts(settings).shift2.enabled && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Start</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift2.startTime}
+                              onChange={(e) =>
+                                updateShift('shift2', { startTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">End</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift2.endTime}
+                              onChange={(e) =>
+                                updateShift('shift2', { endTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Shift 3 */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium">Shift 3</Label>
-                    <Switch
-                      checked={getSafeShifts(settings).shift3.enabled}
-                      onCheckedChange={(checked) =>
-                        updateShift('shift3', { enabled: checked }, true)
-                      }
-                    />
-                  </div>
-                  {getSafeShifts(settings).shift3.enabled && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Start</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift3.startTime}
-                          onChange={(e) =>
-                            updateShift('shift3', { startTime: e.target.value }, false)
+                    {/* Shift 3 */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Shift 3</Label>
+                        <Switch
+                          checked={getSafeShifts(settings).shift3.enabled}
+                          onCheckedChange={(checked) =>
+                            updateShift('shift3', { enabled: checked }, true)
                           }
-                          onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">End</Label>
-                        <Input
-                          type="time"
-                          value={getSafeShifts(settings).shift3.endTime}
-                          onChange={(e) =>
-                            updateShift('shift3', { endTime: e.target.value }, false)
-                          }
-                          onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
-                        />
-                      </div>
+                      {getSafeShifts(settings).shift3.enabled && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Start</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift3.startTime}
+                              onChange={(e) =>
+                                updateShift('shift3', { startTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">End</Label>
+                            <Input
+                              type="time"
+                              value={getSafeShifts(settings).shift3.endTime}
+                              onChange={(e) =>
+                                updateShift('shift3', { endTime: e.target.value }, false)
+                              }
+                              onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
+                </Card>
+
+                {/* 2. Payment Methods */}
+                <Card className="p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    {t["settings.paymentMethods"]}
+                    <HelpTooltip content="Enable payment options for checkout" />
+                  </h3>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="text-sm">Cash</span>
+                      </div>
+                      <Switch
+                        checked={settings.paymentMethods?.cash !== false}
+                        onCheckedChange={(checked) => {
+                          setSettings({ 
+                            ...settings, 
+                            paymentMethods: { ...settings.paymentMethods, cash: checked }
+                          });
+                          updateAndSave({ 
+                            paymentMethods: { ...settings.paymentMethods, cash: checked }
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm">Card (Debit/Credit)</span>
+                      </div>
+                      <Switch
+                        checked={settings.paymentMethods?.card !== false}
+                        onCheckedChange={(checked) => {
+                          setSettings({ 
+                            ...settings, 
+                            paymentMethods: { ...settings.paymentMethods, card: checked }
+                          });
+                          updateAndSave({ 
+                            paymentMethods: { ...settings.paymentMethods, card: checked }
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm">E-Wallet (GoPay, OVO, Dana)</span>
+                      </div>
+                      <Switch
+                        checked={settings.paymentMethods?.ewallet !== false}
+                        onCheckedChange={(checked) => {
+                          setSettings({ 
+                            ...settings, 
+                            paymentMethods: { ...settings.paymentMethods, ewallet: checked }
+                          });
+                          updateAndSave({ 
+                            paymentMethods: { ...settings.paymentMethods, ewallet: checked }
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-orange-600" />
+                        <span className="text-sm">QR Code (QRIS)</span>
+                      </div>
+                      <Switch
+                        checked={settings.paymentMethods?.qr !== false}
+                        onCheckedChange={(checked) => {
+                          setSettings({ 
+                            ...settings, 
+                            paymentMethods: { ...settings.paymentMethods, qr: checked }
+                          });
+                          updateAndSave({ 
+                            paymentMethods: { ...settings.paymentMethods, qr: checked }
+                          });
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-2 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm">Bank Transfer</span>
+                      </div>
+                      <Switch
+                        checked={settings.paymentMethods?.transfer !== false}
+                        onCheckedChange={(checked) => {
+                          setSettings({ 
+                            ...settings, 
+                            paymentMethods: { ...settings.paymentMethods, transfer: checked }
+                          });
+                          updateAndSave({ 
+                            paymentMethods: { ...settings.paymentMethods, transfer: checked }
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </Card>
+
+                {/* 3. Price Override */}
+                <div className="space-y-4">
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          {t["settings.priceOverride"]}
+                          <HelpTooltip content="Allow cashiers to adjust item prices during checkout" />
+                        </h3>
+                      </div>
+                      <Switch
+                        checked={settings.allowPriceOverride}
+                        onCheckedChange={(checked) => {
+                          setSettings({ ...settings, allowPriceOverride: checked });
+                          updateAndSave({ allowPriceOverride: checked });
+                        }}
+                      />
+                    </div>
+                  </Card>
                 </div>
+
+                {/* 4. Tax Configuration */}
+                <Card className="p-4">
+                  <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    {t["settings.taxConfiguration"]}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {/* Tax 1 */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Tax 1 (Primary)</Label>
+                        <Switch
+                          checked={settings.tax1Enabled}
+                          onCheckedChange={(checked) => {
+                            setSettings({ ...settings, tax1Enabled: checked });
+                            updateAndSave({ tax1Enabled: checked });
+                          }}
+                        />
+                      </div>
+                      {settings.tax1Enabled && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Rate (%)</Label>
+                          <Input
+                            type="number"
+                            value={settings.tax1Rate}
+                            onChange={(e) => setSettings({ ...settings, tax1Rate: Number(e.target.value) })}
+                            onBlur={(e) => updateAndSave({ tax1Rate: Number(e.target.value) })}
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tax 2 */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium">Tax 2 (Secondary)</Label>
+                        <Switch
+                          checked={settings.tax2Enabled}
+                          onCheckedChange={(checked) => {
+                            setSettings({ ...settings, tax2Enabled: checked });
+                            updateAndSave({ tax2Enabled: checked });
+                          }}
+                        />
+                      </div>
+                      {settings.tax2Enabled && (
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Rate (%)</Label>
+                          <Input
+                            type="number"
+                            value={settings.tax2Rate}
+                            onChange={(e) => setSettings({ ...settings, tax2Rate: Number(e.target.value) })}
+                            onBlur={(e) => updateAndSave({ tax2Rate: Number(e.target.value) })}
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
               </div>
-            </Card>
-
-            {/* Payment Methods */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Payment Methods
-                <HelpTooltip content="Enable payment options for checkout" />
-              </h3>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-2 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">Cash</span>
-                  </div>
-                  <Switch
-                    checked={settings.paymentMethods?.cash !== false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ 
-                        ...settings, 
-                        paymentMethods: { ...settings.paymentMethods, cash: checked }
-                      });
-                      updateAndSave({ 
-                        paymentMethods: { ...settings.paymentMethods, cash: checked }
-                      });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">Card (Debit/Credit)</span>
-                  </div>
-                  <Switch
-                    checked={settings.paymentMethods?.card !== false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ 
-                        ...settings, 
-                        paymentMethods: { ...settings.paymentMethods, card: checked }
-                      });
-                      updateAndSave({ 
-                        paymentMethods: { ...settings.paymentMethods, card: checked }
-                      });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">E-Wallet (GoPay, OVO, Dana)</span>
-                  </div>
-                  <Switch
-                    checked={settings.paymentMethods?.ewallet !== false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ 
-                        ...settings, 
-                        paymentMethods: { ...settings.paymentMethods, ewallet: checked }
-                      });
-                      updateAndSave({ 
-                        paymentMethods: { ...settings.paymentMethods, ewallet: checked }
-                      });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm">QR Code (QRIS)</span>
-                  </div>
-                  <Switch
-                    checked={settings.paymentMethods?.qr !== false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ 
-                        ...settings, 
-                        paymentMethods: { ...settings.paymentMethods, qr: checked }
-                      });
-                      updateAndSave({ 
-                        paymentMethods: { ...settings.paymentMethods, qr: checked }
-                      });
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-2 border rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm">Bank Transfer</span>
-                  </div>
-                  <Switch
-                    checked={settings.paymentMethods?.transfer !== false}
-                    onCheckedChange={(checked) => {
-                      setSettings({ 
-                        ...settings, 
-                        paymentMethods: { ...settings.paymentMethods, transfer: checked }
-                      });
-                      updateAndSave({ 
-                        paymentMethods: { ...settings.paymentMethods, transfer: checked }
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-            </Card>
+            )}
           </TabsContent>
 
           {/* TAB 3: SECURITY */}

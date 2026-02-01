@@ -83,6 +83,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "settings.mode": "POS Mode",
     "settings.language": "Language",
     "settings.printer": "Printer Width",
+    "settings.shiftManagement": "Shift Management",
+    "settings.taxConfiguration": "Tax Configuration",
+    "settings.paymentMethods": "Payment Methods",
+    "settings.priceOverride": "Price Override",
 
     // Reports
     "reports.title": "AI Reports",
@@ -191,6 +195,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "settings.mode": "Mode POS",
     "settings.language": "Bahasa",
     "settings.printer": "Lebar Printer",
+    "settings.shiftManagement": "Manajemen Shift",
+    "settings.taxConfiguration": "Konfigurasi Pajak",
+    "settings.paymentMethods": "Metode Pembayaran",
+    "settings.priceOverride": "Override Harga",
 
     // Reports
     "reports.title": "Laporan AI",
@@ -299,6 +307,10 @@ export const translations: Record<Language, Record<string, string>> = {
     "settings.mode": "POS模式",
     "settings.language": "语言",
     "settings.printer": "打印机宽度",
+    "settings.shiftManagement": "班次管理",
+    "settings.taxConfiguration": "税收配置",
+    "settings.paymentMethods": "付款方式",
+    "settings.priceOverride": "价格覆盖",
 
     // Reports
     "reports.title": "AI报表",
