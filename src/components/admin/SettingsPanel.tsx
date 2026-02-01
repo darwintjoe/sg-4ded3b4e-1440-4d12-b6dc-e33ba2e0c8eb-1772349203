@@ -414,13 +414,13 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">{t.tax1Primary}</Label>
                     <Switch
-                      checked={settings.enableTax}
+                      checked={settings.tax1Enabled}
                       onCheckedChange={(checked) => {
-                        updateAndSave({ enableTax: checked });
+                        updateAndSave({ tax1Enabled: checked });
                       }}
                     />
                   </div>
-                  {settings.enableTax && (
+                  {settings.tax1Enabled && (
                     <div className="flex items-center gap-2">
                       <Label className="text-sm text-muted-foreground">Rate:</Label>
                       <Input
@@ -428,11 +428,11 @@ export function SettingsPanel() {
                         step="0.01"
                         min="0"
                         max="100"
-                        value={settings.taxRate}
+                        value={settings.tax1Rate}
                         onChange={(e) =>
-                          setSettings({ ...settings, taxRate: parseFloat(e.target.value) || 0 })
+                          setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })
                         }
-                        onBlur={(e) => updateAndSave({ taxRate: parseFloat(e.target.value) || 0 })}
+                        onBlur={(e) => updateAndSave({ tax1Rate: parseFloat(e.target.value) || 0 })}
                         className="w-24"
                       />
                       <span className="text-sm text-muted-foreground">%</span>
@@ -445,13 +445,13 @@ export function SettingsPanel() {
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">{t.tax2Secondary}</Label>
                     <Switch
-                      checked={settings.enableTax2}
+                      checked={settings.tax2Enabled}
                       onCheckedChange={(checked) =>
-                        updateAndSave({ enableTax2: checked })
+                        updateAndSave({ tax2Enabled: checked })
                       }
                     />
                   </div>
-                  {settings.enableTax2 && (
+                  {settings.tax2Enabled && (
                     <div className="flex items-center gap-2">
                       <Label className="text-sm text-muted-foreground">Rate:</Label>
                       <Input
@@ -459,11 +459,11 @@ export function SettingsPanel() {
                         step="0.01"
                         min="0"
                         max="100"
-                        value={settings.taxRate2 || 0}
+                        value={settings.tax2Rate}
                         onChange={(e) =>
-                          setSettings({ ...settings, taxRate2: parseFloat(e.target.value) || 0 })
+                          setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })
                         }
-                        onBlur={(e) => updateAndSave({ taxRate2: parseFloat(e.target.value) || 0 })}
+                        onBlur={(e) => updateAndSave({ tax2Rate: parseFloat(e.target.value) || 0 })}
                         className="w-24"
                       />
                       <span className="text-sm text-muted-foreground">%</span>
