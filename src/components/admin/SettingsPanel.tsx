@@ -353,70 +353,13 @@ export function SettingsPanel() {
 
           {/* TAB 2: POS */}
           <TabsContent value="pos" className="space-y-4 p-4 mt-0">
-            {/* POS Mode */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Store className="h-4 w-4" />
-                POS Mode
-              </h3>
-              <RadioGroup
-                value={settings.mode}
-                onValueChange={(value: POSMode) => {
-                  setSettings({ ...settings, mode: value });
-                  updateAndSave({ mode: value });
-                }}
-                className="space-y-2"
-              >
-                <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="retail" id="retail" />
-                  <Label htmlFor="retail" className="text-sm font-normal cursor-pointer flex-1">
-                    Retail
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="cafe" id="cafe" />
-                  <Label htmlFor="cafe" className="text-sm font-normal cursor-pointer flex-1">
-                    Cafe/Restaurant
-                  </Label>
-                </div>
-              </RadioGroup>
-            </Card>
-
-            {/* Language */}
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Language
-              </h3>
-              <RadioGroup
-                value={settings.language}
-                onValueChange={(value: "en" | "id") => {
-                  setSettings({ ...settings, language: value });
-                  updateAndSave({ language: value });
-                }}
-                className="space-y-2"
-              >
-                <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="en" id="en" />
-                  <Label htmlFor="en" className="text-sm font-normal cursor-pointer flex-1">
-                    English
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
-                  <RadioGroupItem value="id" id="id" />
-                  <Label htmlFor="id" className="text-sm font-normal cursor-pointer flex-1">
-                    Bahasa Indonesia
-                  </Label>
-                </div>
-              </RadioGroup>
-            </Card>
-
             {/* Tax 1 */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
                   Tax 1 (Primary)
+                  <HelpTooltip content="Primary tax like VAT or PPN" />
                 </h3>
                 <Switch
                   checked={settings.tax1Enabled}
@@ -458,7 +401,7 @@ export function SettingsPanel() {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 p-2 border rounded">
+                  <div className="flex items-center space-x-2">
                     <Switch
                       id="tax1Inc"
                       checked={settings.tax1Inclusive}
@@ -482,6 +425,7 @@ export function SettingsPanel() {
                 <h3 className="font-semibold flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
                   Tax 2 (Secondary)
+                  <HelpTooltip content="Secondary tax like GST or service charge" />
                 </h3>
                 <Switch
                   checked={settings.tax2Enabled}
@@ -523,7 +467,7 @@ export function SettingsPanel() {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 p-2 border rounded">
+                  <div className="flex items-center space-x-2">
                     <Switch
                       id="tax2Inc"
                       checked={settings.tax2Inclusive}
