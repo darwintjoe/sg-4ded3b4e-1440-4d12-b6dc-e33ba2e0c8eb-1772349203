@@ -655,56 +655,68 @@ export function SettingsPanel() {
                     {t["settings.taxConfiguration"]}
                   </h3>
                   
-                  <div className="space-y-4">
-                    {/* Tax 1 */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Tax 1 (Primary)</Label>
-                        <Switch
-                          checked={settings.tax1Enabled}
-                          onCheckedChange={(checked) => {
-                            setSettings({ ...settings, tax1Enabled: checked });
-                            updateAndSave({ tax1Enabled: checked });
-                          }}
-                        />
-                      </div>
+                  <div className="space-y-3">
+                    {/* Tax 1 - Compact one-row layout */}
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium w-32">Tax 1 (Primary)</Label>
+                      <Switch
+                        checked={settings.tax1Enabled}
+                        onCheckedChange={(checked) => {
+                          setSettings({ ...settings, tax1Enabled: checked });
+                          updateAndSave({ tax1Enabled: checked });
+                        }}
+                      />
                       {settings.tax1Enabled && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Rate (%)</Label>
+                        <>
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
                           <Input
                             type="number"
                             value={settings.tax1Rate}
                             onChange={(e) => setSettings({ ...settings, tax1Rate: Number(e.target.value) })}
                             onBlur={(e) => updateAndSave({ tax1Rate: Number(e.target.value) })}
-                            className="mt-1"
+                            className="w-20"
                           />
-                        </div>
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Inclusive</Label>
+                          <Switch
+                            checked={settings.tax1Inclusive || false}
+                            onCheckedChange={(checked) => {
+                              setSettings({ ...settings, tax1Inclusive: checked });
+                              updateAndSave({ tax1Inclusive: checked });
+                            }}
+                          />
+                        </>
                       )}
                     </div>
 
-                    {/* Tax 2 */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Tax 2 (Secondary)</Label>
-                        <Switch
-                          checked={settings.tax2Enabled}
-                          onCheckedChange={(checked) => {
-                            setSettings({ ...settings, tax2Enabled: checked });
-                            updateAndSave({ tax2Enabled: checked });
-                          }}
-                        />
-                      </div>
+                    {/* Tax 2 - Compact one-row layout */}
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium w-32">Tax 2 (Secondary)</Label>
+                      <Switch
+                        checked={settings.tax2Enabled}
+                        onCheckedChange={(checked) => {
+                          setSettings({ ...settings, tax2Enabled: checked });
+                          updateAndSave({ tax2Enabled: checked });
+                        }}
+                      />
                       {settings.tax2Enabled && (
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Rate (%)</Label>
+                        <>
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
                           <Input
                             type="number"
                             value={settings.tax2Rate}
                             onChange={(e) => setSettings({ ...settings, tax2Rate: Number(e.target.value) })}
                             onBlur={(e) => updateAndSave({ tax2Rate: Number(e.target.value) })}
-                            className="mt-1"
+                            className="w-20"
                           />
-                        </div>
+                          <Label className="text-xs text-muted-foreground whitespace-nowrap">Inclusive</Label>
+                          <Switch
+                            checked={settings.tax2Inclusive || false}
+                            onCheckedChange={(checked) => {
+                              setSettings({ ...settings, tax2Inclusive: checked });
+                              updateAndSave({ tax2Inclusive: checked });
+                            }}
+                          />
+                        </>
                       )}
                     </div>
                   </div>
