@@ -245,4 +245,19 @@ export interface Settings {
   googleDriveLinked?: boolean;
   bluetoothPrinterId?: string;
   bluetoothPrinterName?: string;
+  
+  // Shift Management
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  requireClockIn?: boolean;
+  trackBreaks?: boolean;
+
+  // Payment Methods
+  paymentMethods?: {
+    cash?: boolean;
+    card?: boolean;
+    ewallet?: boolean;
+    qr?: boolean;
+    transfer?: boolean;
+  };
 }
