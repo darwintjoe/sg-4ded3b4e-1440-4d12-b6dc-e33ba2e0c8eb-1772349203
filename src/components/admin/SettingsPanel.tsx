@@ -1,24 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useApp } from "@/contexts/AppContext";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Settings as SettingsType, POSMode } from "@/types";
-import { Save, Check } from "lucide-react";
+import { Save, Check, Upload, X } from "lucide-react";
 
 export function SettingsPanel() {
   const { language, mode, setMode } = useApp();
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [saved, setSaved] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    if (settings?.businessLogo) {
+      setLogoPreview(settings.businessLogo);
+    }
+  }, [settings?.businessLogo]);
 
   const loadSettings = async () => {
     const allSettings = await db.getAll<SettingsType>("settings");
@@ -38,8 +47,12 @@ export function SettingsPanel() {
         language: "en",
         printerWidth: 80,
         businessName: "My Store",
+        businessLogo: undefined,
+        businessAddress: undefined,
+        taxId: undefined,
         receiptFooter: "Thank you for your purchase!",
-        googleDriveLinked: false
+        googleDriveLinked: false,
+        allowPriceOverride: false
       };
       await db.put("settings", defaultSettings);
       setSettings(defaultSettings);
@@ -61,6 +74,40 @@ export function SettingsPanel() {
   const updateSetting = (key: keyof SettingsType, value: any) => {
     if (!settings) return;
     setSettings({ ...settings, [key]: value });
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.match(/^image\/(png|jpeg|jpg|gif)$/)) {
+      alert("Please upload a PNG, JPG, or GIF image");
+      return;
+    }
+
+    // Validate file size (2MB max)
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image must be smaller than 2MB");
+      return;
+    }
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setLogoPreview(base64);
+      updateSetting("businessLogo", base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => {
+    setLogoPreview(null);
+    updateSetting("businessLogo", undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   if (!settings) {
@@ -239,25 +286,100 @@ export function SettingsPanel() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Business Information</CardTitle>
+            <CardTitle>📄 Business Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Business Name</Label>
+              <Label>Business Logo (Optional)</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/gif"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Image
+                </Button>
+                {logoPreview && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeLogo}
+                    className="gap-2"
+                  >
+                    <X className="h-4 w-4" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+              {logoPreview && (
+                <div className="mt-2 p-2 border rounded-lg bg-white dark:bg-slate-800">
+                  <img
+                    src={logoPreview}
+                    alt="Business Logo Preview"
+                    className="max-h-24 mx-auto object-contain"
+                  />
+                </div>
+              )}
+              <p className="text-xs text-slate-500">
+                Logo will be converted to black & white for thermal printing. Max 2MB (PNG, JPG, GIF)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>
+                Business Name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 value={settings.businessName ?? ""}
                 onChange={(e) => updateSetting("businessName", e.target.value)}
                 placeholder="My Store"
+                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Receipt Footer Text</Label>
+              <Label>Business Address (Optional)</Label>
+              <Textarea
+                value={settings.businessAddress ?? ""}
+                onChange={(e) => updateSetting("businessAddress", e.target.value)}
+                placeholder="123 Main Street&#10;City, State 12345&#10;Country"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tax ID / NPWP (Optional)</Label>
               <Input
+                value={settings.taxId ?? ""}
+                onChange={(e) => updateSetting("taxId", e.target.value)}
+                placeholder="NPWP: 12.345.678.9-012.000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Receipt Footer (Optional)</Label>
+              <Textarea
                 value={settings.receiptFooter ?? ""}
                 onChange={(e) => updateSetting("receiptFooter", e.target.value)}
                 placeholder="Thank you for your purchase!"
+                rows={3}
+                className="resize-none"
               />
+              <p className="text-xs text-slate-500">
+                Default message will be used if left empty
+              </p>
             </div>
           </CardContent>
         </Card>

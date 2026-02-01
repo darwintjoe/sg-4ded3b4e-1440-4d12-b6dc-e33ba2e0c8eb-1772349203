@@ -223,10 +223,9 @@ export interface CashierSession {
   mode: POSMode;
 }
 
-export interface AppSettings {
+export interface Settings {
   key: string;
   mode: POSMode;
-  printerWidth: 58 | 80;
   tax1Enabled: boolean;
   tax1Label: string;
   tax1Rate: number;
@@ -234,11 +233,15 @@ export interface AppSettings {
   tax2Enabled: boolean;
   tax2Label: string;
   tax2Rate: number;
-  googleDriveLinked: boolean;
   language: Language;
-  businessName?: string;
+  printerWidth: number;
+  businessName: string;
+  businessLogo?: string;
+  businessAddress?: string;
+  taxId?: string;
   receiptFooter?: string;
   allowPriceOverride?: boolean;
+  googleDriveLinked?: boolean;
+  bluetoothPrinterId?: string;
+  bluetoothPrinterName?: string;
 }
-
-export type Settings = AppSettings;

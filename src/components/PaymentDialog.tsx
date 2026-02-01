@@ -3,10 +3,10 @@ import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales } from "@/types";
+import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer } from "lucide-react";
 
 interface PaymentDialogProps {
   open: boolean;
@@ -14,13 +14,7 @@ interface PaymentDialogProps {
   total: number;
   subtotal: number;
   tax: number;
-  tax1Amount?: number;
-  tax1Label?: string;
-  tax1Rate?: number;
-  tax1Inclusive?: boolean;
-  tax2Amount?: number;
-  tax2Label?: string;
-  tax2Rate?: number;
+  settings: Settings | null;
 }
 
 export function PaymentDialog({ 
@@ -29,19 +23,15 @@ export function PaymentDialog({
   total, 
   subtotal, 
   tax,
-  tax1Amount = 0,
-  tax1Label = "",
-  tax1Rate = 0,
-  tax1Inclusive = false,
-  tax2Amount = 0,
-  tax2Label = "",
-  tax2Rate = 0
+  settings
 }: PaymentDialogProps) {
   const { language, cart, clearCart, currentUser, mode, currentShift } = useApp();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
   const [qrisRef, setQrisRef] = useState("");
+  const [completed, setCompleted] = useState(false);
+  const [change, setChange] = useState(0);
 
   // Reset payment state when dialog closes
   useEffect(() => {
@@ -50,12 +40,18 @@ export function PaymentDialog({
       setAmount("");
       setQrisRef("");
       setSelectedMethod("cash");
+      setCompleted(false);
+      setChange(0);
     }
   }, [open]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);
-  const change = Math.max(0, totalPaid - total);
+  
+  // Calculate change whenever totalPaid updates
+  useEffect(() => {
+    setChange(Math.max(0, totalPaid - total));
+  }, [totalPaid, total]);
 
   // Auto-fill amount with remaining balance
   useEffect(() => {
@@ -80,7 +76,7 @@ export function PaymentDialog({
   };
 
   const completeSale = async () => {
-    if (remaining > 0 || !currentUser || !currentShift) return;
+    if (remaining > 0 || !currentUser || !currentShift || !settings) return;
 
     const transaction: Transaction = {
       timestamp: Date.now(),
@@ -101,7 +97,7 @@ export function PaymentDialog({
       // 1. Add to hot transactions
       await db.add("transactions", transaction);
 
-      // 2. Update Daily Item Sales (sequential to avoid transaction conflicts)
+      // 2. Update Daily Item Sales
       for (const item of cart) {
         const dailyItem: Omit<DailyItemSales, "id"> = {
           itemId: item.itemId,
@@ -115,7 +111,7 @@ export function PaymentDialog({
         await db.upsertDailyItemSales(dailyItem);
       }
 
-      // 3. Update Daily Payment Sales (sequential to avoid transaction conflicts)
+      // 3. Update Daily Payment Sales
       for (const p of payments) {
         const dailyPayment: Omit<DailyPaymentSales, "id"> = {
           method: p.method,
@@ -126,16 +122,34 @@ export function PaymentDialog({
         await db.upsertDailyPaymentSales(dailyPayment);
       }
 
-      // Only clear cart after successful save
+      setCompleted(true);
       clearCart();
-      setPayments([]);
-      onClose();
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction. Please try again or contact support.");
-      // Don't clear cart - allow user to retry
     }
   };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleNewSale = () => {
+    onClose();
+  };
+
+  // Tax calculations for display
+  const tax1Amount = settings?.tax1Enabled ? 
+    (settings.tax1Inclusive ? 
+      cart.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0) 
+      : subtotal * (settings.tax1Rate / 100)) 
+    : 0;
+    
+  const tax2Amount = settings?.tax2Enabled ? 
+    (settings.tax1Inclusive ? 
+      (subtotal * (settings.tax2Rate / 100)) // Base on net subtotal
+      : subtotal * (settings.tax2Rate / 100))
+    : 0;
 
   const paymentMethods: { method: PaymentMethod; label: string; icon: any }[] = [
     { method: "cash", label: translate("payment.cash", language), icon: DollarSign },
@@ -144,9 +158,120 @@ export function PaymentDialog({
     { method: "voucher", label: translate("payment.voucher", language), icon: Ticket }
   ];
 
-  const showTax1 = tax1Amount > 0 && tax1Label;
-  const showTax2 = tax2Amount > 0 && tax2Label;
+  if (completed) {
+    return (
+      <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
+        <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <CheckCircle2 className="h-16 w-16 text-green-500" />
+            <DialogTitle className="text-xl">Transaction Successful!</DialogTitle>
+            
+            {/* Digital Receipt Preview */}
+            <div className="w-full bg-white text-black p-4 text-xs font-mono border border-gray-200 shadow-sm my-4">
+              {/* Header */}
+              <div className="text-center mb-4 space-y-1">
+                {settings?.businessLogo && (
+                  <img src={settings.businessLogo} alt="Logo" className="h-12 mx-auto mb-2 grayscale" />
+                )}
+                <div className="font-bold text-base">{settings?.businessName}</div>
+                {settings?.businessAddress && (
+                  <div className="whitespace-pre-line">{settings.businessAddress}</div>
+                )}
+                {settings?.taxId && (
+                  <div>{settings.taxId}</div>
+                )}
+                <div className="mt-2 text-[10px] text-gray-500">
+                  {new Date().toLocaleString(language === 'id' ? 'id-ID' : 'en-US')}
+                </div>
+              </div>
 
+              {/* Items */}
+              <div className="border-t border-b border-dashed border-gray-300 py-2 my-2 space-y-2">
+                {cart.map((item, idx) => (
+                  <div key={idx} className="flex flex-col">
+                    <div>{item.name}</div>
+                    <div className="flex justify-between">
+                      <span>{item.quantity} x {item.basePrice.toLocaleString()}</span>
+                      <span>{item.totalPrice.toLocaleString()}</span>
+                    </div>
+                    {(item.variant || (item.modifiers && item.modifiers.length > 0)) && (
+                      <div className="text-[10px] text-gray-500 pl-2">
+                        {item.variant && <div>• {item.variant}</div>}
+                        {item.modifiers?.map(m => <div key={m}>+ {m}</div>)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1 mb-2">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>{subtotal.toLocaleString()}</span>
+                </div>
+                {settings?.tax1Enabled && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>{settings.tax1Label} ({settings.tax1Rate}%)</span>
+                    <span>{tax1Amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {settings?.tax2Enabled && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>{settings.tax2Label} ({settings.tax2Rate}%)</span>
+                    <span>{tax2Amount.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-sm border-t border-gray-300 pt-1 mt-1">
+                  <span>TOTAL</span>
+                  <span>{total.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Payment & Change */}
+              <div className="border-t border-gray-300 pt-2 mb-4 space-y-1">
+                {payments.map((p, i) => (
+                  <div key={i} className="flex justify-between">
+                    <span className="capitalize">{p.method.replace("-", " ")}</span>
+                    <span>{p.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                {change > 0 && (
+                  <div className="flex justify-between font-bold">
+                    <span>Change</span>
+                    <span>{change.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Footer */}
+              <div className="text-center text-[10px] whitespace-pre-line mt-4">
+                {settings?.receiptFooter || "Thank you for your purchase!"}
+              </div>
+              
+              {settings?.tax1Inclusive && (
+                <div className="text-center text-[10px] italic mt-2 text-gray-400">
+                  Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 w-full">
+              <Button variant="outline" className="flex-1" onClick={handlePrint}>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+              <Button className="flex-1" onClick={handleNewSale}>
+                New Sale
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Payment Entry View (existing code reused but simplified)
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -161,28 +286,33 @@ export function PaymentDialog({
               <span>{translate("payment.subtotal", language)}</span>
               <span className="font-bold">Rp {subtotal.toLocaleString()}</span>
             </div>
-            {showTax1 && (
+            
+            {settings?.tax1Enabled && (
               <div className="flex justify-between text-sm">
-                <span>{tax1Label} {tax1Rate}%</span>
-                <span className="font-bold">Rp {tax1Amount.toLocaleString()}</span>
+                <span>{settings.tax1Label} {settings.tax1Rate}%</span>
+                <span className="font-bold">Rp {tax1Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </div>
             )}
-            {showTax2 && (
+            
+            {settings?.tax2Enabled && (
               <div className="flex justify-between text-sm">
-                <span>{tax2Label} {tax2Rate}%</span>
-                <span className="font-bold">Rp {tax2Amount.toLocaleString()}</span>
+                <span>{settings.tax2Label} {settings.tax2Rate}%</span>
+                <span className="font-bold">Rp {tax2Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </div>
             )}
-            {tax1Inclusive && tax1Label && (
+
+            {settings?.tax1Inclusive && settings.tax1Enabled && (
               <div className="flex items-start gap-1 text-xs text-slate-600 dark:text-slate-400 italic">
                 <span>ⓘ</span>
-                <span>Prices inclusive of {tax1Label} {tax1Rate}%</span>
+                <span>Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%</span>
               </div>
             )}
+
             <div className="flex justify-between text-base font-bold border-t border-slate-300 dark:border-slate-600 pt-2">
               <span>{translate("payment.amount", language)}</span>
               <span>Rp {total.toLocaleString()}</span>
             </div>
+            
             {payments.length > 0 && (
               <>
                 <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">

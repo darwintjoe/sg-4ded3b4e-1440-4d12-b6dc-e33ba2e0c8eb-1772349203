@@ -10,25 +10,8 @@ import {
   DailyPaymentSales,
   MonthlyItemSales,
   MonthlyPaymentSales,
+  Settings,
 } from "@/types";
-
-export interface Settings {
-  id: number;
-  mode: "retail" | "cafe";
-  tax1Enabled: boolean;
-  tax1Label: string;
-  tax1Rate: number;
-  tax1Inclusive: boolean;
-  tax2Enabled: boolean;
-  tax2Label: string;
-  tax2Rate: number;
-  language: "en" | "id" | "zh";
-  allowPriceOverride: boolean;
-  printerWidth: "58mm" | "80mm";
-  businessName: string;
-  receiptFooter: string;
-  googleDriveBackup: boolean;
-}
 
 class Database {
   private db: IDBDatabase | null = null;
@@ -41,7 +24,7 @@ class Database {
 
     this.initPromise = new Promise((resolve, reject) => {
       // Bump version to 3 to force upgrade
-      const request = indexedDB.open("SellMoreDB", 3);
+      const request = indexedDB.open("SellMoreDB", 2);
 
       request.onerror = () => {
         reject(new Error("Failed to open database"));
@@ -58,7 +41,7 @@ class Database {
 
         // Create stores if they don't exist
         if (!db.objectStoreNames.contains("settings")) {
-          db.createObjectStore("settings", { keyPath: "id" });
+          db.createObjectStore("settings", { keyPath: "key" });
         }
         if (!db.objectStoreNames.contains("items")) {
           const itemStore = db.createObjectStore("items", {
@@ -410,10 +393,10 @@ class Database {
 
   // Settings
   async getSettings(): Promise<Settings> {
-    const settings = await this.getById<Settings>("settings", 1);
+    const settings = await this.getById<Settings>("settings", "default");
     if (!settings) {
       const defaultSettings: Settings = {
-        id: 1,
+        key: "default",
         mode: "retail",
         tax1Enabled: true,
         tax1Label: "PPN",
@@ -423,11 +406,14 @@ class Database {
         tax2Label: "GST",
         tax2Rate: 5,
         language: "en",
-        allowPriceOverride: true,
-        printerWidth: "58mm",
-        businessName: "Sell More",
+        printerWidth: 80,
+        businessName: "My Store",
+        businessLogo: undefined,
+        businessAddress: undefined,
+        taxId: undefined,
         receiptFooter: "Thank you for your purchase!",
-        googleDriveBackup: false,
+        googleDriveLinked: false,
+        allowPriceOverride: false
       };
       await this.put("settings", defaultSettings);
       return defaultSettings;

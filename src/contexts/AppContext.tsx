@@ -57,7 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Get or create settings
     const settings = await db.getSettings();
     setModeState(settings.mode);
-    setLanguageState(settings.language);
+    setLanguageState(settings.language as Language);
 
     // Check for active cashier session
     const activeSession = await db.getById<CashierSession>("cashierSession", 1);
