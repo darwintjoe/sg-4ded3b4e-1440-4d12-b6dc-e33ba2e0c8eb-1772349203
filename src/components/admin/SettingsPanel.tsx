@@ -658,9 +658,15 @@ export function SettingsPanel() {
                   <div className="space-y-4">
                     {/* Tax 1 */}
                     <div className="space-y-2">
-                      {/* Row 1: Header with toggle */}
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Tax 1 (Primary)</Label>
+                      {/* Row 1: Editable Tax Name + Enable Toggle */}
+                      <div className="flex items-center justify-between gap-3">
+                        <Input
+                          value={settings.tax1Label}
+                          onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
+                          onBlur={(e) => updateAndSave({ tax1Label: e.target.value })}
+                          placeholder="Tax 1 (Primary)"
+                          className="flex-1"
+                        />
                         <Switch
                           checked={settings.tax1Enabled}
                           onCheckedChange={(checked) => {
@@ -670,7 +676,7 @@ export function SettingsPanel() {
                         />
                       </div>
                       
-                      {/* Row 2: Details (collapse if disabled) */}
+                      {/* Row 2: Rate + Tax Inclusive (collapse if disabled) */}
                       {settings.tax1Enabled && (
                         <div className="flex items-center gap-3 pl-4">
                           <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
@@ -695,9 +701,15 @@ export function SettingsPanel() {
 
                     {/* Tax 2 */}
                     <div className="space-y-2">
-                      {/* Row 1: Header with toggle */}
-                      <div className="flex items-center justify-between">
-                        <Label className="text-sm font-medium">Tax 2 (Secondary)</Label>
+                      {/* Row 1: Editable Tax Name + Enable Toggle */}
+                      <div className="flex items-center justify-between gap-3">
+                        <Input
+                          value={settings.tax2Label}
+                          onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
+                          onBlur={(e) => updateAndSave({ tax2Label: e.target.value })}
+                          placeholder="Tax 2 (Secondary)"
+                          className="flex-1"
+                        />
                         <Switch
                           checked={settings.tax2Enabled}
                           onCheckedChange={(checked) => {
@@ -707,7 +719,7 @@ export function SettingsPanel() {
                         />
                       </div>
                       
-                      {/* Row 2: Details (collapse if disabled) */}
+                      {/* Row 2: Rate + Tax Inclusive (collapse if disabled) */}
                       {settings.tax2Enabled && (
                         <div className="flex items-center gap-3 pl-4">
                           <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
