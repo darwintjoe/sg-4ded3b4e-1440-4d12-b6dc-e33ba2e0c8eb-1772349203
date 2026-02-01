@@ -391,136 +391,86 @@ export function SettingsPanel() {
 
           {/* TAB 2: POS */}
           <TabsContent value="pos" className="space-y-4 p-4 mt-0">
-            {/* Tax 1 */}
+            {/* Tax Configuration */}
             <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Tax 1 (Primary)
-                  <HelpTooltip content="Primary tax like VAT or PPN" />
-                </h3>
-                <Switch
-                  checked={settings.tax1Enabled}
-                  onCheckedChange={(checked) => {
-                    setSettings({ ...settings, tax1Enabled: checked });
-                    updateAndSave({ tax1Enabled: checked });
-                  }}
-                />
-              </div>
+              <h3 className="text-base font-medium mb-4 flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-muted-foreground" />
+                {t.taxConfiguration}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{t.taxTooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </h3>
 
-              {settings.tax1Enabled && (
+              <div className="space-y-4">
+                {/* Tax 1 (Primary) */}
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="tax1Label" className="text-sm">Label</Label>
-                      <Input
-                        id="tax1Label"
-                        value={settings.tax1Label}
-                        onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
-                        onBlur={(e) => updateAndSave({ tax1Label: e.target.value })}
-                        placeholder="PPN"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tax1Rate" className="text-sm">Rate (%)</Label>
-                      <Input
-                        id="tax1Rate"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={settings.tax1Rate}
-                        onChange={(e) => setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })}
-                        onBlur={(e) => updateAndSave({ tax1Rate: parseFloat(e.target.value) || 0 })}
-                        placeholder="10"
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">{t.tax1Primary}</Label>
                     <Switch
-                      id="tax1Inc"
-                      checked={settings.tax1Inclusive}
+                      checked={settings.enableTax}
                       onCheckedChange={(checked) => {
-                        setSettings({ ...settings, tax1Inclusive: checked });
-                        updateAndSave({ tax1Inclusive: checked });
+                        updateAndSave({ enableTax: checked });
                       }}
                     />
-                    <Label htmlFor="tax1Inc" className="text-sm font-normal cursor-pointer">
-                      Tax Inclusive
-                      <HelpTooltip content="Item prices already include this tax" />
-                    </Label>
                   </div>
-                </div>
-              )}
-            </Card>
-
-            {/* Tax 2 */}
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Tax 2 (Secondary)
-                  <HelpTooltip content="Secondary tax like GST or service charge" />
-                </h3>
-                <Switch
-                  checked={settings.tax2Enabled}
-                  onCheckedChange={(checked) => {
-                    setSettings({ ...settings, tax2Enabled: checked });
-                    updateAndSave({ tax2Enabled: checked });
-                  }}
-                />
-              </div>
-
-              {settings.tax2Enabled && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="tax2Label" className="text-sm">Label</Label>
+                  {settings.enableTax && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Rate:</Label>
                       <Input
-                        id="tax2Label"
-                        value={settings.tax2Label}
-                        onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
-                        onBlur={(e) => updateAndSave({ tax2Label: e.target.value })}
-                        placeholder="GST"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tax2Rate" className="text-sm">Rate (%)</Label>
-                      <Input
-                        id="tax2Rate"
                         type="number"
+                        step="0.01"
                         min="0"
                         max="100"
-                        step="0.01"
-                        value={settings.tax2Rate}
-                        onChange={(e) => setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })}
-                        onBlur={(e) => updateAndSave({ tax2Rate: parseFloat(e.target.value) || 0 })}
-                        placeholder="5"
-                        className="mt-1"
+                        value={settings.taxRate}
+                        onChange={(e) =>
+                          setSettings({ ...settings, taxRate: parseFloat(e.target.value) || 0 })
+                        }
+                        onBlur={(e) => updateAndSave({ taxRate: parseFloat(e.target.value) || 0 })}
+                        className="w-24"
                       />
+                      <span className="text-sm text-muted-foreground">%</span>
                     </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="tax2Inc"
-                      checked={settings.tax2Inclusive}
-                      onCheckedChange={(checked) => {
-                        setSettings({ ...settings, tax2Inclusive: checked });
-                        updateAndSave({ tax2Inclusive: checked });
-                      }}
-                    />
-                    <Label htmlFor="tax2Inc" className="text-sm font-normal cursor-pointer">
-                      Tax Inclusive
-                      <HelpTooltip content="Item prices already include this tax" />
-                    </Label>
-                  </div>
+                  )}
                 </div>
-              )}
+
+                {/* Tax 2 (Secondary) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">{t.tax2Secondary}</Label>
+                    <Switch
+                      checked={settings.enableTax2}
+                      onCheckedChange={(checked) =>
+                        updateAndSave({ enableTax2: checked })
+                      }
+                    />
+                  </div>
+                  {settings.enableTax2 && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Rate:</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={settings.taxRate2 || 0}
+                        onChange={(e) =>
+                          setSettings({ ...settings, taxRate2: parseFloat(e.target.value) || 0 })
+                        }
+                        onBlur={(e) => updateAndSave({ taxRate2: parseFloat(e.target.value) || 0 })}
+                        className="w-24"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </Card>
 
             {/* Price Override */}
@@ -547,108 +497,127 @@ export function SettingsPanel() {
 
             {/* Shift Management */}
             <Card className="p-4">
-              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+              <h3 className="text-base font-medium mb-4 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-muted-foreground" />
                 {t.shiftManagement}
               </h3>
-              <div className="space-y-3">
+
+              <div className="space-y-4">
                 {/* Shift 1 */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Shift 1</Label>
                     <Switch
                       checked={getSafeShifts(settings).shift1.enabled}
-                      onCheckedChange={(checked) => updateShift('shift1', { enabled: checked }, true)}
+                      onCheckedChange={(checked) =>
+                        updateShift('shift1', { enabled: checked }, true)
+                      }
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Start</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift1.startTime}
-                        onChange={(e) => updateShift('shift1', { startTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
-                        className="h-9"
-                      />
+                  {getSafeShifts(settings).shift1.enabled && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Start</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift1.startTime}
+                          onChange={(e) =>
+                            updateShift('shift1', { startTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift1', { startTime: e.target.value }, true)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">End</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift1.endTime}
+                          onChange={(e) =>
+                            updateShift('shift1', { endTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">End</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift1.endTime}
-                        onChange={(e) => updateShift('shift1', { endTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift1', { endTime: e.target.value }, true)}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Shift 2 */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Shift 2</Label>
                     <Switch
                       checked={getSafeShifts(settings).shift2.enabled}
-                      onCheckedChange={(checked) => updateShift('shift2', { enabled: checked }, true)}
+                      onCheckedChange={(checked) =>
+                        updateShift('shift2', { enabled: checked }, true)
+                      }
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Start</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift2.startTime}
-                        onChange={(e) => updateShift('shift2', { startTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
-                        className="h-9"
-                      />
+                  {getSafeShifts(settings).shift2.enabled && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Start</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift2.startTime}
+                          onChange={(e) =>
+                            updateShift('shift2', { startTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift2', { startTime: e.target.value }, true)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">End</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift2.endTime}
+                          onChange={(e) =>
+                            updateShift('shift2', { endTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">End</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift2.endTime}
-                        onChange={(e) => updateShift('shift2', { endTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift2', { endTime: e.target.value }, true)}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Shift 3 */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Shift 3</Label>
                     <Switch
                       checked={getSafeShifts(settings).shift3.enabled}
-                      onCheckedChange={(checked) => updateShift('shift3', { enabled: checked }, true)}
+                      onCheckedChange={(checked) =>
+                        updateShift('shift3', { enabled: checked }, true)
+                      }
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Start</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift3.startTime}
-                        onChange={(e) => updateShift('shift3', { startTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
-                        className="h-9"
-                      />
+                  {getSafeShifts(settings).shift3.enabled && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Start</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift3.startTime}
+                          onChange={(e) =>
+                            updateShift('shift3', { startTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift3', { startTime: e.target.value }, true)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">End</Label>
+                        <Input
+                          type="time"
+                          value={getSafeShifts(settings).shift3.endTime}
+                          onChange={(e) =>
+                            updateShift('shift3', { endTime: e.target.value }, false)
+                          }
+                          onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs text-muted-foreground">End</Label>
-                      <Input
-                        type="time"
-                        value={getSafeShifts(settings).shift3.endTime}
-                        onChange={(e) => updateShift('shift3', { endTime: e.target.value }, false)}
-                        onBlur={(e) => updateShift('shift3', { endTime: e.target.value }, true)}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </Card>
