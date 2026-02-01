@@ -396,17 +396,18 @@ class Database {
     const settings = await this.getById<Settings>("settings", "default");
     if (!settings) {
       const defaultSettings: Settings = {
-        key: "default",
+        key: "settings",
         mode: "retail",
         tax1Enabled: true,
         tax1Label: "PPN",
         tax1Rate: 10,
         tax1Inclusive: false,
         tax2Enabled: false,
-        tax2Label: "GST",
+        tax2Label: "Service",
         tax2Rate: 5,
+        tax2Inclusive: false,
         language: "en",
-        printerWidth: 80,
+        printerWidth: 58,
         businessName: "My Store",
         businessLogo: undefined,
         businessAddress: undefined,

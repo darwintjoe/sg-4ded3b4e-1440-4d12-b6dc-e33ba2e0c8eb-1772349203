@@ -23,8 +23,10 @@ import {
   Bluetooth,
   AlertCircle,
   CheckCircle2,
-  Wifi,
-  Save
+  Settings as SettingsIcon,
+  Save,
+  Shield,
+  Lock
 } from "lucide-react";
 
 export function SettingsPanel() {
@@ -44,7 +46,7 @@ export function SettingsPanel() {
   const [testPrinting, setTestPrinting] = useState(false);
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<string>("general");
+  const [activeTab, setActiveTab] = useState<string>("business");
 
   useEffect(() => {
     setSettings(currentSettings);
@@ -140,7 +142,7 @@ export function SettingsPanel() {
         <div>
           <h2 className="text-2xl font-bold">Settings</h2>
           <p className="text-muted-foreground mt-1">
-            Configure your POS system, taxes, printer, and integrations
+            Configure your business, POS system, security, and advanced features
           </p>
         </div>
         <Button 
@@ -166,26 +168,255 @@ export function SettingsPanel() {
       {/* Tabbed Interface */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="general" className="gap-2">
+          <TabsTrigger value="business" className="gap-2">
             <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">General</span>
+            <span className="hidden sm:inline">Business</span>
           </TabsTrigger>
-          <TabsTrigger value="tax" className="gap-2">
+          <TabsTrigger value="pos" className="gap-2">
             <DollarSign className="h-4 w-4" />
-            <span className="hidden sm:inline">Tax & Pricing</span>
+            <span className="hidden sm:inline">POS</span>
           </TabsTrigger>
-          <TabsTrigger value="printer" className="gap-2">
-            <Printer className="h-4 w-4" />
-            <span className="hidden sm:inline">Printer</span>
+          <TabsTrigger value="security" className="gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
-          <TabsTrigger value="integrations" className="gap-2">
-            <LinkIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Integrations</span>
+          <TabsTrigger value="advanced" className="gap-2">
+            <SettingsIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Advanced</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: General Settings */}
-        <TabsContent value="general" className="space-y-6">
+        {/* Tab 1: Business (Info + Printer) */}
+        <TabsContent value="business" className="space-y-6">
+          {/* Business Information */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Store className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Business Information</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your business details that appear on receipts and reports
+            </p>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="businessName">Business Name *</Label>
+                <Input
+                  id="businessName"
+                  value={settings.businessName}
+                  onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                  placeholder="My Store"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Appears on receipts and reports
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="businessAddress">Business Address</Label>
+                <Textarea
+                  id="businessAddress"
+                  value={settings.businessAddress || ""}
+                  onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
+                  placeholder="123 Main Street, City, State 12345"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Printed on receipts (optional)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="taxId">Tax ID / NPWP</Label>
+                <Input
+                  id="taxId"
+                  value={settings.taxId || ""}
+                  onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
+                  placeholder="12.345.678.9-012.000"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tax identification number (optional)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="receiptFooter">Receipt Footer Message</Label>
+                <Textarea
+                  id="receiptFooter"
+                  value={settings.receiptFooter || ""}
+                  onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
+                  placeholder="Thank you for your purchase! Visit us again!"
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Custom message at the bottom of receipts
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Receipt Printer Settings */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Printer className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Receipt Printer</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure thermal printer for receipt printing
+            </p>
+
+            {/* Paper Width */}
+            <div className="space-y-4 mb-6">
+              <Label>Receipt Paper Width</Label>
+              <RadioGroup
+                value={settings.printerWidth.toString()}
+                onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) as 58 | 80 })}
+                className="space-y-3"
+              >
+                <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                  <RadioGroupItem value="58" id="width-58" />
+                  <Label htmlFor="width-58" className="cursor-pointer flex-1">
+                    58mm (2.25 inches) - Compact
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
+                  <RadioGroupItem value="80" id="width-80" />
+                  <Label htmlFor="width-80" className="cursor-pointer flex-1">
+                    80mm (3.15 inches) - Standard
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* Bluetooth Printer */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Bluetooth className="h-5 w-5 text-primary" />
+                <h4 className="font-semibold">Bluetooth Thermal Printer</h4>
+                {printerConnected && (
+                  <Badge variant="default" className="ml-auto gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Connected
+                  </Badge>
+                )}
+              </div>
+
+              {!isBluetoothSupported ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Bluetooth printing not supported on this device.</strong>
+                    <div className="mt-2 space-y-1 text-sm">
+                      <div><strong>Requirements:</strong></div>
+                      <div>• Android device with Chrome browser</div>
+                      <div>• Bluetooth enabled on device</div>
+                      <div className="mt-2">
+                        <strong>iOS users:</strong> Use browser print or WiFi printer instead.
+                      </div>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-4">
+                  {/* Connection Status */}
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-3 w-3 rounded-full ${printerConnected ? "bg-green-500" : "bg-gray-300"}`} />
+                      <div>
+                        <p className="font-medium">
+                          {printerConnected ? `Connected: ${printerName}` : "Not Connected"}
+                        </p>
+                        {printerConnected && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Ready to print receipts
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {printerConnected ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDisconnectPrinter}
+                      >
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleConnectPrinter}
+                        disabled={printerConnecting}
+                        size="sm"
+                      >
+                        <Bluetooth className="h-4 w-4 mr-2" />
+                        {printerConnecting ? "Connecting..." : "Connect Printer"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Test Print Button */}
+                  {printerConnected && (
+                    <Button
+                      onClick={handleTestPrint}
+                      disabled={testPrinting}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      {testPrinting ? "Printing..." : "Test Print"}
+                    </Button>
+                  )}
+
+                  {/* Error Message */}
+                  {printerError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{printerError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Requirements & Tips */}
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Setup Requirements:</strong>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <div>✓ ESC/POS compatible thermal printer</div>
+                        <div>✓ Printer powered on and Bluetooth enabled</div>
+                        <div>✓ Printer within Bluetooth range (&lt;10 meters)</div>
+                        <div>✓ Paper loaded correctly in printer</div>
+                      </div>
+                      <div className="mt-3">
+                        <strong>Troubleshooting:</strong>
+                      </div>
+                      <div className="mt-1 space-y-1 text-sm">
+                        <div>• Connection required on each app launch (browser security)</div>
+                        <div>• If connection fails, restart printer and try again</div>
+                        <div>• Ensure printer is not connected to other devices</div>
+                        <div>• Check printer battery/power level</div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Supported Printers */}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium mb-2 text-sm">Supported Printer Models:</h4>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>• Epson TM series (TM-m30, TM-T82, TM-T20)</div>
+                      <div>• Star Micronics TSP series</div>
+                      <div>• Rongta RPP series</div>
+                      <div>• Zjiang ZJ series</div>
+                      <div>• Most ESC/POS compatible thermal printers</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: POS Settings */}
+        <TabsContent value="pos" className="space-y-6">
           {/* POS Mode */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
@@ -254,72 +485,6 @@ export function SettingsPanel() {
             </RadioGroup>
           </Card>
 
-          {/* Business Information */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Store className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Business Information</h3>
-            </div>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name *</Label>
-                <Input
-                  id="businessName"
-                  value={settings.businessName}
-                  onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
-                  placeholder="My Store"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Appears on receipts and reports
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="businessAddress">Business Address</Label>
-                <Textarea
-                  id="businessAddress"
-                  value={settings.businessAddress || ""}
-                  onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
-                  placeholder="123 Main Street, City, State 12345"
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Printed on receipts (optional)
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="taxId">Tax ID / NPWP</Label>
-                <Input
-                  id="taxId"
-                  value={settings.taxId || ""}
-                  onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
-                  placeholder="12.345.678.9-012.000"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Tax identification number (optional)
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="receiptFooter">Receipt Footer Message</Label>
-                <Textarea
-                  id="receiptFooter"
-                  value={settings.receiptFooter || ""}
-                  onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
-                  placeholder="Thank you for your purchase! Visit us again!"
-                  rows={2}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Custom message at the bottom of receipts
-                </p>
-              </div>
-            </div>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 2: Tax & Pricing */}
-        <TabsContent value="tax" className="space-y-6">
           {/* Tax 1 (PPN) */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -487,164 +652,80 @@ export function SettingsPanel() {
           )}
         </TabsContent>
 
-        {/* Tab 3: Printer Settings */}
-        <TabsContent value="printer" className="space-y-6">
-          {/* Receipt Width */}
+        {/* Tab 3: Security & Access */}
+        <TabsContent value="security" className="space-y-6">
+          {/* Access Control */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Printer className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Receipt Paper Width</h3>
+              <Shield className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Access Control</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Select the paper width of your thermal printer
+              Manage user permissions and access levels
             </p>
-            <RadioGroup
-              value={settings.printerWidth.toString()}
-              onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) as 58 | 80 })}
-              className="space-y-3"
-            >
-              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <RadioGroupItem value="58" id="width-58" />
-                <Label htmlFor="width-58" className="cursor-pointer flex-1">
-                  58mm (2.25 inches) - Compact
-                </Label>
-              </div>
-              <div className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                <RadioGroupItem value="80" id="width-80" />
-                <Label htmlFor="width-80" className="cursor-pointer flex-1">
-                  80mm (3.15 inches) - Standard
-                </Label>
-              </div>
-            </RadioGroup>
+            
+            <Alert>
+              <Lock className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Coming Soon</strong>
+                <div className="mt-2 space-y-1 text-sm">
+                  <div>• Role-based access control (Admin, Manager, Cashier)</div>
+                  <div>• Custom permission settings per employee</div>
+                  <div>• PIN code protection for sensitive operations</div>
+                  <div>• Activity logging and audit trail</div>
+                </div>
+              </AlertDescription>
+            </Alert>
           </Card>
 
-          {/* Bluetooth Printer */}
+          {/* Password & PIN */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Bluetooth className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Bluetooth Thermal Printer</h3>
-              {printerConnected && (
-                <Badge variant="default" className="ml-auto gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Connected
-                </Badge>
-              )}
+              <Lock className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Password & PIN Management</h3>
             </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Change admin password and configure PIN requirements
+            </p>
+            
+            <div className="space-y-4">
+              <Button variant="outline" className="w-full" disabled>
+                Change Admin Password (Coming Soon)
+              </Button>
+              
+              <Button variant="outline" className="w-full" disabled>
+                Configure PIN Requirements (Coming Soon)
+              </Button>
+            </div>
+          </Card>
 
-            {!isBluetoothSupported ? (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>Bluetooth printing not supported on this device.</strong>
-                  <div className="mt-2 space-y-1 text-sm">
-                    <div><strong>Requirements:</strong></div>
-                    <div>• Android device with Chrome browser</div>
-                    <div>• Bluetooth enabled on device</div>
-                    <div className="mt-2">
-                      <strong>iOS users:</strong> Use browser print or WiFi printer instead.
-                    </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <div className="space-y-4">
-                {/* Connection Status */}
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-3 w-3 rounded-full ${printerConnected ? "bg-green-500" : "bg-gray-300"}`} />
-                    <div>
-                      <p className="font-medium">
-                        {printerConnected ? `Connected: ${printerName}` : "Not Connected"}
-                      </p>
-                      {printerConnected && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Ready to print receipts
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {printerConnected ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDisconnectPrinter}
-                    >
-                      Disconnect
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleConnectPrinter}
-                      disabled={printerConnecting}
-                      size="sm"
-                    >
-                      <Bluetooth className="h-4 w-4 mr-2" />
-                      {printerConnecting ? "Connecting..." : "Connect Printer"}
-                    </Button>
-                  )}
+          {/* Data Privacy */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Data Privacy</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Control data collection and retention policies
+            </p>
+            
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-1 text-sm">
+                  <div><strong>Current Status:</strong></div>
+                  <div>• All data stored locally on your device</div>
+                  <div>• No data sent to external servers</div>
+                  <div>• Full control over your business data</div>
+                  <div>• No third-party tracking or analytics</div>
                 </div>
-
-                {/* Test Print Button */}
-                {printerConnected && (
-                  <Button
-                    onClick={handleTestPrint}
-                    disabled={testPrinting}
-                    variant="secondary"
-                    className="w-full"
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    {testPrinting ? "Printing..." : "Test Print"}
-                  </Button>
-                )}
-
-                {/* Error Message */}
-                {printerError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{printerError}</AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Requirements & Tips */}
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Setup Requirements:</strong>
-                    <div className="mt-2 space-y-1 text-sm">
-                      <div>✓ ESC/POS compatible thermal printer</div>
-                      <div>✓ Printer powered on and Bluetooth enabled</div>
-                      <div>✓ Printer within Bluetooth range (&lt;10 meters)</div>
-                      <div>✓ Paper loaded correctly in printer</div>
-                    </div>
-                    <div className="mt-3">
-                      <strong>Troubleshooting:</strong>
-                    </div>
-                    <div className="mt-1 space-y-1 text-sm">
-                      <div>• Connection required on each app launch (browser security)</div>
-                      <div>• If connection fails, restart printer and try again</div>
-                      <div>• Ensure printer is not connected to other devices</div>
-                      <div>• Check printer battery/power level</div>
-                    </div>
-                  </AlertDescription>
-                </Alert>
-
-                {/* Supported Printers */}
-                <div className="p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-2 text-sm">Supported Printer Models:</h4>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>• Epson TM series (TM-m30, TM-T82, TM-T20)</div>
-                    <div>• Star Micronics TSP series</div>
-                    <div>• Rongta RPP series</div>
-                    <div>• Zjiang ZJ series</div>
-                    <div>• Most ESC/POS compatible thermal printers</div>
-                  </div>
-                </div>
-              </div>
-            )}
+              </AlertDescription>
+            </Alert>
           </Card>
         </TabsContent>
 
-        {/* Tab 4: Integrations */}
-        <TabsContent value="integrations" className="space-y-6">
+        {/* Tab 4: Advanced */}
+        <TabsContent value="advanced" className="space-y-6">
           {/* Google Drive Backup */}
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -661,16 +742,18 @@ export function SettingsPanel() {
             </div>
 
             <p className="text-sm text-muted-foreground mb-4">
-              Automatically backup your data to Google Drive (Coming Soon)
+              Automatically backup your data to Google Drive
             </p>
 
             <div className="space-y-4">
-              <div className="p-4 border rounded-lg bg-muted/50">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>Google Drive integration coming in future update</span>
-                </div>
-              </div>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>Google Drive integration coming in future update</span>
+                  </div>
+                </AlertDescription>
+              </Alert>
 
               <Button variant="outline" disabled className="w-full">
                 <LinkIcon className="h-4 w-4 mr-2" />
@@ -679,11 +762,34 @@ export function SettingsPanel() {
             </div>
           </Card>
 
-          {/* Future Integrations Placeholder */}
+          {/* Export & Import Data */}
           <Card className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Wifi className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">More Integrations</h3>
+              <SettingsIcon className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Data Management</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Export your data for backup or import data from other sources
+            </p>
+
+            <div className="space-y-3">
+              <Button variant="outline" className="w-full" disabled>
+                Export All Data (JSON) - Coming Soon
+              </Button>
+              <Button variant="outline" className="w-full" disabled>
+                Import Data from File - Coming Soon
+              </Button>
+              <Button variant="outline" className="w-full" disabled>
+                Reset All Data - Coming Soon
+              </Button>
+            </div>
+          </Card>
+
+          {/* Future Integrations */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <LinkIcon className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">Future Integrations</h3>
             </div>
 
             <p className="text-sm text-muted-foreground mb-4">
@@ -713,6 +819,41 @@ export function SettingsPanel() {
                   <p className="text-xs text-muted-foreground">Sync data across multiple devices</p>
                 </div>
                 <Badge variant="outline">Coming Soon</Badge>
+              </div>
+
+              <div className="p-4 border rounded-lg flex items-center justify-between opacity-50">
+                <div>
+                  <p className="font-medium text-sm">Accounting Software Integration</p>
+                  <p className="text-xs text-muted-foreground">Connect to QuickBooks, Xero, etc.</p>
+                </div>
+                <Badge variant="outline">Coming Soon</Badge>
+              </div>
+            </div>
+          </Card>
+
+          {/* System Information */}
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <SettingsIcon className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold">System Information</h3>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">Version</span>
+                <span className="font-medium">1.0.0</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">Database</span>
+                <span className="font-medium">IndexedDB (Local)</span>
+              </div>
+              <div className="flex justify-between py-2 border-b">
+                <span className="text-muted-foreground">Platform</span>
+                <span className="font-medium">Progressive Web App (PWA)</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-muted-foreground">Browser</span>
+                <span className="font-medium">{navigator.userAgent.includes("Chrome") ? "Chrome" : "Other"}</span>
               </div>
             </div>
           </Card>
