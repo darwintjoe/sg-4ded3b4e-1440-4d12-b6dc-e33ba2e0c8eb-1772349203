@@ -81,6 +81,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await seedDefaultData();
   };
 
+  // Smart shift detection based on clock-in time proximity
+  const detectShift = (clockInTime: number): { name: string; start: string; end: string } | null => {
+    if (!settings) return null;
+
+    const enabledShifts = Object.values(settings.shifts).filter(s => s.enabled);
+    
+    if (enabledShifts.length === 0) return null;
+    if (enabledShifts.length === 1) {
+      return {
+        name: enabledShifts[0].name,
+        start: enabledShifts[0].startTime,
+        end: enabledShifts[0].endTime
+      };
+    }
+
+    // Convert timestamp to minutes since midnight
+    const clockInDate = new Date(clockInTime);
+    const clockInMinutes = clockInDate.getHours() * 60 + clockInDate.getMinutes();
+
+    // Helper to convert "HH:MM" to minutes
+    const timeToMinutes = (time: string): number => {
+      const [hours, minutes] = time.split(":").map(Number);
+      return hours * 60 + minutes;
+    };
+
+    // Find closest shift by start time
+    let closestShift = enabledShifts[0];
+    let smallestDistance = Infinity;
+
+    for (const shift of enabledShifts) {
+      const shiftStartMinutes = timeToMinutes(shift.startTime);
+      const distance = Math.abs(clockInMinutes - shiftStartMinutes);
+
+      if (distance < smallestDistance) {
+        smallestDistance = distance;
+        closestShift = shift;
+      }
+    }
+
+    return {
+      name: closestShift.name,
+      start: closestShift.startTime,
+      end: closestShift.endTime
+    };
+  };
+
   const updateSettings = async (newSettings: Settings) => {
     await db.updateSettings(newSettings);
     setSettingsState(newSettings);
@@ -528,12 +574,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     const clockInTime = Date.now();
+    
+    // Smart shift detection
+    const detectedShift = detectShift(clockInTime);
 
     await db.add("attendance", {
       employeeId: employee.id!,
       employeeName: employee.name,
       clockIn: clockInTime,
-      date: today
+      date: today,
+      assignedShift: detectedShift?.name,
+      scheduledStart: detectedShift?.start,
+      scheduledEnd: detectedShift?.end
     });
 
     return { success: true, message: "attendance.clockedIn" };

@@ -33,6 +33,9 @@ export interface AttendanceRecord {
   clockIn: number;
   clockOut?: number;
   date: string;
+  assignedShift?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
 }
 
 export interface Item {
@@ -247,10 +250,15 @@ export interface Settings {
   bluetoothPrinterName?: string;
   
   // Shift Management
-  shiftStartTime?: string;
-  shiftEndTime?: string;
+  shifts: {
+    shift1: ShiftConfig;
+    shift2: ShiftConfig;
+    shift3: ShiftConfig;
+  };
   requireClockIn?: boolean;
   trackBreaks?: boolean;
+  autoClockOutAtShiftEnd?: boolean;
+  allowSelfCorrection?: boolean;
 
   // Payment Methods
   paymentMethods?: {
@@ -260,4 +268,11 @@ export interface Settings {
     qr?: boolean;
     transfer?: boolean;
   };
+}
+
+export interface ShiftConfig {
+  enabled: boolean;
+  name: string;
+  startTime: string;
+  endTime: string;
 }
