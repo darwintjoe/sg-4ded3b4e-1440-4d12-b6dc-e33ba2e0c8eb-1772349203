@@ -648,7 +648,7 @@ export function SettingsPanel() {
                   </Card>
                 </div>
 
-                {/* 4. Tax Configuration */}
+                {/* 4. Tax Configuration - COMPACT ONE-ROW LAYOUT */}
                 <Card className="p-4">
                   <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
                     <DollarSign className="w-4 h-4" />
@@ -656,9 +656,9 @@ export function SettingsPanel() {
                   </h3>
                   
                   <div className="space-y-3">
-                    {/* Tax 1 - Compact one-row layout */}
+                    {/* Tax 1 - Everything in one row */}
                     <div className="flex items-center gap-3">
-                      <Label className="text-sm font-medium w-32">Tax 1 (Primary)</Label>
+                      <Label className="text-sm font-medium w-32 shrink-0">Tax 1 (Primary)</Label>
                       <Switch
                         checked={settings.tax1Enabled}
                         onCheckedChange={(checked) => {
@@ -688,9 +688,9 @@ export function SettingsPanel() {
                       )}
                     </div>
 
-                    {/* Tax 2 - Compact one-row layout */}
+                    {/* Tax 2 - Everything in one row */}
                     <div className="flex items-center gap-3">
-                      <Label className="text-sm font-medium w-32">Tax 2 (Secondary)</Label>
+                      <Label className="text-sm font-medium w-32 shrink-0">Tax 2 (Secondary)</Label>
                       <Switch
                         checked={settings.tax2Enabled}
                         onCheckedChange={(checked) => {
