@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
 import { translate } from "@/lib/translations";
 import { useApp } from "@/contexts/AppContext";
-import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Printer } from "lucide-react";
+import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Printer, Clock } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
@@ -61,7 +61,8 @@ export function ReportsPanel() {
     totalEmployees: 0,
     totalHours: 0,
     avgHoursPerEmployee: 0,
-    lateCount: 0
+    lateCount: 0,
+    shiftBreakdown: {} as Record<string, number>
   });
 
   // Attendance time range
@@ -390,6 +391,16 @@ export function ReportsPanel() {
         actualStartDate = today.substring(0, 4) + "-01-01"; // First day of current year
       }
       
+      // Fetch raw attendance records for accurate shift breakdown
+      const allAttendance = await db.getAll<any>("attendance");
+      const filteredAttendance = allAttendance.filter(r => r.date >= actualStartDate && r.date <= actualEndDate);
+      
+      const shiftBreakdown: Record<string, number> = {};
+      filteredAttendance.forEach(r => {
+        const shiftName = r.assignedShift || "Unknown";
+        shiftBreakdown[shiftName] = (shiftBreakdown[shiftName] || 0) + 1;
+      });
+
       if (useMonthly) {
         const startMonth = actualStartDate.substring(0, 7);
         const endMonth = actualEndDate.substring(0, 7);
@@ -414,7 +425,8 @@ export function ReportsPanel() {
           totalEmployees,
           totalHours,
           avgHoursPerEmployee: totalEmployees > 0 ? totalHours / totalEmployees : 0,
-          lateCount: totalLate
+          lateCount: totalLate,
+          shiftBreakdown
         });
       } else {
         const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
@@ -437,7 +449,8 @@ export function ReportsPanel() {
           totalEmployees,
           totalHours,
           avgHoursPerEmployee: totalEmployees > 0 ? totalHours / totalEmployees : 0,
-          lateCount: totalLate
+          lateCount: totalLate,
+          shiftBreakdown
         });
       }
     } catch (error) {
@@ -492,7 +505,14 @@ export function ReportsPanel() {
     csv += `Total Employees,${attendanceStats.totalEmployees}\n`;
     csv += `Total Hours Worked,${attendanceStats.totalHours.toFixed(1)} hours\n`;
     csv += `Average Hours per Employee,${attendanceStats.avgHoursPerEmployee.toFixed(1)} hours\n`;
-    csv += `Late Count,${attendanceStats.lateCount}\n\n`;
+    csv += `Late Count,${attendanceStats.lateCount}\n`;
+    
+    // Add Shift Breakdown to CSV
+    csv += "\nShift Breakdown:\n";
+    Object.entries(attendanceStats.shiftBreakdown).forEach(([shift, count]) => {
+      csv += `${shift},${count} shifts\n`;
+    });
+    csv += "\n";
     
     // === INSIGHTS ===
     if (trendInsight) {
@@ -882,6 +902,28 @@ export function ReportsPanel() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Shift Breakdown Card */}
+            {Object.keys(attendanceStats.shiftBreakdown).length > 0 && (
+              <Card className="mt-4">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    Shift Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-4">
+                    {Object.entries(attendanceStats.shiftBreakdown).map(([shift, count]) => (
+                      <div key={shift} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
+                        <Clock className="h-4 w-4 text-slate-500" />
+                        <span className="font-medium">{shift}:</span>
+                        <span className="font-bold">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {attendanceStats.totalEmployees === 0 && (
               <Card className="p-12">

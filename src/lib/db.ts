@@ -414,7 +414,19 @@ class Database {
         taxId: undefined,
         receiptFooter: "Thank you for your purchase!",
         googleDriveLinked: false,
-        allowPriceOverride: false
+        allowPriceOverride: false,
+        shifts: {
+          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
+        },
+        paymentMethods: {
+          cash: true,
+          card: true,
+          ewallet: true,
+          qr: true,
+          transfer: true
+        }
       };
       await this.put("settings", defaultSettings);
       return defaultSettings;
