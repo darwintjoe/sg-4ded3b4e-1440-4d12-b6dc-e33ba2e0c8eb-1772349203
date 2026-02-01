@@ -30,7 +30,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Settings as SettingsIcon,
-  Save,
   Shield,
   HelpCircle
 } from "lucide-react";
@@ -41,7 +40,6 @@ export function SettingsPanel() {
 
   const [settings, setSettings] = useState<Settings>(currentSettings);
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Bluetooth printer state
   const [printerConnecting, setPrinterConnecting] = useState(false);
@@ -63,19 +61,23 @@ export function SettingsPanel() {
     }
   }, []);
 
-  const handleSave = async () => {
+  // Auto-save function
+  const handleAutoSave = async (newSettings: Settings) => {
     setSaving(true);
-    setSaveSuccess(false);
-
     try {
-      await updateSettings(settings);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      await updateSettings(newSettings);
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error("Failed to auto-save settings:", error);
     } finally {
       setSaving(false);
     }
+  };
+
+  // Update settings and auto-save
+  const updateAndSave = (updates: Partial<Settings>) => {
+    const newSettings = { ...settings, ...updates };
+    setSettings(newSettings);
+    handleAutoSave(newSettings);
   };
 
   const handleConnectPrinter = async () => {
@@ -89,11 +91,13 @@ export function SettingsPanel() {
         setPrinterConnected(true);
         setPrinterName(result.printerName);
         
-        setSettings(prev => ({
-          ...prev,
+        const newSettings = {
+          ...settings,
           bluetoothPrinterId: result.printerId,
           bluetoothPrinterName: result.printerName
-        }));
+        };
+        setSettings(newSettings);
+        handleAutoSave(newSettings);
       } else {
         setPrinterError(result.error || "Failed to connect");
       }
@@ -109,11 +113,13 @@ export function SettingsPanel() {
     setPrinterConnected(false);
     setPrinterName(null);
     
-    setSettings(prev => ({
-      ...prev,
+    const newSettings = {
+      ...settings,
       bluetoothPrinterId: undefined,
       bluetoothPrinterName: undefined
-    }));
+    };
+    setSettings(newSettings);
+    handleAutoSave(newSettings);
   };
 
   const handleTestPrint = async () => {
@@ -150,28 +156,10 @@ export function SettingsPanel() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-background">
-        <h2 className="text-xl font-bold">Settings</h2>
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? "Saving..." : "Save"}
-        </Button>
-      </div>
-
-      {saveSuccess && (
-        <Alert className="mx-4 mt-4 bg-green-50 dark:bg-green-950 border-green-200">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800 dark:text-green-200">
-            Settings saved successfully!
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="p-4">
-          <TabsList className="grid w-full grid-cols-4 mb-4">
+      {/* Sticky Tabs */}
+      <div className="sticky top-0 z-10 bg-background border-b">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-4 rounded-none h-12">
             <TabsTrigger value="business" className="gap-2 text-xs sm:text-sm">
               <Store className="h-4 w-4" />
               <span className="hidden sm:inline">Business</span>
@@ -189,9 +177,14 @@ export function SettingsPanel() {
               <span className="hidden sm:inline">Advanced</span>
             </TabsTrigger>
           </TabsList>
+        </Tabs>
+      </div>
 
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           {/* TAB 1: BUSINESS */}
-          <TabsContent value="business" className="space-y-4 mt-0">
+          <TabsContent value="business" className="space-y-4 p-4 mt-0">
             {/* Business Info */}
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -207,6 +200,7 @@ export function SettingsPanel() {
                     id="businessName"
                     value={settings.businessName}
                     onChange={(e) => setSettings({ ...settings, businessName: e.target.value })}
+                    onBlur={(e) => updateAndSave({ businessName: e.target.value })}
                     placeholder="My Store"
                     className="mt-1"
                   />
@@ -215,12 +209,13 @@ export function SettingsPanel() {
                 <div>
                   <Label htmlFor="businessAddress" className="text-sm">
                     Address
-                    <HelpTooltip content="Printed on receipts (optional)" />
+                    <HelpTooltip content="Printed on receipts" />
                   </Label>
                   <Textarea
                     id="businessAddress"
                     value={settings.businessAddress || ""}
                     onChange={(e) => setSettings({ ...settings, businessAddress: e.target.value })}
+                    onBlur={(e) => updateAndSave({ businessAddress: e.target.value })}
                     placeholder="123 Main St, City, State"
                     rows={2}
                     className="mt-1"
@@ -230,12 +225,13 @@ export function SettingsPanel() {
                 <div>
                   <Label htmlFor="taxId" className="text-sm">
                     Tax ID / NPWP
-                    <HelpTooltip content="Tax identification number (optional)" />
+                    <HelpTooltip content="Tax identification number" />
                   </Label>
                   <Input
                     id="taxId"
                     value={settings.taxId || ""}
                     onChange={(e) => setSettings({ ...settings, taxId: e.target.value })}
+                    onBlur={(e) => updateAndSave({ taxId: e.target.value })}
                     placeholder="12.345.678.9-012.000"
                     className="mt-1"
                   />
@@ -244,12 +240,13 @@ export function SettingsPanel() {
                 <div>
                   <Label htmlFor="receiptFooter" className="text-sm">
                     Receipt Footer
-                    <HelpTooltip content="Custom message at bottom of receipts" />
+                    <HelpTooltip content="Message at bottom of receipts" />
                   </Label>
                   <Textarea
                     id="receiptFooter"
                     value={settings.receiptFooter || ""}
                     onChange={(e) => setSettings({ ...settings, receiptFooter: e.target.value })}
+                    onBlur={(e) => updateAndSave({ receiptFooter: e.target.value })}
                     placeholder="Thank you!"
                     rows={2}
                     className="mt-1"
@@ -270,7 +267,11 @@ export function SettingsPanel() {
                 <Label className="text-sm mb-2 block">Paper Width</Label>
                 <RadioGroup
                   value={settings.printerWidth.toString()}
-                  onValueChange={(value) => setSettings({ ...settings, printerWidth: parseInt(value) as 58 | 80 })}
+                  onValueChange={(value) => {
+                    const width = parseInt(value) as 58 | 80;
+                    setSettings({ ...settings, printerWidth: width });
+                    updateAndSave({ printerWidth: width });
+                  }}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2">
@@ -298,7 +299,7 @@ export function SettingsPanel() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Bluetooth className="h-4 w-4" />
-                    <span className="text-sm font-medium">Bluetooth Thermal Printer</span>
+                    <span className="text-sm font-medium">Bluetooth Printer</span>
                     {printerConnected && (
                       <Badge variant="default" className="ml-auto text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -351,7 +352,7 @@ export function SettingsPanel() {
           </TabsContent>
 
           {/* TAB 2: POS */}
-          <TabsContent value="pos" className="space-y-4 mt-0">
+          <TabsContent value="pos" className="space-y-4 p-4 mt-0">
             {/* POS Mode */}
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
@@ -360,7 +361,10 @@ export function SettingsPanel() {
               </h3>
               <RadioGroup
                 value={settings.mode}
-                onValueChange={(value: POSMode) => setSettings({ ...settings, mode: value })}
+                onValueChange={(value: POSMode) => {
+                  setSettings({ ...settings, mode: value });
+                  updateAndSave({ mode: value });
+                }}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
@@ -386,7 +390,10 @@ export function SettingsPanel() {
               </h3>
               <RadioGroup
                 value={settings.language}
-                onValueChange={(value: "en" | "id") => setSettings({ ...settings, language: value })}
+                onValueChange={(value: "en" | "id") => {
+                  setSettings({ ...settings, language: value });
+                  updateAndSave({ language: value });
+                }}
                 className="space-y-2"
               >
                 <div className="flex items-center space-x-2 p-2 border rounded cursor-pointer hover:bg-accent">
@@ -413,7 +420,10 @@ export function SettingsPanel() {
                 </h3>
                 <Switch
                   checked={settings.tax1Enabled}
-                  onCheckedChange={(checked) => setSettings({ ...settings, tax1Enabled: checked })}
+                  onCheckedChange={(checked) => {
+                    setSettings({ ...settings, tax1Enabled: checked });
+                    updateAndSave({ tax1Enabled: checked });
+                  }}
                 />
               </div>
 
@@ -426,6 +436,7 @@ export function SettingsPanel() {
                         id="tax1Label"
                         value={settings.tax1Label}
                         onChange={(e) => setSettings({ ...settings, tax1Label: e.target.value })}
+                        onBlur={(e) => updateAndSave({ tax1Label: e.target.value })}
                         placeholder="PPN"
                         className="mt-1"
                       />
@@ -440,6 +451,7 @@ export function SettingsPanel() {
                         step="0.01"
                         value={settings.tax1Rate}
                         onChange={(e) => setSettings({ ...settings, tax1Rate: parseFloat(e.target.value) || 0 })}
+                        onBlur={(e) => updateAndSave({ tax1Rate: parseFloat(e.target.value) || 0 })}
                         placeholder="10"
                         className="mt-1"
                       />
@@ -450,7 +462,10 @@ export function SettingsPanel() {
                     <Switch
                       id="tax1Inc"
                       checked={settings.tax1Inclusive}
-                      onCheckedChange={(checked) => setSettings({ ...settings, tax1Inclusive: checked })}
+                      onCheckedChange={(checked) => {
+                        setSettings({ ...settings, tax1Inclusive: checked });
+                        updateAndSave({ tax1Inclusive: checked });
+                      }}
                     />
                     <Label htmlFor="tax1Inc" className="text-sm font-normal cursor-pointer">
                       Tax Inclusive
@@ -470,7 +485,10 @@ export function SettingsPanel() {
                 </h3>
                 <Switch
                   checked={settings.tax2Enabled}
-                  onCheckedChange={(checked) => setSettings({ ...settings, tax2Enabled: checked })}
+                  onCheckedChange={(checked) => {
+                    setSettings({ ...settings, tax2Enabled: checked });
+                    updateAndSave({ tax2Enabled: checked });
+                  }}
                 />
               </div>
 
@@ -483,6 +501,7 @@ export function SettingsPanel() {
                         id="tax2Label"
                         value={settings.tax2Label}
                         onChange={(e) => setSettings({ ...settings, tax2Label: e.target.value })}
+                        onBlur={(e) => updateAndSave({ tax2Label: e.target.value })}
                         placeholder="GST"
                         className="mt-1"
                       />
@@ -497,6 +516,7 @@ export function SettingsPanel() {
                         step="0.01"
                         value={settings.tax2Rate}
                         onChange={(e) => setSettings({ ...settings, tax2Rate: parseFloat(e.target.value) || 0 })}
+                        onBlur={(e) => updateAndSave({ tax2Rate: parseFloat(e.target.value) || 0 })}
                         placeholder="5"
                         className="mt-1"
                       />
@@ -507,7 +527,10 @@ export function SettingsPanel() {
                     <Switch
                       id="tax2Inc"
                       checked={settings.tax2Inclusive}
-                      onCheckedChange={(checked) => setSettings({ ...settings, tax2Inclusive: checked })}
+                      onCheckedChange={(checked) => {
+                        setSettings({ ...settings, tax2Inclusive: checked });
+                        updateAndSave({ tax2Inclusive: checked });
+                      }}
                     />
                     <Label htmlFor="tax2Inc" className="text-sm font-normal cursor-pointer">
                       Tax Inclusive
@@ -530,14 +553,17 @@ export function SettingsPanel() {
                 </div>
                 <Switch
                   checked={settings.allowPriceOverride}
-                  onCheckedChange={(checked) => setSettings({ ...settings, allowPriceOverride: checked })}
+                  onCheckedChange={(checked) => {
+                    setSettings({ ...settings, allowPriceOverride: checked });
+                    updateAndSave({ allowPriceOverride: checked });
+                  }}
                 />
               </div>
             </Card>
           </TabsContent>
 
           {/* TAB 3: SECURITY */}
-          <TabsContent value="security" className="space-y-4 mt-0">
+          <TabsContent value="security" className="space-y-4 p-4 mt-0">
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -565,7 +591,7 @@ export function SettingsPanel() {
           </TabsContent>
 
           {/* TAB 4: ADVANCED */}
-          <TabsContent value="advanced" className="space-y-4 mt-0">
+          <TabsContent value="advanced" className="space-y-4 p-4 mt-0">
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
@@ -618,13 +644,12 @@ export function SettingsPanel() {
         </Tabs>
       </div>
 
-      {/* Fixed Bottom Save Button */}
-      <div className="border-t bg-background p-4">
-        <Button onClick={handleSave} disabled={saving} className="w-full">
-          <Save className="h-4 w-4 mr-2" />
-          {saving ? "Saving..." : "Save All Settings"}
-        </Button>
-      </div>
+      {/* Auto-save indicator */}
+      {saving && (
+        <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
+          Saving...
+        </div>
+      )}
     </div>
   );
 }
