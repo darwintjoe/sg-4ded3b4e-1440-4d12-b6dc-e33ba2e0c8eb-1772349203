@@ -31,7 +31,10 @@ import {
   CheckCircle2,
   Settings as SettingsIcon,
   Shield,
-  HelpCircle
+  HelpCircle,
+  Clock,
+  CreditCard,
+  Wallet
 } from "lucide-react";
 
 export function SettingsPanel() {
@@ -502,6 +505,180 @@ export function SettingsPanel() {
                     updateAndSave({ allowPriceOverride: checked });
                   }}
                 />
+              </div>
+            </Card>
+
+            <Separator className="my-4" />
+
+            {/* Shift Management */}
+            <Card className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Shift Management
+                <HelpTooltip content="Configure shift timing and rules" />
+              </h3>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="shiftStart" className="text-sm">Shift Start</Label>
+                    <Input
+                      id="shiftStart"
+                      type="time"
+                      value={settings.shiftStartTime || "09:00"}
+                      onChange={(e) => setSettings({ ...settings, shiftStartTime: e.target.value })}
+                      onBlur={(e) => updateAndSave({ shiftStartTime: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="shiftEnd" className="text-sm">Shift End</Label>
+                    <Input
+                      id="shiftEnd"
+                      type="time"
+                      value={settings.shiftEndTime || "18:00"}
+                      onChange={(e) => setSettings({ ...settings, shiftEndTime: e.target.value })}
+                      onBlur={(e) => updateAndSave({ shiftEndTime: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="requireClockIn"
+                    checked={settings.requireClockIn || false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ ...settings, requireClockIn: checked });
+                      updateAndSave({ requireClockIn: checked });
+                    }}
+                  />
+                  <Label htmlFor="requireClockIn" className="text-sm font-normal cursor-pointer">
+                    Require Clock In/Out
+                    <HelpTooltip content="Force employees to clock in before accessing POS" />
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="trackBreaks"
+                    checked={settings.trackBreaks || false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ ...settings, trackBreaks: checked });
+                      updateAndSave({ trackBreaks: checked });
+                    }}
+                  />
+                  <Label htmlFor="trackBreaks" className="text-sm font-normal cursor-pointer">
+                    Track Breaks
+                    <HelpTooltip content="Record break time separately from work hours" />
+                  </Label>
+                </div>
+              </div>
+            </Card>
+
+            {/* Payment Methods */}
+            <Card className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                Payment Methods
+                <HelpTooltip content="Enable payment options for checkout" />
+              </h3>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-2 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">Cash</span>
+                  </div>
+                  <Switch
+                    checked={settings.paymentMethods?.cash !== false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ 
+                        ...settings, 
+                        paymentMethods: { ...settings.paymentMethods, cash: checked }
+                      });
+                      updateAndSave({ 
+                        paymentMethods: { ...settings.paymentMethods, cash: checked }
+                      });
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm">Card (Debit/Credit)</span>
+                  </div>
+                  <Switch
+                    checked={settings.paymentMethods?.card !== false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ 
+                        ...settings, 
+                        paymentMethods: { ...settings.paymentMethods, card: checked }
+                      });
+                      updateAndSave({ 
+                        paymentMethods: { ...settings.paymentMethods, card: checked }
+                      });
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm">E-Wallet (GoPay, OVO, Dana)</span>
+                  </div>
+                  <Switch
+                    checked={settings.paymentMethods?.ewallet !== false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ 
+                        ...settings, 
+                        paymentMethods: { ...settings.paymentMethods, ewallet: checked }
+                      });
+                      updateAndSave({ 
+                        paymentMethods: { ...settings.paymentMethods, ewallet: checked }
+                      });
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm">QR Code (QRIS)</span>
+                  </div>
+                  <Switch
+                    checked={settings.paymentMethods?.qr !== false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ 
+                        ...settings, 
+                        paymentMethods: { ...settings.paymentMethods, qr: checked }
+                      });
+                      updateAndSave({ 
+                        paymentMethods: { ...settings.paymentMethods, qr: checked }
+                      });
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-2 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm">Bank Transfer</span>
+                  </div>
+                  <Switch
+                    checked={settings.paymentMethods?.transfer !== false}
+                    onCheckedChange={(checked) => {
+                      setSettings({ 
+                        ...settings, 
+                        paymentMethods: { ...settings.paymentMethods, transfer: checked }
+                      });
+                      updateAndSave({ 
+                        paymentMethods: { ...settings.paymentMethods, transfer: checked }
+                      });
+                    }}
+                  />
+                </div>
               </div>
             </Card>
           </TabsContent>
