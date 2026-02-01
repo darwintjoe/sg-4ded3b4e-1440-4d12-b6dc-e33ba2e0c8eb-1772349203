@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings } from "@/types";
 import { db } from "@/lib/db";
 
 interface AppContextType {
@@ -7,6 +7,8 @@ interface AppContextType {
   setMode: (mode: POSMode) => void;
   language: Language;
   setLanguage: (lang: Language) => void;
+  settings: Settings;
+  updateSettings: (settings: Settings) => Promise<void>;
   currentUser: Employee | null;
   adminUser: Employee | null;
   login: (pin: string) => Promise<boolean>;
@@ -33,6 +35,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<POSMode>("retail");
   const [language, setLanguageState] = useState<Language>("en");
+  const [settings, setSettingsState] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [adminUser, setAdminUser] = useState<Employee | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -55,9 +58,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await db.init();
     
     // Get or create settings
-    const settings = await db.getSettings();
-    setModeState(settings.mode);
-    setLanguageState(settings.language as Language);
+    const loadedSettings = await db.getSettings();
+    setSettingsState(loadedSettings);
+    setModeState(loadedSettings.mode);
+    setLanguageState(loadedSettings.language as Language);
 
     // Check for active cashier session
     const activeSession = await db.getById<CashierSession>("cashierSession", 1);
@@ -75,6 +79,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     await seedDefaultData();
+  };
+
+  const updateSettings = async (newSettings: Settings) => {
+    await db.updateSettings(newSettings);
+    setSettingsState(newSettings);
+    setModeState(newSettings.mode);
+    setLanguageState(newSettings.language as Language);
   };
 
   const saveSessionState = async () => {
@@ -625,6 +636,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMode,
         language,
         setLanguage,
+        settings: settings!,
+        updateSettings,
         currentUser,
         adminUser,
         login,

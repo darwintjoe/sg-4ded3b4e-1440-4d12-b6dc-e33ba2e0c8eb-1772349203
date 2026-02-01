@@ -233,6 +233,7 @@ export interface Settings {
   tax2Enabled: boolean;
   tax2Label: string;
   tax2Rate: number;
+  tax2Inclusive: boolean;
   language: Language;
   printerWidth: number;
   businessName: string;
