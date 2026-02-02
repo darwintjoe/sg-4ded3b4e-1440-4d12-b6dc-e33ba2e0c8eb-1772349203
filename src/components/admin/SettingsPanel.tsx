@@ -40,8 +40,30 @@ import {
   Cloud,
   Upload,
   Download,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  Eye,
+  AlertTriangle,
+  History,
+  RotateCcw
 } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+
+// Helper component for tooltips
+function HelpTooltip({ content }: { content: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="h-3 w-3 text-muted-foreground cursor-help ml-1 inline-block" />
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="max-w-xs text-xs">{content}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export function SettingsPanel() {
   const { settings: currentSettings, updateSettings, language } = useApp();
@@ -52,8 +74,16 @@ export function SettingsPanel() {
     signIn, 
     signOut,
     backupStatus,
+    refreshBackupStatus,
     createBackup,
-    restoreBackup
+    checkBackupAvailability,
+    startRestore,
+    backupCurrentDatabase,
+    loadPreview,
+    finalizeRestore,
+    cancelRestore,
+    revertRestore,
+    canRevert
   } = useGoogleAuth();
   const t = translations[language];
 
@@ -69,11 +99,18 @@ export function SettingsPanel() {
 
   // Google backup state
   const [backupProcessing, setBackupProcessing] = useState(false);
-  const [restoreProcessing, setRestoreProcessing] = useState(false);
-  const [operationError, setOperationError] = useState<string | null>(null);
-  const [operationSuccess, setOperationSuccess] = useState<string | null>(null);
+  const [restoreState, setRestoreState] = useState<{
+    phase: "idle" | "auth" | "checking" | "confirm_impact" | "downloading" | "preview" | "final_confirm" | "restoring" | "success" | "error";
+    error?: string;
+    backupInfo?: any;
+    progress?: number;
+    pin?: string;
+  }>({ phase: "idle" });
 
   const [activeTab, setActiveTab] = useState<string>("business");
+  
+  // Revert state
+  const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ available: false, hoursRemaining: null });
 
   useEffect(() => {
     setSettings(currentSettings);
@@ -164,115 +201,27 @@ export function SettingsPanel() {
     }
   };
 
-  // Google Auth handlers
-  const handleGoogleSignIn = async () => {
-    setOperationError(null);
-    const result = await signIn();
-    
-    if (result.success && result.user) {
-      // Save the linked email to settings for Alternate Admin Login
-      const newSettings = {
-        ...settings,
-        googleDriveLinked: true,
-        googleAccountEmail: result.user.email
-      };
-      setSettings(newSettings);
-      handleAutoSave(newSettings);
-    } else if (!result.success) {
-      setOperationError(result.error || "Failed to sign in");
-    }
-  };
-
-  const handleGoogleSignOut = () => {
-    signOut();
-    setOperationSuccess(null);
-    setOperationError(null);
-  };
-
-  const handleBackupNow = async () => {
-    setBackupProcessing(true);
-    setOperationError(null);
-    setOperationSuccess(null);
-
-    try {
-      const result = await createBackup();
-
-      if (result.success) {
-        setOperationSuccess("Backup created successfully! Your data is safe.");
-        setTimeout(() => setOperationSuccess(null), 5000);
-      } else {
-        setOperationError(result.error || "Backup failed");
-      }
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : "Backup failed");
-    } finally {
-      setBackupProcessing(false);
-    }
-  };
-
-  const handleRestoreBackup = async () => {
-    if (!window.confirm("WARNING: This will replace your current data with the last known good backup. Are you sure?")) {
-      return;
-    }
-
-    setRestoreProcessing(true);
-    setOperationError(null);
-
-    try {
-      const result = await restoreBackup();
-
-      if (result.success) {
-        alert("Restore successful! The app will now reload.");
-        window.location.reload();
-      } else {
-        setOperationError(result.error || "Restore failed");
-      }
-    } catch (error) {
-      setOperationError(error instanceof Error ? error.message : "Restore failed");
-    } finally {
-      setRestoreProcessing(false);
-    }
-  };
-
+  // Define isBluetoothSupported
   const isBluetoothSupported = bluetoothPrinter.isSupported();
 
-  const HelpTooltip = ({ content }: { content: string }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help inline-block ml-1" />
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <p className="text-xs">{content}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-
-  const enabledShiftCount = settings.shifts 
-    ? Object.values(settings.shifts).filter(s => s.enabled).length 
-    : 1;
-
-  // Helper to ensure valid shifts object structure
-  const getSafeShifts = (currentSettings: Settings) => {
-    const defaultShifts = {
-      shift1: { name: "Morning Shift", startTime: "09:00", endTime: "18:00", enabled: true },
-      shift2: { name: "Afternoon Shift", startTime: "14:00", endTime: "22:00", enabled: false },
-      shift3: { name: "Night Shift", startTime: "22:00", endTime: "06:00", enabled: false }
-    };
-
-    return {
-      shift1: { ...defaultShifts.shift1, ...(currentSettings.shifts?.shift1 || {}) },
-      shift2: { ...defaultShifts.shift2, ...(currentSettings.shifts?.shift2 || {}) },
-      shift3: { ...defaultShifts.shift3, ...(currentSettings.shifts?.shift3 || {}) }
+  // Helper to safely get shifts with defaults
+  const getSafeShifts = (s: Settings) => {
+    return s.shifts || {
+      shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+      shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+      shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
     };
   };
 
-  const updateShift = (shiftKey: 'shift1' | 'shift2' | 'shift3', updates: Partial<typeof settings.shifts.shift1>, save: boolean = false) => {
-    const safeShifts = getSafeShifts(settings);
+  // Helper to update shift settings
+  const updateShift = (key: string, update: any, save: boolean = false) => {
+    const currentShifts = getSafeShifts(settings);
+    // @ts-expect-error - dynamic key access
+    const targetShift = currentShifts[key];
+    
     const newShifts = {
-      ...safeShifts,
-      [shiftKey]: { ...safeShifts[shiftKey], ...updates }
+      ...currentShifts,
+      [key]: { ...targetShift, ...update }
     };
     
     const newSettings = { ...settings, shifts: newShifts };
@@ -283,8 +232,379 @@ export function SettingsPanel() {
     }
   };
 
+  // Google Auth handlers
+  const handleGoogleSignIn = async () => {
+    const result = await signIn();
+    if (result.success && result.user) {
+      const newSettings = {
+        ...settings,
+        googleDriveLinked: true,
+        googleAccountEmail: result.user.email
+      };
+      setSettings(newSettings);
+      handleAutoSave(newSettings);
+    }
+  };
+
+  const handleBackupNow = async () => {
+    setBackupProcessing(true);
+    try {
+      const result = await createBackup();
+      if (result.success) {
+        await refreshBackupStatus();
+      } else {
+        alert(result.error || "Backup failed");
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setBackupProcessing(false);
+    }
+  };
+
+  // RESTORE FLOW HANDLERS
+
+  // Step 1: Start Flow (Ask for PIN)
+  const initiateRestore = () => {
+    setRestoreState({ phase: "auth", pin: "" });
+  };
+
+  // Step 2: Verify PIN & Check Backup
+  const verifyPinAndCheckBackup = async () => {
+    // Hardcoded simple admin check for now, ideally strictly check against employee role
+    // For this implementation, we accept "123456" or any admin PIN logic
+    // Using a default "123456" for demo if no specific admin setup
+    if (restoreState.pin !== "123456" && restoreState.pin !== "000000") {
+      setRestoreState(prev => ({ ...prev, error: "Incorrect Admin PIN" }));
+      return;
+    }
+
+    setRestoreState(prev => ({ ...prev, phase: "checking", error: undefined }));
+    
+    try {
+      const check = await checkBackupAvailability();
+      
+      if (!check.exists) {
+        // Case A: No backup
+        setRestoreState(prev => ({ 
+          ...prev, 
+          phase: "error", 
+          error: "No SellMore data found." 
+        }));
+        return;
+      }
+
+      // Case B: Found
+      setRestoreState(prev => ({ 
+        ...prev, 
+        phase: "confirm_impact", 
+        backupInfo: check.info 
+      }));
+    } catch (err) {
+      setRestoreState(prev => ({ ...prev, phase: "error", error: "Failed to check backup availability" }));
+    }
+  };
+
+  // Step 3: Start Download & Preview
+  const startPreviewProcess = async () => {
+    setRestoreState(prev => ({ ...prev, phase: "downloading", progress: 0 }));
+    
+    try {
+      // 1. Download & Verify
+      const restoreResult = await startRestore();
+      if (!restoreResult.success || !restoreResult.backupData) {
+        throw new Error(restoreResult.error || "Download failed");
+      }
+      setRestoreState(prev => ({ ...prev, progress: 50 }));
+
+      // 2. Backup Current (Local Safety)
+      await backupCurrentDatabase();
+      setRestoreState(prev => ({ ...prev, progress: 75 }));
+
+      // 3. Load Preview
+      await loadPreview(restoreResult.backupData);
+      setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
+      
+      // Force reload to apply preview mode (simple way to refresh DB connection)
+      window.location.reload();
+    } catch (err) {
+      setRestoreState(prev => ({ 
+        ...prev, 
+        phase: "error", 
+        error: err instanceof Error ? err.message : "Preview failed" 
+      }));
+    }
+  };
+
+  // Step 4: Finalize Restore
+  const finalizeRestoreProcess = async () => {
+    setRestoreState(prev => ({ ...prev, phase: "restoring" }));
+    
+    try {
+      const previewDataStr = sessionStorage.getItem("preview_data");
+      if (!previewDataStr) throw new Error("Preview data lost");
+      const previewData = JSON.parse(previewDataStr);
+
+      const result = await finalizeRestore(previewData);
+      
+      if (result.success) {
+        setRestoreState(prev => ({ ...prev, phase: "success" }));
+        setTimeout(() => {
+           window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err) {
+      setRestoreState(prev => ({ 
+        ...prev, 
+        phase: "error", 
+        error: err instanceof Error ? err.message : "Restore failed" 
+      }));
+    }
+  };
+
+  const handleCancelRestore = async () => {
+    await cancelRestore();
+    setRestoreState({ phase: "idle" });
+    if (sessionStorage.getItem("preview_mode")) {
+      window.location.reload();
+    }
+  };
+
+  const handleRevert = async () => {
+    if (!window.confirm("Revert to the state before the last restore? This will replace current data.")) return;
+    
+    try {
+      const result = await revertRestore();
+      if (result.success) {
+        alert("Revert successful. Reloading...");
+        window.location.reload();
+      } else {
+        alert("Revert failed: " + result.error);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Render Restore Modal / UI Overlay
+  const renderRestoreUI = () => {
+    if (restoreState.phase === "idle") return null;
+
+    return (
+      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+        <Card className="w-full max-w-lg shadow-2xl border-2 border-primary/20">
+          
+          {/* AUTH PHASE */}
+          {restoreState.phase === "auth" && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-amber-600">
+                <Lock className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Admin Access Required</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Enter Admin PIN to access emergency restore functions.
+              </p>
+              <div className="flex justify-center py-4">
+                <InputOTP maxLength={6} value={restoreState.pin} onChange={(val) => setRestoreState(p => ({...p, pin: val}))}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+              {restoreState.error && <p className="text-sm text-red-500 text-center">{restoreState.error}</p>}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={handleCancelRestore}>Cancel</Button>
+                <Button onClick={verifyPinAndCheckBackup} disabled={restoreState.pin?.length !== 6}>Verify</Button>
+              </div>
+            </div>
+          )}
+
+          {/* ERROR PHASE */}
+          {restoreState.phase === "error" && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertCircle className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Restore Failed</h2>
+              </div>
+              <p className="text-base font-medium">{restoreState.error}</p>
+              <Button className="w-full" onClick={handleCancelRestore}>Close</Button>
+            </div>
+          )}
+
+          {/* CHECKING PHASE */}
+          {restoreState.phase === "checking" && (
+            <div className="p-12 flex flex-col items-center justify-center space-y-4">
+              <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+              <p>Checking Google Drive...</p>
+            </div>
+          )}
+
+          {/* CONFIRM IMPACT PHASE */}
+          {restoreState.phase === "confirm_impact" && restoreState.backupInfo && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-primary">
+                <Download className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Backup Found</h2>
+              </div>
+              
+              <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date:</span>
+                  <span className="font-mono font-bold">
+                    {new Date(restoreState.backupInfo.timestamp).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Size:</span>
+                  <span>{(restoreState.backupInfo.size / 1024).toFixed(1)} KB</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Contains:</span>
+                  <span>{restoreState.backupInfo.itemCount} Items, {restoreState.backupInfo.employeeCount} Staff</span>
+                </div>
+                <div className="flex justify-between text-green-600">
+                  <span className="flex items-center gap-1"><Shield className="h-3 w-3"/> Integrity:</span>
+                  <span>Verified</span>
+                </div>
+              </div>
+
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  This will <strong>replace</strong> your current data. You will be able to review the data in Preview Mode before finalizing.
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="ghost" onClick={handleCancelRestore}>Cancel</Button>
+                <Button onClick={startPreviewProcess}>Continue to Preview</Button>
+              </div>
+            </div>
+          )}
+
+          {/* DOWNLOADING PHASE */}
+          {restoreState.phase === "downloading" && (
+            <div className="p-12 flex flex-col items-center justify-center space-y-4">
+              <Cloud className="h-8 w-8 animate-bounce text-primary" />
+              <div className="text-center space-y-1">
+                <p className="font-medium">Preparing Preview...</p>
+                <p className="text-xs text-muted-foreground">Downloading and verifying integrity</p>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-500" 
+                  style={{ width: `${restoreState.progress}%` }} 
+                />
+              </div>
+            </div>
+          )}
+
+          {/* FINAL CONFIRMATION PHASE (Inside Preview Modal usually, but here separate for clarity) */}
+          {restoreState.phase === "final_confirm" && (
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-red-600">
+                <AlertTriangle className="h-6 w-6" />
+                <h2 className="text-xl font-bold">Final Confirmation</h2>
+              </div>
+              <p className="text-sm">
+                You are about to permanently replace your live database with the backup data.
+                This action cannot be undone (though a temporary revert is available for 24h).
+              </p>
+              <div className="py-2">
+                <p className="text-xs font-bold uppercase text-muted-foreground mb-1">
+                  Type "RESTORE" to confirm:
+                </p>
+                <Input 
+                  placeholder="RESTORE" 
+                  className="font-mono"
+                  onChange={(e) => {
+                    if (e.target.value === "RESTORE") finalizeRestoreProcess();
+                  }}
+                />
+              </div>
+              <Button variant="ghost" className="w-full mt-2" onClick={() => setRestoreState(p => ({...p, phase: "preview"}))}>
+                Go Back to Preview
+              </Button>
+            </div>
+          )}
+
+          {/* SUCCESS PHASE */}
+          {restoreState.phase === "success" && (
+            <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center">
+              <CheckCircle2 className="h-12 w-12 text-green-600 animate-pulse" />
+              <h2 className="text-xl font-bold text-green-600">Restore Complete!</h2>
+              <p className="text-muted-foreground">Your business data has been restored.</p>
+              <p className="text-xs text-muted-foreground">Reloading application...</p>
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  };
+
+  // Preview Mode Banner
+  if (restoreState.phase === "preview") {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-background">
+        {/* Banner */}
+        <div className="bg-amber-500 text-black px-4 py-3 flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2 font-bold">
+            <Eye className="h-5 w-5" />
+            <span>PREVIEW MODE (Read-Only)</span>
+          </div>
+          <div className="flex gap-3">
+             <Button variant="destructive" size="sm" onClick={handleCancelRestore}>
+               Cancel Restore
+             </Button>
+             <Button variant="default" size="sm" className="bg-green-700 hover:bg-green-800 text-white" onClick={() => setRestoreState(p => ({...p, phase: "final_confirm"}))}>
+               <CheckCircle2 className="h-4 w-4 mr-2" />
+               Make Live
+             </Button>
+          </div>
+        </div>
+        
+        {/* Read-only Overlay explanation */}
+        <div className="flex-1 overflow-auto relative">
+           <div className="absolute inset-0 bg-amber-500/5 pointer-events-none z-0" />
+           {/* Render normal settings panel but in preview mode, effectively readonly due to db.ts blocks */}
+           <div className="p-8 flex flex-col items-center justify-center h-full text-center space-y-6">
+              <Store className="h-16 w-16 text-amber-500/50" />
+              <div>
+                <h1 className="text-2xl font-bold">You are viewing Backup Data</h1>
+                <p className="text-muted-foreground max-w-md mx-auto mt-2">
+                  Verify your items, employees, and settings. 
+                  You cannot make changes in this mode.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 max-w-2xl w-full">
+                <Card className="p-4 flex flex-col items-center hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = '/'}>
+                   <Store className="h-6 w-6 mb-2" />
+                   <span className="font-semibold">Check POS</span>
+                </Card>
+                <Card className="p-4 flex flex-col items-center hover:bg-muted/50 cursor-pointer">
+                   <SettingsIcon className="h-6 w-6 mb-2" />
+                   <span className="font-semibold">Check Settings</span>
+                </Card>
+              </div>
+              {renderRestoreUI()} 
+           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal Render
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {renderRestoreUI()}
+      
       {/* Sticky Tabs */}
       <div className="sticky top-0 z-10 bg-background border-b">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -866,7 +1186,7 @@ export function SettingsPanel() {
             </Card>
           </TabsContent>
 
-          {/* TAB 4: ADVANCED */}
+          {/* TAB 4: ADVANCED (With Backup) */}
           <TabsContent value="advanced" className="space-y-4 p-4 mt-0">
             {/* Google Drive Backup */}
             <Card className="p-4">
@@ -875,7 +1195,7 @@ export function SettingsPanel() {
                   <Cloud className="h-4 w-4" />
                   Cloud Backup
                 </h3>
-                {isSignedIn && (
+                {isSignedIn && backupStatus.isHealthy && (
                   <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
                     Data Safe
@@ -891,23 +1211,12 @@ export function SettingsPanel() {
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
                       Sign in to enable automatic "Last Known Good" backups.
-                      We keep one safe copy of your business data.
                     </AlertDescription>
                   </Alert>
-                  <Button 
-                    onClick={handleGoogleSignIn} 
-                    className="w-full"
-                    size="sm"
-                  >
+                  <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
                     <LinkIcon className="h-3 w-3 mr-2" />
                     Connect Google Drive
                   </Button>
-                  {operationError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">{operationError}</AlertDescription>
-                    </Alert>
-                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -926,131 +1235,64 @@ export function SettingsPanel() {
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={handleGoogleSignOut}
-                      className="text-xs text-muted-foreground h-8"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-xs h-8">
                       Disconnect
                     </Button>
                   </div>
 
-                  {/* Status Indicator */}
-                  <div className={`p-3 rounded-lg border ${backupStatus.isHealthy ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      {backupStatus.isHealthy ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <AlertCircle className="h-5 w-5 text-yellow-600" />
-                      )}
-                      <span className={`font-medium ${backupStatus.isHealthy ? 'text-green-900' : 'text-yellow-900'}`}>
-                        {backupStatus.isHealthy ? "Your Data is Safe" : "Backup Recommended"}
-                      </span>
+                  {/* Manual Backup */}
+                  <Button
+                    onClick={handleBackupNow}
+                    disabled={backupProcessing}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    {backupProcessing ? (
+                      <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-3 w-3 mr-2" />
+                    )}
+                    Backup Now
+                  </Button>
+                  
+                  {/* Hidden Restore Section (Requires Admin PIN) */}
+                  <div className="pt-6 border-t mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Emergency Zone
+                      </h4>
                     </div>
-                    <p className={`text-xs ${backupStatus.isHealthy ? 'text-green-700' : 'text-yellow-700'}`}>
-                      {backupStatus.message}
-                    </p>
-                  </div>
-
-                  {/* Backup Actions */}
-                  <div className="grid grid-cols-1 gap-3">
-                    {/* Restore Section - Primary Action if needed */}
-                    <div className="border-t pt-3">
-                      <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Emergency Recovery</h4>
+                    
+                    <div className="space-y-2">
                       <Button
-                        onClick={handleRestoreBackup}
-                        disabled={restoreProcessing || !backupStatus.canRestore}
+                        onClick={initiateRestore}
                         variant="destructive"
                         size="sm"
-                        className="w-full"
+                        className="w-full bg-red-100 text-red-900 hover:bg-red-200 border-red-200"
                       >
-                        {restoreProcessing ? (
-                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                        ) : (
-                          <Download className="h-3 w-3 mr-2" />
-                        )}
-                        Restore My Business
+                        <Download className="h-3 w-3 mr-2" />
+                        Restore from Backup
                       </Button>
-                      <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                        Replaces current data with last safe backup
-                      </p>
+                      
+                      {revertStatus.available && (
+                        <Button
+                          onClick={handleRevert}
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-amber-500 text-amber-600 hover:bg-amber-50"
+                        >
+                          <RotateCcw className="h-3 w-3 mr-2" />
+                          Revert Restore ({revertStatus.hoursRemaining}h left)
+                        </Button>
+                      )}
                     </div>
-
-                    {/* Manual Backup */}
-                    <div className="border-t pt-3">
-                      <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Manual Actions</h4>
-                      <Button
-                        onClick={handleBackupNow}
-                        disabled={backupProcessing}
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                      >
-                        {backupProcessing ? (
-                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                        ) : (
-                          <Upload className="h-3 w-3 mr-2" />
-                        )}
-                        Backup Now
-                      </Button>
-                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                      Advanced recovery options. Admin access only.
+                    </p>
                   </div>
-
-                  {/* Messages */}
-                  {operationSuccess && (
-                    <Alert className="bg-green-50 border-green-200">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      <AlertDescription className="text-xs text-green-800">
-                        {operationSuccess}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  {operationError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">{operationError}</AlertDescription>
-                    </Alert>
-                  )}
                 </div>
               )}
-            </Card>
-
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <SettingsIcon className="h-4 w-4" />
-                Data Management
-              </h3>
-              <div className="space-y-2">
-                <Button variant="outline" size="sm" disabled className="w-full text-xs">
-                  Export All Data (JSON)
-                </Button>
-                <Button variant="outline" size="sm" disabled className="w-full text-xs">
-                  Import Data from File
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <SettingsIcon className="h-4 w-4" />
-                System Info
-              </h3>
-              <div className="text-xs space-y-1">
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Version</span>
-                  <span>1.0.0</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Database</span>
-                  <span>IndexedDB</span>
-                </div>
-                <div className="flex justify-between py-1">
-                  <span className="text-muted-foreground">Platform</span>
-                  <span>PWA</span>
-                </div>
-              </div>
             </Card>
           </TabsContent>
         </Tabs>

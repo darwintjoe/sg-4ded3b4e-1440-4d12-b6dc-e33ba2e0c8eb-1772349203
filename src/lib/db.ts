@@ -17,7 +17,25 @@ class Database {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
 
+  // Helper to check for preview mode
+  private isPreviewMode(): boolean {
+    return typeof window !== 'undefined' && sessionStorage.getItem("preview_mode") === "true";
+  }
+
+  // Helper to get preview data
+  private getPreviewData(): any {
+    if (typeof window === 'undefined') return null;
+    const dataStr = sessionStorage.getItem("preview_data");
+    return dataStr ? JSON.parse(dataStr) : null;
+  }
+
   async init(): Promise<void> {
+    // In preview mode, we don't need real DB connection for reads
+    // But we might need it if we want to mix data (which we don't)
+    if (this.isPreviewMode()) {
+      return Promise.resolve();
+    }
+
     if (this.initPromise) {
       return this.initPromise;
     }
@@ -159,6 +177,23 @@ class Database {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
+    // INTERCEPT: Preview Mode
+    if (this.isPreviewMode()) {
+      const data = this.getPreviewData();
+      if (data) {
+        // Return data from backup if available
+        if (Array.isArray(data[storeName])) {
+          return data[storeName] as T[];
+        }
+        // Special mapping for settings which is object in backup but array in DB store typically
+        if (storeName === 'settings' && data.settings) {
+          return [data.settings] as unknown as T[];
+        }
+      }
+      // If not in backup (e.g. transactions), return empty in preview
+      return [];
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -177,6 +212,13 @@ class Database {
   }
 
   async getById<T>(storeName: string, id: number | string): Promise<T | undefined> {
+    // INTERCEPT: Preview Mode
+    if (this.isPreviewMode()) {
+      const list = await this.getAll<T>(storeName);
+      // @ts-expect-error - id access on generic type T
+      return list.find(item => item.id === id || item.key === id);
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -195,6 +237,11 @@ class Database {
   }
 
   async add<T>(storeName: string, data: Omit<T, "id"> | any): Promise<number> {
+    // BLOCK: Read-only mode
+    if (this.isPreviewMode()) {
+      throw new Error("Cannot save data in Preview Mode");
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -213,6 +260,11 @@ class Database {
   }
 
   async put<T>(storeName: string, data: T): Promise<void> {
+    // BLOCK: Read-only mode
+    if (this.isPreviewMode()) {
+      throw new Error("Cannot update data in Preview Mode");
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -235,6 +287,11 @@ class Database {
   }
 
   async delete(storeName: string, id: number): Promise<void> {
+    // BLOCK: Read-only mode
+    if (this.isPreviewMode()) {
+      throw new Error("Cannot delete data in Preview Mode");
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
@@ -374,6 +431,11 @@ class Database {
   }
 
   async clear(storeName: string): Promise<void> {
+    // BLOCK: Read-only mode
+    if (this.isPreviewMode()) {
+      throw new Error("Cannot clear data in Preview Mode");
+    }
+
     if (!this.db) throw new Error("Database not initialized");
 
     return new Promise((resolve, reject) => {
