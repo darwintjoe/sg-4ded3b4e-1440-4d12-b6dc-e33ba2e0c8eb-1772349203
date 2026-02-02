@@ -216,8 +216,7 @@ export function SettingsPanel() {
   // Helper to update shift settings
   const updateShift = (key: string, update: any, save: boolean = false) => {
     const currentShifts = getSafeShifts(settings);
-    // @ts-expect-error - dynamic key access
-    const targetShift = currentShifts[key];
+    const targetShift = currentShifts[key as keyof typeof currentShifts];
     
     const newShifts = {
       ...currentShifts,
