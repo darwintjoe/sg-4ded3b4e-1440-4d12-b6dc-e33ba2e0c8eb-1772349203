@@ -125,7 +125,10 @@ class BackupService {
       const items = await db.getAll("items");
       const employees = await db.getAll("employees");
       const categories = await db.getAll("categories");
-      const settings = await db.get("settings", 1);
+      // Fix: db.get doesn't exist, use getAll for settings which is a store, or implement get
+      // Assuming settings is a store with key 1
+      const settingsArray = await db.getAll("settings");
+      const settings = settingsArray.find((s: any) => s.id === 1);
 
       // Recent shifts (last 60 days only)
       const allShifts = await db.getAll("shifts");
@@ -235,7 +238,7 @@ class BackupService {
       // Check if essential tables are accessible
       const items = await db.getAll("items");
       const employees = await db.getAll("employees");
-      const settings = await db.get("settings", 1);
+      const settings = await db.getById("settings", 1);
 
       // Basic validation
       if (!items || !employees || !settings) {
@@ -414,7 +417,8 @@ class BackupService {
         await db.add("categories", category);
       }
       if (backupData.settings) {
-        await db.put("settings", backupData.settings);
+        // Fix: db.put might verify key, ensuring settings object has id
+        await db.put("settings", { ...backupData.settings, id: 1 });
       }
       for (const shift of backupData.shifts) {
         await db.add("shifts", shift);

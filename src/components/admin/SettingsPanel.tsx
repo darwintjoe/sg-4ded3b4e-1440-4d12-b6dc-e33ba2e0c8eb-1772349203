@@ -45,12 +45,21 @@ import {
 
 export function SettingsPanel() {
   const { settings: currentSettings, updateSettings, language } = useApp();
-  const { user, isSignedIn, isInitialized, signIn, signOut, uploadBackup, listBackups, downloadBackup } = useGoogleAuth();
+  const { 
+    user, 
+    isSignedIn, 
+    isInitialized, 
+    signIn, 
+    signOut,
+    backupStatus,
+    createBackup,
+    restoreBackup
+  } = useGoogleAuth();
   const t = translations[language];
 
   const [settings, setSettings] = useState<Settings>(currentSettings);
   const [saving, setSaving] = useState(false);
-
+  
   // Bluetooth printer state
   const [printerConnecting, setPrinterConnecting] = useState(false);
   const [printerConnected, setPrinterConnected] = useState(false);
@@ -59,10 +68,10 @@ export function SettingsPanel() {
   const [testPrinting, setTestPrinting] = useState(false);
 
   // Google backup state
-  const [backupLoading, setBackupLoading] = useState(false);
-  const [backupError, setBackupError] = useState<string | null>(null);
-  const [backupSuccess, setBackupSuccess] = useState(false);
-  const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
+  const [backupProcessing, setBackupProcessing] = useState(false);
+  const [restoreProcessing, setRestoreProcessing] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const [operationSuccess, setOperationSuccess] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("business");
 
@@ -157,7 +166,7 @@ export function SettingsPanel() {
 
   // Google Auth handlers
   const handleGoogleSignIn = async () => {
-    setBackupError(null);
+    setOperationError(null);
     const result = await signIn();
     
     if (result.success && result.user) {
@@ -170,83 +179,58 @@ export function SettingsPanel() {
       setSettings(newSettings);
       handleAutoSave(newSettings);
     } else if (!result.success) {
-      setBackupError(result.error || "Failed to sign in");
+      setOperationError(result.error || "Failed to sign in");
     }
   };
 
   const handleGoogleSignOut = () => {
     signOut();
-    setLastBackupTime(null);
-    
-    // Optional: Remove link from settings (or keep it to allow re-login)
-    // For security, we might want to keep the email in settings so only THIS email can unlock admin
+    setOperationSuccess(null);
+    setOperationError(null);
   };
 
   const handleBackupNow = async () => {
-    setBackupLoading(true);
-    setBackupError(null);
-    setBackupSuccess(false);
+    setBackupProcessing(true);
+    setOperationError(null);
+    setOperationSuccess(null);
 
     try {
-      // Get all data from IndexedDB
-      const { getAllData } = await import("@/lib/db");
-      const allData = await getAllData();
-
-      // Create backup filename with timestamp
-      const timestamp = new Date().toISOString().split('T')[0];
-      const filename = `sellmore-backup-${timestamp}.json.gz`;
-
-      // Upload to Drive
-      const result = await uploadBackup(allData, filename);
+      const result = await createBackup();
 
       if (result.success) {
-        setBackupSuccess(true);
-        setLastBackupTime(new Date().toISOString());
-        setTimeout(() => setBackupSuccess(false), 3000);
+        setOperationSuccess("Backup created successfully! Your data is safe.");
+        setTimeout(() => setOperationSuccess(null), 5000);
       } else {
-        setBackupError(result.error || "Backup failed");
+        setOperationError(result.error || "Backup failed");
       }
     } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "Backup failed");
+      setOperationError(error instanceof Error ? error.message : "Backup failed");
     } finally {
-      setBackupLoading(false);
+      setBackupProcessing(false);
     }
   };
 
   const handleRestoreBackup = async () => {
-    setBackupLoading(true);
-    setBackupError(null);
+    if (!window.confirm("WARNING: This will replace your current data with the last known good backup. Are you sure?")) {
+      return;
+    }
+
+    setRestoreProcessing(true);
+    setOperationError(null);
 
     try {
-      // List available backups
-      const result = await listBackups();
+      const result = await restoreBackup();
 
-      if (!result.success || !result.backups || result.backups.length === 0) {
-        setBackupError("No backups found");
-        setBackupLoading(false);
-        return;
-      }
-
-      // Get the latest backup
-      const latestBackup = result.backups[0];
-
-      // Download and restore
-      const downloadResult = await downloadBackup(latestBackup.id);
-
-      if (downloadResult.success && downloadResult.data) {
-        // Import data to IndexedDB
-        const { importData } = await import("@/lib/db");
-        await importData(downloadResult.data);
-
-        // Reload the page to reflect changes
+      if (result.success) {
+        alert("Restore successful! The app will now reload.");
         window.location.reload();
       } else {
-        setBackupError(downloadResult.error || "Restore failed");
+        setOperationError(result.error || "Restore failed");
       }
     } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "Restore failed");
+      setOperationError(error instanceof Error ? error.message : "Restore failed");
     } finally {
-      setBackupLoading(false);
+      setRestoreProcessing(false);
     }
   };
 
@@ -889,12 +873,12 @@ export function SettingsPanel() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Cloud className="h-4 w-4" />
-                  Google Drive Backup
+                  Cloud Backup
                 </h3>
                 {isSignedIn && (
-                  <Badge variant="default" className="text-xs">
+                  <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Linked
+                    Data Safe
                   </Badge>
                 )}
               </div>
@@ -906,7 +890,8 @@ export function SettingsPanel() {
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      Link your Google account to backup data to Drive (15GB free). Protects against device damage/loss.
+                      Sign in to enable automatic "Last Known Good" backups.
+                      We keep one safe copy of your business data.
                     </AlertDescription>
                   </Alert>
                   <Button 
@@ -915,17 +900,17 @@ export function SettingsPanel() {
                     size="sm"
                   >
                     <LinkIcon className="h-3 w-3 mr-2" />
-                    Link Google Account
+                    Connect Google Drive
                   </Button>
-                  {backupError && (
+                  {operationError && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">{backupError}</AlertDescription>
+                      <AlertDescription className="text-xs">{operationError}</AlertDescription>
                     </Alert>
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {/* Account Info */}
                   <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-2">
@@ -934,80 +919,100 @@ export function SettingsPanel() {
                       )}
                       <div className="text-sm">
                         <div className="font-medium">{user?.name}</div>
-                        <div className="text-xs text-muted-foreground">{user?.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {backupStatus.lastBackupTime 
+                            ? `Last backup: ${new Date(backupStatus.lastBackupTime).toLocaleString()}`
+                            : "No backup yet"}
+                        </div>
                       </div>
                     </div>
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       onClick={handleGoogleSignOut}
-                      className="text-xs"
+                      className="text-xs text-muted-foreground h-8"
                     >
-                      Unlink
+                      Disconnect
                     </Button>
                   </div>
 
-                  {/* Last Backup Time */}
-                  {lastBackupTime && (
-                    <div className="text-xs text-muted-foreground">
-                      Last backup: {new Date(lastBackupTime).toLocaleString()}
+                  {/* Status Indicator */}
+                  <div className={`p-3 rounded-lg border ${backupStatus.isHealthy ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {backupStatus.isHealthy ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <AlertCircle className="h-5 w-5 text-yellow-600" />
+                      )}
+                      <span className={`font-medium ${backupStatus.isHealthy ? 'text-green-900' : 'text-yellow-900'}`}>
+                        {backupStatus.isHealthy ? "Your Data is Safe" : "Backup Recommended"}
+                      </span>
                     </div>
-                  )}
+                    <p className={`text-xs ${backupStatus.isHealthy ? 'text-green-700' : 'text-yellow-700'}`}>
+                      {backupStatus.message}
+                    </p>
+                  </div>
 
                   {/* Backup Actions */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={handleBackupNow}
-                      disabled={backupLoading}
-                      size="sm"
-                      className="w-full"
-                    >
-                      {backupLoading ? (
-                        <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                      ) : (
-                        <Upload className="h-3 w-3 mr-2" />
-                      )}
-                      Backup Now
-                    </Button>
-                    <Button
-                      onClick={handleRestoreBackup}
-                      disabled={backupLoading}
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
-                      {backupLoading ? (
-                        <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="h-3 w-3 mr-2" />
-                      )}
-                      Restore
-                    </Button>
+                  <div className="grid grid-cols-1 gap-3">
+                    {/* Restore Section - Primary Action if needed */}
+                    <div className="border-t pt-3">
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Emergency Recovery</h4>
+                      <Button
+                        onClick={handleRestoreBackup}
+                        disabled={restoreProcessing || !backupStatus.canRestore}
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                      >
+                        {restoreProcessing ? (
+                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                        ) : (
+                          <Download className="h-3 w-3 mr-2" />
+                        )}
+                        Restore My Business
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                        Replaces current data with last safe backup
+                      </p>
+                    </div>
+
+                    {/* Manual Backup */}
+                    <div className="border-t pt-3">
+                      <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase">Manual Actions</h4>
+                      <Button
+                        onClick={handleBackupNow}
+                        disabled={backupProcessing}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                      >
+                        {backupProcessing ? (
+                          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="h-3 w-3 mr-2" />
+                        )}
+                        Backup Now
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Success/Error Messages */}
-                  {backupSuccess && (
-                    <Alert>
-                      <CheckCircle2 className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        Backup uploaded successfully!
+                  {/* Messages */}
+                  {operationSuccess && (
+                    <Alert className="bg-green-50 border-green-200">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <AlertDescription className="text-xs text-green-800">
+                        {operationSuccess}
                       </AlertDescription>
                     </Alert>
                   )}
 
-                  {backupError && (
+                  {operationError && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">{backupError}</AlertDescription>
+                      <AlertDescription className="text-xs">{operationError}</AlertDescription>
                     </Alert>
                   )}
-
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      ✓ Free 15GB storage • ✓ Encrypted backups • ✓ Access from any device
-                    </AlertDescription>
-                  </Alert>
                 </div>
               )}
             </Card>

@@ -379,6 +379,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await archiveColdData();
 
       // Trigger backup to Google Drive (fire-and-forget)
+      // New: Use the exposed createBackup from GoogleAuthContext via a helper or direct access if possible
+      // Since we can't easily access GoogleAuthContext here due to circular dependency risk or context nesting,
+      // we'll dispatch a custom event or use the service directly if it was a singleton.
+      // But we have googleAuth from useGoogleAuth() hook at the top!
+      
       triggerBackupToGoogleDrive();
 
       // Send shift report as calendar event (fire-and-forget)
@@ -558,11 +563,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const triggerBackupToGoogleDrive = async () => {
     try {
-      console.log("Google Drive backup triggered (fire-and-forget)");
-      // TODO: Implement actual Google Drive backup
-      // Include: master data, all summaries, hot transactions only
+      console.log("Triggering auto-backup...");
+      // Check if signed in using the context hook we already have
+      if (googleAuth.isSignedIn) {
+        // Fire and forget - don't await
+        googleAuth.createBackup().then(result => {
+          if (result.success) {
+            console.log("✅ Auto-backup success");
+          } else {
+            console.warn("⚠️ Auto-backup failed:", result.error);
+          }
+        });
+      }
     } catch (error) {
       // Silent fail
+      console.error("Auto-backup trigger error:", error);
     }
   };
 
