@@ -650,12 +650,16 @@ PAYMENT BREAKDOWN:
 ━━━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-      // Create calendar event
-      const eventStart = new Date(shift.shiftStart).toISOString();
-      const eventEnd = shift.shiftEnd ? new Date(shift.shiftEnd).toISOString() : new Date().toISOString();
+      // OPTION A ENHANCEMENT: Revenue in title
+      const eventTitle = `💰 ${formatCurrency(totalRevenue)} - ${shift.cashierName} - Shift Closed`;
+
+      // OPTION A ENHANCEMENT: 1-hour event (cleaner calendar)
+      const shiftEndTime = shift.shiftEnd || Date.now();
+      const eventStart = new Date(shiftEndTime).toISOString();
+      const eventEnd = new Date(shiftEndTime + 3600000).toISOString(); // +1 hour
 
       const result = await googleAuth.createCalendarEvent({
-        summary: `Shift Closed - ${shift.cashierName}`,
+        summary: eventTitle,
         description: description,
         start: eventStart,
         end: eventEnd
@@ -663,6 +667,9 @@ PAYMENT BREAKDOWN:
 
       if (result.success) {
         console.log("✅ Shift report sent to Google Calendar");
+        // OPTION A ENHANCEMENT: Success toast notification
+        // Note: We'll need to use the toast system if available in this context
+        // For now, just log success - toast will be added when AppContext has access to it
       } else {
         console.error("❌ Failed to send shift report:", result.error);
       }
