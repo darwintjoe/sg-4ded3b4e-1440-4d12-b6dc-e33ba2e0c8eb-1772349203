@@ -219,27 +219,23 @@ class GoogleAuthService {
   /**
    * Upload backup to Google Drive
    */
-  async uploadBackup(data: any, filename: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
+  async uploadBackup(data: Blob, filename: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
       }
 
-      // Compress data
-      const jsonString = JSON.stringify(data);
-      const compressed = this.compressData(jsonString);
-
       // Create file metadata
       const metadata = {
         name: filename,
         mimeType: "application/gzip",
-        parents: ["root"], // TODO: Create dedicated folder
+        parents: ["root"],
       };
 
       // Upload to Drive
       const form = new FormData();
       form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
-      form.append("file", new Blob([compressed], { type: "application/gzip" }));
+      form.append("file", data);
 
       const response = await fetch(
         "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
@@ -275,7 +271,7 @@ class GoogleAuthService {
       }
 
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=mimeType='application/gzip' and name contains 'sellmore-backup'&fields=files(id,name,createdTime,size)&orderBy=createdTime desc",
+        "https://www.googleapis.com/drive/v3/files?q=name contains 'backup_' and (mimeType='application/gzip' or mimeType='application/json')&fields=files(id,name,createdTime,size)&orderBy=createdTime desc",
         {
           headers: {
             Authorization: `Bearer ${this.currentUser.accessToken}`,
@@ -317,10 +313,27 @@ class GoogleAuthService {
         return { success: false, error: "Failed to download backup" };
       }
 
-      const compressed = await response.arrayBuffer();
-      const decompressed = this.decompressData(new Uint8Array(compressed));
-      const data = JSON.parse(decompressed);
+      const blob = await response.blob();
+      
+      // Try to decompress if gzip
+      let jsonString: string;
+      if (blob.type === "application/gzip" || blob.type === "application/x-gzip") {
+        // Use DecompressionStream if available
+        if ("DecompressionStream" in window) {
+          const stream = blob.stream();
+          const decompressedStream = stream.pipeThrough(
+            new (window as any).DecompressionStream("gzip")
+          );
+          jsonString = await new Response(decompressedStream).text();
+        } else {
+          // Fallback: Try reading as text
+          jsonString = await blob.text();
+        }
+      } else {
+        jsonString = await blob.text();
+      }
 
+      const data = JSON.parse(jsonString);
       return { success: true, data };
     } catch (error) {
       console.error("Failed to download backup:", error);
