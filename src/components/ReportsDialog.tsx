@@ -56,7 +56,7 @@ export function ReportsDialog({ open, onClose, shift }: ReportsDialogProps) {
       });
       
       const summary = `SHIFT REPORT\n` +
-        `Period: ${new Date(shift.startTime).toLocaleString()} - ${shift.endTime ? new Date(shift.endTime).toLocaleString() : 'Now'}\n` +
+        `Period: ${new Date(shift.shiftStart).toLocaleString()} - ${shift.shiftEnd ? new Date(shift.shiftEnd).toLocaleString() : 'Now'}\n` +
         `Total Sales: Rp ${totalSales.toLocaleString()}\n` +
         `Transactions: ${transactionCount}\n` +
         `Payments:${paymentSummary}`;

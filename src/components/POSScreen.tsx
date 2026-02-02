@@ -10,7 +10,7 @@ import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Item, CartItem, Settings, Language } from "@/types";
+import { Item, CartItem, Settings, Language, Shift } from "@/types";
 import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings as SettingsIcon, Clock, X } from "lucide-react";
 
 interface POSScreenProps {
@@ -32,12 +32,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [currentShift, setCurrentShift] = useState<Shift | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadItems();
     loadSettings();
+    loadCurrentShift();
   }, []);
 
   const loadSettings = async () => {
@@ -46,6 +48,20 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       setSettings(loadedSettings);
     } catch (error) {
       console.error("Error loading settings:", error);
+    }
+  };
+
+  const loadCurrentShift = async () => {
+    try {
+      if (!currentUser?.id) return;
+      
+      const today = new Date().toISOString().split("T")[0];
+      const shifts = await db.searchByIndex<Shift>("shifts", "businessDate", today);
+      const activeShift = shifts.find(s => s.cashierId === currentUser.id && s.status === "active");
+      
+      setCurrentShift(activeShift || null);
+    } catch (error) {
+      console.error("Error loading current shift:", error);
     }
   };
 
@@ -471,6 +487,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
       <ReportsDialog
         open={reportsOpen}
         onClose={() => setReportsOpen(false)}
+        shift={currentShift}
       />
 
       <CartItemEditDialog
