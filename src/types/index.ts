@@ -244,8 +244,13 @@ export interface Settings {
   businessAddress?: string;
   taxId?: string;
   receiptFooter?: string;
-  allowPriceOverride?: boolean;
-  googleDriveLinked?: boolean;
+  
+  // Integrations
+  googleDriveLinked: boolean;
+  googleAccountEmail?: string; // Authorized admin email
+  
+  // Features
+  allowPriceOverride: boolean;
   bluetoothPrinterId?: string;
   bluetoothPrinterName?: string;
   

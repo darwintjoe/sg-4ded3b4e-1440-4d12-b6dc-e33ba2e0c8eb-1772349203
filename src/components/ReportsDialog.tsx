@@ -1,23 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Transaction, AttendanceRecord } from "@/types";
+import { Transaction, AttendanceRecord, Shift, ShiftReport } from "@/types";
 import { Search, TrendingUp, Users, DollarSign, Clock } from "lucide-react";
 
 interface ReportsDialogProps {
   open: boolean;
   onClose: () => void;
+  shift: Shift | null;
 }
 
-export function ReportsDialog({ open, onClose }: ReportsDialogProps) {
+export function ReportsDialog({ open, onClose, shift }: ReportsDialogProps) {
   const { language } = useApp();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-generate shift report when dialog opens with a valid shift
+  useEffect(() => {
+    if (open && shift && !result) {
+      generateShiftSummary();
+    }
+  }, [open, shift]);
+
+  const generateShiftSummary = async () => {
+    if (!shift) return;
+    setLoading(true);
+    
+    try {
+      // FIX: Use indexed query instead of full table scan
+      const shiftTransactions = await db.searchByIndex<Transaction>(
+        "transactions",
+        "shiftId",
+        shift.shiftId
+      );
+      
+      const totalSales = shiftTransactions.reduce((sum, t) => sum + t.total, 0);
+      const transactionCount = shiftTransactions.length;
+      
+      // Payment method breakdown
+      const payments: Record<string, number> = {};
+      shiftTransactions.forEach(t => {
+        t.payments.forEach(p => {
+          payments[p.method] = (payments[p.method] || 0) + p.amount;
+        });
+      });
+      
+      let paymentSummary = "";
+      Object.entries(payments).forEach(([method, amount]) => {
+        paymentSummary += `\n- ${method}: Rp ${amount.toLocaleString()}`;
+      });
+      
+      const summary = `SHIFT REPORT\n` +
+        `Period: ${new Date(shift.startTime).toLocaleString()} - ${shift.endTime ? new Date(shift.endTime).toLocaleString() : 'Now'}\n` +
+        `Total Sales: Rp ${totalSales.toLocaleString()}\n` +
+        `Transactions: ${transactionCount}\n` +
+        `Payments:${paymentSummary}`;
+        
+      setResult(summary);
+    } catch (error) {
+      console.error("Error generating shift report:", error);
+      setResult("Error generating report data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const processQuery = async () => {
     setLoading(true);

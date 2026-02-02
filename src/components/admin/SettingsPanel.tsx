@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useApp } from "@/contexts/AppContext";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { Settings, POSMode } from "@/types";
 import { translations } from "@/lib/translations";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
@@ -35,11 +36,16 @@ import {
   Clock,
   CreditCard,
   Wallet,
-  Info
+  Info,
+  Cloud,
+  Upload,
+  Download,
+  RefreshCw
 } from "lucide-react";
 
 export function SettingsPanel() {
   const { settings: currentSettings, updateSettings, language } = useApp();
+  const { user, isSignedIn, isInitialized, signIn, signOut, uploadBackup, listBackups, downloadBackup } = useGoogleAuth();
   const t = translations[language];
 
   const [settings, setSettings] = useState<Settings>(currentSettings);
@@ -51,6 +57,12 @@ export function SettingsPanel() {
   const [printerName, setPrinterName] = useState<string | null>(null);
   const [printerError, setPrinterError] = useState<string | null>(null);
   const [testPrinting, setTestPrinting] = useState(false);
+
+  // Google backup state
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupSuccess, setBackupSuccess] = useState(false);
+  const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<string>("business");
 
@@ -140,6 +152,101 @@ export function SettingsPanel() {
       setPrinterError(error instanceof Error ? error.message : "Test print failed");
     } finally {
       setTestPrinting(false);
+    }
+  };
+
+  // Google Auth handlers
+  const handleGoogleSignIn = async () => {
+    setBackupError(null);
+    const result = await signIn();
+    
+    if (result.success && result.user) {
+      // Save the linked email to settings for Alternate Admin Login
+      const newSettings = {
+        ...settings,
+        googleDriveLinked: true,
+        googleAccountEmail: result.user.email
+      };
+      setSettings(newSettings);
+      handleAutoSave(newSettings);
+    } else if (!result.success) {
+      setBackupError(result.error || "Failed to sign in");
+    }
+  };
+
+  const handleGoogleSignOut = () => {
+    signOut();
+    setLastBackupTime(null);
+    
+    // Optional: Remove link from settings (or keep it to allow re-login)
+    // For security, we might want to keep the email in settings so only THIS email can unlock admin
+  };
+
+  const handleBackupNow = async () => {
+    setBackupLoading(true);
+    setBackupError(null);
+    setBackupSuccess(false);
+
+    try {
+      // Get all data from IndexedDB
+      const { getAllData } = await import("@/lib/db");
+      const allData = await getAllData();
+
+      // Create backup filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = `sellmore-backup-${timestamp}.json.gz`;
+
+      // Upload to Drive
+      const result = await uploadBackup(allData, filename);
+
+      if (result.success) {
+        setBackupSuccess(true);
+        setLastBackupTime(new Date().toISOString());
+        setTimeout(() => setBackupSuccess(false), 3000);
+      } else {
+        setBackupError(result.error || "Backup failed");
+      }
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Backup failed");
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    setBackupLoading(true);
+    setBackupError(null);
+
+    try {
+      // List available backups
+      const result = await listBackups();
+
+      if (!result.success || !result.backups || result.backups.length === 0) {
+        setBackupError("No backups found");
+        setBackupLoading(false);
+        return;
+      }
+
+      // Get the latest backup
+      const latestBackup = result.backups[0];
+
+      // Download and restore
+      const downloadResult = await downloadBackup(latestBackup.id);
+
+      if (downloadResult.success && downloadResult.data) {
+        // Import data to IndexedDB
+        const { importData } = await import("@/lib/db");
+        await importData(downloadResult.data);
+
+        // Reload the page to reflect changes
+        window.location.reload();
+      } else {
+        setBackupError(downloadResult.error || "Restore failed");
+      }
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "Restore failed");
+    } finally {
+      setBackupLoading(false);
     }
   };
 
@@ -777,17 +884,132 @@ export function SettingsPanel() {
 
           {/* TAB 4: ADVANCED */}
           <TabsContent value="advanced" className="space-y-4 p-4 mt-0">
+            {/* Google Drive Backup */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
-                  <LinkIcon className="h-4 w-4" />
+                  <Cloud className="h-4 w-4" />
                   Google Drive Backup
                 </h3>
-                <Badge variant="outline" className="text-xs">Coming Soon</Badge>
+                {isSignedIn && (
+                  <Badge variant="default" className="text-xs">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Linked
+                  </Badge>
+                )}
               </div>
-              <Button variant="outline" size="sm" disabled className="w-full">
-                Connect Google Drive
-              </Button>
+
+              {!isInitialized ? (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              ) : !isSignedIn ? (
+                <div className="space-y-3">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Link your Google account to backup data to Drive (15GB free). Protects against device damage/loss.
+                    </AlertDescription>
+                  </Alert>
+                  <Button 
+                    onClick={handleGoogleSignIn} 
+                    className="w-full"
+                    size="sm"
+                  >
+                    <LinkIcon className="h-3 w-3 mr-2" />
+                    Link Google Account
+                  </Button>
+                  {backupError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">{backupError}</AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Account Info */}
+                  <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                    <div className="flex items-center gap-2">
+                      {user?.picture && (
+                        <img src={user.picture} alt={user.name} className="h-8 w-8 rounded-full" />
+                      )}
+                      <div className="text-sm">
+                        <div className="font-medium">{user?.name}</div>
+                        <div className="text-xs text-muted-foreground">{user?.email}</div>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleGoogleSignOut}
+                      className="text-xs"
+                    >
+                      Unlink
+                    </Button>
+                  </div>
+
+                  {/* Last Backup Time */}
+                  {lastBackupTime && (
+                    <div className="text-xs text-muted-foreground">
+                      Last backup: {new Date(lastBackupTime).toLocaleString()}
+                    </div>
+                  )}
+
+                  {/* Backup Actions */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={handleBackupNow}
+                      disabled={backupLoading}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {backupLoading ? (
+                        <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-3 w-3 mr-2" />
+                      )}
+                      Backup Now
+                    </Button>
+                    <Button
+                      onClick={handleRestoreBackup}
+                      disabled={backupLoading}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      {backupLoading ? (
+                        <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3 mr-2" />
+                      )}
+                      Restore
+                    </Button>
+                  </div>
+
+                  {/* Success/Error Messages */}
+                  {backupSuccess && (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Backup uploaded successfully!
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {backupError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">{backupError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      ✓ Free 15GB storage • ✓ Encrypted backups • ✓ Access from any device
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
             </Card>
 
             <Card className="p-4">

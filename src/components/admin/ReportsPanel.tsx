@@ -319,32 +319,74 @@ export function ReportsPanel() {
         
         setTopItems(result);
       } else {
-        // Query daily item sales for short ranges
-        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        
-        // Apply itemTimeRange filter
-        let filtered: DailyItemSales[];
+        // FIX: Properly implement two-tier query for different time ranges
         const today = new Date().toISOString().split("T")[0];
-        
-        if (itemTimeRange === "daily") {
-          filtered = allDaily.filter(d => d.businessDate === today);
-        } else if (itemTimeRange === "mtd") {
-          const monthStart = today.substring(0, 8) + "01";
-          filtered = allDaily.filter(d => d.businessDate >= monthStart && d.businessDate <= today);
-        } else {
-          // ytd
-          const yearStart = today.substring(0, 4) + "-01-01";
-          filtered = allDaily.filter(d => d.businessDate >= yearStart && d.businessDate <= today);
-        }
-        
         const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
         
-        filtered.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
-          existing.quantity += item.totalQuantity;
-          existing.revenue += item.totalRevenue;
-          itemMap.set(item.itemId, existing);
-        });
+        if (itemTimeRange === "daily") {
+          // TODAY: Query TIER 1 only for today
+          const dailyData = await db.searchByIndex<DailyItemSales>(
+            "dailyItemSales",
+            "businessDate",
+            today
+          );
+          
+          dailyData.forEach(item => {
+            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+            existing.quantity += item.totalQuantity;
+            existing.revenue += item.totalRevenue;
+            itemMap.set(item.itemId, existing);
+          });
+          
+        } else if (itemTimeRange === "mtd") {
+          // MTD: Query TIER 1 for current month
+          const monthStart = today.substring(0, 8) + "01";
+          const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+          const filtered = allDaily.filter(d => d.businessDate >= monthStart && d.businessDate <= today);
+          
+          filtered.forEach(item => {
+            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+            existing.quantity += item.totalQuantity;
+            existing.revenue += item.totalRevenue;
+            itemMap.set(item.itemId, existing);
+          });
+          
+        } else {
+          // YTD: Use TWO-TIER architecture
+          const yearStart = today.substring(0, 4) + "-01-01";
+          const currentMonth = today.substring(0, 7);
+          
+          // TIER 2: Get complete months (all months except current)
+          const monthlyData = await db.getAll<MonthlyItemSales>("monthlyItemSales");
+          const completeMonths = monthlyData.filter(m => 
+            m.month >= yearStart.substring(0, 7) && 
+            m.month < currentMonth
+          );
+          
+          // Add complete months from TIER 2
+          completeMonths.forEach(item => {
+            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+            existing.quantity += item.totalQuantity;
+            existing.revenue += item.totalRevenue;
+            itemMap.set(item.itemId, existing);
+          });
+          
+          // TIER 1: Get current month-to-date from daily summaries
+          const monthStart = today.substring(0, 8) + "01";
+          const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+          const currentMonthDaily = allDaily.filter(d => 
+            d.businessDate >= monthStart && 
+            d.businessDate <= today
+          );
+          
+          // Add current month from TIER 1
+          currentMonthDaily.forEach(item => {
+            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+            existing.quantity += item.totalQuantity;
+            existing.revenue += item.totalRevenue;
+            itemMap.set(item.itemId, existing);
+          });
+        }
         
         // Sort by selected metric
         const sortKey = itemMetric === "quantity" ? "quantity" : "revenue";

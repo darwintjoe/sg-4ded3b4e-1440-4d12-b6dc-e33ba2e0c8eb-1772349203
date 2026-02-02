@@ -414,6 +414,7 @@ class Database {
         taxId: undefined,
         receiptFooter: "Thank you for your purchase!",
         googleDriveLinked: false,
+        googleAccountEmail: undefined, // Added for admin verification
         allowPriceOverride: false,
         shifts: {
           shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
@@ -541,3 +542,74 @@ class Database {
 }
 
 export const db = new Database();
+
+/**
+ * Export all data for backup
+ */
+export async function getAllData() {
+  await db.init();
+  const storeNames = [
+    "settings", 
+    "items", 
+    "employees", 
+    "transactions", 
+    "shifts", 
+    "attendance", 
+    "dailyItemSales", 
+    "dailyPaymentSales", 
+    "monthlyItemSales", 
+    "monthlyPaymentSales"
+  ];
+  
+  const backup: Record<string, any[]> = {};
+  
+  for (const store of storeNames) {
+    try {
+      backup[store] = await db.getAll(store);
+    } catch (e) {
+      console.warn(`Skipping store ${store} in backup:`, e);
+      backup[store] = [];
+    }
+  }
+  
+  return backup;
+}
+
+/**
+ * Import data from backup
+ * CRITICAL: This overwrites existing data!
+ */
+export async function importData(backupData: Record<string, any[]>) {
+  await db.init();
+  
+  // List of valid stores to prevent malicious writes
+  const validStores = [
+    "settings", 
+    "items", 
+    "employees", 
+    "transactions", 
+    "shifts", 
+    "attendance", 
+    "dailyItemSales", 
+    "dailyPaymentSales", 
+    "monthlyItemSales", 
+    "monthlyPaymentSales"
+  ];
+
+  for (const storeName of validStores) {
+    if (backupData[storeName] && Array.isArray(backupData[storeName])) {
+      try {
+        // Clear existing data
+        await db.clear(storeName);
+        
+        // Insert new data
+        for (const item of backupData[storeName]) {
+          await db.put(storeName, item);
+        }
+      } catch (e) {
+        console.error(`Failed to restore store ${storeName}:`, e);
+        throw new Error(`Failed to restore ${storeName} data`);
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings } from "@/types";
 import { db } from "@/lib/db";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 
 interface AppContextType {
   mode: POSMode;
@@ -14,6 +15,7 @@ interface AppContextType {
   login: (pin: string) => Promise<boolean>;
   logout: () => Promise<{ success: boolean; message: string }>;
   loginAdmin: (pin: string) => Promise<boolean>;
+  loginAdminViaGoogle: (email: string) => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
   isPaused: boolean;
   pauseSession: () => Promise<void>;
@@ -42,6 +44,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+
+  // Google Auth integration
+  const googleAuth = useGoogleAuth();
 
   useEffect(() => {
     initializeApp();
@@ -301,6 +306,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  const loginAdminViaGoogle = async (email: string): Promise<boolean> => {
+    // Verify that the email matches the linked admin email
+    if (settings.googleDriveLinked && settings.googleAccountEmail === email) {
+      setCurrentUser({
+        name: "Admin (Google)",
+        role: "admin",
+        pin: "GOOGLE", // Placeholder
+        createdAt: Date.now()
+      });
+      return true;
+    }
+    return false;
+  };
+
   const logoutAdmin = async () => {
     setAdminUser(null);
   };
@@ -549,11 +568,92 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const sendShiftReportToCalendar = async (shift: Shift) => {
     try {
-      console.log("Calendar event triggered (fire-and-forget)");
-      console.log("Shift:", shift);
-      // TODO: Implement Google Calendar event push
+      // Only send if Google is linked
+      if (!googleAuth.isSignedIn) {
+        console.log("Google not linked, skipping calendar event");
+        return;
+      }
+
+      // Get shift transactions for summary
+      const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
+      
+      const paymentBreakdown = {
+        cash: 0,
+        qrisStatic: 0,
+        qrisDynamic: 0,
+        voucher: 0,
+        cashCount: 0,
+        qrisStaticCount: 0,
+        qrisDynamicCount: 0,
+        voucherCount: 0
+      };
+
+      let totalRevenue = 0;
+
+      shiftTransactions.forEach((t) => {
+        totalRevenue += t.total;
+        t.payments.forEach((p) => {
+          if (p.method === "cash") {
+            paymentBreakdown.cash += p.amount;
+            paymentBreakdown.cashCount++;
+          } else if (p.method === "qris-static") {
+            paymentBreakdown.qrisStatic += p.amount;
+            paymentBreakdown.qrisStaticCount++;
+          } else if (p.method === "qris-dynamic") {
+            paymentBreakdown.qrisDynamic += p.amount;
+            paymentBreakdown.qrisDynamicCount++;
+          } else if (p.method === "voucher") {
+            paymentBreakdown.voucher += p.amount;
+            paymentBreakdown.voucherCount++;
+          }
+        });
+      });
+
+      // Format currency
+      const formatCurrency = (amount: number) => {
+        return `Rp ${amount.toLocaleString("id-ID")}`;
+      };
+
+      // Build description
+      const description = `
+━━━━━━━━━━━━━━━━━━━━━━
+💰 SALES SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━
+Total Sales: ${formatCurrency(totalRevenue)}
+Transactions: ${shiftTransactions.length}
+
+PAYMENT BREAKDOWN:
+💵 Cash: ${formatCurrency(paymentBreakdown.cash)} (${paymentBreakdown.cashCount} txn)
+📱 QRIS Static: ${formatCurrency(paymentBreakdown.qrisStatic)} (${paymentBreakdown.qrisStaticCount} txn)
+📲 QRIS Dynamic: ${formatCurrency(paymentBreakdown.qrisDynamic)} (${paymentBreakdown.qrisDynamicCount} txn)
+🎫 Voucher: ${formatCurrency(paymentBreakdown.voucher)} (${paymentBreakdown.voucherCount} txn)
+
+━━━━━━━━━━━━━━━━━━━━━━
+👤 Cashier: ${shift.cashierName}
+⏰ Shift Duration: ${shift.shiftEnd ? ((shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60)).toFixed(1) : "0"} hours
+📅 Business Date: ${shift.businessDate}
+━━━━━━━━━━━━━━━━━━━━━━
+`.trim();
+
+      // Create calendar event
+      const eventStart = new Date(shift.shiftStart).toISOString();
+      const eventEnd = shift.shiftEnd ? new Date(shift.shiftEnd).toISOString() : new Date().toISOString();
+
+      const result = await googleAuth.createCalendarEvent({
+        summary: `Shift Closed - ${shift.cashierName}`,
+        description: description,
+        start: eventStart,
+        end: eventEnd
+      });
+
+      if (result.success) {
+        console.log("✅ Shift report sent to Google Calendar");
+      } else {
+        console.error("❌ Failed to send shift report:", result.error);
+      }
     } catch (error) {
-      // Silent fail
+      console.error("Error sending shift report to calendar:", error);
+      // Silent fail - don't block logout
     }
   };
 
@@ -695,6 +795,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         loginAdmin,
+        loginAdminViaGoogle,
         logoutAdmin,
         isPaused,
         pauseSession,
