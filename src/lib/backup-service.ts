@@ -19,6 +19,8 @@ interface BackupMetadata {
   dataSize: number;
   checksum: string;
   status: "candidate" | "verified";
+  itemCount?: number;
+  employeeCount?: number;
 }
 
 interface BackupData {
@@ -42,6 +44,22 @@ interface BackupStatus {
   isHealthy: boolean;
   message: string;
   canRestore: boolean;
+  backupInfo?: {
+    timestamp: string;
+    size: number;
+    itemCount: number;
+    employeeCount: number;
+    checksumValid: boolean;
+  };
+}
+
+interface RestoreState {
+  phase: "idle" | "downloading" | "verifying" | "backing_up" | "preview" | "finalizing" | "complete";
+  progress: number;
+  currentDBBackup: string | null;
+  previewDBName: string | null;
+  canRevert: boolean;
+  revertExpiresAt: number | null;
 }
 
 class BackupService {
@@ -49,7 +67,19 @@ class BackupService {
   private readonly LAST_KNOWN_GOOD_NAME = "backup_last_known_good.json.gz";
   private readonly CANDIDATE_NAME = "backup_candidate.json.gz";
   private readonly VERSION = "1.0.0";
+  private readonly PREVIEW_DB_NAME = "sellmore_preview";
+  private readonly BACKUP_DB_NAME = "sellmore_backup";
+  private readonly REVERT_WINDOW_HOURS = 24;
   
+  private restoreState: RestoreState = {
+    phase: "idle",
+    progress: 0,
+    currentDBBackup: null,
+    previewDBName: null,
+    canRevert: false,
+    revertExpiresAt: null
+  };
+
   /**
    * Get device ID (stable across sessions)
    */
@@ -125,8 +155,6 @@ class BackupService {
       const items = await db.getAll("items");
       const employees = await db.getAll("employees");
       const categories = await db.getAll("categories");
-      // Fix: db.get doesn't exist, use getAll for settings which is a store, or implement get
-      // Assuming settings is a store with key 1
       const settingsArray = await db.getAll("settings");
       const settings = settingsArray.find((s: any) => s.id === 1);
 
@@ -167,7 +195,9 @@ class BackupService {
         deviceId: this.getDeviceId(),
         dataSize: jsonString.length,
         checksum,
-        status: "candidate"
+        status: "candidate",
+        itemCount: items.length,
+        employeeCount: employees.length
       };
 
       return {
@@ -329,7 +359,6 @@ class BackupService {
    */
   private async deleteBackup(fileId: string): Promise<void> {
     try {
-      // Google Drive delete API
       const user = googleAuth.getCurrentUser();
       if (!user) return;
 
@@ -345,10 +374,87 @@ class BackupService {
   }
 
   /**
-   * Restore from "last known good" backup
+   * Check if backup exists and get info
    */
-  async restoreBackup(): Promise<{ success: boolean; error?: string }> {
+  async checkBackupAvailability(): Promise<{ 
+    exists: boolean; 
+    info?: {
+      timestamp: string;
+      size: number;
+      itemCount: number;
+      employeeCount: number;
+      checksumValid: boolean;
+    };
+    error?: string;
+  }> {
     try {
+      if (!googleAuth.isSignedIn()) {
+        return { exists: false, error: "Not signed in to Google" };
+      }
+
+      // List backups
+      const listResult = await googleAuth.listBackups();
+      if (!listResult.success || !listResult.backups) {
+        return { exists: false, error: "Failed to list backups" };
+      }
+
+      // Find "last known good"
+      const lastKnownGood = listResult.backups.find(b => b.name === this.LAST_KNOWN_GOOD_NAME);
+      
+      if (!lastKnownGood) {
+        return { exists: false };
+      }
+
+      // Download to get metadata
+      const downloadResult = await googleAuth.downloadBackup(lastKnownGood.id);
+      if (!downloadResult.success || !downloadResult.data) {
+        return { exists: false, error: "Failed to read backup" };
+      }
+
+      const backupData = downloadResult.data as BackupData;
+
+      // Verify checksum
+      const jsonString = JSON.stringify({
+        items: backupData.items,
+        employees: backupData.employees,
+        categories: backupData.categories,
+        settings: backupData.settings,
+        shifts: backupData.shifts,
+        dailyItemSales: backupData.dailyItemSales,
+        dailyPaymentSales: backupData.dailyPaymentSales,
+        dailyAttendance: backupData.dailyAttendance,
+        monthlyItemSales: backupData.monthlyItemSales,
+        monthlySalesSummary: backupData.monthlySalesSummary,
+        monthlyAttendanceSummary: backupData.monthlyAttendanceSummary
+      });
+
+      const checksum = await this.calculateChecksum(jsonString);
+      const checksumValid = checksum === backupData.metadata.checksum;
+
+      return {
+        exists: true,
+        info: {
+          timestamp: backupData.metadata.timestamp,
+          size: backupData.metadata.dataSize,
+          itemCount: backupData.metadata.itemCount || backupData.items.length,
+          employeeCount: backupData.metadata.employeeCount || backupData.employees.length,
+          checksumValid
+        }
+      };
+    } catch (error) {
+      console.error("Failed to check backup availability:", error);
+      return { exists: false, error: "Failed to check backup" };
+    }
+  }
+
+  /**
+   * Start restore process - Phase 1: Download and verify
+   */
+  async startRestore(): Promise<{ success: boolean; backupData?: BackupData; error?: string }> {
+    try {
+      this.restoreState.phase = "downloading";
+      this.restoreState.progress = 20;
+
       if (!googleAuth.isSignedIn()) {
         return { success: false, error: "Not signed in to Google" };
       }
@@ -365,6 +471,8 @@ class BackupService {
         return { success: false, error: "No backup available to restore" };
       }
 
+      this.restoreState.progress = 40;
+
       // Download backup
       const downloadResult = await googleAuth.downloadBackup(lastKnownGood.id);
       if (!downloadResult.success || !downloadResult.data) {
@@ -372,6 +480,9 @@ class BackupService {
       }
 
       const backupData = downloadResult.data as BackupData;
+
+      this.restoreState.phase = "verifying";
+      this.restoreState.progress = 60;
 
       // Verify checksum
       const jsonString = JSON.stringify({
@@ -393,6 +504,121 @@ class BackupService {
         return { success: false, error: "Backup file corrupted (checksum mismatch)" };
       }
 
+      this.restoreState.progress = 80;
+
+      return { success: true, backupData };
+    } catch (error) {
+      console.error("Restore start failed:", error);
+      this.restoreState.phase = "idle";
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Restore failed" 
+      };
+    }
+  }
+
+  /**
+   * Create backup of current database before restore
+   */
+  async backupCurrentDatabase(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.restoreState.phase = "backing_up";
+      this.restoreState.progress = 85;
+
+      // Export current data
+      const currentData = await this.exportEssentialData();
+      
+      // Store in localStorage (simplified backup)
+      const jsonString = JSON.stringify(currentData);
+      const compressed = await this.compressData(jsonString);
+      
+      // Convert Blob to base64 for localStorage
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(compressed);
+      });
+      
+      const base64Data = await base64Promise;
+      localStorage.setItem("currentDB_backup", base64Data);
+      localStorage.setItem("currentDB_backup_time", new Date().toISOString());
+      
+      this.restoreState.currentDBBackup = "currentDB_backup";
+      this.restoreState.progress = 90;
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to backup current database:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Backup failed" 
+      };
+    }
+  }
+
+  /**
+   * Load backup into preview mode
+   */
+  async loadPreview(backupData: BackupData): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.restoreState.phase = "preview";
+      this.restoreState.progress = 95;
+
+      // Store preview data in sessionStorage
+      sessionStorage.setItem("preview_mode", "true");
+      sessionStorage.setItem("preview_data", JSON.stringify(backupData));
+      
+      this.restoreState.previewDBName = "preview";
+      this.restoreState.progress = 100;
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to load preview:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Preview load failed" 
+      };
+    }
+  }
+
+  /**
+   * Cancel restore and cleanup
+   */
+  async cancelRestore(): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Clear preview data
+      sessionStorage.removeItem("preview_mode");
+      sessionStorage.removeItem("preview_data");
+      
+      // Reset state
+      this.restoreState = {
+        phase: "idle",
+        progress: 0,
+        currentDBBackup: null,
+        previewDBName: null,
+        canRevert: false,
+        revertExpiresAt: null
+      };
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to cancel restore:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Cancel failed" 
+      };
+    }
+  }
+
+  /**
+   * Finalize restore - Make backup live
+   */
+  async finalizeRestore(backupData: BackupData): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.restoreState.phase = "finalizing";
+      this.restoreState.progress = 10;
+
       // Clear existing data
       await db.clear("items");
       await db.clear("employees");
@@ -406,6 +632,8 @@ class BackupService {
       await db.clear("monthlySalesSummary");
       await db.clear("monthlyAttendanceSummary");
 
+      this.restoreState.progress = 40;
+
       // Restore data
       for (const item of backupData.items) {
         await db.add("items", item);
@@ -417,7 +645,107 @@ class BackupService {
         await db.add("categories", category);
       }
       if (backupData.settings) {
-        // Fix: db.put might verify key, ensuring settings object has id
+        await db.put("settings", { ...backupData.settings, id: 1 });
+      }
+      
+      this.restoreState.progress = 60;
+
+      for (const shift of backupData.shifts) {
+        await db.add("shifts", shift);
+      }
+      for (const record of backupData.dailyItemSales) {
+        await db.add("dailyItemSales", record);
+      }
+      for (const record of backupData.dailyPaymentSales) {
+        await db.add("dailyPaymentSales", record);
+      }
+      for (const record of backupData.dailyAttendance) {
+        await db.add("dailyAttendance", record);
+      }
+
+      this.restoreState.progress = 80;
+
+      for (const record of backupData.monthlyItemSales) {
+        await db.add("monthlyItemSales", record);
+      }
+      for (const record of backupData.monthlySalesSummary) {
+        await db.add("monthlySalesSummary", record);
+      }
+      for (const record of backupData.monthlyAttendanceSummary) {
+        await db.add("monthlyAttendanceSummary", record);
+      }
+
+      this.restoreState.progress = 95;
+
+      // Set revert window (24 hours)
+      const expiresAt = Date.now() + (this.REVERT_WINDOW_HOURS * 60 * 60 * 1000);
+      localStorage.setItem("revert_expires_at", expiresAt.toString());
+      this.restoreState.canRevert = true;
+      this.restoreState.revertExpiresAt = expiresAt;
+
+      // Clear preview data
+      sessionStorage.removeItem("preview_mode");
+      sessionStorage.removeItem("preview_data");
+
+      this.restoreState.phase = "complete";
+      this.restoreState.progress = 100;
+
+      return { success: true };
+    } catch (error) {
+      console.error("Restore finalization failed:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Restore failed" 
+      };
+    }
+  }
+
+  /**
+   * Revert to backup (within 24-hour window)
+   */
+  async revertRestore(): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if revert is available
+      const expiresAt = localStorage.getItem("revert_expires_at");
+      if (!expiresAt || Date.now() > parseInt(expiresAt)) {
+        return { success: false, error: "Revert window expired (24 hours)" };
+      }
+
+      const backupBase64 = localStorage.getItem("currentDB_backup");
+      if (!backupBase64) {
+        return { success: false, error: "No backup found to revert to" };
+      }
+
+      // Convert base64 back to Blob
+      const response = await fetch(backupBase64);
+      const blob = await response.blob();
+      const jsonString = await this.decompressData(blob);
+      const backupData = JSON.parse(jsonString) as BackupData;
+
+      // Clear current data
+      await db.clear("items");
+      await db.clear("employees");
+      await db.clear("categories");
+      await db.clear("settings");
+      await db.clear("shifts");
+      await db.clear("dailyItemSales");
+      await db.clear("dailyPaymentSales");
+      await db.clear("dailyAttendance");
+      await db.clear("monthlyItemSales");
+      await db.clear("monthlySalesSummary");
+      await db.clear("monthlyAttendanceSummary");
+
+      // Restore old data
+      for (const item of backupData.items) {
+        await db.add("items", item);
+      }
+      for (const employee of backupData.employees) {
+        await db.add("employees", employee);
+      }
+      for (const category of backupData.categories) {
+        await db.add("categories", category);
+      }
+      if (backupData.settings) {
         await db.put("settings", { ...backupData.settings, id: 1 });
       }
       for (const shift of backupData.shifts) {
@@ -442,13 +770,72 @@ class BackupService {
         await db.add("monthlyAttendanceSummary", record);
       }
 
+      // Clear revert data
+      localStorage.removeItem("currentDB_backup");
+      localStorage.removeItem("currentDB_backup_time");
+      localStorage.removeItem("revert_expires_at");
+
       return { success: true };
     } catch (error) {
-      console.error("Restore failed:", error);
+      console.error("Revert failed:", error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : "Restore failed" 
+        error: error instanceof Error ? error.message : "Revert failed" 
       };
+    }
+  }
+
+  /**
+   * Check if revert is available
+   */
+  canRevert(): { available: boolean; expiresAt: number | null; hoursRemaining: number | null } {
+    const expiresAt = localStorage.getItem("revert_expires_at");
+    const hasBackup = localStorage.getItem("currentDB_backup");
+
+    if (!expiresAt || !hasBackup) {
+      return { available: false, expiresAt: null, hoursRemaining: null };
+    }
+
+    const expiresAtTime = parseInt(expiresAt);
+    const now = Date.now();
+
+    if (now > expiresAtTime) {
+      // Cleanup expired data
+      localStorage.removeItem("currentDB_backup");
+      localStorage.removeItem("currentDB_backup_time");
+      localStorage.removeItem("revert_expires_at");
+      return { available: false, expiresAt: null, hoursRemaining: null };
+    }
+
+    const hoursRemaining = Math.ceil((expiresAtTime - now) / (1000 * 60 * 60));
+    return { available: true, expiresAt: expiresAtTime, hoursRemaining };
+  }
+
+  /**
+   * Get restore state
+   */
+  getRestoreState(): RestoreState {
+    return { ...this.restoreState };
+  }
+
+  /**
+   * Check if in preview mode
+   */
+  isPreviewMode(): boolean {
+    return sessionStorage.getItem("preview_mode") === "true";
+  }
+
+  /**
+   * Get preview data
+   */
+  getPreviewData(): BackupData | null {
+    const previewDataStr = sessionStorage.getItem("preview_data");
+    if (!previewDataStr) return null;
+    
+    try {
+      return JSON.parse(previewDataStr) as BackupData;
+    } catch {
+      return null;
     }
   }
 
@@ -482,20 +869,16 @@ class BackupService {
       }
 
       // Check if can restore
-      let canRestore = false;
-      if (googleAuth.isSignedIn()) {
-        const listResult = await googleAuth.listBackups();
-        if (listResult.success && listResult.backups) {
-          canRestore = listResult.backups.some(b => b.name === this.LAST_KNOWN_GOOD_NAME);
-        }
-      }
+      const backupCheck = await this.checkBackupAvailability();
+      const canRestore = backupCheck.exists;
 
       return {
         lastBackupTime,
         lastBackupStatus,
         isHealthy,
         message,
-        canRestore
+        canRestore,
+        backupInfo: backupCheck.info
       };
     } catch (error) {
       console.error("Failed to get backup status:", error);
