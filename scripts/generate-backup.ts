@@ -498,8 +498,8 @@ function generateSummaryData(startDate: Date, endDate: Date, items: Item[], empl
     
     // Shift 1: 06:00-14:00
     const shift1Id = `shift_${dateStr}_1`;
-    const shift1Start = new Date(`${dateStr}T06:00:00`);
-    const shift1End = new Date(`${dateStr}T14:00:00`);
+    const shift1Start = new Date(`${dateStr}T06:00:00.000Z`);
+    const shift1End = new Date(`${dateStr}T14:00:00.000Z`);
     
     shifts.push({
       id: shift1Id,
@@ -514,9 +514,9 @@ function generateSummaryData(startDate: Date, endDate: Date, items: Item[], empl
     shift1Employees.forEach(emp => {
       const isLate = Math.random() < 0.05; // 5% late
       const clockIn = isLate 
-        ? new Date(`${dateStr}T${6 + Math.floor(Math.random() * 1)}:${Math.floor(Math.random() * 60).toString().padStart(2, "0")}:00`)
-        : new Date(`${dateStr}T06:00:00`);
-      const clockOut = new Date(`${dateStr}T14:00:00`);
+        ? new Date(`${dateStr}T0${6 + Math.floor(Math.random() * 1)}:${Math.floor(Math.random() * 60).toString().padStart(2, "0")}:00.000Z`)
+        : new Date(`${dateStr}T06:00:00.000Z`);
+      const clockOut = new Date(`${dateStr}T14:00:00.000Z`);
       const hoursWorked = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
       
       dailyAttendance.push({
@@ -534,8 +534,8 @@ function generateSummaryData(startDate: Date, endDate: Date, items: Item[], empl
     
     // Shift 2: 14:00-22:00
     const shift2Id = `shift_${dateStr}_2`;
-    const shift2Start = new Date(`${dateStr}T14:00:00`);
-    const shift2End = new Date(`${dateStr}T22:00:00`);
+    const shift2Start = new Date(`${dateStr}T14:00:00.000Z`);
+    const shift2End = new Date(`${dateStr}T22:00:00.000Z`);
     
     shifts.push({
       id: shift2Id,
@@ -550,9 +550,9 @@ function generateSummaryData(startDate: Date, endDate: Date, items: Item[], empl
     shift2Employees.forEach(emp => {
       const isLate = Math.random() < 0.05;
       const clockIn = isLate 
-        ? new Date(`${dateStr}T${14 + Math.floor(Math.random() * 1)}:${Math.floor(Math.random() * 60).toString().padStart(2, "0")}:00`)
-        : new Date(`${dateStr}T14:00:00`);
-      const clockOut = new Date(`${dateStr}T22:00:00`);
+        ? new Date(`${dateStr}T${14 + Math.floor(Math.random() * 1)}:${Math.floor(Math.random() * 60).toString().padStart(2, "0")}:00.000Z`)
+        : new Date(`${dateStr}T14:00:00.000Z`);
+      const clockOut = new Date(`${dateStr}T22:00:00.000Z`);
       const hoursWorked = (clockOut.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
       
       dailyAttendance.push({
