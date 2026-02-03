@@ -744,8 +744,8 @@ async function generateBackup() {
   console.log("💾 Creating downloadable file...");
   
   // Compress with gzip using pako
-  const jsonString = JSON.stringify(finalBackup);
-  const compressed = pako.gzip(jsonString);
+  const finalJsonString = JSON.stringify(finalBackup);
+  const compressed = pako.gzip(finalJsonString);
   
   // Create blob and download
   const blob = new Blob([compressed], { type: "application/gzip" });
@@ -760,7 +760,7 @@ async function generateBackup() {
   
   console.log("✅ Backup file generated successfully!");
   console.log(`📦 Compressed size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`📦 Original size: ${(jsonString.length / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`📦 Original size: ${(finalJsonString.length / 1024 / 1024).toFixed(2)} MB`);
   console.log(`🔐 Checksum: ${checksum}`);
   
   return finalBackup;
