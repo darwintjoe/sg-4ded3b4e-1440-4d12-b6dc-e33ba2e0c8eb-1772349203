@@ -267,6 +267,14 @@ export function SettingsPanel() {
     setRestoreState({ phase: "auth", pin: "" });
   };
 
+  // Manual file upload handler
+  const handleManualFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setRestoreState({ phase: "auth", pin: "" });
+  };
+
   // Step 2: Verify PIN & Check Backup
   const verifyPinAndCheckBackup = async () => {
     // Check PIN length (4-6 digits)
@@ -285,6 +293,60 @@ export function SettingsPanel() {
     setRestoreState(prev => ({ ...prev, phase: "checking", error: undefined }));
     
     try {
+      // Check if manual file was selected
+      const fileInput = document.getElementById("manual-backup-upload") as HTMLInputElement;
+      const manualFile = fileInput?.files?.[0];
+
+      if (manualFile) {
+        // Manual file upload flow
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const arrayBuffer = event.target?.result as ArrayBuffer;
+            
+            // Decompress if .gz file
+            let jsonData;
+            if (manualFile.name.endsWith(".gz")) {
+              const decompressed = await decompressGzip(new Uint8Array(arrayBuffer));
+              jsonData = JSON.parse(new TextDecoder().decode(decompressed));
+            } else {
+              jsonData = JSON.parse(new TextDecoder().decode(arrayBuffer));
+            }
+
+            // Validate backup data structure
+            if (!jsonData.items || !jsonData.employees || !jsonData.settings) {
+              throw new Error("Invalid backup file format");
+            }
+
+            const backupInfo = {
+              timestamp: jsonData.timestamp || new Date().toISOString(),
+              size: arrayBuffer.byteLength,
+              itemCount: jsonData.items?.length || 0,
+              employeeCount: jsonData.employees?.length || 0,
+              source: "manual_upload"
+            };
+
+            // Store the data for preview
+            sessionStorage.setItem("manual_backup_data", JSON.stringify(jsonData));
+
+            setRestoreState(prev => ({ 
+              ...prev, 
+              phase: "confirm_impact", 
+              backupInfo 
+            }));
+          } catch (err) {
+            setRestoreState(prev => ({ 
+              ...prev, 
+              phase: "error", 
+              error: err instanceof Error ? err.message : "Failed to read backup file" 
+            }));
+          }
+        };
+        reader.readAsArrayBuffer(manualFile);
+        return;
+      }
+
+      // Original Google Drive flow
       const check = await checkBackupAvailability();
       
       if (!check.exists) {
@@ -308,24 +370,63 @@ export function SettingsPanel() {
     }
   };
 
+  // Helper function to decompress gzip
+  const decompressGzip = async (data: Uint8Array): Promise<Uint8Array> => {
+    const ds = new DecompressionStream("gzip");
+    const writer = ds.writable.getWriter();
+    writer.write(data);
+    writer.close();
+    
+    const chunks: Uint8Array[] = [];
+    const reader = ds.readable.getReader();
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    return result;
+  };
+
   // Step 3: Start Download & Preview
   const startPreviewProcess = async () => {
     setRestoreState(prev => ({ ...prev, phase: "downloading", progress: 0 }));
     
     try {
-      // 1. Download & Verify
-      const restoreResult = await startRestore();
-      if (!restoreResult.success || !restoreResult.backupData) {
-        throw new Error(restoreResult.error || "Download failed");
+      // Check if manual backup data exists
+      const manualDataStr = sessionStorage.getItem("manual_backup_data");
+      
+      let backupData;
+      if (manualDataStr) {
+        // Use manual uploaded data
+        backupData = JSON.parse(manualDataStr);
+        sessionStorage.removeItem("manual_backup_data"); // Clean up
+        setRestoreState(prev => ({ ...prev, progress: 50 }));
+      } else {
+        // Download from Google Drive
+        const restoreResult = await startRestore();
+        if (!restoreResult.success || !restoreResult.backupData) {
+          throw new Error(restoreResult.error || "Download failed");
+        }
+        backupData = restoreResult.backupData;
+        setRestoreState(prev => ({ ...prev, progress: 50 }));
       }
-      setRestoreState(prev => ({ ...prev, progress: 50 }));
 
       // 2. Backup Current (Local Safety)
       await backupCurrentDatabase();
       setRestoreState(prev => ({ ...prev, progress: 75 }));
 
       // 3. Load Preview
-      await loadPreview(restoreResult.backupData);
+      await loadPreview(backupData);
       setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
       
       // Force reload to apply preview mode (simple way to refresh DB connection)
@@ -1319,6 +1420,28 @@ export function SettingsPanel() {
                     </div>
                     
                     <div className="space-y-2">
+                      {/* Hidden file input for manual upload */}
+                      <input
+                        id="manual-backup-upload"
+                        type="file"
+                        accept=".json,.gz"
+                        onChange={handleManualFileUpload}
+                        className="hidden"
+                      />
+                      
+                      <Button
+                        onClick={() => {
+                          const input = document.getElementById("manual-backup-upload") as HTMLInputElement;
+                          input?.click();
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-blue-500 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Upload className="h-3 w-3 mr-2" />
+                        Upload Backup File
+                      </Button>
+                      
                       <Button
                         onClick={initiateRestore}
                         variant="destructive"
@@ -1326,7 +1449,7 @@ export function SettingsPanel() {
                         className="w-full bg-red-100 text-red-900 hover:bg-red-200 border-red-200"
                       >
                         <Download className="h-3 w-3 mr-2" />
-                        Restore from Backup
+                        Restore from Google Drive
                       </Button>
                       
                       {revertStatus.available && (
