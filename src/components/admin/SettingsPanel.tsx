@@ -47,7 +47,6 @@ import {
   History,
   RotateCcw
 } from "lucide-react";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 // Helper component for tooltips
 function HelpTooltip({ content }: { content: string }) {
@@ -66,7 +65,7 @@ function HelpTooltip({ content }: { content: string }) {
 }
 
 export function SettingsPanel() {
-  const { settings: currentSettings, updateSettings, language } = useApp();
+  const { settings: currentSettings, updateSettings, language, loginAdmin } = useApp();
   const { 
     user, 
     isSignedIn, 
@@ -270,11 +269,16 @@ export function SettingsPanel() {
 
   // Step 2: Verify PIN & Check Backup
   const verifyPinAndCheckBackup = async () => {
-    // Hardcoded simple admin check for now, ideally strictly check against employee role
-    // For this implementation, we accept "123456" or any admin PIN logic
-    // Using a default "123456" for demo if no specific admin setup
-    if (restoreState.pin !== "123456" && restoreState.pin !== "000000") {
-      setRestoreState(prev => ({ ...prev, error: "Incorrect Admin PIN" }));
+    // Check PIN length (4-6 digits)
+    if (!restoreState.pin || restoreState.pin.length < 4 || restoreState.pin.length > 6) {
+      setRestoreState(prev => ({ ...prev, error: "PIN must be 4-6 digits" }));
+      return;
+    }
+
+    // Verify against actual admin user from AppContext
+    const success = await loginAdmin(restoreState.pin);
+    if (!success) {
+      setRestoreState(prev => ({ ...prev, error: "Incorrect Admin PIN", pin: "" }));
       return;
     }
 
@@ -405,22 +409,73 @@ export function SettingsPanel() {
               <p className="text-sm text-muted-foreground">
                 Enter Admin PIN to access emergency restore functions.
               </p>
-              <div className="flex justify-center py-4">
-                <InputOTP maxLength={6} value={restoreState.pin} onChange={(val) => setRestoreState(p => ({...p, pin: val}))}>
-                  <InputOTPGroup>
-                    <InputOTPSlot index={0} />
-                    <InputOTPSlot index={1} />
-                    <InputOTPSlot index={2} />
-                    <InputOTPSlot index={3} />
-                    <InputOTPSlot index={4} />
-                    <InputOTPSlot index={5} />
-                  </InputOTPGroup>
-                </InputOTP>
+              
+              {/* PIN Display - Masked dots (4-6 digits) */}
+              <div className="flex justify-center gap-3 py-4">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-3 w-3 rounded-full border-2 transition-all duration-300 ${
+                      i < (restoreState.pin?.length || 0)
+                        ? "bg-amber-600 border-amber-600 scale-125 shadow-lg shadow-amber-400/50"
+                        : "bg-muted border-muted-foreground/20"
+                    }`}
+                  />
+                ))}
               </div>
-              {restoreState.error && <p className="text-sm text-red-500 text-center">{restoreState.error}</p>}
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="ghost" onClick={handleCancelRestore}>Cancel</Button>
-                <Button onClick={verifyPinAndCheckBackup} disabled={restoreState.pin?.length !== 6}>Verify</Button>
+
+              {restoreState.error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+                  <p className="text-sm text-red-600 text-center font-medium">{restoreState.error}</p>
+                </div>
+              )}
+
+              {/* Number Pad - Circular buttons matching AdminLoginScreen */}
+              <div className="w-full max-w-[280px] mx-auto">
+                <div className="grid grid-cols-3 gap-4 mb-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => {
+                        if ((restoreState.pin?.length || 0) < 6) {
+                          setRestoreState(p => ({...p, pin: (p.pin || "") + num.toString(), error: undefined}));
+                        }
+                      }}
+                      className="h-14 w-14 mx-auto rounded-full text-xl font-bold bg-muted hover:bg-amber-500/20 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-border"
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <button
+                    onClick={() => setRestoreState(p => ({...p, pin: p.pin?.slice(0, -1) || "", error: undefined}))}
+                    className="h-14 w-14 mx-auto rounded-full text-lg bg-muted hover:bg-red-500/20 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-border"
+                  >
+                    ←
+                  </button>
+                  <button
+                    onClick={() => {
+                      if ((restoreState.pin?.length || 0) < 6) {
+                        setRestoreState(p => ({...p, pin: (p.pin || "") + "0", error: undefined}));
+                      }
+                    }}
+                    className="h-14 w-14 mx-auto rounded-full text-xl font-bold bg-muted hover:bg-amber-500/20 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-border"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={verifyPinAndCheckBackup}
+                    disabled={(restoreState.pin?.length || 0) < 4}
+                    className="h-14 w-14 mx-auto rounded-full text-lg font-bold bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-xl"
+                  >
+                    ✓
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-center pt-2">
+                <Button variant="ghost" size="sm" onClick={handleCancelRestore}>Cancel</Button>
               </div>
             </div>
           )}
