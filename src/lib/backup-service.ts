@@ -156,7 +156,7 @@ class BackupService {
       const employees = await db.getAll("employees");
       const categories = await db.getAll("categories");
       const settingsArray = await db.getAll("settings");
-      const settings = settingsArray.find((s: any) => s.id === 1);
+      const settings = settingsArray.find((s: any) => s.id === 1 || s.key === "settings") || settingsArray[0];
 
       // Recent shifts (last 60 days only)
       const allShifts = await db.getAll("shifts");
@@ -165,13 +165,49 @@ class BackupService {
         return shiftDate >= cutoffDate;
       });
 
-      // Summary tables (already small)
-      const dailyItemSales = await db.getAll("dailyItemSales");
-      const dailyPaymentSales = await db.getAll("dailyPaymentSales");
-      const dailyAttendance = await db.getAll("dailyAttendance");
-      const monthlyItemSales = await db.getAll("monthlyItemSales");
-      const monthlySalesSummary = await db.getAll("monthlySalesSummary");
-      const monthlyAttendanceSummary = await db.getAll("monthlyAttendanceSummary");
+      // Summary tables (already small) - Use getAll with error handling
+      let dailyItemSales: any[] = [];
+      let dailyPaymentSales: any[] = [];
+      let dailyAttendance: any[] = [];
+      let monthlyItemSales: any[] = [];
+      let monthlySalesSummary: any[] = [];
+      let monthlyAttendanceSummary: any[] = [];
+
+      try {
+        dailyItemSales = await db.getAll("dailyItemSales");
+      } catch (e) {
+        console.warn("dailyItemSales store not found, skipping");
+      }
+
+      try {
+        dailyPaymentSales = await db.getAll("dailyPaymentSales");
+      } catch (e) {
+        console.warn("dailyPaymentSales store not found, skipping");
+      }
+
+      try {
+        dailyAttendance = await db.getAll("dailyAttendance");
+      } catch (e) {
+        console.warn("dailyAttendance store not found, skipping");
+      }
+
+      try {
+        monthlyItemSales = await db.getAll("monthlyItemSales");
+      } catch (e) {
+        console.warn("monthlyItemSales store not found, skipping");
+      }
+
+      try {
+        monthlySalesSummary = await db.getAll("monthlySalesSummary");
+      } catch (e) {
+        console.warn("monthlySalesSummary store not found, skipping");
+      }
+
+      try {
+        monthlyAttendanceSummary = await db.getAll("monthlyAttendanceSummary");
+      } catch (e) {
+        console.warn("monthlyAttendanceSummary store not found, skipping");
+      }
 
       const jsonString = JSON.stringify({
         items,

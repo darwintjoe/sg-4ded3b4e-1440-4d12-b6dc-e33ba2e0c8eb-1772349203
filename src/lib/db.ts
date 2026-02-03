@@ -142,6 +142,15 @@ class Database {
             );
           }
 
+          if (!db.objectStoreNames.contains("dailyAttendance")) {
+            const dailyAttendanceStore = db.createObjectStore("dailyAttendance", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            dailyAttendanceStore.createIndex("businessDate", "businessDate", { unique: false });
+            dailyAttendanceStore.createIndex("employeeId", "employeeId", { unique: false });
+          }
+
           if (!db.objectStoreNames.contains("monthlyItemSales")) {
             const monthlyItemStore = db.createObjectStore("monthlyItemSales", {
               keyPath: "id",
@@ -169,6 +178,22 @@ class Database {
               { unique: false }
             );
           }
+
+          if (!db.objectStoreNames.contains("monthlySalesSummary")) {
+            const monthlySummaryStore = db.createObjectStore("monthlySalesSummary", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            monthlySummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          }
+
+          if (!db.objectStoreNames.contains("monthlyAttendanceSummary")) {
+            const monthlyAttendanceSummaryStore = db.createObjectStore("monthlyAttendanceSummary", {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            monthlyAttendanceSummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          }
         }
       };
     });
@@ -195,6 +220,12 @@ class Database {
     }
 
     if (!this.db) throw new Error("Database not initialized");
+
+    // Check if store exists before trying to access it
+    if (!this.db.objectStoreNames.contains(storeName)) {
+      console.warn(`Store '${storeName}' does not exist in database`);
+      return [];
+    }
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(storeName, "readonly");
