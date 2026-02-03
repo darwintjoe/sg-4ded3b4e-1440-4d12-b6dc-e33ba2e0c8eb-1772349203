@@ -92,9 +92,10 @@ export default function GenerateBackupPage() {
             </Button>
 
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>💡 <strong>Note:</strong> This will generate a JSON file (~3-5MB) ready for testing the restore function.</p>
+              <p>💡 <strong>Note:</strong> This will generate a compressed .json.gz file (~1-2MB) ready for testing the restore function.</p>
               <p>🔐 The file includes metadata with checksum for validation.</p>
               <p>📊 All data is realistic and follows Indonesian convenience store patterns.</p>
+              <p>📦 File is gzip compressed, matching the exact format of automated backups.</p>
             </div>
           </CardContent>
         </Card>

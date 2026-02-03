@@ -3,6 +3,8 @@
  * 26 months of operation data for UAT testing
  */
 
+import pako from "pako";
+
 interface BackupMetadata {
   version: string;
   timestamp: string;
@@ -741,19 +743,24 @@ async function generateBackup() {
   
   console.log("💾 Creating downloadable file...");
   
+  // Compress with gzip using pako
+  const jsonString = JSON.stringify(finalBackup);
+  const compressed = pako.gzip(jsonString);
+  
   // Create blob and download
-  const blob = new Blob([JSON.stringify(finalBackup, null, 2)], { type: "application/json" });
+  const blob = new Blob([compressed], { type: "application/gzip" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "backup_last_known_good.json";
+  a.download = "backup_last_known_good.json.gz";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   
   console.log("✅ Backup file generated successfully!");
-  console.log(`📦 File size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`📦 Compressed size: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`📦 Original size: ${(jsonString.length / 1024 / 1024).toFixed(2)} MB`);
   console.log(`🔐 Checksum: ${checksum}`);
   
   return finalBackup;
