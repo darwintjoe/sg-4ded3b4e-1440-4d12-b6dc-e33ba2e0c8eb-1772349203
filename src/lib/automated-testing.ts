@@ -646,6 +646,298 @@ export class AutomatedTester {
   }
 
   // ========================================
+  // TEST CATEGORY 11: Backup & Restore UAT
+  // ========================================
+
+  async test_11_1_FreshInstallRestore() {
+    return this.executeTest(
+      "11.1: Fresh Install + Restore Test Data",
+      "Backup & Restore UAT",
+      async () => {
+        // Simulate fresh install - clear everything
+        await this.initializeTestEnvironment();
+        
+        // Verify empty state
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        this.assertEqual(items.length, 0, "Fresh install should have no items");
+        this.assertEqual(employees.length, 0, "Fresh install should have no employees");
+        this.assertEqual(transactions.length, 0, "Fresh install should have no transactions");
+        
+        // Seed test data (simulating restore)
+        await this.seedTestData();
+        
+        // Verify restoration
+        const restoredItems = await db.getAll<Item>("items");
+        const restoredEmployees = await db.getAll<Employee>("employees");
+        
+        this.assertGreaterThan(restoredItems.length, 0, "Should have restored items");
+        this.assertGreaterThan(restoredEmployees.length, 0, "Should have restored employees");
+      }
+    );
+  }
+
+  async test_11_2_CreateTransactionsAfterRestore() {
+    return this.executeTest(
+      "11.2: Create 20 Transactions After Restore",
+      "Backup & Restore UAT",
+      async () => {
+        const cashier = this.testData.employees.find(emp => emp.role === "cashier");
+        const items = this.testData.items.filter(item => item.isActive !== false);
+        
+        this.assert(cashier !== undefined, "Cashier should exist");
+        this.assertGreaterThan(items.length, 0, "Should have active items");
+        
+        const transactionsBefore = await db.getAll<Transaction>("transactions");
+        const beforeCount = transactionsBefore.length;
+        
+        // Create 20 transactions
+        for (let i = 0; i < 20; i++) {
+          const item = items[i % items.length];
+          const transaction: Transaction = {
+            items: [{ 
+              itemId: item.id!, 
+              sku: item.sku!,
+              name: item.name, 
+              basePrice: item.price, 
+              quantity: 1, 
+              totalPrice: item.price 
+            }],
+            subtotal: item.price,
+            tax: 0,
+            total: item.price,
+            payments: [{ method: "cash", amount: item.price }],
+            change: 0,
+            cashierId: cashier!.id!,
+            cashierName: cashier!.name,
+            timestamp: Date.now() + i * 1000, // Stagger timestamps
+            shiftId: "test-shift-1",
+            mode: "retail",
+            businessDate: new Date().toISOString().split("T")[0]
+          };
+          
+          await db.add("transactions", transaction);
+        }
+        
+        const transactionsAfter = await db.getAll<Transaction>("transactions");
+        this.assertEqual(transactionsAfter.length, beforeCount + 20, "Should have 20 new transactions");
+      }
+    );
+  }
+
+  async test_11_3_TodaySalesReport() {
+    return this.executeTest(
+      "11.3: Report Today's Sales (Should Show 20 Transactions)",
+      "Backup & Restore UAT",
+      async () => {
+        const today = new Date().toISOString().split("T")[0];
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        const todayTransactions = transactions.filter(txn => txn.businessDate === today);
+        this.assertEqual(todayTransactions.length, 20, "Today should have 20 transactions");
+        
+        const todayRevenue = todayTransactions.reduce((sum, txn) => sum + txn.total, 0);
+        this.assertGreaterThan(todayRevenue, 0, "Today's revenue should be positive");
+        
+        console.log(`📊 Today's Sales: ${todayRevenue.toLocaleString()} (${todayTransactions.length} transactions)`);
+      }
+    );
+  }
+
+  async test_11_4_ManualBackupAfter20Transactions() {
+    return this.executeTest(
+      "11.4: Admin Manual Backup (Checkpoint)",
+      "Backup & Restore UAT",
+      async () => {
+        // Import backup service dynamically
+        const { BackupService } = await import("./backup-service");
+        const backupService = new BackupService();
+        
+        // Create backup
+        const backupData = await backupService.createBackup();
+        
+        // Verify backup contains all data
+        this.assert(backupData.items.length > 0, "Backup should contain items");
+        this.assert(backupData.employees.length > 0, "Backup should contain employees");
+        this.assert(backupData.transactions.length >= 20, "Backup should contain at least 20 transactions");
+        
+        // Store backup for next test
+        await db.put("testBackup", { id: 1, data: backupData });
+        
+        console.log(`💾 Backup created: ${backupData.transactions.length} transactions`);
+      }
+    );
+  }
+
+  async test_11_5_Create30MoreTransactions() {
+    return this.executeTest(
+      "11.5: Cashier Creates 30 More Transactions",
+      "Backup & Restore UAT",
+      async () => {
+        const cashier = this.testData.employees.find(emp => emp.role === "cashier");
+        const items = this.testData.items.filter(item => item.isActive !== false);
+        
+        const transactionsBefore = await db.getAll<Transaction>("transactions");
+        const beforeCount = transactionsBefore.length;
+        
+        // Create 30 more transactions
+        for (let i = 0; i < 30; i++) {
+          const item = items[i % items.length];
+          const transaction: Transaction = {
+            items: [{ 
+              itemId: item.id!, 
+              sku: item.sku!,
+              name: item.name, 
+              basePrice: item.price, 
+              quantity: 1, 
+              totalPrice: item.price 
+            }],
+            subtotal: item.price,
+            tax: 0,
+            total: item.price,
+            payments: [{ method: "cash", amount: item.price }],
+            change: 0,
+            cashierId: cashier!.id!,
+            cashierName: cashier!.name,
+            timestamp: Date.now() + (20000 + i * 1000), // After first 20
+            shiftId: "test-shift-2",
+            mode: "retail",
+            businessDate: new Date().toISOString().split("T")[0]
+          };
+          
+          await db.add("transactions", transaction);
+        }
+        
+        const transactionsAfter = await db.getAll<Transaction>("transactions");
+        this.assertEqual(transactionsAfter.length, beforeCount + 30, "Should have 30 new transactions");
+        
+        console.log(`📝 Total transactions now: ${transactionsAfter.length} (should be 50)`);
+      }
+    );
+  }
+
+  async test_11_6_ReportAfter50Transactions() {
+    return this.executeTest(
+      "11.6: Report Today's Sales (Should Show 50 Transactions)",
+      "Backup & Restore UAT",
+      async () => {
+        const today = new Date().toISOString().split("T")[0];
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        const todayTransactions = transactions.filter(txn => txn.businessDate === today);
+        this.assertEqual(todayTransactions.length, 50, "Today should have 50 transactions (20+30)");
+        
+        const todayRevenue = todayTransactions.reduce((sum, txn) => sum + txn.total, 0);
+        
+        console.log(`📊 Current Sales: ${todayRevenue.toLocaleString()} (${todayTransactions.length} transactions)`);
+      }
+    );
+  }
+
+  async test_11_7_RestoreFromBackupCheckpoint() {
+    return this.executeTest(
+      "11.7: Admin Restore from Checkpoint (Should Return to 20 Transactions)",
+      "Backup & Restore UAT",
+      async () => {
+        // Get the backup from step 4
+        const backupRecord = await db.getById<any>("testBackup", 1);
+        this.assert(backupRecord !== undefined, "Backup checkpoint should exist");
+        
+        const backupData = backupRecord.data;
+        
+        // Import backup service
+        const { BackupService } = await import("./backup-service");
+        const backupService = new BackupService();
+        
+        // Clear current data and restore
+        await db.clear("items");
+        await db.clear("employees");
+        await db.clear("transactions");
+        await db.clear("attendance");
+        await db.clear("shifts");
+        
+        // Restore items
+        for (const item of backupData.items) {
+          await db.add("items", item);
+        }
+        
+        // Restore employees
+        for (const emp of backupData.employees) {
+          await db.add("employees", emp);
+        }
+        
+        // Restore transactions
+        for (const txn of backupData.transactions) {
+          await db.add("transactions", txn);
+        }
+        
+        // Verify restoration
+        const transactions = await db.getAll<Transaction>("transactions");
+        this.assertEqual(transactions.length, 20, "After restore, should have exactly 20 transactions");
+        
+        console.log(`🔄 Restored to checkpoint: ${transactions.length} transactions`);
+      }
+    );
+  }
+
+  async test_11_8_VerifyRestoredSalesReport() {
+    return this.executeTest(
+      "11.8: Verify Today's Sales After Restore (Should Show 20 Transactions)",
+      "Backup & Restore UAT",
+      async () => {
+        const today = new Date().toISOString().split("T")[0];
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        const todayTransactions = transactions.filter(txn => txn.businessDate === today);
+        this.assertEqual(todayTransactions.length, 20, "After restore, today should have 20 transactions (not 50)");
+        
+        const todayRevenue = todayTransactions.reduce((sum, txn) => sum + txn.total, 0);
+        
+        console.log(`✅ Restored Sales Report: ${todayRevenue.toLocaleString()} (${todayTransactions.length} transactions)`);
+      }
+    );
+  }
+
+  async test_11_9_DataIntegrityAfterRestore() {
+    return this.executeTest(
+      "11.9: Data Integrity Check After Restore",
+      "Backup & Restore UAT",
+      async () => {
+        // Verify all critical data exists
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        this.assertGreaterThan(items.length, 0, "Should have restored items");
+        this.assertGreaterThan(employees.length, 0, "Should have restored employees");
+        this.assertEqual(transactions.length, 20, "Should have exactly 20 restored transactions");
+        
+        // Verify transaction references are valid
+        const validTransactions = transactions.every(txn => {
+          const validCashier = employees.some(emp => emp.id === txn.cashierId);
+          const validItems = txn.items.every(cartItem => 
+            items.some(item => item.id === cartItem.itemId)
+          );
+          return validCashier && validItems;
+        });
+        
+        this.assert(validTransactions, "All transaction references should be valid");
+        
+        // Verify no data corruption
+        const skus = items.map(item => item.sku);
+        const uniqueSKUs = new Set(skus.filter(Boolean));
+        this.assertEqual(skus.filter(Boolean).length, uniqueSKUs.size, "No duplicate SKUs after restore");
+        
+        const pins = employees.map(emp => emp.pin);
+        const uniquePINs = new Set(pins);
+        this.assertEqual(pins.length, uniquePINs.size, "No duplicate PINs after restore");
+      }
+    );
+  }
+
+  // ========================================
   // TEST EXECUTION & REPORTING
   // ========================================
 
@@ -685,7 +977,18 @@ export class AutomatedTester {
       () => this.test_10_5_TransactionProtectedDeletion(),
       () => this.test_10_6_InactiveStatus(),
       () => this.test_10_10_AddEmployee(),
-      () => this.test_10_11_EmployeePINUniqueness()
+      () => this.test_10_11_EmployeePINUniqueness(),
+      
+      // Category 11: Backup & Restore UAT (NEW!)
+      () => this.test_11_1_FreshInstallRestore(),
+      () => this.test_11_2_CreateTransactionsAfterRestore(),
+      () => this.test_11_3_TodaySalesReport(),
+      () => this.test_11_4_ManualBackupAfter20Transactions(),
+      () => this.test_11_5_Create30MoreTransactions(),
+      () => this.test_11_6_ReportAfter50Transactions(),
+      () => this.test_11_7_RestoreFromBackupCheckpoint(),
+      () => this.test_11_8_VerifyRestoredSalesReport(),
+      () => this.test_11_9_DataIntegrityAfterRestore()
     ];
 
     for (const test of tests) {
