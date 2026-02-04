@@ -112,8 +112,7 @@ export class AppHealthChecker {
             name: "Test Item",
             price: 10000,
             category: "Test",
-            barcode: "TEST123",
-            costPrice: 5000,
+            sku: "TEST123",
             isActive: true
           };
 
@@ -168,7 +167,7 @@ export class AppHealthChecker {
             change: 0,
             cashierId: 1,
             cashierName: "Test",
-            employeeName: "Test",
+            // Removed employeeName as it's not in Transaction interface
             shiftName: "Morning",
             shiftId: "shift_1",
             timestamp: Date.now(),
