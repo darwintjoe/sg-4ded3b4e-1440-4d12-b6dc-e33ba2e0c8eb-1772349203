@@ -132,6 +132,11 @@
       if (!runner) {
         await initRunner();
       }
+      
+      if (!runner) {
+        console.error('❌ Runner not initialized');
+        return;
+      }
 
       const runBtn = document.getElementById('runBtn');
       const clearBtn = document.getElementById('clearBtn');

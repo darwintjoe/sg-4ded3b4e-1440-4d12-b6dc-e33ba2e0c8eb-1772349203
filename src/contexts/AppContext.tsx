@@ -30,6 +30,7 @@ interface AppContextType {
   clockOut: (pin: string) => Promise<{ success: boolean; message: string }>;
   currentShift: Shift | null;
   hasActiveSession: boolean;
+  isInitializing: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -44,12 +45,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Google Auth integration
   const googleAuth = useGoogleAuth();
 
+  // Initialize database
   useEffect(() => {
-    initializeApp();
+    const initDB = async () => {
+      try {
+        // Add timeout protection for mobile devices
+        const initPromise = db.init();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("DB init timeout")), 10000)
+        );
+        
+        await Promise.race([initPromise, timeoutPromise]);
+        
+        // Load settings
+        const loadedSettings = await db.getSettings();
+        if (loadedSettings) {
+          setSettingsState(loadedSettings);
+          setLanguageState(loadedSettings.language as Language);
+          setModeState(loadedSettings.mode);
+        }
+      } catch (error) {
+        console.error("Database initialization failed:", error);
+        // Fallback to default settings if DB fails
+        const defaultSettings: Settings = {
+            key: "settings",
+            mode: "retail",
+            tax1Enabled: true,
+            tax1Label: "PPN",
+            tax1Rate: 10,
+            tax1Inclusive: false,
+            tax2Enabled: false,
+            tax2Label: "Service",
+            tax2Rate: 5,
+            tax2Inclusive: false,
+            language: "en",
+            printerWidth: 58,
+            businessName: "Sell More POS",
+            receiptFooter: "Thank you for shopping!",
+            shifts: {
+                shift1: { name: "Morning", startTime: "06:00", endTime: "14:00", enabled: true },
+                shift2: { name: "Afternoon", startTime: "14:00", endTime: "22:00", enabled: true },
+                shift3: { name: "Night", startTime: "22:00", endTime: "06:00", enabled: false }
+            },
+            paymentMethods: {
+                cash: true,
+                card: true,
+                ewallet: true,
+                qr: true,
+                transfer: true
+            },
+            googleDriveLinked: false,
+            allowPriceOverride: false
+        };
+        setSettingsState(defaultSettings);
+      }
+      
+      // Mark initialization complete
+      setIsInitializing(false);
+    };
+
+    initDB();
   }, []);
 
   // Auto-save cart state whenever it changes
@@ -831,7 +891,8 @@ PAYMENT BREAKDOWN:
         clockIn,
         clockOut,
         currentShift,
-        hasActiveSession
+        hasActiveSession,
+        isInitializing
       }}
     >
       {children}

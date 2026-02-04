@@ -90,11 +90,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         // Silently fail - user might not be authenticated yet
       }
     };
-    
-    // Run check when user changes
-    checkStatus();
-    
-    // Optional: Set up interval? No, let's just run on user change for now
+
+    if (user) {
+      // Defer backup status check to prevent blocking app load
+      const timeoutId = setTimeout(checkStatus, 2000);
+      return () => clearTimeout(timeoutId);
+    }
   }, [user]);
 
   const refreshBackupStatus = async () => {

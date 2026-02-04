@@ -117,38 +117,47 @@ export default function TestingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <Button
+              <div className="flex gap-4 justify-center flex-wrap">
+                <button
                   onClick={handleRunTests}
                   disabled={isRunning}
-                  className="flex-1"
-                  size="lg"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ minWidth: "200px" }}
                 >
-                  <PlayCircle className="mr-2 h-5 w-5" />
-                  {isRunning ? "Running Tests..." : "Run All Tests"}
-                </Button>
-                
-                {testReport && (
-                  <>
-                    <Button
-                      onClick={handleExportJSON}
-                      variant="outline"
-                      size="lg"
-                    >
-                      <FileText className="mr-2 h-5 w-5" />
-                      Export JSON
-                    </Button>
-                    
-                    <Button
-                      onClick={handleExportCSV}
-                      variant="outline"
-                      size="lg"
-                    >
-                      <Download className="mr-2 h-5 w-5" />
-                      Export CSV
-                    </Button>
-                  </>
-                )}
+                  {isRunning ? "Running Tests..." : "▶️ Run All Tests"}
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsRunning(true);
+                    try {
+                      const { appHealthChecker } = await import("@/lib/app-health-check");
+                      const report = await appHealthChecker.runHealthCheck();
+                      
+                      setTestReport({
+                        timestamp: report.timestamp,
+                        totalTests: report.total,
+                        passed: report.passed,
+                        failed: report.failed,
+                        duration: report.results.reduce((sum, r) => sum + r.duration, 0),
+                        tests: report.results.map(r => ({
+                          name: r.name,
+                          status: r.passed ? "passed" : "failed",
+                          duration: r.duration,
+                          error: r.error
+                        }))
+                      });
+                    } catch (error) {
+                      console.error("Health check failed:", error);
+                    } finally {
+                      setIsRunning(false);
+                    }
+                  }}
+                  disabled={isRunning}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  style={{ minWidth: "200px" }}
+                >
+                  {isRunning ? "Running..." : "🏥 Quick Health Check"}
+                </button>
               </div>
 
               {isRunning && (

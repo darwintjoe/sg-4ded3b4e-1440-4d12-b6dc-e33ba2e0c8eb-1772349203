@@ -10,15 +10,29 @@ import { SEO } from "@/components/SEO";
 type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 
 export default function Home() {
-  const { currentUser, adminUser, isPaused } = useApp();
+  const { currentUser, adminUser, isInitializing } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
+
+  // Show loading screen while initializing
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
+          <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+            Loading SELL MORE...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Determine which screen to show based on state and user context
   const getActiveScreen = () => {
     if (adminUser) return "adminDashboard";
     if (screen === "adminLogin") return "adminLogin";
     if (screen === "attendance") return "attendance";
-    if (!currentUser || isPaused) return "login";
+    if (!currentUser) return "login";
     return "pos";
   };
 
