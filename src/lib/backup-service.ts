@@ -962,7 +962,23 @@ export class BackupService {
       backupInfo = backupCheck.info;
     }
 
-    return { canBackup, canRestore, backupInfo };
+    const lastBackupTime = localStorage.getItem("last_backup_time");
+    const lastBackupStatus = localStorage.getItem("last_backup_status") as "success" | "failed" | "pending" | null;
+    
+    let message = "Ready";
+    if (!canBackup) message = "Not signed in";
+    else if (lastBackupStatus === "success") message = "Data protected";
+    else if (lastBackupStatus === "failed") message = "Last backup failed";
+
+    return { 
+      lastBackupTime,
+      lastBackupStatus,
+      isHealthy: true, // Basic app health assumed if running
+      message,
+      canBackup, 
+      canRestore, 
+      backupInfo 
+    };
   }
 
   /**
