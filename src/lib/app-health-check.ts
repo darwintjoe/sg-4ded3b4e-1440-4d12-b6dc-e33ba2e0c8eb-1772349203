@@ -168,7 +168,6 @@ export class AppHealthChecker {
             cashierId: 1,
             cashierName: "Test",
             // Removed employeeName as it's not in Transaction interface
-            shiftName: "Morning",
             shiftId: "shift_1",
             timestamp: Date.now(),
             mode: "retail",
