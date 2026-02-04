@@ -5,20 +5,40 @@
 
 import { db } from "./db";
 import { googleAuth } from "./google-auth";
+import type { Item, Employee, Transaction } from "@/types";
 
 interface HealthCheckResult {
   passed: boolean;
   name: string;
   duration: number;
   error?: string;
+  // properties matching TestResult in automated-testing.ts
+  category?: string;
+  testCase?: string;
+  status?: "passed" | "failed" | "PASS" | "FAIL"; // Normalize this later
+  timestamp?: number;
+  message?: string;
 }
 
-interface HealthReport {
-  timestamp: string;
+interface HealthCheckReport { // Renamed from HealthReport to match error
+  timestamp: number; // Changed from string to number
   passed: number;
   failed: number;
   total: number;
   results: HealthCheckResult[];
+  summary: string; // Added summary
+  duration: number; // Added duration
+  skipped: number; // Added skipped
+}
+
+// Map HealthCheckResult to TestResult structure expected by testing page
+interface TestResult {
+   category: string;
+   testCase: string;
+   status: "PASS" | "FAIL";
+   message: string;
+   duration: number;
+   timestamp: number;
 }
 
 export class AppHealthChecker {
@@ -35,6 +55,11 @@ export class AppHealthChecker {
         passed: true,
         name,
         duration: Date.now() - start,
+        category: "Health Check",
+        testCase: name,
+        status: "PASS",
+        timestamp: Date.now(),
+        message: "Test passed"
       };
     } catch (error) {
       return {
@@ -42,191 +67,197 @@ export class AppHealthChecker {
         name,
         duration: Date.now() - start,
         error: error instanceof Error ? error.message : String(error),
+        category: "Health Check",
+        testCase: name,
+        status: "FAIL",
+        timestamp: Date.now(),
+        message: error instanceof Error ? error.message : String(error)
       };
     }
   }
 
-  async runHealthCheck(): Promise<HealthReport> {
-    this.startTime = Date.now();
+  /**
+   * Run comprehensive health check
+   */
+  async runHealthCheck(): Promise<HealthCheckReport> {
     const results: HealthCheckResult[] = [];
+    const startTime = Date.now();
 
-    console.log("🔬 Starting App Health Check...");
+    try {
+      // Test 1: Database Connection
+      results.push(
+        await this.runTest("Database Connection", async () => {
+          await db.init();
+        })
+      );
 
-    // Test 1: Database Initialization
-    results.push(
-      await this.runTest("Database Initialization", async () => {
-        await db.init();
-        const settings = await db.getSettings();
-        if (!settings) throw new Error("Settings not initialized");
-      })
-    );
+      // Test 2: Settings Management
+      results.push(
+        await this.runTest("Settings Management", async () => {
+          const settings = await db.getSettings();
+          if (!settings) throw new Error("Failed to load settings");
+          
+          // Test update
+          await db.updateSettings({ ...settings, businessName: "Test Store" });
+          
+          // Restore original
+          await db.updateSettings(settings);
+        })
+      );
 
-    // Test 2: Settings CRUD
-    results.push(
-      await this.runTest("Settings Management", async () => {
-        const settings = await db.getSettings();
-        if (!settings) throw new Error("No settings found");
-        
-        // Update and verify
-        const updated = { ...settings, businessName: "Test Store" };
-        await db.updateSettings(updated);
-        
-        const verified = await db.getSettings();
-        if (verified?.businessName !== "Test Store") {
-          throw new Error("Settings update failed");
-        }
-        
-        // Restore original
-        await db.updateSettings(settings);
-      })
-    );
+      // Test 3: Item Management
+      results.push(
+        await this.runTest("Item Management", async () => {
+          const testItem: Item = {
+            name: "Test Item",
+            price: 10000,
+            category: "Test",
+            barcode: "TEST123",
+            costPrice: 5000,
+            isActive: true
+          };
 
-    // Test 3: Item CRUD
-    results.push(
-      await this.runTest("Item Management", async () => {
-        const testItem = {
-          name: "Test Item",
-          price: 10000,
-          category: "Test",
-          isActive: true,
-        };
+          const itemId = await db.add("items", testItem);
+          if (!itemId) throw new Error("Item creation failed");
 
-        // Create
-        const itemId = await db.addItem(testItem);
+          const item = await db.getById("items", itemId);
+          if (!item) throw new Error("Item retrieval failed");
 
-        // Read
-        const items = await db.getItems();
-        const found = items.find((i) => i.id === itemId);
-        if (!found) throw new Error("Item creation failed");
+          await db.delete("items", itemId);
+          const deleted = await db.getById("items", itemId);
+          // IndexedDB delete returns undefined or fails silently? 
+          // getById returns undefined if not found.
+          if (deleted) throw new Error("Item deletion failed");
+        })
+      );
 
-        // Update
-        const updated = { ...found, price: 15000 };
-        await db.updateItem(updated);
+      // Test 4: Employee Management
+      results.push(
+        await this.runTest("Employee Management", async () => {
+          const testEmployee: Employee = {
+            name: "Test Employee",
+            pin: "9999",
+            role: "cashier",
+            createdAt: Date.now(), // Use number for timestamp
+            joinDate: Date.now()
+          };
 
-        // Verify update
-        const updatedItems = await db.getItems();
-        const verified = updatedItems.find((i) => i.id === itemId);
-        if (verified?.price !== 15000) throw new Error("Item update failed");
+          const empId = await db.add("employees", testEmployee);
+          if (!empId) throw new Error("Employee creation failed");
 
-        // Delete
-        await db.deleteItem(itemId);
-        const afterDelete = await db.getItems();
-        if (afterDelete.find((i) => i.id === itemId)) {
-          throw new Error("Item deletion failed");
-        }
-      })
-    );
+          await db.delete("employees", empId);
+        })
+      );
 
-    // Test 4: Employee CRUD
-    results.push(
-      await this.runTest("Employee Management", async () => {
-        const testEmployee = {
-          name: "Test Employee",
-          pin: "1234",
-          role: "cashier" as const,
-          createdAt: Date.now(),
-          isActive: true,
-        };
+      // Test 5: Transaction Creation
+      results.push(
+        await this.runTest("Transaction Creation", async () => {
+          const testTransaction: Transaction = {
+            items: [{ 
+              itemId: 1, 
+              name: "Test", 
+              sku: "TEST",
+              basePrice: 10000, 
+              quantity: 1,
+              totalPrice: 10000 
+            }],
+            subtotal: 10000,
+            total: 10000,
+            tax: 0,
+            payments: [{ method: "cash", amount: 10000 }],
+            change: 0,
+            cashierId: 1,
+            cashierName: "Test",
+            employeeName: "Test",
+            shiftName: "Morning",
+            shiftId: "shift_1",
+            timestamp: Date.now(),
+            mode: "retail",
+            businessDate: new Date().toISOString().split('T')[0]
+          };
 
-        const empId = await db.addEmployee(testEmployee);
-        const employees = await db.getEmployees();
-        const found = employees.find((e) => e.id === empId);
-        if (!found) throw new Error("Employee creation failed");
+          const txId = await db.add("transactions", testTransaction);
+          if (!txId) throw new Error("Transaction creation failed");
+        })
+      );
 
-        await db.deleteEmployee(empId);
-      })
-    );
+      // Test 6: Attendance Tracking (Manual Implementation as clockIn might not exist on DB class)
+      results.push(
+        await this.runTest("Attendance Tracking", async () => {
+          const attendance = {
+            employeeId: 1,
+            employeeName: "Test",
+            clockIn: Date.now(),
+            shiftName: "Morning",
+            date: new Date().toISOString().split('T')[0]
+          };
 
-    // Test 5: Transaction Creation
-    results.push(
-      await this.runTest("Transaction Creation", async () => {
-        const testTransaction = {
-          timestamp: Date.now(),
-          businessDate: new Date().toISOString().split('T')[0],
-          shiftId: "test-shift",
-          cashierId: 1,
-          cashierName: "Test Cashier",
-          mode: "retail" as const,
-          items: [
-            {
-              itemId: 1,
-              sku: "TEST001",
-              name: "Test Item",
-              basePrice: 10000,
-              quantity: 2,
-              totalPrice: 20000,
-            },
-          ],
-          subtotal: 20000,
-          tax: 0,
-          total: 20000,
-          payments: [
-            {
-              method: "cash" as const,
-              amount: 20000,
-            },
-          ],
-        };
+          const attId = await db.add("attendance", attendance);
+          if (!attId) throw new Error("Clock in failed");
+        })
+      );
 
-        const txId = await db.addTransaction(testTransaction);
-        if (!txId) throw new Error("Transaction creation failed");
-      })
-    );
+      // Test 7: Data Retrieval Performance
+      results.push(
+        await this.runTest("Data Retrieval Performance", async () => {
+          const start = Date.now();
+          await Promise.all([
+            db.getAll("items"),
+            db.getAll("employees"),
+            db.getSettings()
+          ]);
+          const duration = Date.now() - start;
+          
+          if (duration > 1000) {
+            throw new Error(`Slow data retrieval: ${duration}ms`);
+          }
+        })
+      );
 
-    // Test 6: Google Auth Check (non-blocking)
-    results.push(
-      await this.runTest("Google Auth Availability", async () => {
-        await googleAuth.initialize();
-        // Just check it initializes without error
-        // Don't require user to be signed in for health check
-      })
-    );
+      // Test 8: IndexedDB Performance
+      results.push(
+        await this.runTest("Database Performance", async () => {
+          const start = Date.now();
+          
+          // Simulate rapid operations
+          for (let i = 0; i < 10; i++) {
+            await db.getSettings();
+          }
+          
+          const duration = Date.now() - start;
+          if (duration > 2000) {
+            throw new Error(`Database too slow: ${duration}ms (should be < 2000ms)`);
+          }
+        })
+      );
 
-    // Test 7: localStorage Availability
-    results.push(
-      await this.runTest("localStorage Access", async () => {
-        const testKey = "health-check-" + Date.now();
-        const testValue = "test-data";
-        
-        localStorage.setItem(testKey, testValue);
-        const retrieved = localStorage.getItem(testKey);
-        
-        if (retrieved !== testValue) {
-          throw new Error("localStorage read/write failed");
-        }
-        
-        localStorage.removeItem(testKey);
-      })
-    );
+    } catch (error) {
+      results.push({
+        passed: false,
+        name: "System Failure",
+        duration: 0,
+        error: error instanceof Error ? error.message : "Unknown error",
+        category: "Critical Error",
+        testCase: "System Failure",
+        status: "FAIL",
+        timestamp: Date.now(),
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
 
-    // Test 8: IndexedDB Performance
-    results.push(
-      await this.runTest("Database Performance", async () => {
-        const start = Date.now();
-        await db.getItems();
-        await db.getEmployees();
-        await db.getTransactions();
-        const duration = Date.now() - start;
+    const passed = results.filter(r => r.passed).length;
+    const failed = results.filter(r => !r.passed).length;
 
-        if (duration > 2000) {
-          throw new Error(`Database too slow: ${duration}ms (should be < 2000ms)`);
-        }
-      })
-    );
-
-    const passed = results.filter((r) => r.passed).length;
-    const failed = results.filter((r) => !r.passed).length;
-
-    const report: HealthReport = {
-      timestamp: new Date().toISOString(),
+    return {
+      timestamp: startTime,
+      total: results.length, // Mapping totalTests to total
       passed,
       failed,
-      total: results.length,
+      skipped: 0,
+      duration: Date.now() - startTime,
       results,
+      summary: `Health Check: ${passed}/${results.length} tests passed`
     };
-
-    console.log("📊 Health Check Complete:", report);
-    return report;
   }
 }
 

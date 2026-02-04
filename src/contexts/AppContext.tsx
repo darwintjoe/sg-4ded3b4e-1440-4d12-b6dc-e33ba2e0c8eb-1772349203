@@ -93,7 +93,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           receiptFooter: "Thank you for your purchase!",
           googleDriveLinked: false,
           googleAccountEmail: undefined,
-          allowPriceOverride: false
+          allowPriceOverride: false,
+          shifts: {
+            shift1: { name: "Morning", startTime: "06:00", endTime: "14:00", enabled: true },
+            shift2: { name: "Afternoon", startTime: "14:00", endTime: "22:00", enabled: true },
+            shift3: { name: "Night", startTime: "22:00", endTime: "06:00", enabled: true }
+          }
         };
         setSettingsState(defaultSettings);
       }
