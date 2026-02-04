@@ -10,7 +10,7 @@ import { SEO } from "@/components/SEO";
 type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 
 export default function Home() {
-  const { currentUser, adminUser, isInitializing } = useApp();
+  const { currentUser, adminUser, isInitializing, loadingStatus } = useApp(); // Destructure loadingStatus
   const [screen, setScreen] = useState<Screen>("login");
 
   // Show loading screen while initializing
@@ -20,7 +20,10 @@ export default function Home() {
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
           <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-            Loading SELL MORE...
+            {loadingStatus || "Loading SELL MORE..."}
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Please wait while we prepare your system
           </p>
         </div>
       </div>

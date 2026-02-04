@@ -68,16 +68,16 @@ export class AppHealthChecker {
         if (!settings) throw new Error("No settings found");
         
         // Update and verify
-        const updated = { ...settings, storeName: "Test Store" };
-        await db.saveSettings(updated);
+        const updated = { ...settings, businessName: "Test Store" };
+        await db.updateSettings(updated);
         
         const verified = await db.getSettings();
-        if (verified?.storeName !== "Test Store") {
+        if (verified?.businessName !== "Test Store") {
           throw new Error("Settings update failed");
         }
         
         // Restore original
-        await db.saveSettings(settings);
+        await db.updateSettings(settings);
       })
     );
 
@@ -85,20 +85,18 @@ export class AppHealthChecker {
     results.push(
       await this.runTest("Item Management", async () => {
         const testItem = {
-          id: "test-" + Date.now(),
           name: "Test Item",
           price: 10000,
           category: "Test",
-          stock: 100,
-          active: true,
+          isActive: true,
         };
 
         // Create
-        await db.addItem(testItem);
+        const itemId = await db.addItem(testItem);
 
         // Read
         const items = await db.getItems();
-        const found = items.find((i) => i.id === testItem.id);
+        const found = items.find((i) => i.id === itemId);
         if (!found) throw new Error("Item creation failed");
 
         // Update
@@ -107,13 +105,13 @@ export class AppHealthChecker {
 
         // Verify update
         const updatedItems = await db.getItems();
-        const verified = updatedItems.find((i) => i.id === testItem.id);
+        const verified = updatedItems.find((i) => i.id === itemId);
         if (verified?.price !== 15000) throw new Error("Item update failed");
 
         // Delete
-        await db.deleteItem(testItem.id);
+        await db.deleteItem(itemId);
         const afterDelete = await db.getItems();
-        if (afterDelete.find((i) => i.id === testItem.id)) {
+        if (afterDelete.find((i) => i.id === itemId)) {
           throw new Error("Item deletion failed");
         }
       })
@@ -123,48 +121,55 @@ export class AppHealthChecker {
     results.push(
       await this.runTest("Employee Management", async () => {
         const testEmployee = {
-          id: "emp-test-" + Date.now(),
           name: "Test Employee",
           pin: "1234",
           role: "cashier" as const,
-          active: true,
+          createdAt: Date.now(),
+          isActive: true,
         };
 
-        await db.addEmployee(testEmployee);
+        const empId = await db.addEmployee(testEmployee);
         const employees = await db.getEmployees();
-        const found = employees.find((e) => e.id === testEmployee.id);
+        const found = employees.find((e) => e.id === empId);
         if (!found) throw new Error("Employee creation failed");
 
-        await db.deleteEmployee(testEmployee.id);
+        await db.deleteEmployee(empId);
       })
     );
 
     // Test 5: Transaction Creation
     results.push(
       await this.runTest("Transaction Creation", async () => {
-        const testReceipt = {
-          id: "rcpt-test-" + Date.now(),
+        const testTransaction = {
+          timestamp: Date.now(),
+          businessDate: new Date().toISOString().split('T')[0],
+          shiftId: "test-shift",
+          cashierId: 1,
+          cashierName: "Test Cashier",
+          mode: "retail" as const,
           items: [
             {
-              id: "item1",
+              itemId: 1,
+              sku: "TEST001",
               name: "Test Item",
+              basePrice: 10000,
               quantity: 2,
-              price: 10000,
-              total: 20000,
+              totalPrice: 20000,
             },
           ],
           subtotal: 20000,
+          tax: 0,
           total: 20000,
-          paymentMethod: "cash" as const,
-          timestamp: new Date().toISOString(),
-          employeeId: "test-emp",
-          employeeName: "Test Cashier",
+          payments: [
+            {
+              method: "cash" as const,
+              amount: 20000,
+            },
+          ],
         };
 
-        await db.addReceipt(testReceipt);
-        const receipts = await db.getReceipts();
-        const found = receipts.find((r) => r.id === testReceipt.id);
-        if (!found) throw new Error("Transaction creation failed");
+        const txId = await db.addTransaction(testTransaction);
+        if (!txId) throw new Error("Transaction creation failed");
       })
     );
 
@@ -200,7 +205,7 @@ export class AppHealthChecker {
         const start = Date.now();
         await db.getItems();
         await db.getEmployees();
-        await db.getReceipts();
+        await db.getTransactions();
         const duration = Date.now() - start;
 
         if (duration > 2000) {

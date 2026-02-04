@@ -31,6 +31,7 @@ interface AppContextType {
   currentShift: Shift | null;
   hasActiveSession: boolean;
   isInitializing: boolean;
+  loadingStatus: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -46,6 +47,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState("Initializing system...");
 
   // Google Auth integration
   const googleAuth = useGoogleAuth();
@@ -54,58 +56,62 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initDB = async () => {
       try {
-        // Add timeout protection for mobile devices
-        const initPromise = db.init();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("DB init timeout")), 10000)
-        );
+        setLoadingStatus("Connecting to database...");
+        await db.init();
         
-        await Promise.race([initPromise, timeoutPromise]);
-        
-        // Load settings
-        const loadedSettings = await db.getSettings();
-        if (loadedSettings) {
-          setSettingsState(loadedSettings);
-          setLanguageState(loadedSettings.language as Language);
-          setModeState(loadedSettings.mode);
+        setLoadingStatus("Loading settings...");
+        const settings = await db.getSettings();
+        if (settings) {
+          setSettingsState(settings);
+          // Only sync if settings loaded successfully
+          // translations.setLanguage(settings.language); // Removed to avoid circular dep if any
         }
+        
+        setLoadingStatus("Verifying session...");
       } catch (error) {
-        console.error("Database initialization failed:", error);
+        console.error("Failed to initialize DB:", error);
+        setLoadingStatus("Using offline fallback...");
+        
         // Fallback to default settings if DB fails
         const defaultSettings: Settings = {
-            key: "settings",
-            mode: "retail",
-            tax1Enabled: true,
-            tax1Label: "PPN",
-            tax1Rate: 10,
-            tax1Inclusive: false,
-            tax2Enabled: false,
-            tax2Label: "Service",
-            tax2Rate: 5,
-            tax2Inclusive: false,
-            language: "en",
-            printerWidth: 58,
-            businessName: "Sell More POS",
-            receiptFooter: "Thank you for shopping!",
-            shifts: {
-                shift1: { name: "Morning", startTime: "06:00", endTime: "14:00", enabled: true },
-                shift2: { name: "Afternoon", startTime: "14:00", endTime: "22:00", enabled: true },
-                shift3: { name: "Night", startTime: "22:00", endTime: "06:00", enabled: false }
-            },
-            paymentMethods: {
-                cash: true,
-                card: true,
-                ewallet: true,
-                qr: true,
-                transfer: true
-            },
-            googleDriveLinked: false,
-            allowPriceOverride: false
+          key: "settings",
+          mode: "retail",
+          tax1Enabled: true,
+          tax1Label: "PPN",
+          tax1Rate: 10,
+          tax1Inclusive: false,
+          tax2Enabled: false,
+          tax2Label: "Service",
+          tax2Rate: 5,
+          tax2Inclusive: false,
+          language: "en",
+          printerWidth: 58,
+          businessName: "My Store",
+          businessLogo: undefined,
+          businessAddress: undefined,
+          taxId: undefined,
+          receiptFooter: "Thank you for your purchase!",
+          googleDriveLinked: false,
+          googleAccountEmail: undefined, 
+          allowPriceOverride: false,
+          shifts: {
+            shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+            shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+            shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
+          },
+          paymentMethods: {
+            cash: true,
+            card: true,
+            ewallet: true,
+            qr: true,
+            transfer: true
+          }
         };
         setSettingsState(defaultSettings);
       }
       
       // Mark initialization complete
+      setLoadingStatus("Ready!");
       setIsInitializing(false);
     };
 
@@ -892,7 +898,13 @@ PAYMENT BREAKDOWN:
         clockOut,
         currentShift,
         hasActiveSession,
-        isInitializing
+        isInitializing,
+        loadingStatus,
+        // Google Auth methods
+        ...googleAuth, // Fixed variable name from googleAuthContext
+        
+        // State
+        isInitializing,
       }}
     >
       {children}

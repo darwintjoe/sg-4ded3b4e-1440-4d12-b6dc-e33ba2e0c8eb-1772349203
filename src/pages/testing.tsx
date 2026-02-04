@@ -134,17 +134,21 @@ export default function TestingPage() {
                       const report = await appHealthChecker.runHealthCheck();
                       
                       setTestReport({
-                        timestamp: report.timestamp,
+                        startTime: Date.now(),
+                        endTime: Date.now(),
                         totalTests: report.total,
                         passed: report.passed,
                         failed: report.failed,
-                        duration: report.results.reduce((sum, r) => sum + r.duration, 0),
-                        tests: report.results.map(r => ({
-                          name: r.name,
-                          status: r.passed ? "passed" : "failed",
+                        results: report.results.map(r => ({
+                          category: "Health Check",
+                          testCase: r.name,
+                          status: r.passed ? "PASS" : "FAIL",
                           duration: r.duration,
-                          error: r.error
-                        }))
+                          timestamp: Date.now(),
+                          message: r.error || "Test passed"
+                        })),
+                        skipped: 0,
+                        summary: `Health Check Complete: ${report.passed} passed, ${report.failed} failed.`
                       });
                     } catch (error) {
                       console.error("Health check failed:", error);
