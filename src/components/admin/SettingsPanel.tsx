@@ -111,6 +111,71 @@ export function SettingsPanel() {
   // Revert state
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ available: false, hoursRemaining: null });
 
+  // Helper: Store large backup data in IndexedDB temp storage
+  const storeTempBackupData = async (data: any) => {
+    const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open("TempBackupStorage", 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains("temp")) {
+          db.createObjectStore("temp");
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    return new Promise<void>((resolve, reject) => {
+      const tx = tempDB.transaction("temp", "readwrite");
+      const store = tx.objectStore("temp");
+      const req = store.put(data, "manual_backup");
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  };
+
+  // Helper: Retrieve large backup data from IndexedDB temp storage
+  const retrieveTempBackupData = async (): Promise<any | null> => {
+    try {
+      const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open("TempBackupStorage", 1);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      return new Promise<any>((resolve, reject) => {
+        const tx = tempDB.transaction("temp", "readonly");
+        const store = tx.objectStore("temp");
+        const req = store.get("manual_backup");
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  // Helper: Clear temp backup data
+  const clearTempBackupData = async () => {
+    try {
+      const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open("TempBackupStorage", 1);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      return new Promise<void>((resolve, reject) => {
+        const tx = tempDB.transaction("temp", "readwrite");
+        const store = tx.objectStore("temp");
+        const req = store.delete("manual_backup");
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      // Ignore errors
+    }
+  };
+
   useEffect(() => {
     setSettings(currentSettings);
   }, [currentSettings]);
@@ -260,6 +325,28 @@ export function SettingsPanel() {
     }
   };
 
+  /**
+   * Load backup into preview mode (Local helper, doesn't lock DB)
+   */
+  const loadPreviewLocal = async (backupData: any): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setRestoreState(prev => ({ ...prev, phase: "preview", progress: 95 }));
+
+      // Store preview data in sessionStorage ONLY (No preview_mode flag)
+      sessionStorage.setItem("preview_data", JSON.stringify(backupData));
+      
+      setRestoreState(prev => ({ ...prev, progress: 100, previewDBName: "preview" }));
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to load preview:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Preview load failed" 
+      };
+    }
+  };
+
   // RESTORE FLOW HANDLERS
 
   // Step 1: Start Flow (Ask for PIN)
@@ -326,8 +413,8 @@ export function SettingsPanel() {
               source: "manual_upload"
             };
 
-            // Store the data for preview
-            sessionStorage.setItem("manual_backup_data", JSON.stringify(jsonData));
+            // Store the data in IndexedDB temp storage (not localStorage - size limit!)
+            await storeTempBackupData(jsonData);
 
             setRestoreState(prev => ({ 
               ...prev, 
@@ -347,26 +434,26 @@ export function SettingsPanel() {
       }
 
       // Original Google Drive flow
-      const check = await checkBackupAvailability();
-      
-      if (!check.exists) {
-        // Case A: No backup
-        setRestoreState(prev => ({ 
-          ...prev, 
-          phase: "error", 
-          error: "No SellMore data found." 
-        }));
-        return;
+      const restoreResult = await startRestore();
+      if (!restoreResult.success || !restoreResult.backupData) {
+        throw new Error(restoreResult.error || "Download failed");
       }
 
-      // Case B: Found
+      // 2. Backup Current (Local Safety)
+      await backupCurrentDatabase();
+      setRestoreState(prev => ({ ...prev, progress: 75 }));
+
+      // 3. Load Preview
+      await loadPreviewLocal(restoreResult.backupData);
+      setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
+      
+      // DON'T reload - just show the preview UI
+    } catch (err) {
       setRestoreState(prev => ({ 
         ...prev, 
-        phase: "confirm_impact", 
-        backupInfo: check.info 
+        phase: "error", 
+        error: err instanceof Error ? err.message : "Preview failed" 
       }));
-    } catch (err) {
-      setRestoreState(prev => ({ ...prev, phase: "error", error: "Failed to check backup availability" }));
     }
   };
 
@@ -402,14 +489,14 @@ export function SettingsPanel() {
     setRestoreState(prev => ({ ...prev, phase: "downloading", progress: 0 }));
     
     try {
-      // Check if manual backup data exists
-      const manualDataStr = sessionStorage.getItem("manual_backup_data");
+      // Check if manual backup data exists in IndexedDB
+      const manualData = await retrieveTempBackupData();
       
       let backupData;
-      if (manualDataStr) {
+      if (manualData) {
         // Use manual uploaded data
-        backupData = JSON.parse(manualDataStr);
-        sessionStorage.removeItem("manual_backup_data"); // Clean up
+        backupData = manualData;
+        await clearTempBackupData(); // Clean up
         setRestoreState(prev => ({ ...prev, progress: 50 }));
       } else {
         // Download from Google Drive
@@ -425,12 +512,11 @@ export function SettingsPanel() {
       await backupCurrentDatabase();
       setRestoreState(prev => ({ ...prev, progress: 75 }));
 
-      // 3. Load Preview
-      await loadPreview(backupData);
+      // 3. Store preview data but DON'T set preview_mode flag yet
+      sessionStorage.setItem("preview_data", JSON.stringify(backupData));
       setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
       
-      // Force reload to apply preview mode (simple way to refresh DB connection)
-      window.location.reload();
+      // DON'T reload - just show the preview UI
     } catch (err) {
       setRestoreState(prev => ({ 
         ...prev, 
@@ -448,6 +534,10 @@ export function SettingsPanel() {
       const previewDataStr = sessionStorage.getItem("preview_data");
       if (!previewDataStr) throw new Error("Preview data lost");
       const previewData = JSON.parse(previewDataStr);
+
+      // CRITICAL: Clear preview mode BEFORE attempting to write
+      sessionStorage.removeItem("preview_mode");
+      sessionStorage.removeItem("preview_data");
 
       const result = await finalizeRestore(previewData);
       
@@ -706,13 +796,17 @@ export function SettingsPanel() {
 
   // Preview Mode Banner
   if (restoreState.phase === "preview") {
+    // Get preview data from session storage
+    const previewDataStr = sessionStorage.getItem("preview_data");
+    const previewData = previewDataStr ? JSON.parse(previewDataStr) : null;
+
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-background">
         {/* Banner */}
         <div className="bg-amber-500 text-black px-4 py-3 flex items-center justify-between shadow-md">
           <div className="flex items-center gap-2 font-bold">
             <Eye className="h-5 w-5" />
-            <span>PREVIEW MODE (Read-Only)</span>
+            <span>PREVIEW MODE - Reviewing Backup Data</span>
           </div>
           <div className="flex gap-3">
              <Button variant="destructive" size="sm" onClick={handleCancelRestore}>
@@ -720,37 +814,52 @@ export function SettingsPanel() {
              </Button>
              <Button variant="default" size="sm" className="bg-green-700 hover:bg-green-800 text-white" onClick={() => setRestoreState(p => ({...p, phase: "final_confirm"}))}>
                <CheckCircle2 className="h-4 w-4 mr-2" />
-               Make Live
+               Apply Restore
              </Button>
           </div>
         </div>
         
-        {/* Read-only Overlay explanation */}
-        <div className="flex-1 overflow-auto relative">
-           <div className="absolute inset-0 bg-amber-500/5 pointer-events-none z-0" />
-           {/* Render normal settings panel but in preview mode, effectively readonly due to db.ts blocks */}
-           <div className="p-8 flex flex-col items-center justify-center h-full text-center space-y-6">
-              <Store className="h-16 w-16 text-amber-500/50" />
-              <div>
-                <h1 className="text-2xl font-bold">You are viewing Backup Data</h1>
-                <p className="text-muted-foreground max-w-md mx-auto mt-2">
-                  Verify your items, employees, and settings. 
-                  You cannot make changes in this mode.
+        {/* Preview Content */}
+        <div className="flex-1 overflow-auto">
+           <div className="p-8 max-w-4xl mx-auto space-y-6">
+              <div className="text-center space-y-2">
+                <Store className="h-16 w-16 text-amber-500 mx-auto" />
+                <h1 className="text-2xl font-bold">Backup Preview</h1>
+                <p className="text-muted-foreground">
+                  Review the data before applying the restore.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4 max-w-2xl w-full">
-                <Card className="p-4 flex flex-col items-center hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = '/'}>
-                   <Store className="h-6 w-6 mb-2" />
-                   <span className="font-semibold">Check POS</span>
-                </Card>
-                <Card className="p-4 flex flex-col items-center hover:bg-muted/50 cursor-pointer">
-                   <SettingsIcon className="h-6 w-6 mb-2" />
-                   <span className="font-semibold">Check Settings</span>
-                </Card>
-              </div>
-              {renderRestoreUI()} 
+
+              {previewData && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.items?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Items</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.employees?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Employees</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.categories?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Categories</div>
+                  </Card>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.shifts?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Shifts</div>
+                  </Card>
+                </div>
+              )}
+
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  This data will replace your current database when you click "Apply Restore".
+                </AlertDescription>
+              </Alert>
            </div>
         </div>
+        {renderRestoreUI()} 
       </div>
     );
   }
