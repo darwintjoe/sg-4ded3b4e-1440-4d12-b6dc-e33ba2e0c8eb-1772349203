@@ -12,6 +12,7 @@ export default function TestingPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [testReport, setTestReport] = useState<TestReport | null>(null);
   const [uatResults, setUatResults] = useState<any>(null);
+  const [autoExecuteUAT, setAutoExecuteUAT] = useState(false);
   const [progress, setProgress] = useState(0);
 
   const handleRunTests = async () => {
@@ -84,6 +85,13 @@ export default function TestingPage() {
       setIsRunning(false);
     }
   };
+
+  // Auto-execute UAT if flag is set
+  useEffect(() => {
+    if (autoExecuteUAT && !isRunning && !uatResults) {
+      runUAT();
+    }
+  }, [autoExecuteUAT]);
 
   const passRate = testReport ? ((testReport.passed / testReport.totalTests) * 100).toFixed(1) : "0";
 
