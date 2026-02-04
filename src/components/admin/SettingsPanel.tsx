@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useApp } from "@/contexts/AppContext";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
+import { backupService } from "@/lib/backup-service";
 import { Settings, POSMode } from "@/types";
 import { translations } from "@/lib/translations";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
@@ -111,69 +112,9 @@ export function SettingsPanel() {
   // Revert state
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ available: false, hoursRemaining: null });
 
-  // Helper: Store large backup data in IndexedDB temp storage
-  const storeTempBackupData = async (data: any) => {
-    const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open("TempBackupStorage", 1);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains("temp")) {
-          db.createObjectStore("temp");
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-
-    return new Promise<void>((resolve, reject) => {
-      const tx = tempDB.transaction("temp", "readwrite");
-      const store = tx.objectStore("temp");
-      const req = store.put(data, "manual_backup");
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  };
-
-  // Helper: Retrieve large backup data from IndexedDB temp storage
-  const retrieveTempBackupData = async (): Promise<any | null> => {
-    try {
-      const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open("TempBackupStorage", 1);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-
-      return new Promise<any>((resolve, reject) => {
-        const tx = tempDB.transaction("temp", "readonly");
-        const store = tx.objectStore("temp");
-        const req = store.get("manual_backup");
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
-      });
-    } catch {
-      return null;
-    }
-  };
-
   // Helper: Clear temp backup data
   const clearTempBackupData = async () => {
-    try {
-      const tempDB = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open("TempBackupStorage", 1);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-
-      return new Promise<void>((resolve, reject) => {
-        const tx = tempDB.transaction("temp", "readwrite");
-        const store = tx.objectStore("temp");
-        const req = store.delete("manual_backup");
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } catch {
-      // Ignore errors
-    }
+    // Legacy cleanup - functionality moved to backupService
   };
 
   useEffect(() => {
@@ -332,8 +273,8 @@ export function SettingsPanel() {
     try {
       setRestoreState(prev => ({ ...prev, phase: "preview", progress: 95 }));
 
-      // Store preview data in sessionStorage ONLY (No preview_mode flag)
-      sessionStorage.setItem("preview_data", JSON.stringify(backupData));
+      // Store preview data in memory/session (No preview_mode flag)
+      backupService.storeBackupForPreview(backupData);
       
       setRestoreState(prev => ({ ...prev, progress: 100, previewDBName: "preview" }));
 
@@ -413,8 +354,8 @@ export function SettingsPanel() {
               source: "manual_upload"
             };
 
-            // Store the data in IndexedDB temp storage (not localStorage - size limit!)
-            await storeTempBackupData(jsonData);
+            // Store the data in IndexedDB/Memory via backupService (avoids localStorage limits)
+            backupService.storeBackupForPreview(jsonData);
 
             setRestoreState(prev => ({ 
               ...prev, 
@@ -489,14 +430,14 @@ export function SettingsPanel() {
     setRestoreState(prev => ({ ...prev, phase: "downloading", progress: 0 }));
     
     try {
-      // Check if manual backup data exists in IndexedDB
-      const manualData = await retrieveTempBackupData();
+      // Check if manual backup data exists (stored in previous step)
+      const manualData = backupService.getStoredBackup();
       
       let backupData;
       if (manualData) {
         // Use manual uploaded data
         backupData = manualData;
-        await clearTempBackupData(); // Clean up
+        // No need to clear temp data yet, we need it for preview
         setRestoreState(prev => ({ ...prev, progress: 50 }));
       } else {
         // Download from Google Drive
@@ -512,8 +453,11 @@ export function SettingsPanel() {
       await backupCurrentDatabase();
       setRestoreState(prev => ({ ...prev, progress: 75 }));
 
-      // 3. Store preview data but DON'T set preview_mode flag yet
-      sessionStorage.setItem("preview_data", JSON.stringify(backupData));
+      // 3. Store preview data if it came from download (manual data is already stored)
+      if (backupData && !manualData) {
+        backupService.storeBackupForPreview(backupData);
+      }
+      
       setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
       
       // DON'T reload - just show the preview UI
@@ -531,13 +475,12 @@ export function SettingsPanel() {
     setRestoreState(prev => ({ ...prev, phase: "restoring" }));
     
     try {
-      const previewDataStr = sessionStorage.getItem("preview_data");
-      if (!previewDataStr) throw new Error("Preview data lost");
-      const previewData = JSON.parse(previewDataStr);
+      const previewData = backupService.getStoredBackup();
+      if (!previewData) throw new Error("Preview data lost");
 
       // CRITICAL: Clear preview mode BEFORE attempting to write
+      backupService.clearStoredBackup();
       sessionStorage.removeItem("preview_mode");
-      sessionStorage.removeItem("preview_data");
 
       const result = await finalizeRestore(previewData);
       
@@ -579,6 +522,23 @@ export function SettingsPanel() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    try {
+      const previewData = backupService.getStoredBackup();
+      if (!previewData) {
+        throw new Error("Backup preview data not found");
+      }
+
+      const backupData = previewData;
+    } catch (err) {
+      setRestoreState(prev => ({ 
+        ...prev, 
+        phase: "error", 
+        error: err instanceof Error ? err.message : "Preview data lost" 
+      }));
     }
   };
 
@@ -796,9 +756,8 @@ export function SettingsPanel() {
 
   // Preview Mode Banner
   if (restoreState.phase === "preview") {
-    // Get preview data from session storage
-    const previewDataStr = sessionStorage.getItem("preview_data");
-    const previewData = previewDataStr ? JSON.parse(previewDataStr) : null;
+    // Get preview data from service (handles session vs memory)
+    const previewData = backupService.getStoredBackup();
 
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-background">

@@ -43,6 +43,7 @@ interface BackupStatus {
   lastBackupStatus: "success" | "failed" | "pending" | null;
   isHealthy: boolean;
   message: string;
+  canBackup: boolean;
   canRestore: boolean;
   backupInfo?: {
     timestamp: string;
@@ -61,6 +62,9 @@ interface RestoreState {
   canRevert: boolean;
   revertExpiresAt: number | null;
 }
+
+// In-memory cache for large backups when sessionStorage quota exceeded
+let inMemoryBackupCache: any = null;
 
 export class BackupService {
   private readonly BACKUP_FOLDER = "POS-Backups";
@@ -942,59 +946,65 @@ export class BackupService {
    * Get backup status
    */
   async getBackupStatus(): Promise<BackupStatus> {
-    try {
-      const lastBackupTime = localStorage.getItem("last_backup_time");
-      const lastBackupStatus = localStorage.getItem("last_backup_status") as "success" | "failed" | "pending" | null;
+    const canBackup = googleAuth.isSignedIn();
+    let canRestore = false;
+    let backupInfo: {
+      timestamp: string;
+      size: number;
+      itemCount: number;
+      employeeCount: number;
+      checksumValid: boolean;
+    } | undefined;
 
-      // Check if backup is recent (within 48 hours)
-      let isHealthy = false;
-      let message = "No backup yet";
-
-      if (lastBackupTime) {
-        const backupDate = new Date(lastBackupTime);
-        const now = new Date();
-        const hoursSince = (now.getTime() - backupDate.getTime()) / (1000 * 60 * 60);
-
-        if (hoursSince < 48 && lastBackupStatus === "success") {
-          isHealthy = true;
-          message = "Your data is safe";
-        } else if (hoursSince >= 48) {
-          message = "Backup is overdue";
-        } else if (lastBackupStatus === "pending") {
-          message = "Backup pending verification";
-        } else if (lastBackupStatus === "failed") {
-          message = "Last backup failed";
-        }
-      }
-
-      // Check if can restore - ONLY if authenticated
-      let canRestore = false;
-      let backupInfo = undefined;
-      
-      if (googleAuth.isSignedIn()) {
-        const backupCheck = await this.checkBackupAvailability();
-        canRestore = backupCheck.exists;
-        backupInfo = backupCheck.info;
-      }
-
-      return {
-        lastBackupTime,
-        lastBackupStatus,
-        isHealthy,
-        message,
-        canRestore,
-        backupInfo
-      };
-    } catch (error) {
-      console.error("Failed to get backup status:", error);
-      return {
-        lastBackupTime: null,
-        lastBackupStatus: null,
-        isHealthy: false,
-        message: "Status check failed",
-        canRestore: false
-      };
+    if (canBackup) {
+      const backupCheck = await this.checkBackupAvailability();
+      canRestore = backupCheck.exists;
+      backupInfo = backupCheck.info;
     }
+
+    return { canBackup, canRestore, backupInfo };
+  }
+
+  /**
+   * Store backup data (try sessionStorage, fallback to memory)
+   */
+  storeBackupForPreview(data: any): void {
+    try {
+      sessionStorage.setItem("preview_data", JSON.stringify(data));
+      inMemoryBackupCache = null; // Clear memory cache if sessionStorage worked
+    } catch (error) {
+      console.warn("SessionStorage quota exceeded, using in-memory cache");
+      inMemoryBackupCache = data;
+    }
+  }
+
+  /**
+   * Get stored backup data (try sessionStorage, fallback to memory)
+   */
+  getStoredBackup(): any {
+    try {
+      const dataStr = sessionStorage.getItem("preview_data");
+      if (dataStr) {
+        return JSON.parse(dataStr);
+      }
+    } catch (error) {
+      console.warn("Failed to read from sessionStorage");
+    }
+    
+    // Fallback to in-memory cache
+    return inMemoryBackupCache;
+  }
+
+  /**
+   * Clear stored backup data
+   */
+  clearStoredBackup(): void {
+    try {
+      sessionStorage.removeItem("preview_data");
+    } catch (error) {
+      console.warn("Failed to clear sessionStorage");
+    }
+    inMemoryBackupCache = null;
   }
 
   /**
