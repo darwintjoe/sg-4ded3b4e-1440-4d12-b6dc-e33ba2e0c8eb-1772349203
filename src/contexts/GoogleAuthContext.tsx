@@ -63,15 +63,39 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       await googleAuth.initialize();
       const currentUser = googleAuth.getCurrentUser();
+      
+      // If loadSavedUser returned null (expired), this will be null
       setUser(currentUser);
       setIsInitialized(true);
       
-      // Check backup status
-      await refreshBackupStatus();
+      // Only check backup status if we have a valid user
+      if (currentUser) {
+        await refreshBackupStatus();
+      }
     };
 
     init();
   }, []);
+
+  // Check backup status periodically
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!user) return;
+      
+      try {
+        const status = await backupService.getBackupStatus();
+        setBackupStatus(status);
+      } catch (error) {
+        console.warn("Backup status check skipped:", error);
+        // Silently fail - user might not be authenticated yet
+      }
+    };
+    
+    // Run check when user changes
+    checkStatus();
+    
+    // Optional: Set up interval? No, let's just run on user change for now
+  }, [user]);
 
   const refreshBackupStatus = async () => {
     const status = await backupService.getBackupStatus();

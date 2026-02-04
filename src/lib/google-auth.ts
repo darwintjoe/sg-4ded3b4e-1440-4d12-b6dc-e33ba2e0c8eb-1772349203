@@ -15,6 +15,7 @@ interface GoogleUser {
   picture: string;
   accessToken: string;
   refreshToken?: string;
+  expiresAt?: number; // Timestamp when token expires
 }
 
 interface BackupMetadata {
@@ -122,6 +123,7 @@ class GoogleAuthService {
             name: userInfo.name,
             picture: userInfo.picture,
             accessToken: accessToken,
+            expiresAt: Date.now() + (3500 * 1000), // Set expiry to 58 minutes (safety margin)
           };
 
           // Save to localStorage
@@ -200,7 +202,14 @@ class GoogleAuthService {
       if (!saved) return null;
 
       const user = JSON.parse(saved);
-      // TODO: Validate token expiry and refresh if needed
+      
+      // Check if token is expired (or missing expiry which means it's an old format token)
+      // If expired or no expiry date, treat as invalid to prevent 401 errors
+      if (!user.expiresAt || Date.now() > user.expiresAt) {
+        this.signOut(); // Clean up invalid session
+        return null;
+      }
+
       return user;
     } catch (error) {
       return null;
@@ -280,6 +289,11 @@ class GoogleAuthService {
       );
 
       if (!response.ok) {
+        // Handle token expiration/revocation
+        if (response.status === 401) {
+          this.signOut();
+          return { success: false, error: "Session expired. Please sign in again." };
+        }
         return { success: false, error: "Failed to list backups" };
       }
 

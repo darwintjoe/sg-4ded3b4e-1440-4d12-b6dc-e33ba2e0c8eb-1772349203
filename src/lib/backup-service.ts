@@ -496,7 +496,7 @@ export class BackupService {
   }> {
     try {
       if (!googleAuth.isSignedIn()) {
-        return { exists: false, error: "Not signed in to Google" };
+        return { exists: false };
       }
 
       // List backups
@@ -967,9 +967,15 @@ export class BackupService {
         }
       }
 
-      // Check if can restore
-      const backupCheck = await this.checkBackupAvailability();
-      const canRestore = backupCheck.exists;
+      // Check if can restore - ONLY if authenticated
+      let canRestore = false;
+      let backupInfo = undefined;
+      
+      if (googleAuth.isSignedIn()) {
+        const backupCheck = await this.checkBackupAvailability();
+        canRestore = backupCheck.exists;
+        backupInfo = backupCheck.info;
+      }
 
       return {
         lastBackupTime,
@@ -977,7 +983,7 @@ export class BackupService {
         isHealthy,
         message,
         canRestore,
-        backupInfo: backupCheck.info
+        backupInfo
       };
     } catch (error) {
       console.error("Failed to get backup status:", error);

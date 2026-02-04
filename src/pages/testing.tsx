@@ -101,7 +101,7 @@ export default function TestingPage() {
         <h1 className="text-3xl font-bold mb-6">Automated Testing</h1>
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-2 mb-8">
             <h1 className="text-4xl font-bold">🤖 Automated Testing Suite</h1>
             <p className="text-slate-600 dark:text-slate-400">
               Comprehensive machine testing for SELL MORE UAT validation
