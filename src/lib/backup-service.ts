@@ -9,10 +9,10 @@
  * - SIMPLE restore (one button, always works)
  */
 
-import { db } from "@/lib/db";
-import { googleAuth } from "@/lib/google-auth";
+import { db } from "./db";
+import { googleAuth } from "./google-auth";
 
-interface BackupMetadata {
+export interface BackupMetadata {
   version: string;
   timestamp: string;
   deviceId: string;
@@ -23,7 +23,7 @@ interface BackupMetadata {
   employeeCount?: number;
 }
 
-interface BackupData {
+export interface BackupData {
   metadata: BackupMetadata;
   items: any[];
   employees: any[];

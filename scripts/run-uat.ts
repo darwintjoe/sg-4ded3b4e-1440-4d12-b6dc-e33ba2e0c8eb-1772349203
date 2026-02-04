@@ -306,9 +306,16 @@ class BackupRestoreUATRunner {
     const today = new Date().toISOString().split("T")[0];
     
     return {
-      version: "1.0",
-      timestamp: Date.now(),
-      businessDate: today,
+      metadata: {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        deviceId: "test-device",
+        dataSize: 0,
+        checksum: "test-checksum",
+        status: "verified",
+        itemCount: 1,
+        employeeCount: 1
+      },
       items: [
         {
           id: 1,
@@ -329,13 +336,13 @@ class BackupRestoreUATRunner {
           createdAt: Date.now()
         }
       ],
-      transactions: [],
-      dailyPaymentSales: [],
-      monthlyPaymentSales: [],
+      categories: [],
+      shifts: [],
       dailyItemSales: [],
+      dailyPaymentSales: [],
+      dailyAttendance: [],
       monthlyItemSales: [],
-      attendanceRecords: [],
-      dailyAttendanceSummary: [],
+      monthlySalesSummary: [],
       monthlyAttendanceSummary: [],
       settings: {
         key: "settings",
@@ -367,8 +374,7 @@ class BackupRestoreUATRunner {
           qr: true,
           transfer: true
         }
-      },
-      pausedCarts: []
+      }
     };
   }
 
