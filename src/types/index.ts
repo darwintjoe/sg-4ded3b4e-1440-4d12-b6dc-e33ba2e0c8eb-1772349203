@@ -247,10 +247,11 @@ export interface Settings {
   
   // Integrations
   googleDriveLinked: boolean;
-  googleAccountEmail?: string; // Authorized admin email
+  googleAccountEmail?: string; // For verifying Google Drive account
   
   // Features
-  allowPriceOverride: boolean;
+  allowPriceOverride: boolean; // Allow changing price during checkout
+  adminPIN?: string; // Admin PIN for sensitive actions
   bluetoothPrinterId?: string;
   bluetoothPrinterName?: string;
   

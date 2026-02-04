@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,13 +10,14 @@ import type { TestReport } from "@/lib/automated-testing";
 
 export default function TestingPage() {
   const [isRunning, setIsRunning] = useState(false);
-  const [report, setReport] = useState<TestReport | null>(null);
+  const [testReport, setTestReport] = useState<TestReport | null>(null);
+  const [uatResults, setUatResults] = useState<any>(null);
   const [progress, setProgress] = useState(0);
 
   const handleRunTests = async () => {
     setIsRunning(true);
     setProgress(0);
-    setReport(null);
+    setTestReport(null);
 
     try {
       // Simulate progress updates (in real implementation, this would be event-based)
@@ -28,7 +29,7 @@ export default function TestingPage() {
       
       clearInterval(progressInterval);
       setProgress(100);
-      setReport(testReport);
+      setTestReport(testReport);
     } catch (error) {
       console.error("Testing failed:", error);
       alert("Testing failed: " + (error instanceof Error ? error.message : String(error)));
@@ -59,7 +60,32 @@ export default function TestingPage() {
     URL.revokeObjectURL(url);
   };
 
-  const passRate = report ? ((report.passed / report.totalTests) * 100).toFixed(1) : "0";
+  const runUAT = async () => {
+    setIsRunning(true);
+    setUatResults(null);
+    try {
+      console.log("🚀 Starting Backup-Restore UAT...");
+      
+      // Call the UAT runner from window (exported in run-backup-restore-uat.ts)
+      if (typeof window !== "undefined" && (window as any).runBackupRestoreUAT) {
+        const results = await (window as any).runBackupRestoreUAT();
+        setUatResults(results);
+        console.log("✅ UAT Complete:", results);
+      } else {
+        throw new Error("UAT runner not available. Ensure run-backup-restore-uat.ts is loaded.");
+      }
+    } catch (error) {
+      console.error("❌ UAT Failed:", error);
+      setUatResults({
+        success: false,
+        error: error instanceof Error ? error.message : "UAT execution failed"
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const passRate = testReport ? ((testReport.passed / testReport.totalTests) * 100).toFixed(1) : "0";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-8">
@@ -92,7 +118,7 @@ export default function TestingPage() {
                 {isRunning ? "Running Tests..." : "Run All Tests"}
               </Button>
               
-              {report && (
+              {testReport && (
                 <>
                   <Button
                     onClick={handleExportJSON}
@@ -127,13 +153,13 @@ export default function TestingPage() {
         </Card>
 
         {/* Test Results Summary */}
-        {report && (
+        {testReport && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription>Total Tests</CardDescription>
-                  <CardTitle className="text-3xl">{report.totalTests}</CardTitle>
+                  <CardTitle className="text-3xl">{testReport.totalTests}</CardTitle>
                 </CardHeader>
               </Card>
 
@@ -143,7 +169,7 @@ export default function TestingPage() {
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     Passed
                   </CardDescription>
-                  <CardTitle className="text-3xl text-green-600">{report.passed}</CardTitle>
+                  <CardTitle className="text-3xl text-green-600">{testReport.passed}</CardTitle>
                 </CardHeader>
               </Card>
 
@@ -153,7 +179,7 @@ export default function TestingPage() {
                     <XCircle className="h-4 w-4 text-red-600" />
                     Failed
                   </CardDescription>
-                  <CardTitle className="text-3xl text-red-600">{report.failed}</CardTitle>
+                  <CardTitle className="text-3xl text-red-600">{testReport.failed}</CardTitle>
                 </CardHeader>
               </Card>
 
@@ -166,7 +192,7 @@ export default function TestingPage() {
             </div>
 
             {/* Overall Status Alert */}
-            {report.failed === 0 ? (
+            {testReport.failed === 0 ? (
               <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-900">
                 <CheckCircle className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800 dark:text-green-200">
@@ -177,7 +203,7 @@ export default function TestingPage() {
               <Alert className="border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-900">
                 <AlertCircle className="h-4 w-4 text-red-600" />
                 <AlertDescription className="text-red-800 dark:text-red-200">
-                  ⚠️ <strong>{report.failed} test(s) failed.</strong> Review the details below and fix issues before UAT.
+                  ⚠️ <strong>{testReport.failed} test(s) failed.</strong> Review the details below and fix issues before UAT.
                 </AlertDescription>
               </Alert>
             )}
@@ -187,12 +213,12 @@ export default function TestingPage() {
               <CardHeader>
                 <CardTitle>Test Results Details</CardTitle>
                 <CardDescription>
-                  Completed in {((report.endTime - report.startTime) / 1000).toFixed(2)}s
+                  Completed in {((testReport.endTime - testReport.startTime) / 1000).toFixed(2)}s
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {report.results.map((result, index) => (
+                  {testReport.results.map((result, index) => (
                     <div
                       key={index}
                       className={`p-4 rounded-lg border ${
@@ -242,7 +268,7 @@ export default function TestingPage() {
         )}
 
         {/* Instructions */}
-        {!report && !isRunning && (
+        {!testReport && !isRunning && (
           <Card>
             <CardHeader>
               <CardTitle>Testing Instructions</CardTitle>
