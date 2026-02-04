@@ -42,7 +42,7 @@ class Database {
 
     this.initPromise = new Promise((resolve, reject) => {
       // Bump version to 3 to force upgrade
-      const request = indexedDB.open("SellMoreDB", 2);
+      const request = indexedDB.open("SellMoreDB", 3);
 
       request.onerror = () => {
         reject(new Error("Failed to open database"));
@@ -193,6 +193,13 @@ class Database {
               autoIncrement: true,
             });
             monthlyAttendanceSummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          }
+        }
+
+        // Version 3: Add testBackup store for automated UAT
+        if (oldVersion < 3) {
+          if (!db.objectStoreNames.contains("testBackup")) {
+            db.createObjectStore("testBackup", { keyPath: "id" });
           }
         }
       };

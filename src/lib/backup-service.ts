@@ -62,7 +62,7 @@ interface RestoreState {
   revertExpiresAt: number | null;
 }
 
-class BackupService {
+export class BackupService {
   private readonly BACKUP_FOLDER = "POS-Backups";
   private readonly LAST_KNOWN_GOOD_NAME = "backup_last_known_good.json.gz";
   private readonly CANDIDATE_NAME = "backup_candidate.json.gz";
@@ -144,7 +144,7 @@ class BackupService {
   /**
    * Export essential data only (not full transactions)
    */
-  private async exportEssentialData(): Promise<BackupData> {
+  public async exportEssentialData(): Promise<BackupData> {
     try {
       const today = new Date().toISOString().split("T")[0];
       const sixtyDaysAgo = new Date();
