@@ -13,7 +13,7 @@ import {
   Settings,
 } from "@/types";
 
-class Database {
+export class Database {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
 
@@ -489,6 +489,21 @@ class Database {
         reject(request.error);
       };
     });
+  }
+
+  async clearAllData(): Promise<void> {
+    const stores = [
+      "items", "employees", "transactions", "shifts", 
+      "attendance", "dailyItemSales", "dailyPaymentSales",
+      "monthlyItemSales", "monthlyPaymentSales", "settings"
+    ];
+    for (const store of stores) {
+      try {
+        await this.clear(store);
+      } catch (e) {
+        console.warn(`Failed to clear ${store}`, e);
+      }
+    }
   }
 
   // Settings
