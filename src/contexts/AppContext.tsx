@@ -901,10 +901,7 @@ PAYMENT BREAKDOWN:
         isInitializing,
         loadingStatus,
         // Google Auth methods
-        ...googleAuth, // Fixed variable name from googleAuthContext
-        
-        // State
-        isInitializing,
+        ...googleAuth
       }}
     >
       {children}
