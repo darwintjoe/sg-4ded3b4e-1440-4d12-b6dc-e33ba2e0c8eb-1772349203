@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backup-Restore UAT Runner</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #0a0a0a;
+      color: #fff;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .status {
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .test-result {
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 6px;
+      border-left: 4px solid;
+    }
+    .test-result.pass {
+      background: #0f2e1f;
+      border-color: #22c55e;
+    }
+    .test-result.fail {
+      background: #2e0f0f;
+      border-color: #ef4444;
+    }
+    .test-result.running {
+      background: #1a2e3e;
+      border-color: #3b82f6;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 30px;
+    }
+    .summary-card {
+      padding: 20px;
+      background: #1a1a1a;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .summary-card .value {
+      font-size: 2em;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    .summary-card.passed .value { color: #22c55e; }
+    .summary-card.failed .value { color: #ef4444; }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover { background: #2563eb; }
+    button:disabled { background: #4b5563; cursor: not-allowed; }
+    .error {
+      background: #2e0f0f;
+      border: 1px solid #ef4444;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 10px 0;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    .progress {
+      width: 100%;
+      height: 4px;
+      background: #1a1a1a;
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 20px 0;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #22c55e);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔬 Backup-Restore UAT Runner</h1>
+    <p>Automated testing for critical backup-restore flows</p>
+    <button id="runBtn" onclick="runUAT()">▶️ Run All Tests</button>
+    <button id="clearBtn" onclick="clearResults()">🗑️ Clear Results</button>
+  </div>
+
+  <div class="status" id="status">
+    <div>Status: <span id="statusText">Ready</span></div>
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="summary" id="summary" style="display: none;"></div>
+
+  <script type="module">
+    let runner = null;
+
+    async function initRunner() {
+      try {
+        const module = await import('/src/lib/run-backup-restore-uat.ts');
+        runner = new module.BackupRestoreUATRunner();
+        console.log('✅ UAT Runner initialized');
+      } catch (err) {
+        console.error('❌ Failed to load UAT Runner:', err);
+        document.getElementById('statusText').textContent = 'Error: ' + err.message;
+      }
+    }
+
+    window.runUAT = async function() {
+      if (!runner) {
+        await initRunner();
+      }
+
+      const runBtn = document.getElementById('runBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const resultsDiv = document.getElementById('results');
+      const summaryDiv = document.getElementById('summary');
+      const statusText = document.getElementById('statusText');
+      const progressBar = document.getElementById('progressBar');
+
+      runBtn.disabled = true;
+      clearBtn.disabled = true;
+      resultsDiv.innerHTML = '';
+      summaryDiv.innerHTML = '';
+      summaryDiv.style.display = 'none';
+      statusText.textContent = 'Running tests...';
+      progressBar.style.width = '0%';
+
+      try {
+        const results = await runner.runFullSuite();
+        
+        // Display results
+        results.results.forEach(test => {
+          const div = document.createElement('div');
+          div.className = `test-result ${test.passed ? 'pass' : 'fail'}`;
+          div.innerHTML = `
+            <div><strong>${test.passed ? '✅' : '❌'} ${test.name}</strong></div>
+            <div style="margin-top: 8px; opacity: 0.8;">Duration: ${test.duration}ms</div>
+            ${test.error ? `<div class="error">${test.error}</div>` : ''}
+          `;
+          resultsDiv.appendChild(div);
+        });
+
+        // Display summary
+        summaryDiv.innerHTML = `
+          <div class="summary-card">
+            <div>Total Tests</div>
+            <div class="value">${results.summary.total}</div>
+          </div>
+          <div class="summary-card passed">
+            <div>Passed</div>
+            <div class="value">${results.summary.passed}</div>
+          </div>
+          <div class="summary-card failed">
+            <div>Failed</div>
+            <div class="value">${results.summary.failed}</div>
+          </div>
+          <div class="summary-card">
+            <div>Duration</div>
+            <div class="value">${results.summary.duration}ms</div>
+          </div>
+        `;
+        summaryDiv.style.display = 'grid';
+
+        statusText.textContent = results.summary.failed === 0 
+          ? '✅ All tests passed!' 
+          : `❌ ${results.summary.failed} test(s) failed`;
+        progressBar.style.width = '100%';
+
+        console.log('📊 UAT Results:', results);
+
+      } catch (err) {
+        console.error('❌ UAT Execution Failed:', err);
+        statusText.textContent = 'Error: ' + err.message;
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error';
+        errorDiv.textContent = err.stack || err.message;
+        resultsDiv.appendChild(errorDiv);
+      } finally {
+        runBtn.disabled = false;
+        clearBtn.disabled = false;
+      }
+    };
+
+    window.clearResults = function() {
+      document.getElementById('results').innerHTML = '';
+      document.getElementById('summary').style.display = 'none';
+      document.getElementById('statusText').textContent = 'Ready';
+      document.getElementById('progressBar').style.width = '0%';
+    };
+
+    // Auto-initialize on page load
+    initRunner();
+  </script>
+</body>
+</html>
