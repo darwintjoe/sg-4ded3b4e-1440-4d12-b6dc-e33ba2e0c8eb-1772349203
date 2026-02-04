@@ -17,13 +17,42 @@ export default function Home() {
   if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
-          <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-            {loadingStatus || "Loading SELL MORE..."}
-          </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Please wait while we prepare your system
+        <div className="text-center space-y-6 p-8">
+          {/* Animated Logo/Icon */}
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-blue-200 dark:border-blue-900 rounded-full"></div>
+              <div className="w-20 h-20 border-4 border-blue-600 dark:border-blue-400 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
+            </div>
+          </div>
+
+          {/* App Title */}
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              SELL MORE
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Mobile POS System
+            </p>
+          </div>
+
+          {/* Loading Status - THIS IS THE KEY ADDITION */}
+          <div className="space-y-2">
+            <div className="inline-block px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                {loadingStatus}
+              </p>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mx-auto">
+              <div className="h-full bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+          </div>
+
+          {/* Helper text */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+            Please wait while we prepare your system. This usually takes 5-10 seconds.
           </p>
         </div>
       </div>
