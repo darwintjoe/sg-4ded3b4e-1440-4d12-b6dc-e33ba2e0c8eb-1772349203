@@ -606,14 +606,14 @@ export function ReportsPanel() {
             </Card>
           </div>
 
-          {/* Chart */}
+          {/* Chart - Full Width, Takes Most of Screen */}
           <Card>
             <CardContent className="p-2">
               <div className="space-y-3">
                 {/* Payment Methods Breakdown */}
                 <div>
                   <h4 className="text-[10px] font-medium mb-2">{t.reports.paymentBreakdown}</h4>
-                  <div className="h-40">
+                  <div className="h-[320px]">
                     <StackedBarChart
                       data={salesChartData}
                     />
@@ -638,7 +638,7 @@ export function ReportsPanel() {
             </CardContent>
           </Card>
 
-          {/* Sales Data Table */}
+          {/* Sales Data Table - Below Chart (Scroll to View) */}
           <Card className="mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium flex items-center gap-2">
@@ -699,9 +699,9 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
-          {/* Chart Card */}
+          {/* Chart Card - Full Width, Takes Most of Screen */}
           <Card>
-            <CardContent className={chartView === "pie" ? "p-1" : "p-2"}>
+            <CardContent className="p-2">
               <div className="relative">
                 {/* Floating Controls - Top Right */}
                 <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
@@ -767,26 +767,17 @@ export function ReportsPanel() {
                 </div>
 
                 {/* Chart Area */}
-                <div className={chartView === "pie" ? "min-h-[400px] h-[400px] w-full" : "h-[160px] w-full"}>
-                  {chartView === "bar" ? (
-                    <div>
-                      <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByQuantity}</h4>
-                      <div className="h-36">
-                        <HorizontalBarChart
-                          data={barChartData}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByRevenue}</h4>
-                      <div className="h-36">
-                        <PieChart
-                          data={pieChartData}
-                        />
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <h4 className="text-[10px] font-medium mb-2">
+                    {chartView === "bar" ? t.reports.topItemsByQuantity : t.reports.topItemsByRevenue}
+                  </h4>
+                  <div className={chartView === "pie" ? "h-[300px]" : "h-[360px]"}>
+                    {chartView === "bar" ? (
+                      <HorizontalBarChart data={barChartData} />
+                    ) : (
+                      <PieChart data={pieChartData} />
+                    )}
+                  </div>
                 </div>
 
                 {/* Time Range Buttons */}
@@ -807,7 +798,7 @@ export function ReportsPanel() {
             </CardContent>
           </Card>
 
-          {/* Items Data Table */}
+          {/* Items Data Table - Below Chart (Scroll to View) */}
           <Card className="mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium flex items-center gap-2">
@@ -835,21 +826,21 @@ export function ReportsPanel() {
                           <TableRow key={idx} className="border-b hover:bg-muted/50">
                             <TableCell className="text-[10px] font-medium py-1 px-2">{idx + 1}</TableCell>
                             <TableCell className="text-[10px] py-1 px-2 truncate max-w-[150px]">{item.name}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{item.quantity}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{item.value}</TableCell>
                             <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(item.revenue)}</TableCell>
                             <TableCell className="text-right text-[10px] py-1 px-2">{item.transactionCount}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{(item.quantity / item.transactionCount).toFixed(1)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{(item.value / item.transactionCount).toFixed(1)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                       <TableFooter>
                         <TableRow className="bg-muted/50">
                           <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.quantity, 0)}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.value, 0)}</TableCell>
                           <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
                           <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
                           <TableCell className="text-right text-[10px] font-bold py-1 px-2">
-                            {(topItemsData.reduce((sum, item) => sum + item.quantity, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
+                            {(topItemsData.reduce((sum, item) => sum + item.value, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
                           </TableCell>
                         </TableRow>
                       </TableFooter>
