@@ -422,64 +422,73 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0 h-full">
-          {/* Controls Row */}
-          <div className="flex justify-between items-center gap-2">
-            <div className="flex gap-2">
-              <Button
-                variant={sortBy === "quantity" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy("quantity")}
-              >
-                By Quantity
-              </Button>
-              <Button
-                variant={sortBy === "revenue" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSortBy("revenue")}
-              >
-                By Revenue
-              </Button>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                variant={itemTopN === 10 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setItemTopN(10)}
-              >
-                Top 10
-              </Button>
-              <Button
-                variant={itemTopN === 20 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setItemTopN(20)}
-              >
-                Top 20
-              </Button>
-            </div>
-          </div>
-
-          {/* Chart View Selector */}
-          <div className="flex justify-center gap-2">
-            <Button
-              variant={chartView === "bar" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartView("bar")}
-            >
-              Bar Chart
-            </Button>
-            <Button
-              variant={chartView === "pie" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setChartView("pie")}
-            >
-              Pie Chart
-            </Button>
-          </div>
-
-          {/* Chart */}
+          {/* Chart with Overlaid Controls */}
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 relative">
+              {/* Floating Controls - Top Right */}
+              <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
+                {/* Chart Type Selector */}
+                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                  <Button
+                    variant={chartView === "bar" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setChartView("bar")}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Bar
+                  </Button>
+                  <Button
+                    variant={chartView === "pie" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setChartView("pie")}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Pie
+                  </Button>
+                </div>
+
+                {/* Sort Selector */}
+                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                  <Button
+                    variant={sortBy === "quantity" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSortBy("quantity")}
+                    className="h-7 px-2 text-xs"
+                  >
+                    Qty
+                  </Button>
+                  <Button
+                    variant={sortBy === "revenue" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSortBy("revenue")}
+                    className="h-7 px-2 text-xs"
+                  >
+                    $$
+                  </Button>
+                </div>
+
+                {/* Top N Selector */}
+                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                  <Button
+                    variant={itemTopN === 10 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemTopN(10)}
+                    className="h-7 px-2 text-xs"
+                  >
+                    10
+                  </Button>
+                  <Button
+                    variant={itemTopN === 20 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemTopN(20)}
+                    className="h-7 px-2 text-xs"
+                  >
+                    20
+                  </Button>
+                </div>
+              </div>
+
+              {/* Chart Area */}
               <div className="h-[400px] w-full">
                 {topItems.length > 0 ? (
                   chartView === "bar" ? (
@@ -498,21 +507,6 @@ export function ReportsPanel() {
                     No data
                   </div>
                 )}
-              </div>
-              
-              {/* Time Range Switcher */}
-              <div className="flex justify-center gap-1 mt-4 pt-4 border-t flex-wrap">
-                {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
-                  <Button
-                    key={range}
-                    variant={itemsTimeRange === range ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setItemsTimeRange(range)}
-                    className="h-8 px-2 text-xs"
-                  >
-                    {range.toUpperCase()}
-                  </Button>
-                ))}
               </div>
             </CardContent>
           </Card>

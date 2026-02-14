@@ -23,6 +23,9 @@ export function HorizontalBarChart({
 }: HorizontalBarChartProps) {
   const maxValue = Math.max(...data.map(d => d.value));
 
+  console.log("HorizontalBarChart data:", data);
+  console.log("HorizontalBarChart maxValue:", maxValue);
+
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
