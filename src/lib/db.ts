@@ -249,6 +249,30 @@ export class Database {
     });
   }
 
+  async count(storeName: string): Promise<number> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    // Check if store exists before trying to access it
+    if (!this.db.objectStoreNames.contains(storeName)) {
+      console.warn(`Store '${storeName}' does not exist in database`);
+      return 0;
+    }
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(storeName, "readonly");
+      const store = transaction.objectStore(storeName);
+      const request = store.count();
+
+      request.onsuccess = () => {
+        resolve(request.result as number);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
   async getById<T>(storeName: string, id: number | string): Promise<T | undefined> {
     // INTERCEPT: Preview Mode
     if (this.isPreviewMode()) {
