@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary } from "@/types";
 import { useApp } from "@/contexts/AppContext";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, Table2, TrendingUp, TrendingDown, Minus, DollarSign, Receipt, Users, Clock } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
@@ -18,6 +18,41 @@ type SortBy = "quantity" | "revenue";
 
 export function ReportsPanel() {
   const { language } = useApp();
+  const locale = language === "id" ? "id-ID" : "en-US";
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const t = {
+    common: {
+      cash: "Cash",
+      qrisStatic: "QRIS Static",
+      qrisDynamic: "QRIS Dynamic",
+      voucher: "Voucher",
+    },
+    reports: {
+      dailySalesData: "Daily Sales Data",
+      monthlySalesData: "Monthly Sales Data",
+      topItemsData: "Top Items Data",
+      noData: "No data available for the selected period",
+      date: "Date",
+      month: "Month",
+      revenue: "Revenue",
+      receipts: "Receipts",
+      total: "Total",
+      items: "Items",
+      itemName: "Item Name",
+      quantity: "Quantity",
+      transactions: "Transactions",
+      avgPerTransaction: "Avg/Tx",
+    }
+  };
 
   // Sales state
   const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
@@ -27,6 +62,7 @@ export function ReportsPanel() {
     totalReceipts: 0,
     avgTransaction: 0
   });
+  const [salesData, setSalesData] = useState<any[]>([]); // New state for table
 
   // Items state
   const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
@@ -38,6 +74,7 @@ export function ReportsPanel() {
     quantity: number;
     revenue: number;
   }>>([]);
+  const [topItemsData, setTopItemsData] = useState<any[]>([]); // New state for table
 
   // Attendance state
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
@@ -188,6 +225,18 @@ export function ReportsPanel() {
         }));
         setSalesChartData(chartData);
         
+        // Populate table data for monthly view
+        const tableData = filtered.map(m => ({
+          date: m.month, // using date field for month string to reuse table column
+          revenue: m.totalRevenue,
+          receipts: m.totalReceipts,
+          cash: m.cashAmount,
+          qrisStatic: m.qrisStaticAmount,
+          qrisDynamic: m.qrisDynamicAmount,
+          voucher: m.voucherAmount
+        })).sort((a, b) => b.date.localeCompare(a.date)); // Sort descending
+        setSalesData(tableData);
+
         const totalRevenue = filtered.reduce((sum, m) => sum + m.totalRevenue, 0);
         const totalReceipts = filtered.reduce((sum, m) => sum + m.totalReceipts, 0);
 
@@ -200,17 +249,20 @@ export function ReportsPanel() {
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
-        const dateMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number }>();
+        const dateMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number; receipts: number }>();
         
         filtered.forEach(d => {
-          const existing = dateMap.get(d.businessDate) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0 };
+          const existing = dateMap.get(d.businessDate) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0, receipts: 0 };
           if (d.method === "cash") existing.cash += d.totalAmount;
           else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
           else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
           else if (d.method === "voucher") existing.voucher += d.totalAmount;
+          
+          existing.receipts += d.transactionCount; // Sum transactions for the day
           dateMap.set(d.businessDate, existing);
         });
 
+        // Chart data
         const chartData = Array.from(dateMap.entries())
           .sort((a, b) => a[0].localeCompare(b[0]))
           .map(([date, data]) => ({
@@ -218,6 +270,20 @@ export function ReportsPanel() {
             ...data
           }));
         setSalesChartData(chartData);
+
+        // Table data
+        const tableData = Array.from(dateMap.entries())
+          .map(([date, data]) => ({
+            date,
+            revenue: data.cash + data.qrisStatic + data.qrisDynamic + data.voucher,
+            receipts: data.receipts,
+            cash: data.cash,
+            qrisStatic: data.qrisStatic,
+            qrisDynamic: data.qrisDynamic,
+            voucher: data.voucher
+          }))
+          .sort((a, b) => b.date.localeCompare(a.date)); // Sort descending
+        setSalesData(tableData);
 
         let totalReceipts = 0;
         let totalRevenue = 0;
@@ -249,7 +315,7 @@ export function ReportsPanel() {
       const useMonthly = daysDiff > 31;
       console.log("⏱️ Days diff:", daysDiff, "Use monthly:", useMonthly);
 
-      const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
+      const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
 
       if (useMonthly) {
         const startMonth = startDate.substring(0, 7);
@@ -264,9 +330,10 @@ export function ReportsPanel() {
         console.log("✅ Filtered monthly records:", filtered.length);
         
         filtered.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
           existing.quantity += item.totalQuantity;
           existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
           itemMap.set(item.itemId, existing);
         });
       } else {
@@ -288,42 +355,52 @@ export function ReportsPanel() {
         }
         
         filtered.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
           existing.quantity += item.totalQuantity;
           existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
           itemMap.set(item.itemId, existing);
         });
       }
 
       console.log("🗺️ ItemMap size:", itemMap.size);
-      console.log("🗺️ ItemMap contents:", Array.from(itemMap.entries()));
-
+      
       // Sort by selected criteria
-      const sorted = Array.from(itemMap.values()).sort((a, b) => 
+      const allItems = Array.from(itemMap.values());
+      const sorted = allItems.sort((a, b) => 
         sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
       );
       
       console.log("📊 Sorted items count:", sorted.length);
       
-      const topN = sorted.slice(0, itemTopN);
+      const topNItems = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
       
-      const result = topN.map(item => ({
+      // For Chart
+      const chartResult = topNItems.map(item => ({
         itemName: item.name,
         quantity: item.quantity,
         revenue: item.revenue
       }));
       
       if (others.length > 0) {
-        result.push({
+        chartResult.push({
           itemName: "Other Items",
           quantity: others.reduce((sum, item) => sum + item.quantity, 0),
           revenue: others.reduce((sum, item) => sum + item.revenue, 0)
         });
       }
-      
-      console.log("✅ Final topItems result:", result);
-      setTopItems(result);
+      setTopItems(chartResult);
+
+      // For Table (Detailed top items)
+      const tableData = topNItems.map(item => ({
+        name: item.name,
+        value: item.quantity, // quantity
+        revenue: item.revenue,
+        transactionCount: item.transactions
+      }));
+      setTopItemsData(tableData);
+
     } catch (error) {
       console.error("❌ Error loading items report:", error);
     }
@@ -488,6 +565,82 @@ export function ReportsPanel() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Sales Data Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Table2 className="h-5 w-5" />
+                {useMonthly ? t.reports.monthlySalesData : t.reports.dailySalesData}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {salesData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t.reports.noData}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b">
+                      <tr className="text-left">
+                        <th className="pb-2 font-semibold">{useMonthly ? t.reports.month : t.reports.date}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.revenue}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.receipts}</th>
+                        <th className="pb-2 font-semibold text-right">{t.common.cash}</th>
+                        <th className="pb-2 font-semibold text-right">{t.common.qrisStatic}</th>
+                        <th className="pb-2 font-semibold text-right">{t.common.qrisDynamic}</th>
+                        <th className="pb-2 font-semibold text-right">{t.common.voucher}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {salesData.map((item, index) => (
+                        <tr key={index} className="border-b last:border-0">
+                          <td className="py-2">
+                            {useMonthly 
+                              ? new Date(item.date + "-01").toLocaleDateString(locale, { year: "numeric", month: "short" })
+                              : new Date(item.date).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })
+                            }
+                          </td>
+                          <td className="py-2 text-right font-medium">
+                            {formatCurrency(item.revenue)}
+                          </td>
+                          <td className="py-2 text-right">{item.receipts}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.cash)}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.qrisStatic)}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.qrisDynamic)}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.voucher)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 font-semibold">
+                      <tr>
+                        <td className="pt-2">{t.reports.total}</td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(salesData.reduce((sum, item) => sum + item.revenue, 0))}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {salesData.reduce((sum, item) => sum + item.receipts, 0)}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(salesData.reduce((sum, item) => sum + item.cash, 0))}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(salesData.reduce((sum, item) => sum + item.qrisStatic, 0))}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(salesData.reduce((sum, item) => sum + item.qrisDynamic, 0))}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(salesData.reduce((sum, item) => sum + item.voucher, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
@@ -592,6 +745,76 @@ export function ReportsPanel() {
                   </Button>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Items Data Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Table2 className="h-5 w-5" />
+                {t.reports.topItemsData} ({topN} {t.reports.items})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topItemsData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t.reports.noData}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="border-b">
+                      <tr className="text-left">
+                        <th className="pb-2 font-semibold">#</th>
+                        <th className="pb-2 font-semibold">{t.reports.itemName}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.quantity}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.revenue}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.transactions}</th>
+                        <th className="pb-2 font-semibold text-right">{t.reports.avgPerTransaction}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {topItemsData.map((item, index) => (
+                        <tr key={index} className="border-b last:border-0">
+                          <td className="py-2 text-muted-foreground">{index + 1}</td>
+                          <td className="py-2 font-medium">{item.name}</td>
+                          <td className="py-2 text-right">{item.value.toLocaleString()}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.revenue || 0)}</td>
+                          <td className="py-2 text-right">{item.transactionCount || 0}</td>
+                          <td className="py-2 text-right">
+                            {item.transactionCount 
+                              ? (item.value / item.transactionCount).toFixed(1)
+                              : "0"
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="border-t-2 font-semibold">
+                      <tr>
+                        <td className="pt-2" colSpan={2}>{t.reports.total}</td>
+                        <td className="pt-2 text-right">
+                          {topItemsData.reduce((sum, item) => sum + item.value, 0).toLocaleString()}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {formatCurrency(topItemsData.reduce((sum, item) => sum + (item.revenue || 0), 0))}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {topItemsData.reduce((sum, item) => sum + (item.transactionCount || 0), 0)}
+                        </td>
+                        <td className="pt-2 text-right">
+                          {topItemsData.length > 0
+                            ? (topItemsData.reduce((sum, item) => sum + item.value, 0) / 
+                               topItemsData.reduce((sum, item) => sum + (item.transactionCount || 0), 0)).toFixed(1)
+                            : "0"
+                          }
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
