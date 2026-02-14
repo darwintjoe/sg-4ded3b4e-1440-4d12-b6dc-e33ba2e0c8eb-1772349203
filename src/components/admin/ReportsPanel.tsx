@@ -309,21 +309,66 @@ export function ReportsPanel() {
 
   const loadItemsReport = async () => {
     try {
-      console.log("📊 Starting loadItemsReport...");
+      console.log("🔍 Items report triggered - Range:", itemsTimeRange, "TopN:", itemTopN, "Sort:", sortBy);
       
-      const { startDate, endDate } = getItemsDateRange();
-      console.log("📅 Date range:", startDate, "to", endDate);
-      
-      const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
-      const useMonthly = daysDiff > 31;
-      console.log("⏱️ Days diff:", daysDiff, "Use monthly:", useMonthly);
+      const today = new Date();
+      let startDate: Date;
+      let useMonthly = false;
+
+      // Determine date range and whether to use monthly data
+      switch (itemsTimeRange) {
+        case "1d":
+          startDate = new Date(today);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "7d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case "1m":
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case "3m":
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 3);
+          useMonthly = true;
+          break;
+        case "6m":
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 6);
+          useMonthly = true;
+          break;
+        case "1y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          useMonthly = true;
+          break;
+        case "3y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 3);
+          useMonthly = true;
+          break;
+        case "5y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 5);
+          useMonthly = true;
+          break;
+        default:
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 1);
+      }
+
+      console.log("📅 Date range:", startDate.toISOString().split('T')[0], "to", today.toISOString().split('T')[0]);
+      console.log("🔄 Days diff:", Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)), "Use monthly:", useMonthly);
 
       const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
 
       if (useMonthly) {
-        const startMonth = startDate.substring(0, 7);
-        const endMonth = endDate.substring(0, 7);
+        const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
+        const endMonth = today.toISOString().split('T')[0].substring(0, 7);
         console.log("📆 Monthly range:", startMonth, "to", endMonth);
+        console.log("🔍 Querying monthlyItemSales table...");
         
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
         console.log("📦 Total monthly records in DB:", allMonthly.length);
@@ -340,15 +385,16 @@ export function ReportsPanel() {
           itemMap.set(item.itemId, existing);
         });
       } else {
-        console.log("📆 Daily range:", startDate, "to", endDate);
+        console.log("📆 Daily range:", startDate.toISOString().split('T')[0], "to", today.toISOString().split('T')[0]);
+        console.log("🔍 Querying dailyItemSales table...");
         
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
         console.log("📦 Total daily records in DB:", allDaily.length);
         console.log("📦 Sample daily record:", allDaily[0]);
         
         const filtered = allDaily.filter(d => {
-          const hasBusinessDate = d.businessDate >= startDate && d.businessDate <= endDate;
-          const hasDateField = (d as any).date >= startDate && (d as any).date <= endDate;
+          const hasBusinessDate = d.businessDate >= startDate.toISOString().split('T')[0] && d.businessDate <= today.toISOString().split('T')[0];
+          const hasDateField = (d as any).date >= startDate.toISOString().split('T')[0] && (d as any).date <= today.toISOString().split('T')[0];
           return hasBusinessDate || hasDateField;
         });
         console.log("✅ Filtered daily records:", filtered.length);
