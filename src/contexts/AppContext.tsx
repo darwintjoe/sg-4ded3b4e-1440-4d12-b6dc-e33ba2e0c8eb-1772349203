@@ -313,55 +313,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (itemsCount > 0) {
         console.log("📦 Sample data injection skipped (items exist)");
         
-        // Check if data needs migration (old 'date' field instead of 'businessDate')
-        const dailyRecords = await db.getAll<any>("dailyItemSales");
+        // Check if monthly data is sufficient (need 26 months = ~520 records for 20 items)
+        const monthlyCount = await db.count("monthlyItemSales");
+        console.log(`📊 Current monthlyItemSales records: ${monthlyCount}`);
         
-        if (dailyRecords.length > 0) {
-          const firstRecord = dailyRecords[0];
-          console.log("🔍 Checking data format...", {
-            totalRecords: dailyRecords.length,
-            hasBusinessDate: "businessDate" in firstRecord,
-            hasDate: "date" in firstRecord,
-          });
-
-          // Check if old format OR insufficient data
-          if ("date" in firstRecord && !("businessDate" in firstRecord)) {
-            console.log("🔄 Migrating old data format to new format...");
-            console.log("🗑️ Clearing dailyItemSales...");
-            await db.clear("dailyItemSales");
-            console.log("🗑️ Clearing dailyPaymentSales...");
-            await db.clear("dailyPaymentSales");
-            console.log("🗑️ Clearing monthlyItemSales...");
-            await db.clear("monthlyItemSales");
-            console.log("🗑️ Clearing monthlySalesSummary...");
-            await db.clear("monthlySalesSummary");
-            console.log("✅ Old data cleared, re-injecting with correct fields...");
-            // Continue to injection below
-          } else if (dailyRecords.length < 100) {
-            console.log("⚠️ Insufficient data detected (only " + dailyRecords.length + " records)");
-            console.log("🗑️ Clearing and re-injecting full dataset...");
-            await db.clear("dailyItemSales");
-            await db.clear("dailyPaymentSales");
-            await db.clear("monthlyItemSales");
-            await db.clear("monthlySalesSummary");
-            // Continue to injection below
-          } else {
-            console.log("✅ Data format correct and sufficient, skipping migration");
-            return; // Data is correct, skip re-injection
-          }
+        if (monthlyCount < 500) {
+          console.log("⚠️ Insufficient monthly data detected (need 520, have " + monthlyCount + ")");
+          console.log("🗑️ Clearing and re-injecting full 26-month dataset...");
+          await db.clear("monthlyItemSales");
+          await db.clear("monthlyPaymentSales");
+          await db.clear("monthlySalesSummary");
+          // Fall through to re-injection below
         } else {
-          console.log("📦 No existing data, starting fresh injection...");
+          console.log("✅ Monthly data sufficient, skipping injection");
+          return; // Data is correct, skip re-injection
         }
       }
 
       console.log("📦 Injecting Sample Store Data...");
       setLoadingStatus("Injecting sample data...");
 
-      // 1. Inject Items
-      for (const item of generateSampleItems()) {
-        await db.add("items", { ...item, createdAt: Date.now() });
+      // 1. Inject Items (only if itemsCount was 0)
+      if (itemsCount === 0) {
+        for (const item of generateSampleItems()) {
+          await db.add("items", { ...item, createdAt: Date.now() });
+        }
+        console.log(`✅ Added ${generateSampleItems().length} items`);
       }
-      console.log(`✅ Added ${generateSampleItems().length} items`);
 
       // 2. Inject Employees (skip if exist)
       for (const emp of generateSampleEmployees()) {
@@ -376,7 +354,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await db.put("settings", getDefaultSettings());
       console.log(`✅ Updated settings`);
 
-      // 4. Inject Sales Summary Data (Daily & Monthly)
+      // 4. Inject Sales Summary Data (Daily & Monthly) - ALWAYS if we got here
       console.log("📊 Generating summary data...");
       const { 
         dailyItemSales, 
@@ -396,27 +374,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await db.upsertDailyPaymentSales(item);
       }
 
-      // NEW: Inject monthly data
+      // Inject monthly data
       console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
-      // Clear existing monthly data to avoid duplicates/conflicts during regen
-      await db.clear("monthlyItemSales");
       for (const item of monthlyItemSales) {
         await db.add("monthlyItemSales", item);
       }
 
       console.log(`📊 Injecting ${monthlyPaymentSales.length} monthly payment sales records...`);
-      await db.clear("monthlyPaymentSales");
       for (const item of monthlyPaymentSales) {
         await db.add("monthlyPaymentSales", item);
       }
 
       console.log(`📊 Injecting ${monthlySalesSummary.length} monthly sales summary records...`);
-      await db.clear("monthlySalesSummary");
       for (const item of monthlySalesSummary) {
         await db.add("monthlySalesSummary", item);
       }
       
-      console.log("✅ Summary data injection complete!");
+      // Verify injection
+      const finalMonthlyCount = await db.count("monthlyItemSales");
+      console.log(`✅ Summary data injection complete! Final monthlyItemSales count: ${finalMonthlyCount}`);
+      
+      if (finalMonthlyCount < 500) {
+        console.error("❌ Monthly data injection failed! Expected ~520, got " + finalMonthlyCount);
+      }
     } catch (error) {
       console.error("Sample data injection failed:", error);
     }
