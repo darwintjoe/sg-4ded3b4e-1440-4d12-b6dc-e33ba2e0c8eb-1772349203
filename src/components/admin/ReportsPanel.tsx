@@ -177,37 +177,39 @@ export function ReportsPanel() {
     switch (itemsTimeRange) {
       case "1d":
         startDate = today;
+        startDate.setHours(0, 0, 0, 0);
         break;
       case "7d":
         startDate = new Date(today);
-        startDate.setDate(today.getDate() - 7);
+        startDate.setDate(startDate.getDate() - 7);
         break;
       case "1m":
         startDate = new Date(today);
-        startDate.setMonth(today.getMonth() - 1);
+        startDate.setMonth(startDate.getMonth() - 1);
         break;
       case "3m":
         startDate = new Date(today);
-        startDate.setMonth(today.getMonth() - 3);
+        startDate.setMonth(startDate.getMonth() - 3);
         break;
       case "6m":
         startDate = new Date(today);
-        startDate.setMonth(today.getMonth() - 6);
+        startDate.setMonth(startDate.getMonth() - 6);
         break;
       case "1y":
         startDate = new Date(today);
-        startDate.setFullYear(today.getFullYear() - 1);
+        startDate.setFullYear(startDate.getFullYear() - 1);
         break;
       case "3y":
         startDate = new Date(today);
-        startDate.setFullYear(today.getFullYear() - 3);
+        startDate.setFullYear(startDate.getFullYear() - 3);
         break;
       case "5y":
         startDate = new Date(today);
-        startDate.setFullYear(today.getFullYear() - 5);
+        startDate.setFullYear(startDate.getFullYear() - 5);
         break;
       default:
-        startDate = today;
+        startDate = new Date(today);
+        startDate.setMonth(startDate.getMonth() - 1);
     }
 
     return {
@@ -568,37 +570,37 @@ export function ReportsPanel() {
       <div className="flex-1 overflow-y-auto p-4">
         <TabsContent value="sales" className="space-y-4 mt-0">
           {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="pt-2 pb-2 px-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">{t.reports.totalRevenue}</p>
-                    <p className="text-xl font-bold">{formatCurrency(salesStats.totalRevenue)}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalRevenue}</p>
+                    <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.totalRevenue)}</p>
                   </div>
-                  <DollarSign className="h-6 w-6 text-muted-foreground" />
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="pt-2 pb-2 px-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">{t.reports.totalReceipts}</p>
-                    <p className="text-xl font-bold">{salesStats.totalReceipts}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalReceipts}</p>
+                    <p className="text-sm font-bold leading-tight mt-0.5">{salesStats.totalReceipts}</p>
                   </div>
-                  <Receipt className="h-6 w-6 text-muted-foreground" />
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="pt-2 pb-2 px-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground">{t.reports.avgTransaction}</p>
-                    <p className="text-xl font-bold">{formatCurrency(salesStats.avgTransaction)}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.avgTransaction}</p>
+                    <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.avgTransaction)}</p>
                   </div>
-                  <TrendingUp className="h-6 w-6 text-muted-foreground" />
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
@@ -606,29 +608,29 @@ export function ReportsPanel() {
 
           {/* Chart */}
           <Card>
-            <CardContent className="p-4">
-              <div className="space-y-6">
+            <CardContent className="p-2">
+              <div className="space-y-3">
                 {/* Payment Methods Breakdown */}
                 <div>
-                  <h4 className="text-xs font-medium mb-3">{t.reports.paymentBreakdown}</h4>
-                  <div className="h-48">
+                  <h4 className="text-[10px] font-medium mb-2">{t.reports.paymentBreakdown}</h4>
+                  <div className="h-40">
                     <StackedBarChart
                       data={salesChartData}
-                      height={192}
+                      height={160}
                     />
                   </div>
                 </div>
               </div>
               
               {/* Time Range Switcher */}
-              <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+              <div className="flex justify-center gap-1 mt-3 pt-3 border-t">
                 {(["mtd", "lm", "ytd", "ly", "5y"] as SalesTimeRange[]).map((range) => (
                   <Button
                     key={range}
                     variant={salesTimeRange === range ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setSalesTimeRange(range)}
-                    className="h-8 px-3 text-xs"
+                    className="h-6 px-2 text-[10px] uppercase"
                   >
                     {range === "mtd" ? "MTD" : range === "lm" ? "LM" : range === "ytd" ? "YTD" : range === "ly" ? "LY" : "5Y"}
                   </Button>
@@ -638,57 +640,59 @@ export function ReportsPanel() {
           </Card>
 
           {/* Sales Data Table */}
-          <Card className="mt-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Table2 className="h-4 w-4" />
+          <Card className="mt-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium flex items-center gap-2">
+                <Table2 className="h-3 w-3" />
                 {isSalesMonthlyView ? t.reports.monthlySalesData : t.reports.dailySalesData}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2">
               {salesData.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs font-medium">{isSalesMonthlyView ? t.reports.month : t.reports.date}</TableHead>
-                        <TableHead className="text-right text-xs font-medium">{t.reports.revenue}</TableHead>
-                        <TableHead className="text-right text-xs font-medium">{t.reports.receipts}</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Cash</TableHead>
-                        <TableHead className="text-right text-xs font-medium">QRIS-S</TableHead>
-                        <TableHead className="text-right text-xs font-medium">QRIS-D</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Voucher</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {salesData.map((row, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs font-medium">{row.period}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(row.revenue)}</TableCell>
-                          <TableCell className="text-right text-xs">{row.receipts}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(row.cash)}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(row.qrisStatic)}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(row.qrisDynamic)}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(row.voucher)}</TableCell>
+                <div className="overflow-x-auto -mx-2">
+                  <div className="inline-block min-w-full align-middle">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b">
+                          <TableHead className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{isSalesMonthlyView ? t.reports.month : t.reports.date}</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rcpt</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Cash</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-S</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-D</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Vchr</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell className="text-xs font-semibold">Total</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(salesData.reduce((sum, row) => sum + row.revenue, 0))}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{salesData.reduce((sum, row) => sum + row.receipts, 0)}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(salesData.reduce((sum, row) => sum + row.cash, 0))}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisStatic, 0))}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisDynamic, 0))}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(salesData.reduce((sum, row) => sum + row.voucher, 0))}</TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {salesData.map((row, idx) => (
+                          <TableRow key={idx} className="border-b hover:bg-muted/50">
+                            <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.date}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.revenue)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{row.receipts}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.cash)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisStatic)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisDynamic)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.voucher)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow className="bg-muted/50">
+                          <TableCell className="text-[10px] font-bold py-1 px-2">Total</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.revenue, 0))}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{salesData.reduce((sum, row) => sum + row.receipts, 0)}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.cash, 0))}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisStatic, 0))}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisDynamic, 0))}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.voucher, 0))}</TableCell>
+                        </TableRow>
+                      </TableFooter>
+                    </Table>
+                  </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  No data available for the selected period
+                <p className="text-[10px] text-muted-foreground text-center py-6">
+                  {t.reports.noData}
                 </p>
               )}
             </CardContent>
@@ -698,16 +702,16 @@ export function ReportsPanel() {
         <TabsContent value="items" className="space-y-4 mt-0">
           {/* Chart Card */}
           <Card>
-            <CardContent className="p-4 relative">
+            <CardContent className="p-2 relative">
               {/* Floating Controls - Top Right */}
-              <div className="absolute top-2 right-2 z-10 flex flex-col gap-2">
+              <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
                 {/* Chart Type Selector */}
-                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                   <Button
                     variant={chartView === "bar" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setChartView("bar")}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     Bar
                   </Button>
@@ -715,19 +719,19 @@ export function ReportsPanel() {
                     variant={chartView === "pie" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setChartView("pie")}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     Pie
                   </Button>
                 </div>
 
                 {/* Sort Selector */}
-                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                   <Button
                     variant={sortBy === "quantity" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setSortBy("quantity")}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     Qty
                   </Button>
@@ -735,19 +739,19 @@ export function ReportsPanel() {
                     variant={sortBy === "revenue" ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setSortBy("revenue")}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     $$
                   </Button>
                 </div>
 
                 {/* Top N Selector */}
-                <div className="flex gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-lg p-1 shadow-sm">
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                   <Button
                     variant={itemTopN === 10 ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setItemTopN(10)}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     10
                   </Button>
@@ -755,7 +759,7 @@ export function ReportsPanel() {
                     variant={itemTopN === 20 ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setItemTopN(20)}
-                    className="h-7 px-2 text-xs"
+                    className="h-5 px-1.5 text-[9px]"
                   >
                     20
                   </Button>
@@ -763,24 +767,24 @@ export function ReportsPanel() {
               </div>
 
               {/* Chart Area */}
-              <div className="h-[200px] w-full">
+              <div className="h-[160px] w-full">
                 {chartView === "bar" ? (
                   <div>
-                    <h4 className="text-xs font-medium mb-3">{t.reports.topItemsByQuantity}</h4>
-                    <div className="h-48">
+                    <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByQuantity}</h4>
+                    <div className="h-36">
                       <HorizontalBarChart
                         data={barChartData}
-                        height={192}
+                        height={144}
                       />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <h4 className="text-xs font-medium mb-3">{t.reports.topItemsByRevenue}</h4>
-                    <div className="h-48">
+                    <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByRevenue}</h4>
+                    <div className="h-36">
                       <PieChart
                         data={pieChartData}
-                        height={192}
+                        height={144}
                       />
                     </div>
                   </div>
@@ -788,14 +792,14 @@ export function ReportsPanel() {
               </div>
 
               {/* Time Range Buttons */}
-              <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+              <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
                 {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
                   <Button
                     key={range}
                     variant={itemsTimeRange === range ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setItemsTimeRange(range)}
-                    className="h-8 px-3 text-xs uppercase"
+                    className="h-6 px-2 text-[10px] uppercase"
                   >
                     {range}
                   </Button>
@@ -805,55 +809,57 @@ export function ReportsPanel() {
           </Card>
 
           {/* Items Data Table */}
-          <Card className="mt-6">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Table2 className="h-4 w-4" />
+          <Card className="mt-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-medium flex items-center gap-2">
+                <Table2 className="h-3 w-3" />
                 {t.reports.topItemsData} ({itemTopN} Items)
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2">
               {topItemsData.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12 text-xs font-medium">#</TableHead>
-                        <TableHead className="text-xs font-medium">Item</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Qty</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Revenue</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Trans</TableHead>
-                        <TableHead className="text-right text-xs font-medium">Avg/Tx</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {topItemsData.map((item, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs font-medium">{idx + 1}</TableCell>
-                          <TableCell className="text-xs">{item.name}</TableCell>
-                          <TableCell className="text-right text-xs">{item.quantity}</TableCell>
-                          <TableCell className="text-right text-xs">{formatCurrency(item.revenue)}</TableCell>
-                          <TableCell className="text-right text-xs">{item.transactionCount}</TableCell>
-                          <TableCell className="text-right text-xs">{(item.quantity / item.transactionCount).toFixed(1)}</TableCell>
+                <div className="overflow-x-auto -mx-2">
+                  <div className="inline-block min-w-full align-middle">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b">
+                          <TableHead className="w-8 text-[10px] font-medium py-1 px-2">#</TableHead>
+                          <TableHead className="text-[10px] font-medium py-1 px-2 min-w-[100px]">Item</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Qty</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Tx</TableHead>
+                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Avg</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-xs font-semibold">Total</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{topItemsData.reduce((sum, item) => sum + item.quantity, 0)}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
-                        <TableCell className="text-right text-xs font-semibold">
-                          {(topItemsData.reduce((sum, item) => sum + item.quantity, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
-                        </TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {topItemsData.map((item, idx) => (
+                          <TableRow key={idx} className="border-b hover:bg-muted/50">
+                            <TableCell className="text-[10px] font-medium py-1 px-2">{idx + 1}</TableCell>
+                            <TableCell className="text-[10px] py-1 px-2 truncate max-w-[150px]">{item.name}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{item.quantity}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(item.revenue)}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{item.transactionCount}</TableCell>
+                            <TableCell className="text-right text-[10px] py-1 px-2">{(item.quantity / item.transactionCount).toFixed(1)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow className="bg-muted/50">
+                          <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.quantity, 0)}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
+                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">
+                            {(topItemsData.reduce((sum, item) => sum + item.quantity, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
+                          </TableCell>
+                        </TableRow>
+                      </TableFooter>
+                    </Table>
+                  </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  No data available for the selected period
+                <p className="text-[10px] text-muted-foreground text-center py-6">
+                  {t.reports.noData}
                 </p>
               )}
             </CardContent>
