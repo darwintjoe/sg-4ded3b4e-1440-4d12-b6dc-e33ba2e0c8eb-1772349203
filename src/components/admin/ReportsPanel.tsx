@@ -1,195 +1,135 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
-import { translate } from "@/lib/translations";
 import { useApp } from "@/contexts/AppContext";
-import { BarChart3, Calendar, Users, DollarSign, TrendingUp, Download, Zap, Printer, Clock } from "lucide-react";
+import { Download, Printer } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
-import { LineChart } from "@/components/charts/LineChart";
 
-type DateRange = "today" | "week" | "month" | "year" | "custom";
+type SalesTimeRange = "mtd" | "ytd" | "5y";
+type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
+type AttendanceTimeRange = "mtd" | "ytd";
 
 export function ReportsPanel() {
   const { language } = useApp();
-  const [dateRange, setDateRange] = useState<DateRange>("today");
-  const [customStart, setCustomStart] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
-  const [customEnd, setCustomEnd] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
 
-  // Chart data
+  // Sales state
+  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
   const [salesChartData, setSalesChartData] = useState<any[]>([]);
-  const [chartViewMode, setChartViewMode] = useState<"daily" | "monthly">("daily");
-
-  // Sales data
   const [salesStats, setSalesStats] = useState({
     totalRevenue: 0,
     totalReceipts: 0,
-    avgTransaction: 0,
-    paymentBreakdown: {
-      cash: 0,
-      qrisStatic: 0,
-      qrisDynamic: 0,
-      voucher: 0
-    }
+    avgTransaction: 0
   });
 
-  // Top items
+  // Items state
+  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
+  const [itemTopN, setItemTopN] = useState<10 | 20>(10);
   const [topItems, setTopItems] = useState<Array<{
     itemName: string;
     quantity: number;
     revenue: number;
   }>>([]);
 
-  // Item report controls
-  const [itemTopN, setItemTopN] = useState<10 | 20>(10);
-  const [itemMetric, setItemMetric] = useState<"quantity" | "revenue">("quantity");
-  const [itemChartType, setItemChartType] = useState<"pie" | "bar">("bar");
-  const [itemTimeRange, setItemTimeRange] = useState<"daily" | "mtd" | "ytd">("mtd");
-
-  // Attendance stats
-  const [attendanceStats, setAttendanceStats] = useState({
-    totalEmployees: 0,
-    totalHours: 0,
-    avgHoursPerEmployee: 0,
-    lateCount: 0,
-    shiftBreakdown: {} as Record<string, number>
-  });
-
-  // Attendance time range
-  const [attendanceTimeRange, setAttendanceTimeRange] = useState<"mtd" | "ytd">("mtd");
-
-  // Revenue trend data
-  const [revenueTrendData, setRevenueTrendData] = useState<Array<{ name: string; value: number }>>([]);
-  const [trendInsight, setTrendInsight] = useState<string>("");
+  // Attendance state
+  const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
+  const [attendanceData, setAttendanceData] = useState<Array<{
+    employeeName: string;
+    totalHours: number;
+    daysWorked: number;
+    lateCount: number;
+  }>>([]);
 
   useEffect(() => {
-    loadReports();
-  }, [dateRange, customStart, customEnd, itemTopN, itemMetric, itemTimeRange, attendanceTimeRange]);
+    loadSalesReport();
+  }, [salesTimeRange]);
 
-  const getDateRangeBounds = (): { startDate: string; endDate: string } => {
+  useEffect(() => {
+    loadItemsReport();
+  }, [itemsTimeRange, itemTopN]);
+
+  useEffect(() => {
+    loadAttendanceReport();
+  }, [attendanceTimeRange]);
+
+  const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean } => {
     const today = new Date().toISOString().split("T")[0];
     
-    switch (dateRange) {
-      case "today":
-        return { startDate: today, endDate: today };
-      
-      case "week": {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return { startDate: weekAgo.toISOString().split("T")[0], endDate: today };
-      }
-      
-      case "month": {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        return { startDate: monthAgo.toISOString().split("T")[0], endDate: today };
-      }
-      
-      case "year": {
-        const yearAgo = new Date();
-        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-        return { startDate: yearAgo.toISOString().split("T")[0], endDate: today };
-      }
-      
-      case "custom":
-        return { startDate: customStart, endDate: customEnd };
-      
+    if (salesTimeRange === "mtd") {
+      const monthStart = today.substring(0, 8) + "01";
+      return { startDate: monthStart, endDate: today, useMonthly: false };
+    } else if (salesTimeRange === "ytd") {
+      const yearStart = today.substring(0, 4) + "-01-01";
+      return { startDate: yearStart, endDate: today, useMonthly: true };
+    } else {
+      // 5y
+      const fiveYearsAgo = new Date();
+      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+      return { startDate: fiveYearsAgo.toISOString().split("T")[0], endDate: today, useMonthly: true };
+    }
+  };
+
+  const getItemsDateRange = (): { startDate: string; endDate: string } => {
+    const today = new Date();
+    let startDate: Date;
+
+    switch (itemsTimeRange) {
+      case "1d":
+        startDate = today;
+        break;
+      case "7d":
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 7);
+        break;
+      case "1m":
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - 1);
+        break;
+      case "3m":
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - 3);
+        break;
+      case "6m":
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - 6);
+        break;
+      case "1y":
+        startDate = new Date(today);
+        startDate.setFullYear(today.getFullYear() - 1);
+        break;
+      case "3y":
+        startDate = new Date(today);
+        startDate.setFullYear(today.getFullYear() - 3);
+        break;
+      case "5y":
+        startDate = new Date(today);
+        startDate.setFullYear(today.getFullYear() - 5);
+        break;
       default:
-        return { startDate: today, endDate: today };
+        startDate = today;
     }
+
+    return {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: today.toISOString().split("T")[0]
+    };
   };
 
-  const loadRevenueTrend = async () => {
+  const loadSalesReport = async () => {
     try {
-      // Get last 30 days of revenue data
-      const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-      
-      const startDate = thirtyDaysAgo.toISOString().split("T")[0];
-      const endDate = today.toISOString().split("T")[0];
-      
-      const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-      const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
-      
-      // Group by date
-      const dateMap = new Map<string, number>();
-      filtered.forEach(d => {
-        const existing = dateMap.get(d.businessDate) || 0;
-        dateMap.set(d.businessDate, existing + d.totalAmount);
-      });
-      
-      // Convert to array and sort
-      const trendData = Array.from(dateMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([date, value]) => ({
-          name: date.substring(5), // MM-DD format
-          value
-        }));
-      
-      setRevenueTrendData(trendData);
-      
-      // Calculate trend insight
-      if (trendData.length >= 14) {
-        const lastWeek = trendData.slice(-7);
-        const prevWeek = trendData.slice(-14, -7);
-        
-        const lastWeekAvg = lastWeek.reduce((sum, d) => sum + d.value, 0) / lastWeek.length;
-        const prevWeekAvg = prevWeek.reduce((sum, d) => sum + d.value, 0) / prevWeek.length;
-        
-        const change = ((lastWeekAvg - prevWeekAvg) / prevWeekAvg) * 100;
-        
-        if (change > 5) {
-          setTrendInsight(`📈 Revenue growing ${change.toFixed(1)}% week-over-week`);
-        } else if (change < -5) {
-          setTrendInsight(`📉 Revenue declining ${Math.abs(change).toFixed(1)}% week-over-week`);
-        } else {
-          setTrendInsight(`📊 Revenue stable (${change > 0 ? '+' : ''}${change.toFixed(1)}% change)`);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading revenue trend:", error);
-    }
-  };
+      const { startDate, endDate, useMonthly } = getSalesDateRange();
 
-  const loadReports = async () => {
-    const { startDate, endDate } = getDateRangeBounds();
-    
-    // Determine if we should query daily or monthly summaries
-    const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
-    const useMonthly = daysDiff > 31;
-
-    await Promise.all([
-      loadSalesReport(startDate, endDate, useMonthly),
-      loadTopItems(startDate, endDate, useMonthly),
-      loadAttendanceReport(startDate, endDate, useMonthly),
-      loadRevenueTrend()
-    ]);
-  };
-
-  const loadSalesReport = async (startDate: string, endDate: string, useMonthly: boolean) => {
-    try {
-      setChartViewMode(useMonthly ? "monthly" : "daily");
-      
       if (useMonthly) {
-        // Query monthly summaries for fast multi-year reports
         const startMonth = startDate.substring(0, 7);
         const endMonth = endDate.substring(0, 7);
         
         const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
         const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
         
-        // Prepare chart data
         const chartData = filtered.map(m => ({
           name: m.month,
           cash: m.cashAmount,
@@ -201,29 +141,17 @@ export function ReportsPanel() {
         
         const totalRevenue = filtered.reduce((sum, m) => sum + m.totalRevenue, 0);
         const totalReceipts = filtered.reduce((sum, m) => sum + m.totalReceipts, 0);
-        
-        const paymentBreakdown = {
-          cash: filtered.reduce((sum, m) => sum + m.cashAmount, 0),
-          qrisStatic: filtered.reduce((sum, m) => sum + m.qrisStaticAmount, 0),
-          qrisDynamic: filtered.reduce((sum, m) => sum + m.qrisDynamicAmount, 0),
-          voucher: filtered.reduce((sum, m) => sum + m.voucherAmount, 0)
-        };
 
         setSalesStats({
           totalRevenue,
           totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0,
-          paymentBreakdown
+          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
         });
       } else {
-        // Query daily summaries for short date ranges
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
-        // Group by date for chart
         const dateMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number }>();
-        
-        // Initialize all dates in range with 0 (optional, skipping for brevity but good for continuous chart)
         
         filtered.forEach(d => {
           const existing = dateMap.get(d.businessDate) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0 };
@@ -237,36 +165,23 @@ export function ReportsPanel() {
         const chartData = Array.from(dateMap.entries())
           .sort((a, b) => a[0].localeCompare(b[0]))
           .map(([date, data]) => ({
-            name: date.substring(5), // Show MM-DD
+            name: date.substring(5),
             ...data
           }));
         setSalesChartData(chartData);
 
-        const paymentBreakdown = {
-          cash: 0,
-          qrisStatic: 0,
-          qrisDynamic: 0,
-          voucher: 0
-        };
-
         let totalReceipts = 0;
+        let totalRevenue = 0;
 
         filtered.forEach(payment => {
-          if (payment.method === "cash") paymentBreakdown.cash += payment.totalAmount;
-          else if (payment.method === "qris-static") paymentBreakdown.qrisStatic += payment.totalAmount;
-          else if (payment.method === "qris-dynamic") paymentBreakdown.qrisDynamic += payment.totalAmount;
-          else if (payment.method === "voucher") paymentBreakdown.voucher += payment.totalAmount;
-          
+          totalRevenue += payment.totalAmount;
           totalReceipts += payment.transactionCount;
         });
-
-        const totalRevenue = Object.values(paymentBreakdown).reduce((sum, val) => sum + val, 0);
 
         setSalesStats({
           totalRevenue,
           totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0,
-          paymentBreakdown
+          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
         });
       }
     } catch (error) {
@@ -274,18 +189,20 @@ export function ReportsPanel() {
     }
   };
 
-  const loadTopItems = async (startDate: string, endDate: string, useMonthly: boolean) => {
+  const loadItemsReport = async () => {
     try {
+      const { startDate, endDate } = getItemsDateRange();
+      const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
+      const useMonthly = daysDiff > 31;
+
+      const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
+
       if (useMonthly) {
-        // Query monthly item sales for multi-year ranges
         const startMonth = startDate.substring(0, 7);
         const endMonth = endDate.substring(0, 7);
         
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
         const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
-        
-        // Aggregate by itemId
-        const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
         
         filtered.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
@@ -293,688 +210,298 @@ export function ReportsPanel() {
           existing.revenue += item.totalRevenue;
           itemMap.set(item.itemId, existing);
         });
-        
-        // Sort by selected metric
-        const sortKey = itemMetric === "quantity" ? "quantity" : "revenue";
-        const sorted = Array.from(itemMap.values()).sort((a, b) => b[sortKey] - a[sortKey]);
-        
-        // Take top N and aggregate the rest as "Other Items"
-        const topN = sorted.slice(0, itemTopN);
-        const others = sorted.slice(itemTopN);
-        
-        const result = topN.map(item => ({
-          itemName: item.name,
-          quantity: item.quantity,
-          revenue: item.revenue
-        }));
-        
-        // Add "Other Items" if there are more items
-        if (others.length > 0) {
-          result.push({
-            itemName: "🔹 Other Items",
-            quantity: others.reduce((sum, item) => sum + item.quantity, 0),
-            revenue: others.reduce((sum, item) => sum + item.revenue, 0)
-          });
-        }
-        
-        setTopItems(result);
       } else {
-        // FIX: Properly implement two-tier query for different time ranges
-        const today = new Date().toISOString().split("T")[0];
-        const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
+        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
         
-        if (itemTimeRange === "daily") {
-          // TODAY: Query TIER 1 only for today
-          const dailyData = await db.searchByIndex<DailyItemSales>(
-            "dailyItemSales",
-            "businessDate",
-            today
-          );
-          
-          dailyData.forEach(item => {
-            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
-            existing.quantity += item.totalQuantity;
-            existing.revenue += item.totalRevenue;
-            itemMap.set(item.itemId, existing);
-          });
-          
-        } else if (itemTimeRange === "mtd") {
-          // MTD: Query TIER 1 for current month
-          const monthStart = today.substring(0, 8) + "01";
-          const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-          const filtered = allDaily.filter(d => d.businessDate >= monthStart && d.businessDate <= today);
-          
-          filtered.forEach(item => {
-            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
-            existing.quantity += item.totalQuantity;
-            existing.revenue += item.totalRevenue;
-            itemMap.set(item.itemId, existing);
-          });
-          
-        } else {
-          // YTD: Use TWO-TIER architecture
-          const yearStart = today.substring(0, 4) + "-01-01";
-          const currentMonth = today.substring(0, 7);
-          
-          // TIER 2: Get complete months (all months except current)
-          const monthlyData = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-          const completeMonths = monthlyData.filter(m => 
-            m.month >= yearStart.substring(0, 7) && 
-            m.month < currentMonth
-          );
-          
-          // Add complete months from TIER 2
-          completeMonths.forEach(item => {
-            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
-            existing.quantity += item.totalQuantity;
-            existing.revenue += item.totalRevenue;
-            itemMap.set(item.itemId, existing);
-          });
-          
-          // TIER 1: Get current month-to-date from daily summaries
-          const monthStart = today.substring(0, 8) + "01";
-          const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-          const currentMonthDaily = allDaily.filter(d => 
-            d.businessDate >= monthStart && 
-            d.businessDate <= today
-          );
-          
-          // Add current month from TIER 1
-          currentMonthDaily.forEach(item => {
-            const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
-            existing.quantity += item.totalQuantity;
-            existing.revenue += item.totalRevenue;
-            itemMap.set(item.itemId, existing);
-          });
-        }
-        
-        // Sort by selected metric
-        const sortKey = itemMetric === "quantity" ? "quantity" : "revenue";
-        const sorted = Array.from(itemMap.values()).sort((a, b) => b[sortKey] - a[sortKey]);
-        
-        // Take top N and aggregate the rest as "Other Items"
-        const topN = sorted.slice(0, itemTopN);
-        const others = sorted.slice(itemTopN);
-        
-        const result = topN.map(item => ({
-          itemName: item.name,
-          quantity: item.quantity,
-          revenue: item.revenue
-        }));
-        
-        // Add "Other Items" if there are more items
-        if (others.length > 0) {
-          result.push({
-            itemName: "🔹 Other Items",
-            quantity: others.reduce((sum, item) => sum + item.quantity, 0),
-            revenue: others.reduce((sum, item) => sum + item.revenue, 0)
-          });
-        }
-        
-        setTopItems(result);
+        filtered.forEach(item => {
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          itemMap.set(item.itemId, existing);
+        });
       }
+
+      const sorted = Array.from(itemMap.values()).sort((a, b) => b.quantity - a[sortKey]);
+      const topN = sorted.slice(0, itemTopN);
+      const others = sorted.slice(itemTopN);
+      
+      const result = topN.map(item => ({
+        itemName: item.name,
+        quantity: item.quantity,
+        revenue: item.revenue
+      }));
+      
+      if (others.length > 0) {
+        result.push({
+          itemName: "Other Items",
+          quantity: others.reduce((sum, item) => sum + item.quantity, 0),
+          revenue: others.reduce((sum, item) => sum + item.revenue, 0)
+        });
+      }
+      
+      setTopItems(result);
     } catch (error) {
-      console.error("Error loading top items:", error);
+      console.error("Error loading items report:", error);
     }
   };
 
-  const loadAttendanceReport = async (startDate: string, endDate: string, useMonthly: boolean) => {
+  const loadAttendanceReport = async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
+      const startDate = attendanceTimeRange === "mtd" 
+        ? today.substring(0, 8) + "01"
+        : today.substring(0, 4) + "-01-01";
+
+      const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
+      const filtered = allDaily.filter(d => d.date >= startDate && d.date <= today);
       
-      // Override date range based on attendanceTimeRange
-      let actualStartDate: string;
-      const actualEndDate: string = today;
+      const employeeMap = new Map<number, { name: string; hours: number; days: number; late: number }>();
       
-      if (attendanceTimeRange === "mtd") {
-        actualStartDate = today.substring(0, 8) + "01"; // First day of current month
-      } else {
-        // ytd
-        actualStartDate = today.substring(0, 4) + "-01-01"; // First day of current year
-      }
-      
-      // Fetch raw attendance records for accurate shift breakdown
-      const allAttendance = await db.getAll<any>("attendance");
-      const filteredAttendance = allAttendance.filter(r => r.date >= actualStartDate && r.date <= actualEndDate);
-      
-      const shiftBreakdown: Record<string, number> = {};
-      filteredAttendance.forEach(r => {
-        const shiftName = r.assignedShift || "Unknown";
-        shiftBreakdown[shiftName] = (shiftBreakdown[shiftName] || 0) + 1;
+      filtered.forEach(record => {
+        const existing = employeeMap.get(record.employeeId) || { 
+          name: record.employeeName, 
+          hours: 0, 
+          days: 0, 
+          late: 0 
+        };
+        existing.hours += record.hoursWorked;
+        existing.days += 1;
+        if (record.isLate) existing.late += 1;
+        employeeMap.set(record.employeeId, existing);
       });
-
-      if (useMonthly) {
-        const startMonth = actualStartDate.substring(0, 7);
-        const endMonth = actualEndDate.substring(0, 7);
-        
-        const allMonthly = await db.getAll<MonthlyAttendanceSummary>("monthlyAttendanceSummary");
-        const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
-        
-        const employeeMap = new Map<number, { hours: number; late: number }>();
-        
-        filtered.forEach(record => {
-          const existing = employeeMap.get(record.employeeId) || { hours: 0, late: 0 };
-          existing.hours += record.totalHours;
-          existing.late += record.lateCount;
-          employeeMap.set(record.employeeId, existing);
-        });
-        
-        const totalHours = Array.from(employeeMap.values()).reduce((sum, e) => sum + e.hours, 0);
-        const totalLate = Array.from(employeeMap.values()).reduce((sum, e) => sum + e.late, 0);
-        const totalEmployees = employeeMap.size;
-
-        setAttendanceStats({
-          totalEmployees,
-          totalHours,
-          avgHoursPerEmployee: totalEmployees > 0 ? totalHours / totalEmployees : 0,
-          lateCount: totalLate,
-          shiftBreakdown
-        });
-      } else {
-        const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
-        const filtered = allDaily.filter(d => d.date >= actualStartDate && d.date <= actualEndDate);
-        
-        const employeeMap = new Map<number, { hours: number; late: number }>();
-        
-        filtered.forEach(record => {
-          const existing = employeeMap.get(record.employeeId) || { hours: 0, late: 0 };
-          existing.hours += record.hoursWorked;
-          if (record.isLate) existing.late += 1;
-          employeeMap.set(record.employeeId, existing);
-        });
-        
-        const totalHours = Array.from(employeeMap.values()).reduce((sum, e) => sum + e.hours, 0);
-        const totalLate = Array.from(employeeMap.values()).reduce((sum, e) => sum + e.late, 0);
-        const totalEmployees = employeeMap.size;
-
-        setAttendanceStats({
-          totalEmployees,
-          totalHours,
-          avgHoursPerEmployee: totalEmployees > 0 ? totalHours / totalEmployees : 0,
-          lateCount: totalLate,
-          shiftBreakdown
-        });
-      }
+      
+      const data = Array.from(employeeMap.values()).map(e => ({
+        employeeName: e.name,
+        totalHours: e.hours,
+        daysWorked: e.days,
+        lateCount: e.late
+      }));
+      
+      setAttendanceData(data);
     } catch (error) {
       console.error("Error loading attendance report:", error);
     }
   };
 
   const exportToCSV = () => {
-    const { startDate, endDate } = getDateRangeBounds();
+    let csv = "SELL MORE - Report Export\n";
+    csv += `Generated: ${new Date().toISOString()}\n\n`;
     
-    // Build comprehensive CSV with all tabs data
-    let csv = "SELL MORE - Comprehensive Report\n";
-    csv += `Generated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC\n`;
-    csv += `Period: ${startDate} to ${endDate}\n`;
-    csv += `View Mode: ${chartViewMode.toUpperCase()}\n\n`;
+    csv += "=== SALES DATA ===\n";
+    csv += `Total Revenue: Rp ${salesStats.totalRevenue.toLocaleString("id-ID")}\n`;
+    csv += `Total Receipts: ${salesStats.totalReceipts}\n\n`;
     
-    // === SALES OVERVIEW ===
-    csv += "=== SALES OVERVIEW ===\n";
-    csv += "Metric,Value\n";
-    csv += `Total Revenue,Rp ${salesStats.totalRevenue.toLocaleString("id-ID")}\n`;
-    csv += `Total Receipts,${salesStats.totalReceipts}\n`;
-    csv += `Average Transaction,Rp ${Math.round(salesStats.avgTransaction).toLocaleString("id-ID")}\n`;
-    csv += `Cash Sales,Rp ${salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}\n`;
-    csv += `QRIS Static,Rp ${salesStats.paymentBreakdown.qrisStatic.toLocaleString("id-ID")}\n`;
-    csv += `QRIS Dynamic,Rp ${salesStats.paymentBreakdown.qrisDynamic.toLocaleString("id-ID")}\n`;
-    csv += `Voucher,Rp ${salesStats.paymentBreakdown.voucher.toLocaleString("id-ID")}\n\n`;
-    
-    // Sales chart data
-    if (salesChartData.length > 0) {
-      csv += "Daily/Monthly Breakdown\n";
-      csv += "Date,Cash,QRIS Static,QRIS Dynamic,Voucher,Total\n";
-      salesChartData.forEach(row => {
-        const total = (row.cash || 0) + (row.qrisStatic || 0) + (row.qrisDynamic || 0) + (row.voucher || 0);
-        csv += `${row.name},${row.cash || 0},${row.qrisStatic || 0},${row.qrisDynamic || 0},${row.voucher || 0},${total}\n`;
-      });
-      csv += "\n";
-    }
-    
-    // === TOP ITEMS ===
-    csv += "=== TOP ITEMS REPORT ===\n";
-    csv += `Filter: Top ${itemTopN} by ${itemMetric.toUpperCase()} (${itemTimeRange.toUpperCase()})\n`;
-    csv += "Rank,Item Name,Quantity Sold,Revenue\n";
+    csv += "=== TOP ITEMS ===\n";
     topItems.forEach((item, idx) => {
-      csv += `${idx + 1},${item.itemName},${item.quantity},Rp ${item.revenue.toLocaleString("id-ID")}\n`;
+      csv += `${idx + 1}. ${item.itemName}: ${item.quantity} units, Rp ${item.revenue.toLocaleString("id-ID")}\n`;
     });
-    csv += "\n";
     
-    // === ATTENDANCE ===
-    csv += "=== ATTENDANCE SUMMARY ===\n";
-    csv += `Period: ${attendanceTimeRange.toUpperCase()}\n`;
-    csv += "Metric,Value\n";
-    csv += `Total Employees,${attendanceStats.totalEmployees}\n`;
-    csv += `Total Hours Worked,${attendanceStats.totalHours.toFixed(1)} hours\n`;
-    csv += `Average Hours per Employee,${attendanceStats.avgHoursPerEmployee.toFixed(1)} hours\n`;
-    csv += `Late Count,${attendanceStats.lateCount}\n`;
-    
-    // Add Shift Breakdown to CSV
-    csv += "\nShift Breakdown:\n";
-    Object.entries(attendanceStats.shiftBreakdown).forEach(([shift, count]) => {
-      csv += `${shift},${count} shifts\n`;
-    });
-    csv += "\n";
-    
-    // === INSIGHTS ===
-    if (trendInsight) {
-      csv += "=== INSIGHTS ===\n";
-      if (trendInsight) csv += `Revenue Trend: ${trendInsight}\n`;
-      csv += "\n";
-    }
-    
-    csv += "=== END OF REPORT ===\n";
-    
-    // Download
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sell-more-report-${startDate}-to-${endDate}.csv`;
+    a.download = `report-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="space-y-3 p-2 print:space-y-4 print:p-0">
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #reports-content, #reports-content * {
-            visibility: visible;
-          }
-          #reports-content {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .print-break {
-            page-break-after: always;
-          }
-        }
-      `}</style>
-
-      <div id="reports-content" className="space-y-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold">Reports</h2>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 rounded-full no-print">
-              <Zap className="h-3 w-3 text-green-600" />
-              <span className="text-[9px] font-bold text-green-700 dark:text-green-400">LIVE</span>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto no-print">
-            <Select value={dateRange} onValueChange={(val) => setDateRange(val as DateRange)}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">Last 7 Days</SelectItem>
-                <SelectItem value="month">Last 30 Days</SelectItem>
-                <SelectItem value="year">Last Year</SelectItem>
-                <SelectItem value="custom">Custom Range</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {dateRange === "custom" && (
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-auto"
-                />
-                <span className="self-center text-slate-500">to</span>
-                <Input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-auto"
-                />
-              </div>
-            )}
-            
-            <div className="flex gap-2 ml-auto sm:ml-0">
-              <Button onClick={exportToCSV} variant="outline" size="sm" className="gap-2">
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">CSV</span>
-              </Button>
-              
-              <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
-                <Printer className="h-4 w-4" />
-                <span className="hidden sm:inline">Print</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <Tabs defaultValue="sales" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 no-print">
-            <TabsTrigger value="sales">Sales Overview</TabsTrigger>
-            <TabsTrigger value="items">Top Items</TabsTrigger>
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b">
+        <Tabs defaultValue="sales" className="flex-1">
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="sales">Sales</TabsTrigger>
+            <TabsTrigger value="items">Items</TabsTrigger>
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
           </TabsList>
+        </Tabs>
+        
+        <div className="flex gap-2">
+          <Button onClick={exportToCSV} variant="ghost" size="sm">
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => window.print()} variant="ghost" size="sm">
+            <Printer className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-          <TabsContent value="sales" className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-1 pt-3 px-3">
-                <div>
-                  <CardTitle className="text-base">Sales Overview</CardTitle>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {chartViewMode === "daily" ? "Daily (MTD)" : "Monthly (YTD)"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xl font-black text-green-600">
-                    Rp {salesStats.totalRevenue.toLocaleString("id-ID")}
-                  </p>
-                  <p className="text-xs text-slate-500">{salesStats.totalReceipts} txn</p>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2 px-3 pb-3">
-                <div className="h-[300px] w-full">
-                  {salesChartData.length > 0 ? (
-                    <StackedBarChart data={salesChartData} height={300} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-slate-400">
-                      No data available for this period
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-2 md:grid-cols-4">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <Tabs defaultValue="sales" className="h-full">
+          <TabsContent value="sales" className="space-y-4 mt-0">
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-2">
               <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Total Revenue
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-green-600">
-                    Rp {salesStats.totalRevenue.toLocaleString("id-ID")}
+                <CardContent className="p-3">
+                  <div className="text-xs text-slate-500">Revenue</div>
+                  <div className="text-lg font-bold text-green-600">
+                    Rp {(salesStats.totalRevenue / 1000000).toFixed(1)}M
                   </div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Total Receipts
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-blue-600">
-                    {salesStats.totalReceipts}
-                  </div>
+                <CardContent className="p-3">
+                  <div className="text-xs text-slate-500">Receipts</div>
+                  <div className="text-lg font-bold">{salesStats.totalReceipts}</div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Avg Transaction
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-purple-600">
-                    Rp {Math.round(salesStats.avgTransaction).toLocaleString("id-ID")}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Cash Sales
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-emerald-600">
-                    Rp {salesStats.paymentBreakdown.cash.toLocaleString("id-ID")}
+                <CardContent className="p-3">
+                  <div className="text-xs text-slate-500">Avg</div>
+                  <div className="text-lg font-bold">
+                    Rp {(salesStats.avgTransaction / 1000).toFixed(0)}k
                   </div>
                 </CardContent>
               </Card>
             </div>
 
+            {/* Chart */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 pt-3 px-3">
-                <CardTitle className="text-base">Analytics Overview</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-2 md:grid-cols-2 px-3 pb-3">
-                <div className="h-[250px] w-full">
-                  {revenueTrendData.length > 0 ? (
-                    <LineChart data={revenueTrendData} height={250} />
+              <CardContent className="p-4">
+                <div className="h-[400px] w-full">
+                  {salesChartData.length > 0 ? (
+                    <StackedBarChart data={salesChartData} height={400} />
                   ) : (
                     <div className="flex h-full items-center justify-center text-slate-400">
-                      No revenue trend data available
+                      No data
                     </div>
                   )}
+                </div>
+                
+                {/* Time Range Switcher - Financial Style */}
+                <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+                  {(["mtd", "ytd", "5y"] as SalesTimeRange[]).map((range) => (
+                    <Button
+                      key={range}
+                      variant={salesTimeRange === range ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setSalesTimeRange(range)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : "5Y"}
+                    </Button>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="items" className="space-y-4">
+          <TabsContent value="items" className="space-y-4 mt-0">
+            {/* Top N Selector */}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant={itemTopN === 10 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setItemTopN(10)}
+              >
+                Top 10
+              </Button>
+              <Button
+                variant={itemTopN === 20 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setItemTopN(20)}
+              >
+                Top 20
+              </Button>
+            </div>
+
+            {/* Chart */}
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 pt-3 px-3">
-                <CardTitle className="text-base">Top Items Report</CardTitle>
-                <div className="flex items-center gap-2 no-print">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600 dark:text-slate-400">Show:</label>
-                    <Select value={itemTopN.toString()} onValueChange={(val) => setItemTopN(Number(val) as 10 | 20)}>
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">Top 10</SelectItem>
-                        <SelectItem value="20">Top 20</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600 dark:text-slate-400">By:</label>
-                    <Select value={itemMetric} onValueChange={(val) => setItemMetric(val as "quantity" | "revenue")}>
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="quantity">Quantity</SelectItem>
-                        <SelectItem value="revenue">Revenue</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600 dark:text-slate-400">Chart:</label>
-                    <Select value={itemChartType} onValueChange={(val) => setItemChartType(val as "pie" | "bar")}>
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bar">Bar</SelectItem>
-                        <SelectItem value="pie">Pie</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm text-slate-600 dark:text-slate-400">Period:</label>
-                    <Select value={itemTimeRange} onValueChange={(val) => setItemTimeRange(val as "daily" | "mtd" | "ytd")}>
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">Today</SelectItem>
-                        <SelectItem value="mtd">MTD</SelectItem>
-                        <SelectItem value="ytd">YTD</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <CardContent className="p-4">
+                <div className="h-[400px] w-full">
+                  {topItems.length > 0 ? (
+                    <HorizontalBarChart 
+                      data={topItems.map((item, idx) => ({
+                        name: item.itemName,
+                        value: item.quantity,
+                        color: item.itemName === "Other Items" 
+                          ? "#94a3b8" 
+                          : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
+                      }))}
+                      height={400}
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-slate-400">
+                      No data
+                    </div>
+                  )}
                 </div>
-              </CardHeader>
-              <CardContent>
-                {topItems.length > 0 ? (
-                  <div className="h-[350px] w-full">
-                    {itemChartType === "pie" ? (
-                      <PieChart 
-                        data={topItems.map((item, idx) => ({
-                          name: item.itemName,
-                          value: itemMetric === "quantity" ? item.quantity : item.revenue,
-                          color: item.itemName.startsWith("🔹") 
-                            ? "#94a3b8" 
-                            : `hsl(${(idx * 360) / Math.min(itemTopN, topItems.length - 1)}, 70%, 60%)`
-                        }))}
-                        height={350}
-                        showPercentage={false}
-                      />
-                    ) : (
-                      <HorizontalBarChart 
-                        data={topItems.map((item, idx) => ({
-                          name: item.itemName,
-                          value: itemMetric === "quantity" ? item.quantity : item.revenue,
-                          color: item.itemName.startsWith("🔹") 
-                            ? "#94a3b8" 
-                            : `hsl(${(idx * 360) / Math.min(itemTopN, topItems.length - 1)}, 70%, 60%)`
-                        }))}
-                        height={350}
-                        valueFormatter={itemMetric === "revenue" 
-                          ? (val) => `Rp ${val.toLocaleString("id-ID")}`
-                          : undefined
-                        }
-                      />
-                    )}
+                
+                {/* Time Range Switcher - Financial Style */}
+                <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                    <Button
+                      key={range}
+                      variant={itemsTimeRange === range ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setItemsTimeRange(range)}
+                      className="h-8 px-2 text-xs"
+                    >
+                      {range.toUpperCase()}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="attendance" className="space-y-4 mt-0">
+            {/* Time Range Switcher */}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant={attendanceTimeRange === "mtd" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAttendanceTimeRange("mtd")}
+              >
+                MTD
+              </Button>
+              <Button
+                variant={attendanceTimeRange === "ytd" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAttendanceTimeRange("ytd")}
+              >
+                YTD
+              </Button>
+            </div>
+
+            {/* Table */}
+            <Card>
+              <CardContent className="p-4">
+                {attendanceData.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Employee</th>
+                          <th className="text-right py-2">Hours</th>
+                          <th className="text-right py-2">Days</th>
+                          <th className="text-right py-2">Late</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceData.map((record, idx) => (
+                          <tr key={idx} className="border-b">
+                            <td className="py-2">{record.employeeName}</td>
+                            <td className="text-right">{record.totalHours.toFixed(1)}h</td>
+                            <td className="text-right">{record.daysWorked}</td>
+                            <td className="text-right">{record.lateCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 ) : (
-                  <div className="flex h-[250px] items-center justify-center">
-                    <div className="text-center space-y-2">
-                      <TrendingUp className="h-12 w-12 mx-auto text-slate-300" />
-                      <p className="text-sm text-slate-500">No sales data for this period</p>
-                    </div>
+                  <div className="text-center py-12 text-slate-400">
+                    No attendance data
                   </div>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="attendance" className="space-y-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 pt-3 px-3">
-                <CardTitle className="text-base">Attendance Summary</CardTitle>
-                <div className="flex items-center gap-2 no-print">
-                  <label className="text-xs text-slate-600 dark:text-slate-400">Period:</label>
-                  <Select value={attendanceTimeRange} onValueChange={(val) => setAttendanceTimeRange(val as "mtd" | "ytd")}>
-                    <SelectTrigger className="w-24 h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mtd">MTD</SelectItem>
-                      <SelectItem value="ytd">YTD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardHeader>
-            </Card>
-            
-            <div className="grid gap-2 md:grid-cols-4">
-              <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Total Employees
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-blue-600">
-                    {attendanceStats.totalEmployees}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Total Hours
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-green-600">
-                    {attendanceStats.totalHours.toFixed(1)}h
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Avg Hours/Employee
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-purple-600">
-                    {attendanceStats.avgHoursPerEmployee.toFixed(1)}h
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-1 pt-2 px-3">
-                  <CardTitle className="text-xs font-medium text-slate-500">
-                    Late Count
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-2">
-                  <div className="text-xl font-black text-red-600">
-                    {attendanceStats.lateCount}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Shift Breakdown Card */}
-            {Object.keys(attendanceStats.shiftBreakdown).length > 0 && (
-              <Card className="mt-4">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500">
-                    Shift Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-4">
-                    {Object.entries(attendanceStats.shiftBreakdown).map(([shift, count]) => (
-                      <div key={shift} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-lg">
-                        <Clock className="h-4 w-4 text-slate-500" />
-                        <span className="font-medium">{shift}:</span>
-                        <span className="font-bold">{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {attendanceStats.totalEmployees === 0 && (
-              <Card className="p-12">
-                <div className="text-center space-y-4">
-                  <Users className="h-16 w-16 mx-auto text-slate-300" />
-                  <p className="text-slate-500">No attendance records for this period</p>
-                </div>
-              </Card>
-            )}
           </TabsContent>
         </Tabs>
       </div>
