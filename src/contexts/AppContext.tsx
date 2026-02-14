@@ -258,6 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const seedDefaultData = async () => {
     try {
+      console.log("🌱 Seeding default employees...");
       const admins = await db.searchByIndex<Employee>("employees", "pin", "0000");
       
       if (admins.length === 0) {
