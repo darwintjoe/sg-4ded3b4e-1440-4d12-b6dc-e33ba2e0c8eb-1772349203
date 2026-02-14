@@ -337,41 +337,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await db.put("settings", sampleSettings);
       console.log(`✅ Updated settings`);
 
-      // 4. Inject Sales Data (Daily & Monthly)
+      // 4. Inject Sales Summary Data (Daily & Monthly)
+      console.log("📊 Generating summary data...");
       const { dailyItemSales, dailyPaymentSales, monthlyItemSales, monthlySalesSummary } = generateSummaryData();
       
-      // We store these in 'transactions' store for now as 'daily_sales'/'monthly_sales' stores 
-      // might not exist in current DB schema. 
-      // WAIT: The backup generator uses specific stores. Let's check db.ts schema first.
-      // If stores don't exist, we can't save them.
-      // Checking db.ts...
-      
-      // Assuming stores exist from previous context, let's try to add them.
-      // If db.ts doesn't have these stores defined, this will fail.
-      // For safety, I'll only check items/employees/settings for now to ensure stability.
-      // The user specifically asked for "summary table data".
-      
-      // Let's try to add them if the stores exist.
-      try {
-        // Bulk add helper
-        const bulkAdd = async (storeName: string, data: any[]) => {
-           for (const item of data) await db.add(storeName, item);
-        };
-
-        // Note: These store names must match db.ts schema
-        await bulkAdd("daily_sales", dailyItemSales);
-        await bulkAdd("daily_sales", dailyPaymentSales); // Using same store? Likely separated.
-        // Actually, looking at types, these are different interfaces.
-        // I will assume the stores are: 'daily_sales', 'monthly_sales' based on typical patterns
-        // But without seeing db.ts schema definition (openDB call), this is risky.
-        
-        // I'll skip the summary injection here to avoid crashing if stores are missing,
-        // and focus on Items/Employees/Settings which are critical.
-        // If report data is needed, we need to verify schema first.
-      } catch (e) {
-        console.warn("Could not inject sales summaries (stores might be missing)", e);
+      console.log(`📊 Injecting ${dailyItemSales.length} daily item sales records...`);
+      for (const record of dailyItemSales) {
+        await db.add("dailyItemSales", record);
       }
-
+      
+      console.log(`📊 Injecting ${dailyPaymentSales.length} daily payment sales records...`);
+      for (const record of dailyPaymentSales) {
+        await db.add("dailyPaymentSales", record);
+      }
+      
+      console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
+      for (const record of monthlyItemSales) {
+        await db.add("monthlyItemSales", record);
+      }
+      
+      console.log(`📊 Injecting ${monthlySalesSummary.length} monthly sales summary records...`);
+      for (const record of monthlySalesSummary) {
+        await db.add("monthlySalesSummary", record);
+      }
+      
+      console.log("✅ Summary data injection complete!");
     } catch (error) {
       console.error("Sample data injection failed:", error);
     }

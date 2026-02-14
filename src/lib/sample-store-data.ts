@@ -408,9 +408,11 @@ export function generateSummaryData() {
       id: `mss_${monthKey}`,
       month: monthKey,
       totalRevenue: Math.round(data.totalRevenue),
-      transactionCount: data.transactionCount,
+      totalReceipts: data.transactionCount,
       cashAmount: Math.round(data.cashAmount),
-      qrisAmount: Math.round(data.qrisAmount),
+      qrisStaticAmount: Math.round(data.qrisAmount),
+      qrisDynamicAmount: 0,
+      voucherAmount: 0,
     });
     
     data.itemSales.forEach((itemData, itemId) => {
