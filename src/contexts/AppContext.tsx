@@ -63,11 +63,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const settings = await db.getSettings();
         if (settings) {
           setSettingsState(settings);
-          // Only sync if settings loaded successfully
-          // translations.setLanguage(settings.language); // Removed to avoid circular dep if any
         }
         
         setLoadingStatus("Verifying session...");
+        
+        // Create default employees if they don't exist
+        await seedDefaultData();
       } catch (error) {
         console.error("Failed to initialize DB:", error);
         setLoadingStatus("Using offline fallback...");
