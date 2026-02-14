@@ -12,77 +12,51 @@ interface PieChartProps {
   showPercentage?: boolean;
 }
 
-export function PieChart({ data, height = 400, showPercentage = true }: PieChartProps) {
-  const total = data.reduce((sum, entry) => sum + entry.value, 0);
-
+export function PieChart({ data }: PieChartProps) {
+  // Format value without prefix
   const formatValue = (value: number) => {
-    if (showPercentage) {
-      const percentage = ((value / total) * 100).toFixed(1);
-      return `${percentage}%`;
+    if (value >= 1_000_000) {
+      return (value / 1_000_000).toFixed(1) + "M";
     }
-    return value.toLocaleString("id-ID");
+    if (value >= 1_000) {
+      return (value / 1_000).toFixed(0) + "K";
+    }
+    return value.toLocaleString();
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0];
-      const percentage = ((data.value / total) * 100).toFixed(1);
-      return (
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700">
-          <p className="font-bold text-slate-900 dark:text-slate-100 mb-2">{data.name}</p>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm text-slate-600 dark:text-slate-400">Value:</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {data.value.toLocaleString("id-ID")}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm text-slate-600 dark:text-slate-400">Percentage:</span>
-              <span className="font-bold text-green-600 dark:text-green-400">
-                {percentage}%
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  const renderCustomLabel = (entry: any) => {
-    const rawPercentage = (entry.value / total) * 100;
-    return rawPercentage > 5 ? `${rawPercentage.toFixed(1)}%` : "";
-  };
+  const COLORS = [
+    "hsl(var(--chart-1))",
+    "hsl(var(--chart-2))",
+    "hsl(var(--chart-3))",
+    "hsl(var(--chart-4))",
+    "hsl(var(--chart-5))",
+  ];
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <RechartsPie>
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsPie margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
           labelLine={false}
-          label={renderCustomLabel}
-          outerRadius={120}
+          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          outerRadius="70%"
           fill="#8884d8"
           dataKey="value"
         >
           {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
+            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip 
+          formatter={(value: number) => formatValue(value)}
+          contentStyle={{ fontSize: "10px" }}
+          labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+        />
         <Legend 
-          verticalAlign="bottom" 
-          height={36}
-          formatter={(value, entry: any) => {
-            const dataPoint = data.find(d => d.name === value);
-            if (dataPoint) {
-              return `${value} (${formatValue(dataPoint.value)})`;
-            }
-            return value;
-          }}
+          wrapperStyle={{ fontSize: "9px", paddingTop: "4px" }}
+          iconSize={8}
         />
       </RechartsPie>
     </ResponsiveContainer>
