@@ -341,6 +341,9 @@ export function ReportsPanel() {
       : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
   }));
 
+  console.log("Bar Chart Data:", barChartData);
+  console.log("Pie Chart Data:", pieChartData);
+
   return (
     <Tabs defaultValue="sales" className="h-full flex flex-col">
       {/* Minimal Header */}
