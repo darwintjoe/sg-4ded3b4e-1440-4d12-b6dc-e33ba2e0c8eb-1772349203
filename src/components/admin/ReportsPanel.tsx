@@ -10,7 +10,7 @@ import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 
-type SalesTimeRange = "mtd" | "ytd" | "5y";
+type SalesTimeRange = "mtd" | "ytd" | "5y" | "lm" | "ly";
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
 
@@ -372,7 +372,7 @@ export function ReportsPanel() {
               
               {/* Time Range Switcher - Financial Style */}
               <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
-                {(["mtd", "ytd", "5y"] as SalesTimeRange[]).map((range) => (
+                {(["mtd", "ytd", "5y", "lm", "ly"] as SalesTimeRange[]).map((range) => (
                   <Button
                     key={range}
                     variant={salesTimeRange === range ? "default" : "ghost"}
@@ -380,7 +380,7 @@ export function ReportsPanel() {
                     onClick={() => setSalesTimeRange(range)}
                     className="h-8 px-3 text-xs"
                   >
-                    {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : "5Y"}
+                    {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : range === "lm" ? "LM" : range === "ly" ? "LY" : "5Y"}
                   </Button>
                 ))}
               </div>
