@@ -701,106 +701,108 @@ export function ReportsPanel() {
         <TabsContent value="items" className="space-y-4 mt-0">
           {/* Chart Card */}
           <Card>
-            <CardContent className="p-2 relative">
-              {/* Floating Controls - Top Right */}
-              <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
-                {/* Chart Type Selector */}
-                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                  <Button
-                    variant={chartView === "bar" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setChartView("bar")}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    Bar
-                  </Button>
-                  <Button
-                    variant={chartView === "pie" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setChartView("pie")}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    Pie
-                  </Button>
-                </div>
-
-                {/* Sort Selector */}
-                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                  <Button
-                    variant={sortBy === "quantity" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setSortBy("quantity")}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    Qty
-                  </Button>
-                  <Button
-                    variant={sortBy === "revenue" ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setSortBy("revenue")}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    $$
-                  </Button>
-                </div>
-
-                {/* Top N Selector */}
-                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                  <Button
-                    variant={itemTopN === 10 ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setItemTopN(10)}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    10
-                  </Button>
-                  <Button
-                    variant={itemTopN === 20 ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setItemTopN(20)}
-                    className="h-5 px-1.5 text-[9px]"
-                  >
-                    20
-                  </Button>
-                </div>
-              </div>
-
-              {/* Chart Area */}
-              <div className={chartView === "pie" ? "min-h-[200px] h-[200px] w-full" : "h-[160px] w-full"}>
-                {chartView === "bar" ? (
-                  <div>
-                    <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByQuantity}</h4>
-                    <div className="h-36">
-                      <HorizontalBarChart
-                        data={barChartData}
-                      />
-                    </div>
+            <CardContent className={chartView === "pie" ? "p-1" : "p-2"}>
+              <div className="relative">
+                {/* Floating Controls - Top Right */}
+                <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
+                  {/* Chart Type Selector */}
+                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                    <Button
+                      variant={chartView === "bar" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setChartView("bar")}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      Bar
+                    </Button>
+                    <Button
+                      variant={chartView === "pie" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setChartView("pie")}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      Pie
+                    </Button>
                   </div>
-                ) : (
-                  <div>
-                    <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByRevenue}</h4>
-                    <div className="h-36">
-                      <PieChart
-                        data={pieChartData}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Time Range Buttons */}
-              <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
-                {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
-                  <Button
-                    key={range}
-                    variant={itemsTimeRange === range ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setItemsTimeRange(range)}
-                    className="h-6 px-2 text-[10px] uppercase"
-                  >
-                    {range}
-                  </Button>
-                ))}
+                  {/* Sort Selector */}
+                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                    <Button
+                      variant={sortBy === "quantity" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setSortBy("quantity")}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      Qty
+                    </Button>
+                    <Button
+                      variant={sortBy === "revenue" ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setSortBy("revenue")}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      $$
+                    </Button>
+                  </div>
+
+                  {/* Top N Selector */}
+                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                    <Button
+                      variant={itemTopN === 10 ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setItemTopN(10)}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      10
+                    </Button>
+                    <Button
+                      variant={itemTopN === 20 ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setItemTopN(20)}
+                      className="h-5 px-1.5 text-[9px]"
+                    >
+                      20
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Chart Area */}
+                <div className={chartView === "pie" ? "min-h-[400px] h-[400px] w-full" : "h-[160px] w-full"}>
+                  {chartView === "bar" ? (
+                    <div>
+                      <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByQuantity}</h4>
+                      <div className="h-36">
+                        <HorizontalBarChart
+                          data={barChartData}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByRevenue}</h4>
+                      <div className="h-36">
+                        <PieChart
+                          data={pieChartData}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Time Range Buttons */}
+                <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
+                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                    <Button
+                      key={range}
+                      variant={itemsTimeRange === range ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setItemsTimeRange(range)}
+                      className="h-6 px-2 text-[10px] uppercase"
+                    >
+                      {range}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>

@@ -1,4 +1,4 @@
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -15,7 +15,6 @@ interface HorizontalBarChartProps {
 }
 
 export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
-  // Format value without prefix
   const formatValue = (value: number) => {
     if (value >= 1_000_000) {
       return (value / 1_000_000).toFixed(1) + "M";
@@ -26,32 +25,38 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
     return value.toLocaleString();
   };
 
+  // Mobile-optimized dimensions
+  const chartWidth = 340;
+  const chartHeight = Math.min(data.length * 35 + 60, 400); // Dynamic height based on data, max 400px
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full flex items-center justify-center overflow-x-auto">
       <RechartsBarChart
+        width={chartWidth}
+        height={chartHeight}
         data={data}
         layout="vertical"
-        margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+        margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
         <XAxis 
           type="number" 
           tickFormatter={formatValue}
-          tick={{ fontSize: 9 }}
+          tick={{ fontSize: 10 }}
         />
         <YAxis 
           type="category" 
           dataKey="name" 
-          width={80}
-          tick={{ fontSize: 9 }}
+          width={100}
+          tick={{ fontSize: 10 }}
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "10px" }}
-          labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          contentStyle={{ fontSize: "11px" }}
+          labelStyle={{ fontSize: "11px", fontWeight: "bold" }}
         />
         <Bar dataKey="value" fill="hsl(var(--chart-1))" />
       </RechartsBarChart>
-    </ResponsiveContainer>
+    </div>
   );
 }

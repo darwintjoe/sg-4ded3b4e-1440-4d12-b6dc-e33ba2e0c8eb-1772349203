@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -14,7 +14,6 @@ interface StackedBarChartProps {
 }
 
 export function StackedBarChart({ data }: StackedBarChartProps) {
-  // Format currency without prefix
   const formatValue = (value: number) => {
     if (value >= 1_000_000) {
       return (value / 1_000_000).toFixed(1) + "M";
@@ -25,22 +24,28 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
     return value.toLocaleString();
   };
 
+  // Mobile-optimized dimensions
+  const chartWidth = 340;
+  const chartHeight = 280;
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full flex items-center justify-center overflow-x-auto">
       <BarChart
+        width={chartWidth}
+        height={chartHeight}
         data={data}
         margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
         <XAxis 
-          dataKey="date" 
+          dataKey="name" 
           tick={{ fontSize: 9 }}
           tickMargin={5}
         />
         <YAxis 
           tickFormatter={formatValue}
           tick={{ fontSize: 9 }}
-          width={40}
+          width={45}
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
@@ -56,6 +61,6 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
         <Bar dataKey="qrisDynamic" stackId="a" fill="hsl(var(--chart-3))" name="QRIS Dynamic" />
         <Bar dataKey="voucher" stackId="a" fill="hsl(var(--chart-4))" name="Voucher" />
       </BarChart>
-    </ResponsiveContainer>
+    </div>
   );
 }

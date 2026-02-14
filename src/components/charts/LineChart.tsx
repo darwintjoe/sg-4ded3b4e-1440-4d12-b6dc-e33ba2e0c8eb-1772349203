@@ -1,4 +1,4 @@
-import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Legend } from "recharts";
+import { LineChart as RechartsLine, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -13,7 +13,6 @@ interface LineChartProps {
 }
 
 export function LineChart({ data }: LineChartProps) {
-  // Format value without prefix
   const formatValue = (value: number) => {
     if (value >= 1_000_000) {
       return (value / 1_000_000).toFixed(1) + "M";
@@ -24,22 +23,28 @@ export function LineChart({ data }: LineChartProps) {
     return value.toLocaleString();
   };
 
+  // Mobile-optimized dimensions
+  const chartWidth = 340;
+  const chartHeight = 250;
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full flex items-center justify-center overflow-x-auto">
       <RechartsLine
+        width={chartWidth}
+        height={chartHeight}
         data={data}
         margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
         <XAxis 
-          dataKey="date" 
+          dataKey="name" 
           tick={{ fontSize: 9 }}
           tickMargin={5}
         />
         <YAxis 
           tickFormatter={formatValue}
           tick={{ fontSize: 9 }}
-          width={40}
+          width={45}
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
@@ -59,6 +64,6 @@ export function LineChart({ data }: LineChartProps) {
           activeDot={{ r: 4 }}
         />
       </RechartsLine>
-    </ResponsiveContainer>
+    </div>
   );
 }
