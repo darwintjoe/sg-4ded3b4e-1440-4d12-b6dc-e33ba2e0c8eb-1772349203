@@ -312,7 +312,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const itemsCount = await db.count("items");
       if (itemsCount > 0) {
         console.log("📦 Sample data injection skipped (items exist)");
-        return;
+        
+        // MIGRATION FIX: Check if dailyItemSales has old 'date' field instead of 'businessDate'
+        const existingDailyItems = await db.getAll<any>("dailyItemSales");
+        if (existingDailyItems.length > 0 && existingDailyItems[0].date && !existingDailyItems[0].businessDate) {
+          console.log("🔄 Migrating old data format to new format...");
+          
+          // Clear old data with wrong field names
+          await db.clear("dailyItemSales");
+          await db.clear("dailyPaymentSales");
+          await db.clear("monthlyItemSales");
+          await db.clear("monthlySalesSummary");
+          
+          console.log("✅ Old data cleared, re-injecting with correct fields...");
+          // Continue to re-inject below
+        } else {
+          return; // Data is correct, skip re-injection
+        }
       }
 
       console.log("📦 Injecting Sample Store Data...");
