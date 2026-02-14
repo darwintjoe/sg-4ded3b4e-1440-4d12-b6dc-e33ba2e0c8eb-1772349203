@@ -3,16 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary } from "@/types";
+import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary } from "@/types";
 import { useApp } from "@/contexts/AppContext";
 import { Download, Printer } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 
-type SalesTimeRange = "mtd" | "ytd" | "5y" | "lm" | "ly";
+type SalesTimeRange = "mtd" | "lm" | "ytd" | "ly" | "5y";
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
+type ChartView = "bar" | "pie";
+type SortBy = "quantity" | "revenue";
 
 export function ReportsPanel() {
   const { language } = useApp();
@@ -29,6 +31,8 @@ export function ReportsPanel() {
   // Items state
   const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
   const [itemTopN, setItemTopN] = useState<10 | 20>(10);
+  const [chartView, setChartView] = useState<ChartView>("bar");
+  const [sortBy, setSortBy] = useState<SortBy>("quantity");
   const [topItems, setTopItems] = useState<Array<{
     itemName: string;
     quantity: number;
@@ -50,26 +54,35 @@ export function ReportsPanel() {
 
   useEffect(() => {
     loadItemsReport();
-  }, [itemsTimeRange, itemTopN]);
+  }, [itemsTimeRange, itemTopN, sortBy]);
 
   useEffect(() => {
     loadAttendanceReport();
   }, [attendanceTimeRange]);
 
   const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean } => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
     
     if (salesTimeRange === "mtd") {
-      const monthStart = today.substring(0, 8) + "01";
-      return { startDate: monthStart, endDate: today, useMonthly: false };
+      const monthStart = todayStr.substring(0, 8) + "01";
+      return { startDate: monthStart, endDate: todayStr, useMonthly: false };
+    } else if (salesTimeRange === "lm") {
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      return { startDate: thirtyDaysAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: false };
     } else if (salesTimeRange === "ytd") {
-      const yearStart = today.substring(0, 4) + "-01-01";
-      return { startDate: yearStart, endDate: today, useMonthly: true };
+      const yearStart = todayStr.substring(0, 4) + "-01-01";
+      return { startDate: yearStart, endDate: todayStr, useMonthly: true };
+    } else if (salesTimeRange === "ly") {
+      const twelveMonthsAgo = new Date(today);
+      twelveMonthsAgo.setMonth(today.getMonth() - 12);
+      return { startDate: twelveMonthsAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: true };
     } else {
       // 5y
-      const fiveYearsAgo = new Date();
-      fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-      return { startDate: fiveYearsAgo.toISOString().split("T")[0], endDate: today, useMonthly: true };
+      const fiveYearsAgo = new Date(today);
+      fiveYearsAgo.setFullYear(today.getFullYear() - 5);
+      return { startDate: fiveYearsAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: true };
     }
   };
 
@@ -222,7 +235,11 @@ export function ReportsPanel() {
         });
       }
 
-      const sorted = Array.from(itemMap.values()).sort((a, b) => b.quantity - a.quantity);
+      // Sort by selected criteria
+      const sorted = Array.from(itemMap.values()).sort((a, b) => 
+        sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
+      );
+      
       const topN = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
       
@@ -308,6 +325,22 @@ export function ReportsPanel() {
     URL.revokeObjectURL(url);
   };
 
+  // Prepare chart data
+  const barChartData = topItems.map(item => ({
+    name: item.itemName,
+    value: sortBy === "quantity" ? item.quantity : item.revenue,
+    revenue: item.revenue,
+    quantity: item.quantity
+  }));
+
+  const pieChartData = topItems.map((item, idx) => ({
+    name: item.itemName,
+    value: sortBy === "quantity" ? item.quantity : item.revenue,
+    color: item.itemName === "Other Items" 
+      ? "#94a3b8" 
+      : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
+  }));
+
   return (
     <Tabs defaultValue="sales" className="h-full flex flex-col overflow-hidden">
       {/* Minimal Header */}
@@ -370,9 +403,9 @@ export function ReportsPanel() {
                 )}
               </div>
               
-              {/* Time Range Switcher - Financial Style */}
+              {/* Time Range Switcher */}
               <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
-                {(["mtd", "ytd", "5y", "lm", "ly"] as SalesTimeRange[]).map((range) => (
+                {(["mtd", "lm", "ytd", "ly", "5y"] as SalesTimeRange[]).map((range) => (
                   <Button
                     key={range}
                     variant={salesTimeRange === range ? "default" : "ghost"}
@@ -380,7 +413,7 @@ export function ReportsPanel() {
                     onClick={() => setSalesTimeRange(range)}
                     className="h-8 px-3 text-xs"
                   >
-                    {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : range === "lm" ? "LM" : range === "ly" ? "LY" : "5Y"}
+                    {range === "mtd" ? "MTD" : range === "lm" ? "LM" : range === "ytd" ? "YTD" : range === "ly" ? "LY" : "5Y"}
                   </Button>
                 ))}
               </div>
@@ -389,21 +422,58 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0 h-full">
-          {/* Top N Selector */}
-          <div className="flex justify-end gap-2">
+          {/* Controls Row */}
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex gap-2">
+              <Button
+                variant={sortBy === "quantity" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSortBy("quantity")}
+              >
+                By Quantity
+              </Button>
+              <Button
+                variant={sortBy === "revenue" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSortBy("revenue")}
+              >
+                By Revenue
+              </Button>
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant={itemTopN === 10 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setItemTopN(10)}
+              >
+                Top 10
+              </Button>
+              <Button
+                variant={itemTopN === 20 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setItemTopN(20)}
+              >
+                Top 20
+              </Button>
+            </div>
+          </div>
+
+          {/* Chart View Selector */}
+          <div className="flex justify-center gap-2">
             <Button
-              variant={itemTopN === 10 ? "default" : "outline"}
+              variant={chartView === "bar" ? "default" : "outline"}
               size="sm"
-              onClick={() => setItemTopN(10)}
+              onClick={() => setChartView("bar")}
             >
-              Top 10
+              Bar Chart
             </Button>
             <Button
-              variant={itemTopN === 20 ? "default" : "outline"}
+              variant={chartView === "pie" ? "default" : "outline"}
               size="sm"
-              onClick={() => setItemTopN(20)}
+              onClick={() => setChartView("pie")}
             >
-              Top 20
+              Pie Chart
             </Button>
           </div>
 
@@ -412,16 +482,17 @@ export function ReportsPanel() {
             <CardContent className="p-4">
               <div className="h-[400px] w-full">
                 {topItems.length > 0 ? (
-                  <HorizontalBarChart 
-                    data={topItems.map((item, idx) => ({
-                      name: item.itemName,
-                      value: item.quantity,
-                      color: item.itemName === "Other Items" 
-                        ? "#94a3b8" 
-                        : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
-                    }))}
-                    height={400}
-                  />
+                  chartView === "bar" ? (
+                    <HorizontalBarChart 
+                      data={barChartData}
+                      height={400}
+                    />
+                  ) : (
+                    <PieChart 
+                      data={pieChartData}
+                      height={400}
+                    />
+                  )
                 ) : (
                   <div className="flex h-full items-center justify-center text-slate-400">
                     No data
@@ -429,7 +500,7 @@ export function ReportsPanel() {
                 )}
               </div>
               
-              {/* Time Range Switcher - Financial Style */}
+              {/* Time Range Switcher */}
               <div className="flex justify-center gap-1 mt-4 pt-4 border-t flex-wrap">
                 {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
                   <Button
