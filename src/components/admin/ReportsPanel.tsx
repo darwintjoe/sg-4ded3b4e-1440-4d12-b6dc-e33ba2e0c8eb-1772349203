@@ -53,6 +53,7 @@ export function ReportsPanel() {
   }, [salesTimeRange]);
 
   useEffect(() => {
+    console.log("🔍 Items report triggered - Range:", itemsTimeRange, "TopN:", itemTopN, "Sort:", sortBy);
     loadItemsReport();
   }, [itemsTimeRange, itemTopN, sortBy]);
 
@@ -204,18 +205,28 @@ export function ReportsPanel() {
 
   const loadItemsReport = async () => {
     try {
+      console.log("📊 Starting loadItemsReport...");
+      
       const { startDate, endDate } = getItemsDateRange();
+      console.log("📅 Date range:", startDate, "to", endDate);
+      
       const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
       const useMonthly = daysDiff > 31;
+      console.log("⏱️ Days diff:", daysDiff, "Use monthly:", useMonthly);
 
       const itemMap = new Map<number, { name: string; quantity: number; revenue: number }>();
 
       if (useMonthly) {
         const startMonth = startDate.substring(0, 7);
         const endMonth = endDate.substring(0, 7);
+        console.log("📆 Monthly range:", startMonth, "to", endMonth);
         
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
+        console.log("📦 Total monthly records in DB:", allMonthly.length);
+        console.log("📦 Sample monthly record:", allMonthly[0]);
+        
         const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
+        console.log("✅ Filtered monthly records:", filtered.length);
         
         filtered.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
@@ -224,8 +235,22 @@ export function ReportsPanel() {
           itemMap.set(item.itemId, existing);
         });
       } else {
+        console.log("📆 Daily range:", startDate, "to", endDate);
+        
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+        console.log("📦 Total daily records in DB:", allDaily.length);
+        console.log("📦 Sample daily record:", allDaily[0]);
+        
+        const filtered = allDaily.filter(d => {
+          const hasBusinessDate = d.businessDate >= startDate && d.businessDate <= endDate;
+          const hasDateField = (d as any).date >= startDate && (d as any).date <= endDate;
+          return hasBusinessDate || hasDateField;
+        });
+        console.log("✅ Filtered daily records:", filtered.length);
+        
+        if (filtered.length > 0) {
+          console.log("📊 First filtered record:", filtered[0]);
+        }
         
         filtered.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0 };
@@ -235,10 +260,15 @@ export function ReportsPanel() {
         });
       }
 
+      console.log("🗺️ ItemMap size:", itemMap.size);
+      console.log("🗺️ ItemMap contents:", Array.from(itemMap.entries()));
+
       // Sort by selected criteria
       const sorted = Array.from(itemMap.values()).sort((a, b) => 
         sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
       );
+      
+      console.log("📊 Sorted items count:", sorted.length);
       
       const topN = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
@@ -257,9 +287,10 @@ export function ReportsPanel() {
         });
       }
       
+      console.log("✅ Final topItems result:", result);
       setTopItems(result);
     } catch (error) {
-      console.error("Error loading items report:", error);
+      console.error("❌ Error loading items report:", error);
     }
   };
 
@@ -341,12 +372,12 @@ export function ReportsPanel() {
       : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
   }));
 
-  console.log("Bar Chart Data:", barChartData);
-  console.log("Pie Chart Data:", pieChartData);
+  console.log("📊 Bar Chart Data:", barChartData);
+  console.log("🥧 Pie Chart Data:", pieChartData);
 
   return (
-    <Tabs defaultValue="sales" className="h-full flex flex-col">
-      {/* Minimal Header */}
+    <Tabs defaultValue="sales" className="flex flex-col h-full">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="sales">Sales</TabsTrigger>
@@ -425,7 +456,7 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
-          {/* Chart with Overlaid Controls */}
+          {/* Chart Card */}
           <Card>
             <CardContent className="p-4 relative">
               {/* Floating Controls - Top Right */}
@@ -507,9 +538,24 @@ export function ReportsPanel() {
                   )
                 ) : (
                   <div className="flex h-full items-center justify-center text-slate-400">
-                    No data
+                    No data for selected period
                   </div>
                 )}
+              </div>
+
+              {/* Time Range Buttons */}
+              <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+                {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                  <Button
+                    key={range}
+                    variant={itemsTimeRange === range ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemsTimeRange(range)}
+                    className="h-8 px-3 text-xs uppercase"
+                  >
+                    {range}
+                  </Button>
+                ))}
               </div>
             </CardContent>
           </Card>
