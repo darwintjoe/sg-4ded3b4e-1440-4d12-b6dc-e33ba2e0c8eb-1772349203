@@ -85,6 +85,9 @@ export function ReportsPanel() {
     lateCount: number;
   }>>([]);
 
+  // Helper to determine if we are in monthly view for rendering
+  const isSalesMonthlyView = ["ytd", "ly", "5y"].includes(salesTimeRange);
+
   useEffect(() => {
     loadSalesReport();
   }, [salesTimeRange]);
@@ -571,7 +574,7 @@ export function ReportsPanel() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Table2 className="h-5 w-5" />
-                {useMonthly ? t.reports.monthlySalesData : t.reports.dailySalesData}
+                {isSalesMonthlyView ? t.reports.monthlySalesData : t.reports.dailySalesData}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -584,7 +587,7 @@ export function ReportsPanel() {
                   <table className="w-full text-sm">
                     <thead className="border-b">
                       <tr className="text-left">
-                        <th className="pb-2 font-semibold">{useMonthly ? t.reports.month : t.reports.date}</th>
+                        <th className="pb-2 font-semibold">{isSalesMonthlyView ? t.reports.month : t.reports.date}</th>
                         <th className="pb-2 font-semibold text-right">{t.reports.revenue}</th>
                         <th className="pb-2 font-semibold text-right">{t.reports.receipts}</th>
                         <th className="pb-2 font-semibold text-right">{t.common.cash}</th>
@@ -597,7 +600,7 @@ export function ReportsPanel() {
                       {salesData.map((item, index) => (
                         <tr key={index} className="border-b last:border-0">
                           <td className="py-2">
-                            {useMonthly 
+                            {isSalesMonthlyView 
                               ? new Date(item.date + "-01").toLocaleDateString(locale, { year: "numeric", month: "short" })
                               : new Date(item.date).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" })
                             }
@@ -753,7 +756,7 @@ export function ReportsPanel() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Table2 className="h-5 w-5" />
-                {t.reports.topItemsData} ({topN} {t.reports.items})
+                {t.reports.topItemsData} ({itemTopN} {t.reports.items})
               </CardTitle>
             </CardHeader>
             <CardContent>
