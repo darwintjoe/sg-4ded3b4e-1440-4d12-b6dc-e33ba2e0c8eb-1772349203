@@ -222,7 +222,7 @@ export function ReportsPanel() {
         });
       }
 
-      const sorted = Array.from(itemMap.values()).sort((a, b) => b.quantity - a[sortKey]);
+      const sorted = Array.from(itemMap.values()).sort((a, b) => b.quantity - a.quantity);
       const topN = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
       
@@ -309,16 +309,14 @@ export function ReportsPanel() {
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <Tabs defaultValue="sales" className="h-full flex flex-col overflow-hidden">
       {/* Minimal Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b">
-        <Tabs defaultValue="sales" className="flex-1">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="sales">Sales</TabsTrigger>
-            <TabsTrigger value="items">Items</TabsTrigger>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="items">Items</TabsTrigger>
+          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+        </TabsList>
         
         <div className="flex gap-2">
           <Button onClick={exportToCSV} variant="ghost" size="sm">
@@ -332,179 +330,177 @@ export function ReportsPanel() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4">
-        <Tabs defaultValue="sales" className="h-full">
-          <TabsContent value="sales" className="space-y-4 mt-0">
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-2">
-              <Card>
-                <CardContent className="p-3">
-                  <div className="text-xs text-slate-500">Revenue</div>
-                  <div className="text-lg font-bold text-green-600">
-                    Rp {(salesStats.totalRevenue / 1000000).toFixed(1)}M
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="text-xs text-slate-500">Receipts</div>
-                  <div className="text-lg font-bold">{salesStats.totalReceipts}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="text-xs text-slate-500">Avg</div>
-                  <div className="text-lg font-bold">
-                    Rp {(salesStats.avgTransaction / 1000).toFixed(0)}k
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Chart */}
+        <TabsContent value="sales" className="space-y-4 mt-0 h-full">
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-2">
             <Card>
-              <CardContent className="p-4">
-                <div className="h-[400px] w-full">
-                  {salesChartData.length > 0 ? (
-                    <StackedBarChart data={salesChartData} height={400} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-slate-400">
-                      No data
-                    </div>
-                  )}
-                </div>
-                
-                {/* Time Range Switcher - Financial Style */}
-                <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
-                  {(["mtd", "ytd", "5y"] as SalesTimeRange[]).map((range) => (
-                    <Button
-                      key={range}
-                      variant={salesTimeRange === range ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setSalesTimeRange(range)}
-                      className="h-8 px-3 text-xs"
-                    >
-                      {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : "5Y"}
-                    </Button>
-                  ))}
+              <CardContent className="p-3">
+                <div className="text-xs text-slate-500">Revenue</div>
+                <div className="text-lg font-bold text-green-600">
+                  Rp {(salesStats.totalRevenue / 1000000).toFixed(1)}M
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="items" className="space-y-4 mt-0">
-            {/* Top N Selector */}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant={itemTopN === 10 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setItemTopN(10)}
-              >
-                Top 10
-              </Button>
-              <Button
-                variant={itemTopN === 20 ? "default" : "outline"}
-                size="sm"
-                onClick={() => setItemTopN(20)}
-              >
-                Top 20
-              </Button>
-            </div>
-
-            {/* Chart */}
             <Card>
-              <CardContent className="p-4">
-                <div className="h-[400px] w-full">
-                  {topItems.length > 0 ? (
-                    <HorizontalBarChart 
-                      data={topItems.map((item, idx) => ({
-                        name: item.itemName,
-                        value: item.quantity,
-                        color: item.itemName === "Other Items" 
-                          ? "#94a3b8" 
-                          : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
-                      }))}
-                      height={400}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-slate-400">
-                      No data
-                    </div>
-                  )}
-                </div>
-                
-                {/* Time Range Switcher - Financial Style */}
-                <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
-                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
-                    <Button
-                      key={range}
-                      variant={itemsTimeRange === range ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setItemsTimeRange(range)}
-                      className="h-8 px-2 text-xs"
-                    >
-                      {range.toUpperCase()}
-                    </Button>
-                  ))}
+              <CardContent className="p-3">
+                <div className="text-xs text-slate-500">Receipts</div>
+                <div className="text-lg font-bold">{salesStats.totalReceipts}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <div className="text-xs text-slate-500">Avg</div>
+                <div className="text-lg font-bold">
+                  Rp {(salesStats.avgTransaction / 1000).toFixed(0)}k
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="attendance" className="space-y-4 mt-0">
-            {/* Time Range Switcher */}
-            <div className="flex justify-end gap-2">
-              <Button
-                variant={attendanceTimeRange === "mtd" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAttendanceTimeRange("mtd")}
-              >
-                MTD
-              </Button>
-              <Button
-                variant={attendanceTimeRange === "ytd" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setAttendanceTimeRange("ytd")}
-              >
-                YTD
-              </Button>
-            </div>
-
-            {/* Table */}
-            <Card>
-              <CardContent className="p-4">
-                {attendanceData.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2">Employee</th>
-                          <th className="text-right py-2">Hours</th>
-                          <th className="text-right py-2">Days</th>
-                          <th className="text-right py-2">Late</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {attendanceData.map((record, idx) => (
-                          <tr key={idx} className="border-b">
-                            <td className="py-2">{record.employeeName}</td>
-                            <td className="text-right">{record.totalHours.toFixed(1)}h</td>
-                            <td className="text-right">{record.daysWorked}</td>
-                            <td className="text-right">{record.lateCount}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+          {/* Chart */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="h-[400px] w-full">
+                {salesChartData.length > 0 ? (
+                  <StackedBarChart data={salesChartData} height={400} />
                 ) : (
-                  <div className="text-center py-12 text-slate-400">
-                    No attendance data
+                  <div className="flex h-full items-center justify-center text-slate-400">
+                    No data
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </div>
+              
+              {/* Time Range Switcher - Financial Style */}
+              <div className="flex justify-center gap-1 mt-4 pt-4 border-t">
+                {(["mtd", "ytd", "5y"] as SalesTimeRange[]).map((range) => (
+                  <Button
+                    key={range}
+                    variant={salesTimeRange === range ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSalesTimeRange(range)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    {range === "mtd" ? "MTD" : range === "ytd" ? "YTD" : "5Y"}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="items" className="space-y-4 mt-0 h-full">
+          {/* Top N Selector */}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant={itemTopN === 10 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setItemTopN(10)}
+            >
+              Top 10
+            </Button>
+            <Button
+              variant={itemTopN === 20 ? "default" : "outline"}
+              size="sm"
+              onClick={() => setItemTopN(20)}
+            >
+              Top 20
+            </Button>
+          </div>
+
+          {/* Chart */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="h-[400px] w-full">
+                {topItems.length > 0 ? (
+                  <HorizontalBarChart 
+                    data={topItems.map((item, idx) => ({
+                      name: item.itemName,
+                      value: item.quantity,
+                      color: item.itemName === "Other Items" 
+                        ? "#94a3b8" 
+                        : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
+                    }))}
+                    height={400}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-slate-400">
+                    No data
+                  </div>
+                )}
+              </div>
+              
+              {/* Time Range Switcher - Financial Style */}
+              <div className="flex justify-center gap-1 mt-4 pt-4 border-t flex-wrap">
+                {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                  <Button
+                    key={range}
+                    variant={itemsTimeRange === range ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemsTimeRange(range)}
+                    className="h-8 px-2 text-xs"
+                  >
+                    {range.toUpperCase()}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="attendance" className="space-y-4 mt-0 h-full">
+          {/* Time Range Switcher */}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant={attendanceTimeRange === "mtd" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAttendanceTimeRange("mtd")}
+            >
+              MTD
+            </Button>
+            <Button
+              variant={attendanceTimeRange === "ytd" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setAttendanceTimeRange("ytd")}
+            >
+              YTD
+            </Button>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className="p-4">
+              {attendanceData.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2">Employee</th>
+                        <th className="text-right py-2">Hours</th>
+                        <th className="text-right py-2">Days</th>
+                        <th className="text-right py-2">Late</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceData.map((record, idx) => (
+                        <tr key={idx} className="border-b">
+                          <td className="py-2">{record.employeeName}</td>
+                          <td className="text-right">{record.totalHours.toFixed(1)}h</td>
+                          <td className="text-right">{record.daysWorked}</td>
+                          <td className="text-right">{record.lateCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-400">
+                  No attendance data
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </div>
-    </div>
+    </Tabs>
   );
 }
