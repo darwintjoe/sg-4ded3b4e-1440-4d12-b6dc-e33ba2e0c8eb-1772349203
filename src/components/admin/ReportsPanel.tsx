@@ -616,7 +616,6 @@ export function ReportsPanel() {
                   <div className="h-40">
                     <StackedBarChart
                       data={salesChartData}
-                      height={160}
                     />
                   </div>
                 </div>
@@ -767,14 +766,13 @@ export function ReportsPanel() {
               </div>
 
               {/* Chart Area */}
-              <div className="h-[160px] w-full">
+              <div className={chartView === "pie" ? "min-h-[200px] h-[200px] w-full" : "h-[160px] w-full"}>
                 {chartView === "bar" ? (
                   <div>
                     <h4 className="text-[10px] font-medium mb-2">{t.reports.topItemsByQuantity}</h4>
                     <div className="h-36">
                       <HorizontalBarChart
                         data={barChartData}
-                        height={144}
                       />
                     </div>
                   </div>
@@ -784,7 +782,6 @@ export function ReportsPanel() {
                     <div className="h-36">
                       <PieChart
                         data={pieChartData}
-                        height={144}
                       />
                     </div>
                   </div>
