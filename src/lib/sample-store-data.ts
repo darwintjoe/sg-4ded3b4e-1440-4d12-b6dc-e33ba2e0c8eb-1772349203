@@ -366,5 +366,104 @@ export function generateSummaryData() {
     });
   }
 
+  // Aggregate into monthly data
+  // Group daily data by month and itemId
+  const monthlyItemsMap = new Map<string, { itemId: number; itemName: string; quantity: number; revenue: number }>();
+  const monthlyPaymentsMap = new Map<string, Map<string, number>>();
+  const monthlySummaryMap = new Map<string, { revenue: number; receipts: number; cashSales: number; qrisStaticSales: number; qrisDynamicSales: number; voucherSales: number }>();
+
+  dailyItemSales.forEach((record) => {
+    const month = record.businessDate.substring(0, 7); // Extract YYYY-MM
+    const key = `${month}_${record.itemId}`;
+    
+    if (!monthlyItemsMap.has(key)) {
+      monthlyItemsMap.set(key, {
+        itemId: record.itemId,
+        itemName: record.itemName,
+        quantity: 0,
+        revenue: 0
+      });
+    }
+    
+    const monthlyItem = monthlyItemsMap.get(key)!;
+    monthlyItem.quantity += record.totalQuantity;
+    monthlyItem.revenue += record.totalRevenue;
+  });
+
+  // Convert to array format
+  monthlyItemsMap.forEach((value, key) => {
+    const month = key.split('_')[0];
+    monthlyItemSales.push({
+      month: month,
+      itemId: value.itemId,
+      sku: "", // Will be populated from items table
+      itemName: value.itemName,
+      totalQuantity: value.quantity,
+      totalRevenue: value.revenue,
+      transactionCount: Math.floor(value.quantity / 2) // Approximate
+    });
+  });
+
+  // Aggregate monthly payments
+  dailyPaymentSales.forEach((record) => {
+    const month = record.businessDate.substring(0, 7);
+    
+    if (!monthlyPaymentsMap.has(month)) {
+      monthlyPaymentsMap.set(month, new Map());
+    }
+    
+    const monthPayments = monthlyPaymentsMap.get(month)!;
+    const current = monthPayments.get(record.method) || 0;
+    monthPayments.set(record.method, current + record.totalAmount);
+  });
+
+  // Aggregate monthly summary
+  dailyPaymentSales.forEach((record) => {
+    const month = record.businessDate.substring(0, 7);
+    
+    if (!monthlySummaryMap.has(month)) {
+      monthlySummaryMap.set(month, {
+        revenue: 0,
+        receipts: 0,
+        cashSales: 0,
+        qrisStaticSales: 0,
+        qrisDynamicSales: 0,
+        voucherSales: 0
+      });
+    }
+    
+    const summary = monthlySummaryMap.get(month)!;
+    summary.revenue += record.totalAmount;
+    summary.receipts += record.transactionCount;
+    
+    switch (record.method) {
+      case "cash":
+        summary.cashSales += record.totalAmount;
+        break;
+      case "qris-static":
+        summary.qrisStaticSales += record.totalAmount;
+        break;
+      case "qris-dynamic":
+        summary.qrisDynamicSales += record.totalAmount;
+        break;
+      case "voucher":
+        summary.voucherSales += record.totalAmount;
+        break;
+    }
+  });
+
+  // Convert monthly summary to array
+  monthlySummaryMap.forEach((value, month) => {
+    monthlySalesSummary.push({
+      month: month,
+      totalRevenue: value.revenue,
+      totalReceipts: value.receipts,
+      cashAmount: value.cashSales,
+      qrisStaticAmount: value.qrisStaticSales,
+      qrisDynamicAmount: value.qrisDynamicSales,
+      voucherAmount: value.voucherSales
+    });
+  });
+
   return { dailyItemSales, dailyPaymentSales, monthlyItemSales, monthlySalesSummary };
 }
