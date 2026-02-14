@@ -313,21 +313,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (itemsCount > 0) {
         console.log("📦 Sample data injection skipped (items exist)");
         
-        // MIGRATION FIX: Check if dailyItemSales has old 'date' field instead of 'businessDate'
-        const existingDailyItems = await db.getAll<any>("dailyItemSales");
-        if (existingDailyItems.length > 0 && existingDailyItems[0].date && !existingDailyItems[0].businessDate) {
-          console.log("🔄 Migrating old data format to new format...");
+        // Check if data needs migration (old 'date' field instead of 'businessDate')
+        const existingDailyItems = await db.getAll("dailyItemSales");
+        if (existingDailyItems.length > 0) {
+          console.log("🔍 Checking data format...");
           
-          // Clear old data with wrong field names
-          await db.clear("dailyItemSales");
-          await db.clear("dailyPaymentSales");
-          await db.clear("monthlyItemSales");
-          await db.clear("monthlySalesSummary");
-          
-          console.log("✅ Old data cleared, re-injecting with correct fields...");
-          // Continue to re-inject below
-        } else {
-          return; // Data is correct, skip re-injection
+          // Check if first record has old 'date' field instead of new 'businessDate' field
+          const firstRecord = existingDailyItems[0] as any;
+          if (firstRecord.date && !firstRecord.businessDate) {
+            console.log("🔄 Migrating old data format to new format...");
+            console.log("❌ Found old 'date' field, need 'businessDate' field");
+            
+            // Clear all summary tables with old format
+            await db.clear("dailyItemSales");
+            await db.clear("dailyPaymentSales");
+            await db.clear("monthlyItemSales");
+            await db.clear("monthlySalesSummary");
+            
+            console.log("✅ Old data cleared, re-injecting with correct fields...");
+          } else if (firstRecord.businessDate) {
+            console.log("✅ Data format is correct (has 'businessDate' field), skipping migration");
+            return; // Data is correct, skip re-injection
+          }
         }
       }
 

@@ -61,6 +61,41 @@ export function ReportsPanel() {
     loadAttendanceReport();
   }, [attendanceTimeRange]);
 
+  // Debug: Check database on mount
+  useEffect(() => {
+    const checkDatabase = async () => {
+      try {
+        console.log("🔍 DATABASE CHECK - Starting...");
+        
+        const allDailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
+        console.log("📦 Total dailyItemSales records:", allDailyItems.length);
+        
+        if (allDailyItems.length > 0) {
+          console.log("📦 First record:", allDailyItems[0]);
+          console.log("📦 First record keys:", Object.keys(allDailyItems[0]));
+          console.log("📦 Has 'businessDate'?", "businessDate" in allDailyItems[0]);
+          console.log("📦 Has 'date'?", "date" in allDailyItems[0]);
+          
+          // Show first 3 records
+          console.log("📦 First 3 records:", allDailyItems.slice(0, 3));
+        } else {
+          console.log("❌ NO RECORDS in dailyItemSales!");
+        }
+
+        const allMonthlyItems = await db.getAll<MonthlyItemSales>("monthlyItemSales");
+        console.log("📦 Total monthlyItemSales records:", allMonthlyItems.length);
+        if (allMonthlyItems.length > 0) {
+          console.log("📦 First monthly record:", allMonthlyItems[0]);
+        }
+
+      } catch (error) {
+        console.error("❌ Database check error:", error);
+      }
+    };
+    
+    checkDatabase();
+  }, []); // Run once on mount
+
   const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean } => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];

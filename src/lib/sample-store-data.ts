@@ -4,7 +4,7 @@
  * Bypasses restore function for immediate testing
  */
 
-import type { Item, Employee, Settings, UserRole } from "@/types";
+import type { Item, Employee, Settings, UserRole, DailyItemSales, DailyPaymentSales, MonthlyItemSales, MonthlySalesSummary } from "@/types";
 
 export interface Category {
   id: string;
@@ -283,157 +283,88 @@ export const sampleSettings: Settings = {
 
 // Generate 26 months of summary data (Dec 2023 - Feb 2026)
 export function generateSummaryData() {
-  const dailyItemSales: any[] = [];
-  const dailyPaymentSales: any[] = [];
-  const monthlyItemSales: any[] = [];
-  const monthlySalesSummary: any[] = [];
+  const dailyItemSales: Omit<DailyItemSales, "id">[] = [];
+  const dailyPaymentSales: Omit<DailyPaymentSales, "id">[] = [];
+  const monthlyItemSales: Omit<MonthlyItemSales, "id">[] = [];
+  const monthlySalesSummary: Omit<MonthlySalesSummary, "id">[] = [];
 
-  const startDate = new Date("2023-12-01");
-  const endDate = new Date("2026-02-02");
-  
-  const closedDays = [
-    "2024-03-11", // Nyepi 2024
-    "2024-12-25", // Christmas 2024
-    "2025-01-01", // New Year 2025
-    "2025-03-29", // Nyepi 2025
-    "2025-12-25", // Christmas 2025
-    "2026-01-01", // New Year 2026
-  ];
+  // Generate data for last 90 days (to cover 1M, 3M views)
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 90); // 90 days ago
 
-  const monthlyAggregates = new Map<string, any>();
-  
-  let currentDate = new Date(startDate);
-  
-  while (currentDate <= endDate) {
-    const dateStr = currentDate.toISOString().split("T")[0];
-    const monthKey = dateStr.substring(0, 7);
-    
-    if (closedDays.includes(dateStr)) {
-      currentDate = new Date(currentDate.getTime() + 86400000);
-      continue;
-    }
-    
-    const day = currentDate.getDay();
-    let baseCount = 120;
-    
-    // Weekend boost
-    if (day === 0 || day === 6) {
-      baseCount = Math.floor(baseCount * (1.3 + Math.random() * 0.2));
-    } else if (day === 1) {
-      baseCount = Math.floor(baseCount * (0.7 + Math.random() * 0.2));
-    } else {
-      baseCount = Math.floor(baseCount * (0.85 + Math.random() * 0.3));
-    }
-    
-    const txCount = baseCount;
-    const avgTxAmount = 85000;
-    const totalRevenue = txCount * avgTxAmount;
-    
-    const qrisAmount = totalRevenue * 0.6;
-    const cashAmount = totalRevenue * 0.4;
-    
-    // Daily payment sales
-    dailyPaymentSales.push({
-      id: `dps_${dateStr}_qris`,
-      date: dateStr,
-      paymentMethod: "QRIS",
-      totalAmount: Math.round(qrisAmount),
-      transactionCount: Math.round(txCount * 0.6),
-    });
-    
-    dailyPaymentSales.push({
-      id: `dps_${dateStr}_cash`,
-      date: dateStr,
-      paymentMethod: "Cash",
-      totalAmount: Math.round(cashAmount),
-      transactionCount: Math.round(txCount * 0.4),
-    });
-    
-    // Daily item sales (top 50 items)
-    const topItems = sampleItems.slice(0, 50);
-    topItems.forEach((item, idx) => {
-      const salesFrequency = 1 / (idx + 1);
-      const quantity = Math.max(1, Math.floor(txCount * salesFrequency * (0.1 + Math.random() * 0.05)));
-      const revenue = quantity * item.price;
-      
-      if (quantity > 0) {
-        dailyItemSales.push({
-          id: `dis_${dateStr}_${idx}`,
-          date: dateStr,
-          itemId: `item_${(idx + 1).toString().padStart(3, "0")}`,
-          itemName: item.name,
-          quantity,
-          revenue: Math.round(revenue),
-        });
-      }
-    });
-    
-    // Monthly aggregates
-    if (!monthlyAggregates.has(monthKey)) {
-      monthlyAggregates.set(monthKey, {
-        totalRevenue: 0,
-        transactionCount: 0,
-        cashAmount: 0,
-        qrisAmount: 0,
-        itemSales: new Map<string, { quantity: number; revenue: number }>(),
-      });
-    }
-    
-    const monthData = monthlyAggregates.get(monthKey)!;
-    monthData.totalRevenue += totalRevenue;
-    monthData.transactionCount += txCount;
-    monthData.cashAmount += cashAmount;
-    monthData.qrisAmount += qrisAmount;
-    
-    topItems.forEach((item, idx) => {
-      const salesFrequency = 1 / (idx + 1);
-      const quantity = Math.max(1, Math.floor(txCount * salesFrequency * (0.1 + Math.random() * 0.05)));
-      const revenue = quantity * item.price;
-      const itemId = `item_${(idx + 1).toString().padStart(3, "0")}`;
-      
-      if (!monthData.itemSales.has(itemId)) {
-        monthData.itemSales.set(itemId, { quantity: 0, revenue: 0 });
-      }
-      const itemData = monthData.itemSales.get(itemId)!;
-      itemData.quantity += quantity;
-      itemData.revenue += revenue;
-    });
-    
-    currentDate = new Date(currentDate.getTime() + 86400000);
-  }
-  
-  // Generate monthly summaries
-  monthlyAggregates.forEach((data, monthKey) => {
-    monthlySalesSummary.push({
-      id: `mss_${monthKey}`,
-      month: monthKey,
-      totalRevenue: Math.round(data.totalRevenue),
-      totalReceipts: data.transactionCount,
-      cashAmount: Math.round(data.cashAmount),
-      qrisStaticAmount: Math.round(data.qrisAmount),
-      qrisDynamicAmount: 0,
-      voucherAmount: 0,
-    });
-    
-    data.itemSales.forEach((itemData, itemId) => {
-      const item = sampleItems.find((_, idx) => `item_${(idx + 1).toString().padStart(3, "0")}` === itemId);
-      if (item) {
-        monthlyItemSales.push({
-          id: `mis_${monthKey}_${itemId}`,
-          month: monthKey,
-          itemId,
-          itemName: item.name,
-          quantity: itemData.quantity,
-          revenue: Math.round(itemData.revenue),
-        });
-      }
-    });
-  });
-  
-  return {
-    dailyItemSales,
-    dailyPaymentSales,
-    monthlyItemSales,
-    monthlySalesSummary,
+  // Helper to format date as YYYY-MM-DD
+  const formatDate = (date: Date): string => {
+    return date.toISOString().split("T")[0];
   };
+
+  // Generate daily data
+  for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+    const dateStr = formatDate(d);
+    
+    // Generate 5-15 transactions per day
+    const numTransactions = Math.floor(Math.random() * 10) + 5;
+    
+    // Track daily totals
+    const dailyItemsMap = new Map<string, number>(); // itemId -> quantity
+    let dailyRevenue = 0;
+    
+    const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"];
+    const dailyPayments = { cash: 0, "qris-static": 0, "qris-dynamic": 0, voucher: 0 };
+    
+    for (let t = 0; t < numTransactions; t++) {
+      // Pick 1-5 items per transaction
+      const numItems = Math.floor(Math.random() * 5) + 1;
+      let transactionTotal = 0;
+      
+      for (let i = 0; i < numItems; i++) {
+        const item = sampleItems[Math.floor(Math.random() * sampleItems.length)];
+        const qty = Math.floor(Math.random() * 3) + 1;
+        
+        // Add to daily item totals
+        // Note: sampleItems don't have IDs yet, so we use SKU or index as mock ID
+        // In real app, items have numeric IDs. Let's assign mock IDs based on index
+        const itemIndex = sampleItems.indexOf(item) + 1;
+        const currentQty = dailyItemsMap.get(itemIndex.toString()) || 0;
+        dailyItemsMap.set(itemIndex.toString(), currentQty + qty);
+        
+        transactionTotal += item.price * qty;
+      }
+      
+      dailyRevenue += transactionTotal;
+      
+      // Pick payment method
+      const method = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+      dailyPayments[method as keyof typeof dailyPayments] += transactionTotal;
+    }
+    
+    // Create DailyItemSales records
+    dailyItemsMap.forEach((qty, itemIdStr) => {
+      const itemId = parseInt(itemIdStr);
+      const item = sampleItems[itemId - 1];
+      
+      dailyItemSales.push({
+        businessDate: dateStr,
+        itemId: itemId,
+        itemName: item.name,
+        totalQuantity: qty,
+        totalRevenue: item.price * qty,
+        transactionCount: 1 // Simplified
+      } as any); // Type assertion needed due to differences in generation vs type
+    });
+    
+    // Create DailyPaymentSales records
+    Object.entries(dailyPayments).forEach(([method, amount]) => {
+      if (amount > 0) {
+        dailyPaymentSales.push({
+          businessDate: dateStr,
+          method: method as any,
+          totalAmount: amount,
+          transactionCount: 1 // Simplified
+        });
+      }
+    });
+  }
+
+  return { dailyItemSales, dailyPaymentSales, monthlyItemSales, monthlySalesSummary };
 }
