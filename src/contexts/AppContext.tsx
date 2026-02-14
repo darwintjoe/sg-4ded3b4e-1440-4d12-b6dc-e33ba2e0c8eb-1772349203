@@ -314,27 +314,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.log("📦 Sample data injection skipped (items exist)");
         
         // Check if data needs migration (old 'date' field instead of 'businessDate')
-        const existingDailyItems = await db.getAll("dailyItemSales");
-        if (existingDailyItems.length > 0) {
-          console.log("🔍 Checking data format...");
-          
-          // Check if first record has old 'date' field instead of new 'businessDate' field
-          const firstRecord = existingDailyItems[0] as any;
-          if (firstRecord.date && !firstRecord.businessDate) {
+        const dailyRecords = await db.getAll<any>("dailyItemSales");
+        
+        if (dailyRecords.length > 0) {
+          const firstRecord = dailyRecords[0];
+          console.log("🔍 Checking data format...", {
+            totalRecords: dailyRecords.length,
+            hasBusinessDate: "businessDate" in firstRecord,
+            hasDate: "date" in firstRecord,
+          });
+
+          // Check if old format OR insufficient data
+          if ("date" in firstRecord && !("businessDate" in firstRecord)) {
             console.log("🔄 Migrating old data format to new format...");
-            console.log("❌ Found old 'date' field, need 'businessDate' field");
-            
-            // Clear all summary tables with old format
+            console.log("🗑️ Clearing dailyItemSales...");
+            await db.clear("dailyItemSales");
+            console.log("🗑️ Clearing dailyPaymentSales...");
+            await db.clear("dailyPaymentSales");
+            console.log("🗑️ Clearing monthlyItemSales...");
+            await db.clear("monthlyItemSales");
+            console.log("🗑️ Clearing monthlySalesSummary...");
+            await db.clear("monthlySalesSummary");
+            console.log("✅ Old data cleared, re-injecting with correct fields...");
+            // Continue to injection below
+          } else if (dailyRecords.length < 100) {
+            console.log("⚠️ Insufficient data detected (only " + dailyRecords.length + " records)");
+            console.log("🗑️ Clearing and re-injecting full dataset...");
             await db.clear("dailyItemSales");
             await db.clear("dailyPaymentSales");
             await db.clear("monthlyItemSales");
             await db.clear("monthlySalesSummary");
-            
-            console.log("✅ Old data cleared, re-injecting with correct fields...");
-          } else if (firstRecord.businessDate) {
-            console.log("✅ Data format is correct (has 'businessDate' field), skipping migration");
+            // Continue to injection below
+          } else {
+            console.log("✅ Data format correct and sufficient, skipping migration");
             return; // Data is correct, skip re-injection
           }
+        } else {
+          console.log("📦 No existing data, starting fresh injection...");
         }
       }
 

@@ -302,8 +302,8 @@ export function generateSummaryData() {
   for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
     const dateStr = formatDate(d);
     
-    // Generate 5-15 transactions per day
-    const numTransactions = Math.floor(Math.random() * 10) + 5;
+    // Generate 20-40 transactions per day
+    const numTransactions = Math.floor(Math.random() * 20) + 20;
     
     // Track daily totals
     const dailyItemsMap = new Map<string, number>(); // itemId -> quantity
