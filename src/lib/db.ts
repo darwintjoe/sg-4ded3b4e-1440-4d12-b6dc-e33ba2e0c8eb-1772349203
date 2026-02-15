@@ -10,6 +10,7 @@ import {
   DailyPaymentSales,
   MonthlyItemSales,
   MonthlyPaymentSales,
+  MonthlySalesSummary,
   Settings,
 } from "@/types";
 
@@ -707,6 +708,58 @@ export class Database {
   // Monthly Payment Sales
   async getMonthlyPaymentSales(): Promise<MonthlyPaymentSales[]> {
     return this.getAll<MonthlyPaymentSales>("monthlyPaymentSales");
+  }
+
+  async upsertMonthlyPaymentSales(data: MonthlyPaymentSales): Promise<void> {
+    await this.upsert<MonthlyPaymentSales>("monthlyPaymentSales", ["month", "paymentMethod"], data);
+  }
+
+  async upsertMonthlySalesSummary(summary: MonthlySalesSummary): Promise<void> {
+    await this.upsert<MonthlySalesSummary>("monthlySalesSummary", ["month"], summary);
+  }
+
+  // Clear methods for database management
+  async clearTransactions(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(["transactions"], "readwrite");
+      const store = tx.objectStore("transactions");
+      const request = store.clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async clearDailySummaries(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(["dailyItemSales", "dailyPaymentSales"], "readwrite");
+      tx.objectStore("dailyItemSales").clear();
+      tx.objectStore("dailyPaymentSales").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async clearMonthlySummaries(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(["monthlyItemSales", "monthlyPaymentSales", "monthlySalesSummary"], "readwrite");
+      tx.objectStore("monthlyItemSales").clear();
+      tx.objectStore("monthlyPaymentSales").clear();
+      tx.objectStore("monthlySalesSummary").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async clearAttendance(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db!.transaction(["attendance", "dailyAttendance"], "readwrite");
+      tx.objectStore("attendance").clear();
+      if (this.db!.objectStoreNames.contains("dailyAttendance")) {
+        tx.objectStore("dailyAttendance").clear();
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 }
 

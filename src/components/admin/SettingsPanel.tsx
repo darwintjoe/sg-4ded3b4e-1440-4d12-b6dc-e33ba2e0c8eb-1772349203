@@ -22,11 +22,11 @@ import { backupService } from "@/lib/backup-service";
 import { Settings, POSMode } from "@/types";
 import { translations } from "@/lib/translations";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
-import { 
-  Store, 
-  Globe, 
-  DollarSign, 
-  Printer, 
+import {
+  Store,
+  Globe,
+  DollarSign,
+  Printer,
   Link as LinkIcon,
   Bluetooth,
   AlertCircle,
@@ -46,7 +46,8 @@ import {
   Eye,
   AlertTriangle,
   History,
-  RotateCcw
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 
 // Helper component for tooltips
@@ -1411,6 +1412,200 @@ export function SettingsPanel() {
 
           {/* TAB 4: ADVANCED (With Backup) */}
           <TabsContent value="advanced" className="space-y-4 p-4 mt-0">
+            {/* Database Management Section */}
+            <Card className="p-4 border-amber-200 dark:border-amber-900">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                  <SettingsIcon className="h-5 w-5" />
+                  <h3 className="font-semibold">Database Management</h3>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  Manage your store data for onboarding, testing, or starting fresh.
+                </p>
+
+                <div className="space-y-3">
+                  {/* Button 1: Inject Sample Data */}
+                  <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-950/20">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm mb-1">🎨 Inject Sample Data</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Load demo data: 200 items, 8 employees, 26 months of transactions. 
+                          Perfect for learning the system.
+                        </p>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                          onClick={async () => {
+                            if (!window.confirm(
+                              "Load Sample Data?\n\n" +
+                              "This will add:\n" +
+                              "• 200 convenience store items\n" +
+                              "• 8 sample employees\n" +
+                              "• 26 months of transaction history\n" +
+                              "• Properly calculated reports\n\n" +
+                              "Your existing data will be preserved."
+                            )) return;
+
+                            try {
+                              const { generateSampleItems, generateSampleEmployees, generateSampleTransactions, getDefaultSettings } = await import("@/lib/sample-store-data");
+                              const { db } = await import("@/lib/db");
+
+                              // Generate data
+                              const items = generateSampleItems();
+                              const employees = generateSampleEmployees();
+                              const { transactions, dailySummaries, monthlySummaries } = generateSampleTransactions(items, employees);
+
+                              // Save to database
+                              for (const item of items) await db.addItem(item);
+                              for (const emp of employees) await db.addEmployee(emp);
+                              for (const txn of transactions) await db.addTransaction(txn);
+                              for (const daily of dailySummaries) await db.upsertDailyPaymentSales(daily);
+                              for (const monthly of monthlySummaries.payments) await db.upsertMonthlyPaymentSales(monthly);
+                              for (const summary of monthlySummaries.summary) await db.upsertMonthlySalesSummary(summary);
+
+                              alert(
+                                `✅ Sample Data Loaded!\n\n` +
+                                `• ${items.length} items\n` +
+                                `• ${employees.length} employees\n` +
+                                `• ${transactions.length.toLocaleString()} transactions\n` +
+                                `• 26 months of history\n\n` +
+                                `Explore the POS and Reports now!`
+                              );
+                              window.location.reload();
+                            } catch (error) {
+                              console.error(error);
+                              alert("Failed to load sample data: " + (error instanceof Error ? error.message : "Unknown error"));
+                            }
+                          }}
+                        >
+                          Load Sample Data
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Button 2: Clear Transaction Data */}
+                  <div className="border rounded-lg p-3 bg-orange-50 dark:bg-orange-950/20">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm mb-1">🗑️ Clear Transaction Data</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Remove all transactions and reports. Items, employees, and settings remain intact.
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40"
+                          onClick={async () => {
+                            if (!window.confirm(
+                              "⚠️ Clear All Transaction Data?\n\n" +
+                              "This will permanently delete:\n" +
+                              "• All sales transactions\n" +
+                              "• All reports and summaries\n" +
+                              "• All attendance records\n\n" +
+                              "Items, employees, and settings will be kept.\n\n" +
+                              "This action cannot be undone!"
+                            )) return;
+
+                            // Second confirmation
+                            if (!window.confirm(
+                              "🔶 FINAL CONFIRMATION\n\n" +
+                              "Are you absolutely sure?\n\n" +
+                              "Click OK to clear all transaction data."
+                            )) return;
+
+                            try {
+                              const { db } = await import("@/lib/db");
+                              
+                              // Clear transactions and summaries
+                              await db.clearTransactions();
+                              await db.clearDailySummaries();
+                              await db.clearMonthlySummaries();
+                              await db.clearAttendance();
+
+                              alert("✅ Transaction data cleared successfully!\n\nReloading...");
+                              window.location.reload();
+                            } catch (error) {
+                              console.error(error);
+                              alert("Failed to clear transaction data: " + (error instanceof Error ? error.message : "Unknown error"));
+                            }
+                          }}
+                        >
+                          Clear Transaction Data
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Button 3: Factory Reset */}
+                  <div className="border rounded-lg p-3 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm mb-1 text-red-600 dark:text-red-400">
+                          🏭 Factory Reset
+                        </h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Delete EVERYTHING and return to fresh install state. All data will be lost permanently.
+                        </p>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            if (window.confirm(
+                              "🔴 FACTORY RESET - DANGER!\n\n" +
+                              "This will DELETE EVERYTHING:\n" +
+                              "• All items and inventory\n" +
+                              "• All employees\n" +
+                              "• All transactions and sales\n" +
+                              "• All reports and summaries\n" +
+                              "• All settings and configuration\n\n" +
+                              "The app will return to fresh install state.\n\n" +
+                              "THIS ACTION CANNOT BE UNDONE!"
+                            )) {
+                              // Second confirmation
+                              if (window.confirm(
+                                "🔴 FINAL WARNING!\n\n" +
+                                "Click OK to permanently delete ALL DATA.\n\n" +
+                                "Click Cancel to keep your data."
+                              )) {
+                                // Delete IndexedDB
+                                const deleteRequest = indexedDB.deleteDatabase("POSDatabase");
+                                
+                                deleteRequest.onsuccess = () => {
+                                  console.log("✅ Database deleted successfully");
+                                  alert("Factory reset complete. Reloading with fresh install...");
+                                  window.location.reload();
+                                };
+                                
+                                deleteRequest.onerror = (e) => {
+                                  console.error("❌ Failed to delete database:", e);
+                                  alert("Failed to delete database. Please try again or clear browser data manually.");
+                                };
+                                
+                                deleteRequest.onblocked = () => {
+                                  console.warn("⚠️ Database deletion blocked. Closing connections...");
+                                  alert("Please close all other tabs with this app open, then try again.");
+                                };
+                              }
+                            }
+                          }}
+                        >
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Factory Reset
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Separator className="my-6" />
+
             {/* Google Drive Backup */}
             <Card className="p-4">
               <div className="flex items-center justify-between mb-3">

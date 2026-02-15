@@ -1,315 +1,389 @@
-// src/lib/sample-store-data.ts
-/**
- * Sample store data generator
- * Generates realistic POS data for testing and demo purposes
- * 
- * TWO-TIER SUMMARY ARCHITECTURE:
- * 1. Daily summaries (dailyItemSales, dailyPaymentSales) - last 30 days
- * 2. Monthly summaries (monthlyItemSales, monthlyPaymentSales, monthlySalesSummary) - aggregated by month
- * 
- * Reports query ONLY from summary tables, never from raw transactions
- * This keeps the POS fast and lean even after years of usage
- */
-
-import type { Item, Employee, Settings, DailyItemSales, DailyPaymentSales, MonthlyItemSales, MonthlyPaymentSales, MonthlySalesSummary } from "@/types";
+import { Item, Employee, Transaction, Settings, DailyPaymentSales, MonthlyPaymentSales, MonthlySalesSummary, DailyItemSales, MonthlyItemSales } from "@/types";
 
 /**
- * Generate comprehensive summary data for reports
- * Creates both daily and monthly aggregates
+ * Generate comprehensive sample data for new users
+ * - 200 convenience store items
+ * - 8 employees
+ * - 26 months of transaction history (2024-01 to 2026-02)
+ * - Properly calculated two-tier summaries
  */
-export function generateSampleStoreData() {
-  const summaryData = generateSummaryData();
-  const items = generateSampleItems();
-  
-  return {
-    items,
-    ...summaryData
-  };
-}
 
-/**
- * Generate comprehensive summary data for reports
- * Creates both daily and monthly aggregates
- */
-export function generateSummaryData() {
-  console.log("📊 Generating summary data...");
-  
-  const today = new Date();
-  
-  // Generate daily data for last 35 days (detailed recent history for L30D)
-  const dailyStartDate = new Date(today);
-  dailyStartDate.setDate(dailyStartDate.getDate() - 35);
-  
-  // Generate monthly data for last 26 months (long-term trends)
-  const monthlyStartDate = new Date(today);
-  monthlyStartDate.setMonth(monthlyStartDate.getMonth() - 26);
+// Convenience store item categories with realistic products
+export const SAMPLE_ITEMS_DATA = {
+  "Snacks": [
+    { name: "Chitato BBQ", price: 12000, barcode: "8992760221011" },
+    { name: "Lays Original", price: 15000, barcode: "8991002100015" },
+    { name: "Cheetos Cheese", price: 10000, barcode: "8992760221028" },
+    { name: "Doritos Nacho", price: 13000, barcode: "8991002100022" },
+    { name: "Pringles Original", price: 25000, barcode: "8992760221035" },
+    { name: "Oreo Original", price: 8000, barcode: "8991002100039" },
+    { name: "Biskuat Choco", price: 5000, barcode: "8992760221042" },
+    { name: "Better Chocolate", price: 7000, barcode: "8991002100046" },
+    { name: "Ritz Crackers", price: 9000, barcode: "8992760221059" },
+    { name: "Pocky Chocolate", price: 6000, barcode: "8991002100053" },
+    { name: "Wafer Tango", price: 3000, barcode: "8992760221066" },
+    { name: "Selamat Kacang", price: 4000, barcode: "8991002100060" },
+    { name: "Beng Beng", price: 2500, barcode: "8992760221073" },
+    { name: "SilverQueen", price: 11000, barcode: "8991002100077" },
+    { name: "Cadbury Dairy Milk", price: 18000, barcode: "8992760221080" },
+    { name: "KitKat", price: 5000, barcode: "8991002100084" },
+    { name: "Snickers", price: 7000, barcode: "8992760221097" },
+    { name: "M&Ms", price: 12000, barcode: "8991002100091" },
+    { name: "Twix", price: 8000, barcode: "8992760221103" },
+    { name: "Mentos Mint", price: 3000, barcode: "8991002100107" },
+  ],
+  "Beverages": [
+    { name: "Aqua 600ml", price: 4000, barcode: "8991001100014" },
+    { name: "Coca Cola 330ml", price: 6000, barcode: "8991001100021" },
+    { name: "Pepsi 330ml", price: 6000, barcode: "8991001100038" },
+    { name: "Fanta Orange", price: 6000, barcode: "8991001100045" },
+    { name: "Sprite 330ml", price: 6000, barcode: "8991001100052" },
+    { name: "Teh Botol Sosro", price: 5000, barcode: "8991001100069" },
+    { name: "Fruit Tea", price: 5000, barcode: "8991001100076" },
+    { name: "Pocari Sweat", price: 7000, barcode: "8991001100083" },
+    { name: "Mizone", price: 6000, barcode: "8991001100090" },
+    { name: "Le Minerale", price: 3500, barcode: "8991001100106" },
+    { name: "Teh Pucuk", price: 4000, barcode: "8991001100113" },
+    { name: "Ale Ale", price: 3000, barcode: "8991001100120" },
+    { name: "Kopiko Coffee", price: 6000, barcode: "8991001100137" },
+    { name: "ABC Coffee", price: 8000, barcode: "8991001100144" },
+    { name: "Nescafe Classic", price: 10000, barcode: "8991001100151" },
+    { name: "Yakult", price: 12000, barcode: "8991001100168" },
+    { name: "Cimory Yogurt", price: 15000, barcode: "8991001100175" },
+    { name: "Ultra Milk", price: 9000, barcode: "8991001100182" },
+    { name: "Indomilk", price: 8000, barcode: "8991001100199" },
+    { name: "Bear Brand", price: 11000, barcode: "8991001100205" },
+    { name: "Red Bull", price: 20000, barcode: "8991001100212" },
+    { name: "Kratingdaeng", price: 8000, barcode: "8991001100229" },
+    { name: "Extra Joss", price: 2000, barcode: "8991001100236" },
+    { name: "Good Day Cappuccino", price: 12000, barcode: "8991001100243" },
+    { name: "ABC Heinz Ketchup", price: 15000, barcode: "8991001100250" },
+  ],
+  "Instant Food": [
+    { name: "Indomie Goreng", price: 3500, barcode: "8992760100012" },
+    { name: "Indomie Soto", price: 3500, barcode: "8992760100029" },
+    { name: "Indomie Ayam Bawang", price: 3500, barcode: "8992760100036" },
+    { name: "Mie Sedaap Goreng", price: 3000, barcode: "8992760100043" },
+    { name: "Mie Gelas", price: 5000, barcode: "8992760100050" },
+    { name: "Pop Mie", price: 6000, barcode: "8992760100067" },
+    { name: "Sarimi Isi 2", price: 4000, barcode: "8992760100074" },
+    { name: "Supermie", price: 3000, barcode: "8992760100081" },
+    { name: "Lemonilo", price: 7000, barcode: "8992760100098" },
+    { name: "Indofood Bumbu Racik", price: 2000, barcode: "8992760100104" },
+    { name: "Kecap Bango", price: 8000, barcode: "8992760100111" },
+    { name: "Saus Sambal ABC", price: 10000, barcode: "8992760100128" },
+    { name: "Royco Ayam", price: 6000, barcode: "8992760100135" },
+    { name: "Masako Sapi", price: 6000, barcode: "8992760100142" },
+    { name: "Sunlight 800ml", price: 15000, barcode: "8992760100159" },
+  ],
+  "Personal Care": [
+    { name: "Pepsodent", price: 8000, barcode: "8993560100013" },
+    { name: "Close Up", price: 9000, barcode: "8993560100020" },
+    { name: "Sikat Gigi Formula", price: 5000, barcode: "8993560100037" },
+    { name: "Lifebouy Sabun", price: 4000, barcode: "8993560100044" },
+    { name: "Dettol Soap", price: 6000, barcode: "8993560100051" },
+    { name: "Pantene Shampoo", price: 2000, barcode: "8993560100068" },
+    { name: "Clear Shampoo", price: 2500, barcode: "8993560100075" },
+    { name: "Sunsilk Shampoo", price: 2000, barcode: "8993560100082" },
+    { name: "Dove Shampoo", price: 3000, barcode: "8993560100099" },
+    { name: "Rejoice Shampoo", price: 2000, barcode: "8993560100105" },
+    { name: "Vaseline Lotion", price: 15000, barcode: "8993560100112" },
+    { name: "Citra Lotion", price: 12000, barcode: "8993560100129" },
+    { name: "Marina Lotion", price: 8000, barcode: "8993560100136" },
+    { name: "Tissue Paseo", price: 6000, barcode: "8993560100143" },
+    { name: "Charm Pembalut", price: 10000, barcode: "8993560100150" },
+    { name: "Softex Pembalut", price: 9000, barcode: "8993560100167" },
+    { name: "Diapers Merries", price: 45000, barcode: "8993560100174" },
+    { name: "Mamy Poko", price: 35000, barcode: "8993560100181" },
+    { name: "Baby Oil", price: 18000, barcode: "8993560100198" },
+    { name: "Bedak Bayi", price: 12000, barcode: "8993560100204" },
+  ],
+  "Household": [
+    { name: "Beras 1kg", price: 15000, barcode: "8994560100011" },
+    { name: "Minyak Goreng 1L", price: 18000, barcode: "8994560100028" },
+    { name: "Gula Pasir 1kg", price: 14000, barcode: "8994560100035" },
+    { name: "Garam 250g", price: 3000, barcode: "8994560100042" },
+    { name: "Telur 1/4kg", price: 8000, barcode: "8994560100059" },
+    { name: "Kopi Kapal Api", price: 12000, barcode: "8994560100066" },
+    { name: "Teh Celup Sariwangi", price: 7000, barcode: "8994560100073" },
+    { name: "Susu Kental Manis", price: 9000, barcode: "8994560100080" },
+    { name: "Tepung Terigu", price: 10000, barcode: "8994560100097" },
+    { name: "Sabun Cuci Piring", price: 12000, barcode: "8994560100103" },
+    { name: "Molto Pelembut", price: 8000, barcode: "8994560100110" },
+    { name: "Rinso Detergen", price: 20000, barcode: "8994560100127" },
+    { name: "Baygon Spray", price: 25000, barcode: "8994560100134" },
+    { name: "Stella Pengharum", price: 8000, barcode: "8994560100141" },
+    { name: "Kamper Anti Nyamuk", price: 15000, barcode: "8994560100158" },
+  ],
+  "Cigarettes": [
+    { name: "Gudang Garam Filter", price: 25000, barcode: "8995560100010" },
+    { name: "Sampoerna Mild", price: 28000, barcode: "8995560100027" },
+    { name: "Djarum Super", price: 24000, barcode: "8995560100034" },
+    { name: "LA Lights", price: 20000, barcode: "8995560100041" },
+    { name: "Marlboro Merah", price: 35000, barcode: "8995560100058" },
+    { name: "Surya 16", price: 18000, barcode: "8995560100065" },
+    { name: "Esse", price: 22000, barcode: "8995560100072" },
+    { name: "U Mild", price: 23000, barcode: "8995560100089" },
+  ],
+  "Ice Cream": [
+    { name: "Magnum Classic", price: 15000, barcode: "8996560100019" },
+    { name: "Walls Feast", price: 12000, barcode: "8996560100026" },
+    { name: "Paddle Pop", price: 5000, barcode: "8996560100033" },
+    { name: "Campina", price: 8000, barcode: "8996560100040" },
+    { name: "Cornetto", price: 10000, barcode: "8996560100057" },
+  ],
+  "Frozen Food": [
+    { name: "Nugget Fiesta", price: 18000, barcode: "8997560100018" },
+    { name: "Sosis So Nice", price: 15000, barcode: "8997560100025" },
+    { name: "Bakso Sapi", price: 20000, barcode: "8997560100032" },
+    { name: "French Fries", price: 12000, barcode: "8997560100049" },
+    { name: "Dimsum Frozen", price: 25000, barcode: "8997560100056" },
+  ],
+  "Bread & Bakery": [
+    { name: "Roti Tawar Sari Roti", price: 12000, barcode: "8998560100017" },
+    { name: "Roti Sobek", price: 8000, barcode: "8998560100024" },
+    { name: "Roti Aoka", price: 5000, barcode: "8998560100031" },
+    { name: "Roti Sisir", price: 6000, barcode: "8998560100048" },
+    { name: "Roti Isi Coklat", price: 4000, barcode: "8998560100055" },
+  ],
+  "Stationery": [
+    { name: "Pulpen Standard", price: 3000, barcode: "8999560100016" },
+    { name: "Pensil 2B", price: 2000, barcode: "8999560100023" },
+    { name: "Penghapus", price: 1500, barcode: "8999560100030" },
+    { name: "Buku Tulis", price: 5000, barcode: "8999560100047" },
+    { name: "Tipe-X", price: 6000, barcode: "8999560100054" },
+    { name: "Lem UHU", price: 8000, barcode: "8999560100061" },
+    { name: "Gunting", price: 10000, barcode: "8999560100078" },
+    { name: "Stapler", price: 15000, barcode: "8999560100085" },
+  ],
+  "Phone Accessories": [
+    { name: "Kabel Data Micro USB", price: 20000, barcode: "8990560100015" },
+    { name: "Kabel Data Type C", price: 25000, barcode: "8990560100022" },
+    { name: "Earphone", price: 30000, barcode: "8990560100039" },
+    { name: "Powerbank 10000mAh", price: 150000, barcode: "8990560100046" },
+    { name: "Tempered Glass", price: 35000, barcode: "8990560100053" },
+    { name: "Case HP", price: 25000, barcode: "8990560100060" },
+    { name: "Pulsa 10k", price: 11000, barcode: "8990560100077" },
+    { name: "Pulsa 25k", price: 26000, barcode: "8990560100084" },
+    { name: "Pulsa 50k", price: 51000, barcode: "8990560100091" },
+    { name: "Pulsa 100k", price: 101000, barcode: "8990560100107" },
+  ],
+};
 
-  const dailyItemSales: Omit<DailyItemSales, "id">[] = [];
-  const dailyPaymentSales: Omit<DailyPaymentSales, "id">[] = [];
-  const monthlyItemSales: Omit<MonthlyItemSales, "id">[] = [];
-  const monthlyPaymentSales: Omit<MonthlyPaymentSales, "id">[] = [];
-  const monthlySalesSummary: Omit<MonthlySalesSummary, "id">[] = [];
+const SAMPLE_EMPLOYEES = [
+  { name: "Ahmad", pin: "1111", role: "cashier" as const, shift: "shift1" },
+  { name: "Siti", pin: "2222", role: "cashier" as const, shift: "shift1" },
+  { name: "Budi", pin: "3333", role: "cashier" as const, shift: "shift2" },
+  { name: "Dewi", pin: "4444", role: "cashier" as const, shift: "shift2" },
+  { name: "Rudi", pin: "5555", role: "cashier" as const, shift: "shift3" },
+  { name: "Maya", pin: "6666", role: "cashier" as const, shift: "shift3" },
+  { name: "Andi", pin: "7777", role: "manager" as const, shift: "shift1" },
+  { name: "Linda", pin: "8888", role: "manager" as const, shift: "shift2" },
+];
 
-  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+export function generateSampleItems(): Item[] {
+  const items: Item[] = [];
+  let itemId = 1;
 
-  // Sample items for consistent data generation
-  const sampleItems = [
-    { id: 1, name: "Aqua 600ml", price: 3500, sku: "BEV001" },
-    { id: 2, name: "Indomie Goreng", price: 3000, sku: "FOD001" },
-    { id: 3, name: "Coca Cola 390ml", price: 5000, sku: "BEV002" },
-    { id: 4, name: "Chitato Sapi", price: 8500, sku: "SNK001" },
-    { id: 5, name: "Teh Botol Sosro", price: 4000, sku: "BEV003" },
-    { id: 6, name: "Beng Beng", price: 2500, sku: "SNK002" },
-    { id: 7, name: "Gudang Garam", price: 25000, sku: "CIG001" },
-    { id: 8, name: "Pepsodent 225g", price: 12000, sku: "HYG001" },
-    { id: 9, name: "Tissue Paseo", price: 15000, sku: "HYG002" },
-    { id: 10, name: "Rinso Detergent", price: 18000, sku: "HSE001" },
-  ];
-
-  const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"];
-
-  // Track monthly aggregates
-  const monthlyItemsMap = new Map<string, Map<number, { name: string; sku: string; quantity: number; revenue: number; count: number }>>();
-  const monthlyPaymentsMap = new Map<string, Map<string, { amount: number; count: number }>>();
-
-  // Generate data day by day
-  // We generate daily data for the whole period internally to build accurate monthly aggregates
-  // But we only RETURN daily records for the last 35 days
-  for (let d = new Date(monthlyStartDate); d <= today; d.setDate(d.getDate() + 1)) {
-    const dateStr = formatDate(d);
-    const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
-
-    // Generate 20-40 transactions per day
-    const numTransactions = Math.floor(Math.random() * 20) + 20;
-
-    // Track daily totals
-    const dailyItemsMap = new Map<number, { name: string; sku: string; quantity: number; revenue: number; count: number }>();
-    const dailyPaymentsMap = new Map<string, { amount: number; count: number }>();
-
-    for (let t = 0; t < numTransactions; t++) {
-      // Random item
-      const item = sampleItems[Math.floor(Math.random() * sampleItems.length)];
-      const quantity = Math.floor(Math.random() * 3) + 1; // 1-3 items per transaction
-      const revenue = item.price * quantity;
-
-      // Add to daily totals
-      const dailyItem = dailyItemsMap.get(item.id) || { name: item.name, sku: item.sku, quantity: 0, revenue: 0, count: 0 };
-      dailyItem.quantity += quantity;
-      dailyItem.revenue += revenue;
-      dailyItem.count += 1;
-      dailyItemsMap.set(item.id, dailyItem);
-
-      // Add to monthly totals
-      if (!monthlyItemsMap.has(yearMonth)) {
-        monthlyItemsMap.set(yearMonth, new Map());
-      }
-      const monthItems = monthlyItemsMap.get(yearMonth)!;
-      const monthlyItem = monthItems.get(item.id) || { name: item.name, sku: item.sku, quantity: 0, revenue: 0, count: 0 };
-      monthlyItem.quantity += quantity;
-      monthlyItem.revenue += revenue;
-      monthlyItem.count += 1;
-      monthItems.set(item.id, monthlyItem);
-
-      // Random payment method
-      const method = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
-      const amount = revenue;
-
-      // Add to daily payment totals
-      const dailyPayment = dailyPaymentsMap.get(method) || { amount: 0, count: 0 };
-      dailyPayment.amount += amount;
-      dailyPayment.count += 1;
-      dailyPaymentsMap.set(method, dailyPayment);
-
-      // Add to monthly payment totals
-      if (!monthlyPaymentsMap.has(yearMonth)) {
-        monthlyPaymentsMap.set(yearMonth, new Map());
-      }
-      const monthPayments = monthlyPaymentsMap.get(yearMonth)!;
-      const monthlyPayment = monthPayments.get(method) || { amount: 0, count: 0 };
-      monthlyPayment.amount += amount;
-      monthlyPayment.count += 1;
-      monthPayments.set(method, monthlyPayment);
-    }
-
-    // ONLY add to dailyItemSales/dailyPaymentSales if within the last 35 days
-    if (d >= dailyStartDate) {
-      // Create DailyItemSales records
-      dailyItemsMap.forEach((data, itemId) => {
-        dailyItemSales.push({
-          businessDate: dateStr,
-          itemId,
-          sku: data.sku,
-          itemName: data.name,
-          totalQuantity: data.quantity,
-          totalRevenue: data.revenue,
-          transactionCount: data.count
-        });
+  for (const [category, products] of Object.entries(SAMPLE_ITEMS_DATA)) {
+    for (const product of products) {
+      items.push({
+        id: `item-${itemId}`,
+        name: product.name,
+        price: product.price,
+        category,
+        barcode: product.barcode,
+        stock: Math.floor(Math.random() * 100) + 20, // 20-120 stock
+        reorderPoint: 10,
+        image: undefined,
       });
-
-      // Create DailyPaymentSales records
-      dailyPaymentsMap.forEach((data, method) => {
-        dailyPaymentSales.push({
-          businessDate: dateStr,
-          method: method as any,
-          totalAmount: data.amount,
-          transactionCount: data.count
-        });
-      });
+      itemId++;
     }
   }
 
-  // Create MonthlyItemSales records
-  monthlyItemsMap.forEach((items, month) => {
-    items.forEach((data, itemId) => {
-      monthlyItemSales.push({
-        yearMonth: month,
-        itemId,
-        sku: data.sku,
-        itemName: data.name,
-        totalQuantity: data.quantity,
-        totalRevenue: data.revenue,
-        transactionCount: data.count
-      });
-    });
-  });
+  return items;
+}
 
-  // Create MonthlyPaymentSales records
-  monthlyPaymentsMap.forEach((payments, month) => {
-    payments.forEach((data, method) => {
-      monthlyPaymentSales.push({
-        yearMonth: month,
-        method: method as any,
-        totalAmount: data.amount,
-        transactionCount: data.count
-      });
-    });
-  });
+export function generateSampleEmployees(): Employee[] {
+  return SAMPLE_EMPLOYEES.map((emp, index) => ({
+    id: `emp-${index + 1}`,
+    name: emp.name,
+    pin: emp.pin,
+    role: emp.role,
+    shift: emp.shift,
+  }));
+}
 
-  // Create MonthlySalesSummary records
-  monthlyPaymentsMap.forEach((payments, month) => {
-    let totalRevenue = 0;
-    let totalReceipts = 0;
-    let cashAmount = 0;
-    let qrisStaticAmount = 0;
-    let qrisDynamicAmount = 0;
-    let voucherAmount = 0;
+/**
+ * Generate 26 months of realistic transaction data
+ * From 2024-01-01 to 2026-02-28
+ */
+export function generateSampleTransactions(items: Item[], employees: Employee[]): {
+  transactions: Transaction[];
+  dailySummaries: DailyPaymentSales[];
+  monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
+} {
+  const transactions: Transaction[] = [];
+  const dailyMap = new Map<string, Map<string, number>>(); // date -> paymentMethod -> total
+  const monthlyMap = new Map<string, Map<string, number>>(); // month -> paymentMethod -> total
 
-    payments.forEach((data, method) => {
-      totalRevenue += data.amount;
-      totalReceipts += data.count;
+  const startDate = new Date("2024-01-01");
+  const endDate = new Date("2026-02-28");
+  
+  const paymentMethods = ["Cash", "QRIS Static", "QRIS Dynamic", "Voucher"];
+  
+  let transactionId = 1;
+  
+  // Generate transactions for each day
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split("T")[0];
+    const monthStr = dateStr.substring(0, 7); // YYYY-MM
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    
+    // More transactions on weekends
+    const baseTransactionsPerDay = isWeekend ? 50 : 35;
+    const transactionsToday = Math.floor(baseTransactionsPerDay + Math.random() * 20);
+    
+    for (let i = 0; i < transactionsToday; i++) {
+      // Random time during business hours (7am - 10pm)
+      const hour = 7 + Math.floor(Math.random() * 15);
+      const minute = Math.floor(Math.random() * 60);
+      const timestamp = new Date(d);
+      timestamp.setHours(hour, minute, 0, 0);
       
-      if (method === "cash") cashAmount = data.amount;
-      else if (method === "qris-static") qrisStaticAmount = data.amount;
-      else if (method === "qris-dynamic") qrisDynamicAmount = data.amount;
-      else if (method === "voucher") voucherAmount = data.amount;
+      // Random 1-5 items per transaction
+      const itemCount = Math.floor(Math.random() * 5) + 1;
+      const transactionItems: Array<{ item: Item; quantity: number }> = [];
+      let subtotal = 0;
+      
+      for (let j = 0; j < itemCount; j++) {
+        const randomItem = items[Math.floor(Math.random() * items.length)];
+        const quantity = Math.floor(Math.random() * 3) + 1;
+        transactionItems.push({ item: randomItem, quantity });
+        subtotal += randomItem.price * quantity;
+      }
+      
+      // Random employee (weighted towards cashiers)
+      const cashiers = employees.filter(e => e.role === "cashier");
+      const employee = Math.random() < 0.9 
+        ? cashiers[Math.floor(Math.random() * cashiers.length)]
+        : employees[Math.floor(Math.random() * employees.length)];
+      
+      // Random payment method
+      const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+      
+      const transaction: Transaction = {
+        id: `txn-${transactionId}`,
+        timestamp: timestamp.toISOString(),
+        items: transactionItems.map(ti => ({
+          itemId: ti.item.id,
+          itemName: ti.item.name,
+          quantity: ti.quantity,
+          price: ti.item.price,
+        })),
+        subtotal,
+        tax1: 0,
+        tax2: 0,
+        total: subtotal,
+        paymentMethod,
+        amountPaid: subtotal,
+        change: 0,
+        employeeId: employee.id,
+        employeeName: employee.name,
+      };
+      
+      transactions.push(transaction);
+      transactionId++;
+      
+      // Accumulate daily
+      if (!dailyMap.has(dateStr)) {
+        dailyMap.set(dateStr, new Map());
+      }
+      const dayMap = dailyMap.get(dateStr)!;
+      dayMap.set(paymentMethod, (dayMap.get(paymentMethod) || 0) + subtotal);
+      
+      // Accumulate monthly
+      if (!monthlyMap.has(monthStr)) {
+        monthlyMap.set(monthStr, new Map());
+      }
+      const monthMap = monthlyMap.get(monthStr)!;
+      monthMap.set(paymentMethod, (monthMap.get(paymentMethod) || 0) + subtotal);
+    }
+  }
+  
+  // Convert to daily summaries
+  const dailySummaries: DailyPaymentSales[] = [];
+  for (const [date, paymentMap] of dailyMap.entries()) {
+    for (const [method, total] of paymentMap.entries()) {
+      dailySummaries.push({
+        date,
+        paymentMethod: method,
+        total,
+      });
+    }
+  }
+  
+  // Convert to monthly summaries
+  const monthlyPayments: MonthlyPaymentSales[] = [];
+  const monthlySummary: MonthlySalesSummary[] = [];
+  
+  for (const [month, paymentMap] of monthlyMap.entries()) {
+    let monthTotal = 0;
+    for (const [method, total] of paymentMap.entries()) {
+      monthlyPayments.push({
+        month,
+        paymentMethod: method,
+        total,
+      });
+      monthTotal += total;
+    }
+    
+    monthlySummary.push({
+      month,
+      totalRevenue: monthTotal,
+      transactionCount: transactions.filter(t => t.timestamp.startsWith(month)).length,
     });
-
-    monthlySalesSummary.push({
-      yearMonth: month,
-      totalRevenue,
-      totalReceipts,
-      cashAmount,
-      qrisStaticAmount,
-      qrisDynamicAmount,
-      voucherAmount
-    });
-  });
-
-  console.log(`📊 Generated summary data:`);
-  console.log(`  - Daily item sales: ${dailyItemSales.length} records (last 35 days)`);
-  console.log(`  - Daily payment sales: ${dailyPaymentSales.length} records (last 35 days)`);
-  console.log(`  - Monthly item sales: ${monthlyItemSales.length} records`);
-  console.log(`  - Monthly payment sales: ${monthlyPaymentSales.length} records`);
-  console.log(`  - Monthly sales summary: ${monthlySalesSummary.length} records`);
-
-  return { dailyItemSales, dailyPaymentSales, monthlyItemSales, monthlyPaymentSales, monthlySalesSummary };
+  }
+  
+  return {
+    transactions,
+    dailySummaries,
+    monthlySummaries: {
+      payments: monthlyPayments,
+      summary: monthlySummary,
+    },
+  };
 }
 
-/**
- * Generate sample items for the store
- */
-export function generateSampleItems(): Omit<Item, "id">[] {
-  return [
-    // Beverages
-    { name: "Aqua 600ml", category: "Beverages", price: 3500, sku: "BEV001", stock: 100, isActive: true },
-    { name: "Coca Cola 390ml", category: "Beverages", price: 5000, sku: "BEV002", stock: 80, isActive: true },
-    { name: "Teh Botol Sosro", category: "Beverages", price: 4000, sku: "BEV003", stock: 120, isActive: true },
-    { name: "Fanta Orange", category: "Beverages", price: 5000, sku: "BEV004", stock: 60, isActive: true },
-    { name: "Sprite 390ml", category: "Beverages", price: 5000, sku: "BEV005", stock: 70, isActive: true },
-    
-    // Food
-    { name: "Indomie Goreng", category: "Food", price: 3000, sku: "FOD001", stock: 200, isActive: true },
-    { name: "Mie Sedaap", category: "Food", price: 2800, sku: "FOD002", stock: 150, isActive: true },
-    { name: "Pop Mie", category: "Food", price: 6000, sku: "FOD003", stock: 80, isActive: true },
-    
-    // Snacks
-    { name: "Chitato Sapi", category: "Snacks", price: 8500, sku: "SNK001", stock: 90, isActive: true },
-    { name: "Beng Beng", category: "Snacks", price: 2500, sku: "SNK002", stock: 120, isActive: true },
-    { name: "Better Chocolate", category: "Snacks", price: 3000, sku: "SNK003", stock: 100, isActive: true },
-    { name: "Oreo", category: "Snacks", sku: "SNK004", stock: 85, isActive: true, price: 10000 },
-    
-    // Cigarettes
-    { name: "Gudang Garam", category: "Cigarettes", price: 25000, sku: "CIG001", stock: 50, isActive: true },
-    { name: "Sampoerna Mild", category: "Cigarettes", price: 28000, sku: "CIG002", stock: 45, isActive: true },
-    
-    // Hygiene
-    { name: "Pepsodent 225g", category: "Hygiene", price: 12000, sku: "HYG001", stock: 40, isActive: true },
-    { name: "Tissue Paseo", category: "Hygiene", price: 15000, sku: "HYG002", stock: 30, isActive: true },
-    { name: "Sabun Lifebuoy", category: "Hygiene", price: 8000, sku: "HYG003", stock: 60, isActive: true },
-    
-    // Household
-    { name: "Rinso Detergent", category: "Household", price: 18000, sku: "HSE001", stock: 35, isActive: true },
-    { name: "Sunlight 800ml", category: "Household", price: 15000, sku: "HSE002", stock: 40, isActive: true },
-  ];
-}
-
-/**
- * Generate sample employees
- */
-export function generateSampleEmployees(): Omit<Employee, "id">[] {
-  return [
-    { name: "Admin", pin: "0000", role: "admin", createdAt: Date.now(), isActive: true },
-    { name: "John Doe", pin: "1234", role: "cashier", createdAt: Date.now(), isActive: true },
-    { name: "Jane Smith", pin: "5678", role: "cashier", createdAt: Date.now(), isActive: true },
-    { name: "Mike Wilson", pin: "9012", role: "employee", createdAt: Date.now(), isActive: true },
-    { name: "Sarah Johnson", pin: "3456", role: "employee", createdAt: Date.now(), isActive: true },
-  ];
-}
-
-/**
- * Get default settings
- */
 export function getDefaultSettings(): Settings {
   return {
-    key: "settings",
-    mode: "retail",
+    businessName: "Sample Store",
+    businessAddress: "123 Main Street\nJakarta, Indonesia",
+    taxId: "12.345.678.9-012.000",
+    receiptFooter: "Thank you for shopping!\nVisit us again soon!",
+    currency: "IDR",
     tax1Enabled: true,
     tax1Label: "PPN",
     tax1Rate: 11,
     tax1Inclusive: false,
     tax2Enabled: false,
-    tax2Label: "Service",
-    tax2Rate: 5,
+    tax2Label: "Service Charge",
+    tax2Rate: 0,
     tax2Inclusive: false,
-    language: "en",
     printerWidth: 58,
-    businessName: "SELL MORE",
-    businessAddress: "Jl. Raya No. 123, Jakarta",
-    taxId: "01.234.567.8-901.000",
-    receiptFooter: "Thank you for your purchase!",
-    googleDriveLinked: false,
     allowPriceOverride: false,
-    shifts: {
-      shift1: { enabled: true, name: "Morning Shift", startTime: "08:00", endTime: "16:00" },
-      shift2: { enabled: true, name: "Evening Shift", startTime: "16:00", endTime: "00:00" },
-      shift3: { enabled: false, name: "Night Shift", startTime: "00:00", endTime: "08:00" },
-    },
     paymentMethods: {
       cash: true,
       card: true,
       ewallet: true,
       qr: true,
-      transfer: true
-    }
+      transfer: true,
+    },
+    shifts: {
+      shift1: { enabled: true, name: "Morning Shift", startTime: "07:00", endTime: "15:00" },
+      shift2: { enabled: true, name: "Afternoon Shift", startTime: "15:00", endTime: "23:00" },
+      shift3: { enabled: false, name: "Night Shift", startTime: "23:00", endTime: "07:00" },
+    },
   };
 }
