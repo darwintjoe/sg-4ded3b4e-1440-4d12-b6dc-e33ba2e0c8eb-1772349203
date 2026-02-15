@@ -17,6 +17,20 @@ import type { Item, Employee, Settings, DailyItemSales, DailyPaymentSales, Month
  * Generate comprehensive summary data for reports
  * Creates both daily and monthly aggregates
  */
+export function generateSampleStoreData() {
+  const summaryData = generateSummaryData();
+  const items = generateSampleItems();
+  
+  return {
+    items,
+    ...summaryData
+  };
+}
+
+/**
+ * Generate comprehensive summary data for reports
+ * Creates both daily and monthly aggregates
+ */
 export function generateSummaryData() {
   console.log("📊 Generating summary data...");
   

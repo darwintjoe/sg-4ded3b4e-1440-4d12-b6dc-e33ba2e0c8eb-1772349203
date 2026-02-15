@@ -556,6 +556,10 @@ export class Database {
     }
   }
 
+  async clearAllStores(): Promise<void> {
+    return this.clearAllData();
+  }
+
   // Settings
   async getSettings(): Promise<Settings> {
     const settings = await this.getById<Settings>("settings", "default");
