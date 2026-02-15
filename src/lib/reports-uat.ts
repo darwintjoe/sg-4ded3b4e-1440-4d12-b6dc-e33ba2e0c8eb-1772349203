@@ -20,6 +20,7 @@ interface TestResult {
   duration: number;
   details: string;
   data?: any;
+  error?: string;
 }
 
 export interface UATReport {
