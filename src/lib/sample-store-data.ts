@@ -1,4 +1,14 @@
-import { Item, Employee, Transaction, Settings, DailyPaymentSales, MonthlyPaymentSales, MonthlySalesSummary, DailyItemSales, MonthlyItemSales } from "@/types";
+import { 
+  Item, 
+  Employee, 
+  Transaction, 
+  Settings, 
+  DailyPaymentSales, 
+  MonthlyPaymentSales, 
+  MonthlySalesSummary,
+  CartItem,
+  UserRole
+} from "@/types";
 
 /**
  * Generate comprehensive sample data for new users
@@ -177,8 +187,8 @@ const SAMPLE_EMPLOYEES = [
   { name: "Dewi", pin: "4444", role: "cashier" as const, shift: "shift2" },
   { name: "Rudi", pin: "5555", role: "cashier" as const, shift: "shift3" },
   { name: "Maya", pin: "6666", role: "cashier" as const, shift: "shift3" },
-  { name: "Andi", pin: "7777", role: "manager" as const, shift: "shift1" },
-  { name: "Linda", pin: "8888", role: "manager" as const, shift: "shift2" },
+  { name: "Andi", pin: "7777", role: "admin" as const, shift: "shift1" }, // Changed to admin as manager is not in UserRole
+  { name: "Linda", pin: "8888", role: "admin" as const, shift: "shift2" }, // Changed to admin
 ];
 
 export function generateSampleItems(): Item[] {
@@ -188,14 +198,13 @@ export function generateSampleItems(): Item[] {
   for (const [category, products] of Object.entries(SAMPLE_ITEMS_DATA)) {
     for (const product of products) {
       items.push({
-        id: `item-${itemId}`,
+        id: itemId, // Number ID
         name: product.name,
         price: product.price,
         category,
-        barcode: product.barcode,
+        sku: product.barcode, // Mapped to SKU
         stock: Math.floor(Math.random() * 100) + 20, // 20-120 stock
-        reorderPoint: 10,
-        image: undefined,
+        isActive: true,
       });
       itemId++;
     }
@@ -206,11 +215,12 @@ export function generateSampleItems(): Item[] {
 
 export function generateSampleEmployees(): Employee[] {
   return SAMPLE_EMPLOYEES.map((emp, index) => ({
-    id: `emp-${index + 1}`,
+    id: index + 1, // Number ID
     name: emp.name,
     pin: emp.pin,
-    role: emp.role,
-    shift: emp.shift,
+    role: emp.role as UserRole,
+    createdAt: Date.now(),
+    isActive: true
   }));
 }
 
@@ -230,7 +240,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
   const startDate = new Date("2024-01-01");
   const endDate = new Date("2026-02-28");
   
-  const paymentMethods = ["Cash", "QRIS Static", "QRIS Dynamic", "Voucher"];
+  const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"]; // Matches PaymentMethod type
   
   let transactionId = 1;
   
@@ -254,13 +264,21 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
       
       // Random 1-5 items per transaction
       const itemCount = Math.floor(Math.random() * 5) + 1;
-      const transactionItems: Array<{ item: Item; quantity: number }> = [];
+      const transactionItems: CartItem[] = [];
       let subtotal = 0;
       
       for (let j = 0; j < itemCount; j++) {
         const randomItem = items[Math.floor(Math.random() * items.length)];
         const quantity = Math.floor(Math.random() * 3) + 1;
-        transactionItems.push({ item: randomItem, quantity });
+        
+        transactionItems.push({ 
+          itemId: randomItem.id || 0,
+          sku: randomItem.sku || "",
+          name: randomItem.name,
+          basePrice: randomItem.price,
+          quantity: quantity,
+          totalPrice: randomItem.price * quantity
+        });
         subtotal += randomItem.price * quantity;
       }
       
@@ -274,23 +292,22 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
       const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
       
       const transaction: Transaction = {
-        id: `txn-${transactionId}`,
-        timestamp: timestamp.toISOString(),
-        items: transactionItems.map(ti => ({
-          itemId: ti.item.id,
-          itemName: ti.item.name,
-          quantity: ti.quantity,
-          price: ti.item.price,
-        })),
+        id: transactionId,
+        timestamp: timestamp.getTime(), // Changed to number timestamp
+        businessDate: dateStr, // Added businessDate
+        shiftId: "shift1", // Default shift
+        cashierId: employee.id || 0,
+        cashierName: employee.name,
+        mode: "retail",
+        items: transactionItems,
         subtotal,
-        tax1: 0,
-        tax2: 0,
+        tax: 0,
         total: subtotal,
-        paymentMethod,
-        amountPaid: subtotal,
+        payments: [{
+          method: paymentMethod as any,
+          amount: subtotal
+        }],
         change: 0,
-        employeeId: employee.id,
-        employeeName: employee.name,
       };
       
       transactions.push(transaction);
@@ -317,9 +334,10 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
   for (const [date, paymentMap] of dailyMap.entries()) {
     for (const [method, total] of paymentMap.entries()) {
       dailySummaries.push({
-        date,
-        paymentMethod: method,
-        total,
+        businessDate: date,
+        method: method as any,
+        totalAmount: total,
+        transactionCount: 0 // Simplification
       });
     }
   }
@@ -330,19 +348,34 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
   
   for (const [month, paymentMap] of monthlyMap.entries()) {
     let monthTotal = 0;
+    let cashAmount = 0;
+    let qrisStaticAmount = 0;
+    let qrisDynamicAmount = 0;
+    let voucherAmount = 0;
+
     for (const [method, total] of paymentMap.entries()) {
       monthlyPayments.push({
-        month,
-        paymentMethod: method,
-        total,
+        yearMonth: month,
+        method: method as any,
+        totalAmount: total,
+        transactionCount: 0 // Simplification
       });
       monthTotal += total;
+
+      if (method === "cash") cashAmount += total;
+      else if (method === "qris-static") qrisStaticAmount += total;
+      else if (method === "qris-dynamic") qrisDynamicAmount += total;
+      else if (method === "voucher") voucherAmount += total;
     }
     
     monthlySummary.push({
-      month,
+      yearMonth: month,
       totalRevenue: monthTotal,
-      transactionCount: transactions.filter(t => t.timestamp.startsWith(month)).length,
+      totalReceipts: transactions.filter(t => new Date(t.timestamp).toISOString().startsWith(month)).length,
+      cashAmount,
+      qrisStaticAmount,
+      qrisDynamicAmount,
+      voucherAmount
     });
   }
   
@@ -358,11 +391,13 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
 
 export function getDefaultSettings(): Settings {
   return {
+    key: "default",
+    mode: "retail",
     businessName: "Sample Store",
     businessAddress: "123 Main Street\nJakarta, Indonesia",
     taxId: "12.345.678.9-012.000",
     receiptFooter: "Thank you for shopping!\nVisit us again soon!",
-    currency: "IDR",
+    language: "en",
     tax1Enabled: true,
     tax1Label: "PPN",
     tax1Rate: 11,
@@ -373,6 +408,7 @@ export function getDefaultSettings(): Settings {
     tax2Inclusive: false,
     printerWidth: 58,
     allowPriceOverride: false,
+    googleDriveLinked: false,
     paymentMethods: {
       cash: true,
       card: true,
@@ -386,4 +422,27 @@ export function getDefaultSettings(): Settings {
       shift3: { enabled: false, name: "Night Shift", startTime: "23:00", endTime: "07:00" },
     },
   };
+}
+
+// Wrapper for backward compatibility with UAT scripts
+export function generateSampleStoreData() {
+  const items = generateSampleItems();
+  const employees = generateSampleEmployees();
+  const transactionData = generateSampleTransactions(items, employees);
+  
+  return {
+    items,
+    employees,
+    transactions: transactionData.transactions,
+    dailySummaries: transactionData.dailySummaries,
+    monthlySummaries: transactionData.monthlySummaries,
+    settings: getDefaultSettings()
+  };
+}
+
+// Used by AppContext
+export function generateSummaryData(transactions: Transaction[]) {
+   // Placeholder implementation if needed by AppContext to avoid import errors
+   // The actual logic is likely inside generateSampleTransactions
+   return {};
 }

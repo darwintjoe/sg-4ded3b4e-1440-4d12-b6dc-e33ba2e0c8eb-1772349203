@@ -48,7 +48,11 @@ import {
   History,
   RotateCcw,
   Trash2,
+  Database,
 } from "lucide-react";
+import { db } from "@/lib/db";
+import { generateSampleStoreData } from "@/lib/sample-store-data";
+import { useToast } from "@/hooks/use-toast";
 
 // Helper component for tooltips
 function HelpTooltip({ content }: { content: string }) {
@@ -67,7 +71,7 @@ function HelpTooltip({ content }: { content: string }) {
 }
 
 export function SettingsPanel() {
-  const { settings: currentSettings, updateSettings, language, loginAdmin } = useApp();
+  const { settings: currentSettings, updateSettings, language, loginAdmin, useToast } = useApp();
   const { 
     user, 
     isSignedIn, 
@@ -87,6 +91,7 @@ export function SettingsPanel() {
     canRevert
   } = useGoogleAuth();
   const t = translations[language];
+  const { toast } = useToast();
 
   const [settings, setSettings] = useState<Settings>(currentSettings);
   const [saving, setSaving] = useState(false);
@@ -1794,6 +1799,73 @@ export function SettingsPanel() {
                 </div>
               )}
             </Card>
+
+            <Tabs defaultValue="basic" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="basic">Basic Settings</TabsTrigger>
+                <TabsTrigger value="receipt">Receipt & Printer</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="advanced" className="space-y-6">
+                <Card className="p-4 border-destructive/20 bg-destructive/5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Database className="h-5 w-5 text-destructive" />
+                    <h3 className="font-semibold text-lg text-destructive">Database Management</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Factory Reset</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Clears all data and returns to fresh install state.
+                      </p>
+                      <Button 
+                        variant="destructive" 
+                        className="w-full" 
+                        onClick={handleFactoryReset}
+                        disabled={loading}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Factory Reset
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Inject Sample Data</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Adds demo data: items, employees, and history.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950" 
+                        onClick={handleInjectSampleData}
+                        disabled={loading}
+                      >
+                        <Database className="mr-2 h-4 w-4" />
+                        Inject Sample Data
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium">Clear Transactions</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Removes sales history but keeps items & employees.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full border-orange-200 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950" 
+                        onClick={handleClearTransactions}
+                        disabled={loading}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Clear Transactions
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>
