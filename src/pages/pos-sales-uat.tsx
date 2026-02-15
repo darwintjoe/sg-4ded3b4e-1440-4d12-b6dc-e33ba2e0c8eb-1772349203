@@ -254,7 +254,7 @@ export default function POSSalesUAT() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="max-h-[600px] overflow-y-auto pr-4 space-y-4 border rounded-md p-2">
                   {report.validations.map((validation) => (
                     <div
                       key={validation.date}
