@@ -3,10 +3,10 @@ import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Sh
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
-  generateSummaryData, 
   generateSampleItems, 
   generateSampleEmployees, 
-  getDefaultSettings 
+  getDefaultSettings,
+  generateSampleStoreData 
 } from "@/lib/sample-store-data";
 
 interface AppContextType {
@@ -399,83 +399,96 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const reinjectMonthlySummaries = async () => {
-    try {
-      // Clear only monthly tables
-      await db.clear("monthlyItemSales");
-      await db.clear("monthlyPaymentSales");
-      await db.clear("monthlySalesSummary");
-      
-      // Generate and inject
-      const { monthlyItemSales, monthlyPaymentSales, monthlySalesSummary } = generateSummaryData();
-      
-      console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
-      for (const item of monthlyItemSales) {
-        await db.add("monthlyItemSales", item);
-      }
+  // Inject sample data if needed
+  const injectSampleData = async () => {
+    const data = generateSampleStoreData();
+    
+    // Check if data already exists
+    const existingItems = await db.getItems();
+    if (existingItems.length > 0) return;
 
-      console.log(`📊 Injecting ${monthlyPaymentSales.length} monthly payment sales records...`);
-      for (const item of monthlyPaymentSales) {
-        await db.add("monthlyPaymentSales", item);
-      }
-
-      console.log(`📊 Injecting ${monthlySalesSummary.length} monthly sales summary records...`);
-      for (const item of monthlySalesSummary) {
-        await db.add("monthlySalesSummary", item);
-      }
-      
-      const finalCount = await db.count("monthlyItemSales");
-      console.log(`✅ Monthly data re-injection complete! Final count: ${finalCount}`);
-    } catch (error) {
-      console.error("⚠️ Monthly data re-injection failed:", error);
+    // Add items
+    for (const item of data.items) {
+      await db.addItem(item);
     }
+
+    // Add employees
+    for (const emp of data.employees) {
+      await db.addEmployee(emp);
+    }
+    
+    // Add transactions
+    for (const txn of data.transactions) {
+      await db.addTransaction(txn);
+    }
+
+    // Add summaries
+    for (const daily of data.dailySummaries) {
+      await db.upsertDailyPaymentSales(daily);
+    }
+    
+    for (const monthly of data.monthlySummaries.payments) {
+      await db.upsertMonthlyPaymentSales(monthly);
+    }
+    
+    for (const summary of data.monthlySummaries.summary) {
+      await db.upsertMonthlySalesSummary(summary);
+    }
+
+    // Update settings
+    await db.updateSettings(data.settings);
+    
+    // Reload to refresh context
+    window.location.reload();
+  };
+
+  // Re-inject monthly summaries (repair tool)
+  const reinjectMonthlySummaries = async () => {
+    const data = generateSampleStoreData();
+    
+    // Clear existing monthly summaries
+    await db.clearMonthlySummaries();
+    
+    // Add fresh ones
+    for (const monthly of data.monthlySummaries.payments) {
+      await db.upsertMonthlyPaymentSales(monthly);
+    }
+    
+    for (const summary of data.monthlySummaries.summary) {
+      await db.upsertMonthlySalesSummary(summary);
+    }
+    
+    console.log("Monthly summaries re-injected");
   };
 
   const injectSummaryData = async () => {
     try {
       console.log("📊 Generating summary data...");
-      const { 
-        dailyItemSales, 
-        dailyPaymentSales, 
-        monthlyItemSales, 
-        monthlyPaymentSales, 
-        monthlySalesSummary 
-      } = generateSummaryData();
+      
+      // Use generateSampleStoreData as the source of truth
+      const data = generateSampleStoreData();
       
       // Inject daily summaries
-      console.log(`📊 Injecting ${dailyItemSales.length} daily item sales records...`);
-      for (const item of dailyItemSales) {
-        await db.upsertDailyItemSales(item);
-      }
-      
-      console.log(`📊 Injecting ${dailyPaymentSales.length} daily payment sales records...`);
-      for (const item of dailyPaymentSales) {
+      console.log(`📊 Injecting daily payment sales records...`);
+      for (const item of data.dailySummaries) {
         await db.upsertDailyPaymentSales(item);
       }
 
       // Inject monthly summaries
-      console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
-      for (const item of monthlyItemSales) {
-        await db.add("monthlyItemSales", item);
+      console.log(`📊 Injecting monthly payment sales records...`);
+      for (const item of data.monthlySummaries.payments) {
+        await db.upsertMonthlyPaymentSales(item);
       }
 
-      console.log(`📊 Injecting ${monthlyPaymentSales.length} monthly payment sales records...`);
-      for (const item of monthlyPaymentSales) {
-        await db.add("monthlyPaymentSales", item);
-      }
-
-      console.log(`📊 Injecting ${monthlySalesSummary.length} monthly sales summary records...`);
-      for (const item of monthlySalesSummary) {
-        await db.add("monthlySalesSummary", item);
+      console.log(`📊 Injecting monthly sales summary records...`);
+      for (const item of data.monthlySummaries.summary) {
+        await db.upsertMonthlySalesSummary(item);
       }
       
       // Verify injection
-      const finalMonthlyCount = await db.count("monthlyItemSales");
-      console.log(`✅ Summary data injection complete! Final monthlyItemSales count: ${finalMonthlyCount}`);
+      const finalMonthlyCount = await db.count("monthlySalesSummary");
+      console.log(`✅ Summary data injection complete! Final count: ${finalMonthlyCount}`);
       
-      if (finalMonthlyCount < 500) {
-        console.error("❌ Monthly data injection verification failed! Expected ~520, got " + finalMonthlyCount);
-      }
     } catch (error) {
       console.error("⚠️ Summary data injection failed:", error);
       throw error; // Re-throw to be caught by parent

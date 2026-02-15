@@ -71,7 +71,7 @@ function HelpTooltip({ content }: { content: string }) {
 }
 
 export function SettingsPanel() {
-  const { settings: currentSettings, updateSettings, language, loginAdmin, useToast } = useApp();
+  const { settings: currentSettings, updateSettings, language, loginAdmin } = useApp();
   const { 
     user, 
     isSignedIn, 
@@ -95,6 +95,7 @@ export function SettingsPanel() {
 
   const [settings, setSettings] = useState<Settings>(currentSettings);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   
   // Bluetooth printer state
   const [printerConnecting, setPrinterConnecting] = useState(false);
@@ -117,6 +118,120 @@ export function SettingsPanel() {
   
   // Revert state
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ available: false, hoursRemaining: null });
+
+  // HANDLERS FOR DATABASE MANAGEMENT
+  const handleFactoryReset = async () => {
+    if (!confirm("Are you sure? This will delete ALL data including items, employees, and transactions. This cannot be undone.")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await db.clearAllData();
+      toast({
+        title: "Factory Reset Complete",
+        description: "All data has been cleared. The page will reload.",
+      });
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to reset database",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleInjectSampleData = async () => {
+    if (!confirm("This will add sample data to your database. Continue?")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = generateSampleStoreData();
+      
+      // Add Items
+      for (const item of data.items) {
+        await db.addItem(item);
+      }
+      
+      // Add Employees
+      for (const emp of data.employees) {
+        await db.addEmployee(emp);
+      }
+      
+      // Add Transactions
+      const chunkSize = 100;
+      for (let i = 0; i < data.transactions.length; i += chunkSize) {
+        const chunk = data.transactions.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(t => db.addTransaction(t)));
+      }
+      
+      // Add Daily Summaries
+      for (const summary of data.dailySummaries) {
+        await db.upsertDailyPaymentSales(summary);
+      }
+      
+      // Add Monthly Summaries
+      for (const summary of data.monthlySummaries.payments) {
+        await db.upsertMonthlyPaymentSales(summary);
+      }
+      
+      for (const summary of data.monthlySummaries.summary) {
+        await db.upsertMonthlySalesSummary(summary);
+      }
+      
+      // Update Settings
+      await db.updateSettings(data.settings);
+
+      toast({
+        title: "Sample Data Injected",
+        description: `Added ${data.items.length} items, ${data.employees.length} employees, and ${data.transactions.length} transactions.`,
+      });
+      setLoading(false);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to inject sample data",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleClearTransactions = async () => {
+    if (!confirm("Are you sure? This will delete ALL transactions and sales reports. Items and Employees will be kept.")) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await db.clearTransactions();
+      await db.clearDailySummaries();
+      await db.clearMonthlySummaries();
+      await db.clearAttendance();
+      
+      toast({
+        title: "Transactions Cleared",
+        description: "All sales data has been removed. Items and employees remain.",
+      });
+      setLoading(false);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to clear transactions",
+        variant: "destructive",
+      });
+      setLoading(false);
+    }
+  };
 
   // Helper: Clear temp backup data
   const clearTempBackupData = async () => {

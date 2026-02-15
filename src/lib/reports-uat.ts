@@ -36,6 +36,7 @@ export interface UATReport {
 export class ReportsUAT {
   private results: TestResult[] = [];
   private startTime: number = 0;
+  private testData: any = null; // Add testData property
 
   async runAllTests(): Promise<UATReport> {
     console.log("🚀 Starting Reports UAT Testing...\n");
@@ -124,41 +125,39 @@ export class ReportsUAT {
     const start = performance.now();
     try {
       // Clear all data first
-      await db.clearAllStores();
+      await db.clearAllData();
       
       // Generate fresh sample data
       const sampleData = generateSampleStoreData();
+      this.testData = sampleData; // Store it
       
       // Save items first
       for (const item of sampleData.items) {
         await db.add("items", item);
       }
       
-      // Save daily summaries
-      for (const daily of sampleData.dailyItemSales) {
-        await db.add("dailyItemSales", daily);
+      // Save transactions
+      for (const txn of sampleData.transactions) {
+        await db.add("transactions", txn);
       }
       
-      for (const daily of sampleData.dailyPaymentSales) {
-        await db.add("dailyPaymentSales", daily);
+      // Save daily summaries
+      for (const daily of sampleData.dailySummaries) {
+        await db.upsertDailyPaymentSales(daily);
       }
       
       // Save monthly summaries
-      for (const monthly of sampleData.monthlyItemSales) {
-        await db.add("monthlyItemSales", monthly);
+      for (const monthly of sampleData.monthlySummaries.payments) {
+        await db.upsertMonthlyPaymentSales(monthly);
       }
       
-      for (const monthly of sampleData.monthlyPaymentSales) {
-        await db.add("monthlyPaymentSales", monthly);
-      }
-      
-      for (const monthly of sampleData.monthlySalesSummary) {
-        await db.add("monthlySalesSummary", monthly);
+      for (const monthly of sampleData.monthlySummaries.summary) {
+        await db.upsertMonthlySalesSummary(monthly);
       }
       
       // Verify data was saved
-      const dailyCount = (await db.getAll<DailyItemSales>("dailyItemSales")).length;
-      const monthlyCount = (await db.getAll<MonthlyItemSales>("monthlyItemSales")).length;
+      const dailyCount = (await db.getAll<DailyPaymentSales>("dailyPaymentSales")).length;
+      const monthlyCount = (await db.getAll<MonthlySalesSummary>("monthlySalesSummary")).length;
       
       const duration = performance.now() - start;
       this.addResult(
@@ -747,6 +746,34 @@ export class ReportsUAT {
     `;
     
     return html;
+  }
+
+  async setupTestData() {
+    // Generate sample data
+    this.testData = generateSampleStoreData();
+    
+    // Clear existing data
+    await db.clearAllData();
+    
+    // Inject test data
+    for (const item of this.testData.items) await db.addItem(item);
+    for (const emp of this.testData.employees) await db.addEmployee(emp);
+    for (const txn of this.testData.transactions) await db.addTransaction(txn);
+    
+    // Inject summaries
+    for (const daily of this.testData.dailySummaries) {
+      await db.upsertDailyPaymentSales(daily);
+    }
+    
+    for (const monthly of this.testData.monthlySummaries.payments) {
+      await db.upsertMonthlyPaymentSales(monthly);
+    }
+    
+    for (const summary of this.testData.monthlySummaries.summary) {
+      await db.upsertMonthlySalesSummary(summary);
+    }
+    
+    await db.updateSettings(this.testData.settings);
   }
 }
 
