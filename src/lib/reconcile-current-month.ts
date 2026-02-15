@@ -4,6 +4,7 @@
  */
 
 import { db } from "./db";
+import type { Transaction, MonthlySalesSummary } from "@/types";
 
 export interface ReconciliationResult {
   success: boolean;
@@ -32,154 +33,155 @@ export async function reconcileCurrentMonth(): Promise<ReconciliationResult> {
     console.log(`🔄 Starting reconciliation for ${currentMonth}...`);
 
     // Step 1: Get current state (before reconciliation)
-    const monthlyBefore = await db.monthlySummaries
-      .where("yearMonth")
-      .equals(currentMonth)
-      .first();
+    const allMonthlySummaries = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
+    const monthlyBefore = allMonthlySummaries.find(m => m.yearMonth === currentMonth);
     
-    const dailiesBefore = await db.dailySummaries
-      .where("date")
-      .between(`${currentMonth}-01`, `${currentMonth}-31`, true, true)
-      .toArray();
+    const allDailyPayments = await db.getDailyPaymentSales();
+    const dailiesBefore = allDailyPayments.filter(d => d.businessDate.startsWith(currentMonth));
     
-    const dailyTotalBefore = dailiesBefore.reduce((sum, d) => sum + d.totalRevenue, 0);
+    const dailyTotalBefore = dailiesBefore.reduce((sum, d) => sum + d.totalAmount, 0);
     const monthlyTotalBefore = monthlyBefore?.totalRevenue || 0;
 
     console.log(`📊 Before: Monthly=${monthlyTotalBefore}, Daily=${dailyTotalBefore}, Diff=${monthlyTotalBefore - dailyTotalBefore}`);
 
     // Step 2: Get all transactions for current month
-    const transactions = await db.transactions
-      .where("timestamp")
-      .between(
-        new Date(`${currentMonth}-01T00:00:00`).getTime(),
-        new Date(`${currentMonth}-31T23:59:59`).getTime(),
-        true,
-        true
-      )
-      .toArray();
+    const allTransactions = await db.getTransactions();
+    const transactions = allTransactions.filter(txn => {
+      const txnDate = new Date(txn.timestamp).toISOString().split("T")[0];
+      return txnDate.startsWith(currentMonth);
+    });
 
     console.log(`📝 Found ${transactions.length} transactions in ${currentMonth}`);
 
-    // Step 3: Group transactions by date
-    const transactionsByDate = new Map<string, typeof transactions>();
+    // Step 3: Clear existing daily summaries for current month
+    const existingDailyItems = await db.getDailyItemSales();
+    const existingDailyPayments = await db.getDailyPaymentSales();
+    
+    // Note: We can't delete individual records, so we'll overwrite them with put()
+    
+    // Step 4: Rebuild daily summaries from transactions
+    const dailyItemsMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number }>>();
+    const dailyPaymentsMap = new Map<string, Map<string, { amount: number; count: number }>>();
     
     for (const txn of transactions) {
       const date = new Date(txn.timestamp).toISOString().split("T")[0];
-      if (!transactionsByDate.has(date)) {
-        transactionsByDate.set(date, []);
+      
+      // Track items
+      if (!dailyItemsMap.has(date)) {
+        dailyItemsMap.set(date, new Map());
       }
-      transactionsByDate.get(date)!.push(txn);
+      const dayItems = dailyItemsMap.get(date)!;
+      
+      for (const item of txn.items) {
+        const existing = dayItems.get(item.itemId) || { quantity: 0, revenue: 0, count: 0 };
+        dayItems.set(item.itemId, {
+          quantity: existing.quantity + item.quantity,
+          revenue: existing.revenue + item.totalPrice,
+          count: existing.count + 1
+        });
+      }
+      
+      // Track payments
+      if (!dailyPaymentsMap.has(date)) {
+        dailyPaymentsMap.set(date, new Map());
+      }
+      const dayPayments = dailyPaymentsMap.get(date)!;
+      
+      for (const payment of txn.payments) {
+        const existing = dayPayments.get(payment.method) || { amount: 0, count: 0 };
+        dayPayments.set(payment.method, {
+          amount: existing.amount + payment.amount,
+          count: existing.count + 1
+        });
+      }
     }
-
-    console.log(`📅 Transactions span ${transactionsByDate.size} days`);
-
-    // Step 4: Rebuild daily summaries
+    
+    // Step 5: Save rebuilt daily summaries
     let dailySummariesCreated = 0;
     
-    for (const [date, dayTxns] of transactionsByDate) {
-      // Calculate totals from transactions
-      const totalRevenue = dayTxns.reduce((sum, t) => sum + t.totalAmount, 0);
-      const totalReceipts = dayTxns.length;
-      
-      // Calculate payment method totals
-      const cashTotal = dayTxns
-        .filter(t => t.paymentMethod === "cash")
-        .reduce((sum, t) => sum + t.totalAmount, 0);
-      
-      const qrisStaticTotal = dayTxns
-        .filter(t => t.paymentMethod === "qris_static")
-        .reduce((sum, t) => sum + t.totalAmount, 0);
-      
-      const qrisDynamicTotal = dayTxns
-        .filter(t => t.paymentMethod === "qris_dynamic")
-        .reduce((sum, t) => sum + t.totalAmount, 0);
-      
-      const voucherTotal = dayTxns
-        .filter(t => t.paymentMethod === "voucher")
-        .reduce((sum, t) => sum + t.totalAmount, 0);
-
-      // Count item quantities sold
-      const itemQuantities = new Map<number, number>();
-      for (const txn of dayTxns) {
-        for (const item of txn.items) {
-          const current = itemQuantities.get(item.itemId) || 0;
-          itemQuantities.set(item.itemId, current + item.quantity);
-        }
-      }
-
-      // Create/update daily summary
-      const dailySummary = {
-        date,
-        totalRevenue,
-        totalReceipts,
-        cashTotal,
-        qrisStaticTotal,
-        qrisDynamicTotal,
-        voucherTotal,
-        itemQuantities: Array.from(itemQuantities.entries()).map(([itemId, quantity]) => ({
+    // Save daily item sales
+    for (const [date, itemsMap] of dailyItemsMap) {
+      for (const [itemId, stats] of itemsMap) {
+        // Get item details
+        const item = await db.getItemById(itemId);
+        if (!item) continue;
+        
+        await db.upsertDailyItemSales({
           itemId,
-          quantity,
-        })),
-      };
-
-      await db.dailySummaries.put(dailySummary);
-      dailySummariesCreated++;
+          sku: item.sku || "",
+          itemName: item.name,
+          businessDate: date,
+          totalQuantity: stats.quantity,
+          totalRevenue: stats.revenue,
+          transactionCount: stats.count
+        });
+        dailySummariesCreated++;
+      }
     }
-
-    console.log(`✅ Created/updated ${dailySummariesCreated} daily summaries`);
-
-    // Step 5: Rebuild monthly summary from corrected daily summaries
-    const dailiesAfter = await db.dailySummaries
-      .where("date")
-      .between(`${currentMonth}-01`, `${currentMonth}-31`, true, true)
-      .toArray();
-
-    const totalRevenue = dailiesAfter.reduce((sum, d) => sum + d.totalRevenue, 0);
-    const totalReceipts = dailiesAfter.reduce((sum, d) => sum + d.totalReceipts, 0);
-    const cashTotal = dailiesAfter.reduce((sum, d) => sum + d.cashTotal, 0);
-    const qrisStaticTotal = dailiesAfter.reduce((sum, d) => sum + d.qrisStaticTotal, 0);
-    const qrisDynamicTotal = dailiesAfter.reduce((sum, d) => sum + d.qrisDynamicTotal, 0);
-    const voucherTotal = dailiesAfter.reduce((sum, d) => sum + d.voucherTotal, 0);
-
-    // Aggregate item quantities across all days
-    const monthlyItemQuantities = new Map<number, number>();
-    for (const daily of dailiesAfter) {
-      for (const item of daily.itemQuantities) {
-        const current = monthlyItemQuantities.get(item.itemId) || 0;
-        monthlyItemQuantities.set(item.itemId, current + item.quantity);
+    
+    // Save daily payment sales
+    for (const [date, paymentsMap] of dailyPaymentsMap) {
+      for (const [method, stats] of paymentsMap) {
+        await db.upsertDailyPaymentSales({
+          method: method as any,
+          businessDate: date,
+          totalAmount: stats.amount,
+          transactionCount: stats.count
+        });
+        dailySummariesCreated++;
       }
     }
 
-    const monthlySummary = {
+    console.log(`✅ Created/updated ${dailySummariesCreated} daily summary records`);
+
+    // Step 6: Rebuild monthly summary from corrected daily summaries
+    const dailiesAfter = allDailyPayments.filter(d => d.businessDate.startsWith(currentMonth));
+    
+    // Recalculate from fresh daily data
+    const freshDailyPayments = await db.getDailyPaymentSales();
+    const currentMonthDailies = freshDailyPayments.filter(d => d.businessDate.startsWith(currentMonth));
+    
+    const totalRevenue = currentMonthDailies.reduce((sum, d) => sum + d.totalAmount, 0);
+    const totalReceipts = transactions.length;
+    
+    // Calculate payment method breakdown
+    const paymentBreakdown = currentMonthDailies.reduce((acc, d) => {
+      if (d.method === "cash") acc.cashAmount += d.totalAmount;
+      else if (d.method === "qris-static") acc.qrisStaticAmount += d.totalAmount;
+      else if (d.method === "qris-dynamic") acc.qrisDynamicAmount += d.totalAmount;
+      else if (d.method === "voucher") acc.voucherAmount += d.totalAmount;
+      return acc;
+    }, { cashAmount: 0, qrisStaticAmount: 0, qrisDynamicAmount: 0, voucherAmount: 0 });
+
+    const monthlySummary: MonthlySalesSummary = {
       yearMonth: currentMonth,
       totalRevenue,
       totalReceipts,
-      cashTotal,
-      qrisStaticTotal,
-      qrisDynamicTotal,
-      voucherTotal,
-      itemQuantities: Array.from(monthlyItemQuantities.entries()).map(([itemId, quantity]) => ({
-        itemId,
-        quantity,
-      })),
+      ...paymentBreakdown
     };
 
-    await db.monthlySummaries.put(monthlySummary);
+    // Update or create monthly summary
+    if (monthlyBefore?.id) {
+      await db.put("monthlySalesSummary", { ...monthlySummary, id: monthlyBefore.id });
+    } else {
+      await db.add("monthlySalesSummary", monthlySummary);
+    }
 
     console.log(`✅ Updated monthly summary for ${currentMonth}`);
 
-    // Step 6: Get final state (after reconciliation)
-    const monthlyAfter = await db.monthlySummaries
-      .where("yearMonth")
-      .equals(currentMonth)
-      .first();
+    // Step 7: Get final state (after reconciliation)
+    const allMonthlySummariesAfter = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
+    const monthlyAfter = allMonthlySummariesAfter.find(m => m.yearMonth === currentMonth);
     
-    const dailyTotalAfter = dailiesAfter.reduce((sum, d) => sum + d.totalRevenue, 0);
+    const freshDailyPaymentsAfter = await db.getDailyPaymentSales();
+    const dailiesAfterFinal = freshDailyPaymentsAfter.filter(d => d.businessDate.startsWith(currentMonth));
+    
+    const dailyTotalAfter = dailiesAfterFinal.reduce((sum, d) => sum + d.totalAmount, 0);
     const monthlyTotalAfter = monthlyAfter?.totalRevenue || 0;
 
     console.log(`📊 After: Monthly=${monthlyTotalAfter}, Daily=${dailyTotalAfter}, Diff=${monthlyTotalAfter - dailyTotalAfter}`);
 
-    // Step 7: Verify consistency
+    // Step 8: Verify consistency
     const isConsistent = Math.abs(monthlyTotalAfter - dailyTotalAfter) < 0.01;
 
     if (!isConsistent) {
