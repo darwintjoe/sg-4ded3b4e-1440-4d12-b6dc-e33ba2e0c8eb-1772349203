@@ -206,11 +206,11 @@ export default function POSSalesUATPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3 overflow-y-auto" style={{ maxHeight: "600px" }}>
-                  {results.dailyValidations.map((validation, idx) => (
+                  {results.validations.map((dailyData, idx) => (
                     <div
-                      key={validation.date}
+                      key={dailyData.date}
                       className={`p-4 rounded-lg border ${
-                        validation.passed
+                        dailyData.validation.match
                           ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                           : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
                       }`}
@@ -218,10 +218,10 @@ export default function POSSalesUATPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">
-                            {validation.passed ? "✅" : "❌"}
+                            {dailyData.validation.match ? "✅" : "❌"}
                           </span>
                           <span className="font-semibold text-gray-900 dark:text-white">
-                            {validation.date}
+                            {dailyData.date}
                           </span>
                         </div>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -233,33 +233,22 @@ export default function POSSalesUATPage() {
                         <div>
                           <span className="text-gray-600 dark:text-gray-400">Revenue:</span>
                           <div className="font-mono">
-                            Expected: Rp {validation.expectedRevenue.toLocaleString()}
+                            Expected: Rp {dailyData.validation.expectedRevenue.toLocaleString()}
                           </div>
                           <div className="font-mono">
-                            Actual: Rp {validation.actualRevenue.toLocaleString()}
+                            Actual: Rp {dailyData.validation.actualRevenue.toLocaleString()}
                           </div>
                         </div>
                         <div>
                           <span className="text-gray-600 dark:text-gray-400">Transactions:</span>
                           <div className="font-mono">
-                            Expected: {validation.expectedTransactions}
+                            Expected: {dailyData.validation.expectedTransactions}
                           </div>
                           <div className="font-mono">
-                            Actual: {validation.actualTransactions}
+                            Actual: {dailyData.validation.actualTransactions}
                           </div>
                         </div>
                       </div>
-
-                      {validation.issues.length > 0 && (
-                        <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded text-sm">
-                          <strong>Issues:</strong>
-                          <ul className="list-disc list-inside">
-                            {validation.issues.map((issue, i) => (
-                              <li key={i}>{issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

@@ -14,6 +14,7 @@ import {
   CartItem,
   PaymentRecord
 } from "@/types";
+import { generateSampleItems } from "@/lib/sample-store-data";
 
 interface TransactionSimulation {
   date: Date;
@@ -51,7 +52,7 @@ interface DailyValidation {
   }>;
 }
 
-interface POSUATReport {
+export interface POSUATReport {
   totalTests: number;
   passed: number;
   failed: number;
