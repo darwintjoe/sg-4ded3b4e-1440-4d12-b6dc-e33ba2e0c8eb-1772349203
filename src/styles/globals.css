@@ -60,19 +60,6 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
   }
-  
-  /* Fullscreen app-like experience - ONLY for POS screen */
-  html, body {
-    height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile */
-    width: 100vw;
-    position: fixed;
-  }
-  
-  #__next {
-    height: 100%;
-    overflow: hidden;
-  }
 }
 
 /* POS-specific styles */
@@ -80,11 +67,17 @@
   font-size: calc(1rem + 4pt);
 }
 
-/* Prevent scroll on main POS screen */
+/* Fullscreen lock ONLY for POS screen - not globally */
 .pos-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
   height: 100vh;
   height: 100dvh;
+  width: 100vw;
 }
 
 /* Smooth transitions for cart updates */
