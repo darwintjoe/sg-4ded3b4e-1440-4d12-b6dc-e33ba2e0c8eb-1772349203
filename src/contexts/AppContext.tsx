@@ -65,12 +65,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         await initializeApp();
         
-        // Run daily cleanup on initialization
-        await cleanupOldDailyRecords();
+        // Run daily cleanup in background (non-blocking)
+        cleanupOldDailyRecords().catch(err => {
+          console.error("Background cleanup failed (non-fatal):", err);
+        });
         
         setIsInitialized(true);
       } catch (error) {
         console.error("Failed to initialize app:", error);
+        setIsInitializing(false);
       }
     };
     init();
@@ -86,31 +89,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       console.log(`🧹 Cleaning up daily records older than ${cutoffDate}...`);
 
-      // Get all daily records
-      const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
-      const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-      const dailyAttendance = await db.getAll<DailyAttendance>("dailyAttendance");
+      // Get all daily records with error handling
+      let dailyItems: DailyItemSales[] = [];
+      let dailyPayments: DailyPaymentSales[] = [];
+      let dailyAttendance: DailyAttendance[] = [];
+
+      try {
+        dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
+      } catch (e) {
+        console.log("dailyItemSales table not ready yet");
+      }
+
+      try {
+        dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+      } catch (e) {
+        console.log("dailyPaymentSales table not ready yet");
+      }
+
+      try {
+        dailyAttendance = await db.getAll<DailyAttendance>("dailyAttendance");
+      } catch (e) {
+        console.log("dailyAttendance table not ready yet");
+      }
 
       // Delete old records
       let deletedCount = 0;
       
       for (const record of dailyItems) {
-        if (record.businessDate < cutoffDate) {
-          await db.delete("dailyItemSales", record.id!);
+        if (record.businessDate < cutoffDate && record.id) {
+          await db.delete("dailyItemSales", record.id);
           deletedCount++;
         }
       }
       
       for (const record of dailyPayments) {
-        if (record.businessDate < cutoffDate) {
-          await db.delete("dailyPaymentSales", record.id!);
+        if (record.businessDate < cutoffDate && record.id) {
+          await db.delete("dailyPaymentSales", record.id);
           deletedCount++;
         }
       }
       
       for (const record of dailyAttendance) {
-        if (record.date < cutoffDate) {
-          await db.delete("dailyAttendance", record.id!);
+        if (record.date < cutoffDate && record.id) {
+          await db.delete("dailyAttendance", record.id);
           deletedCount++;
         }
       }
@@ -122,6 +143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Error cleaning up old daily records:", error);
+      throw error; // Re-throw so caller can handle
     }
   };
 
@@ -133,30 +155,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [cart, currentUser, currentShift]);
 
   const initializeApp = async () => {
-    await db.init();
-    
-    // Get or create settings
-    const loadedSettings = await db.getSettings();
-    setSettingsState(loadedSettings);
-    setModeState(loadedSettings.mode);
-    setLanguageState(loadedSettings.language as Language);
+    try {
+      console.log("🚀 Initializing app...");
+      setIsInitializing(true);
+      
+      await db.init();
+      console.log("✅ Database initialized");
+      
+      // Get or create settings
+      const loadedSettings = await db.getSettings();
+      setSettingsState(loadedSettings);
+      setModeState(loadedSettings.mode);
+      setLanguageState(loadedSettings.language as Language);
+      console.log("✅ Settings loaded");
 
-    // Check for active cashier session
-    const activeSession = await db.getById<CashierSession>("cashierSession", 1);
-    if (activeSession && activeSession.shiftActive) {
-      setHasActiveSession(true);
-      // Don't auto-login, require relogin for security
-      // But preserve the session data for restoration
+      // Check for active cashier session
+      const activeSession = await db.getById<CashierSession>("cashierSession", 1);
+      if (activeSession && activeSession.shiftActive) {
+        setHasActiveSession(true);
+        console.log("✅ Active session detected");
+      }
+
+      // Check for paused state
+      const pauseState = await db.getById<PauseState>("pauseState", 1);
+      if (pauseState) {
+        setIsPaused(true);
+        setCart(pauseState.cart);
+        setModeState(pauseState.mode);
+        console.log("✅ Paused session restored");
+      }
+
+      // Seed default data (non-blocking)
+      await seedDefaultData();
+      console.log("✅ Default data seeded");
+      
+      // Mark initialization as complete
+      setIsInitializing(false);
+      console.log("✅ App initialization complete");
+    } catch (error) {
+      console.error("❌ App initialization failed:", error);
+      setIsInitializing(false);
+      throw error;
     }
-
-    const pauseState = await db.getById<PauseState>("pauseState", 1);
-    if (pauseState) {
-      setIsPaused(true);
-      setCart(pauseState.cart);
-      setModeState(pauseState.mode);
-    }
-
-    await seedDefaultData();
   };
 
   // Smart shift detection based on clock-in time proximity
