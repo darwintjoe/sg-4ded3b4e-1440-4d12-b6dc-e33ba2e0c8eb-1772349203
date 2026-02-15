@@ -61,14 +61,12 @@
     font-family: 'Inter', sans-serif;
   }
   
-  /* Fullscreen app-like experience */
+  /* Fullscreen app-like experience - ONLY for POS screen */
   html, body {
-    overflow: hidden;
     height: 100vh;
     height: 100dvh; /* Dynamic viewport height for mobile */
     width: 100vw;
     position: fixed;
-    -webkit-overflow-scrolling: touch;
   }
   
   #__next {
