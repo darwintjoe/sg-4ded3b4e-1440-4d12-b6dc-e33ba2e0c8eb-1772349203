@@ -313,43 +313,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (itemsCount > 0) {
         console.log("📦 Sample data injection skipped (items exist)");
         
-        // Check if monthly data is sufficient (need 26 months = ~520 records for 20 items)
+        // Check if monthly data exists and is sufficient
         const monthlyCount = await db.count("monthlyItemSales");
         console.log(`📊 Current monthlyItemSales records: ${monthlyCount}`);
         
         if (monthlyCount < 500) {
-          console.log("⚠️ Insufficient monthly data detected (need 520, have " + monthlyCount + ")");
-          console.log("🗑️ Clearing and re-injecting full 26-month dataset...");
+          console.log("⚠️ Insufficient monthly data detected (need ~520, have " + monthlyCount + ")");
+          console.log("🔄 Re-injecting monthly summary data...");
           
-          // SAFETY: Only clear if tables exist
-          try {
-            await db.clear("monthlyItemSales");
-            await db.clear("monthlyPaymentSales");
-            await db.clear("monthlySalesSummary");
-          } catch (clearError) {
-            console.warn("⚠️ Error clearing tables (may not exist yet):", clearError);
-            // Continue anyway - tables will be created when we add data
-          }
-          
-          // Fall through to re-injection below
+          // Clear and re-inject only monthly data
+          await reinjectMonthlySummaries();
         } else {
           console.log("✅ Monthly data sufficient, skipping injection");
-          return; // Data is correct, skip re-injection
+          return;
         }
+        
+        return;
       }
 
       console.log("📦 Injecting Sample Store Data...");
       setLoadingStatus("Injecting sample data...");
 
-      // 1. Inject Items (only if itemsCount was 0)
-      if (itemsCount === 0) {
-        for (const item of generateSampleItems()) {
-          await db.add("items", { ...item, createdAt: Date.now() });
-        }
-        console.log(`✅ Added ${generateSampleItems().length} items`);
+      // 1. Inject Items
+      console.log("📦 Adding sample items...");
+      for (const item of generateSampleItems()) {
+        await db.add("items", { ...item, createdAt: Date.now() });
       }
+      console.log(`✅ Added ${generateSampleItems().length} items`);
 
       // 2. Inject Employees (skip if exist)
+      console.log("👥 Adding sample employees...");
       for (const emp of generateSampleEmployees()) {
         const existing = await db.searchByIndex("employees", "pin", emp.pin);
         if (existing.length === 0) {
@@ -359,10 +352,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log(`✅ Added sample employees`);
 
       // 3. Inject Settings
+      console.log("⚙️ Updating settings...");
       await db.put("settings", getDefaultSettings());
       console.log(`✅ Updated settings`);
 
-      // 4. Inject Sales Summary Data (Daily & Monthly) - ALWAYS if we got here
+      // 4. Inject Summary Data (Daily & Monthly)
+      await injectSummaryData();
+      
+      console.log("✅ Sample data injection complete!");
+    } catch (error) {
+      console.error("⚠️ Sample data injection failed (non-fatal):", error);
+      // Don't throw - let app continue with whatever data exists
+    }
+  };
+
+  const reinjectMonthlySummaries = async () => {
+    try {
+      // Clear only monthly tables
+      await db.clear("monthlyItemSales");
+      await db.clear("monthlyPaymentSales");
+      await db.clear("monthlySalesSummary");
+      
+      // Generate and inject
+      const { monthlyItemSales, monthlyPaymentSales, monthlySalesSummary } = generateSummaryData();
+      
+      console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
+      for (const item of monthlyItemSales) {
+        await db.add("monthlyItemSales", item);
+      }
+
+      console.log(`📊 Injecting ${monthlyPaymentSales.length} monthly payment sales records...`);
+      for (const item of monthlyPaymentSales) {
+        await db.add("monthlyPaymentSales", item);
+      }
+
+      console.log(`📊 Injecting ${monthlySalesSummary.length} monthly sales summary records...`);
+      for (const item of monthlySalesSummary) {
+        await db.add("monthlySalesSummary", item);
+      }
+      
+      const finalCount = await db.count("monthlyItemSales");
+      console.log(`✅ Monthly data re-injection complete! Final count: ${finalCount}`);
+    } catch (error) {
+      console.error("⚠️ Monthly data re-injection failed:", error);
+    }
+  };
+
+  const injectSummaryData = async () => {
+    try {
       console.log("📊 Generating summary data...");
       const { 
         dailyItemSales, 
@@ -372,6 +409,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         monthlySalesSummary 
       } = generateSummaryData();
       
+      // Inject daily summaries
       console.log(`📊 Injecting ${dailyItemSales.length} daily item sales records...`);
       for (const item of dailyItemSales) {
         await db.upsertDailyItemSales(item);
@@ -382,7 +420,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await db.upsertDailyPaymentSales(item);
       }
 
-      // Inject monthly data
+      // Inject monthly summaries
       console.log(`📊 Injecting ${monthlyItemSales.length} monthly item sales records...`);
       for (const item of monthlyItemSales) {
         await db.add("monthlyItemSales", item);
@@ -403,11 +441,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log(`✅ Summary data injection complete! Final monthlyItemSales count: ${finalMonthlyCount}`);
       
       if (finalMonthlyCount < 500) {
-        console.error("❌ Monthly data injection failed! Expected ~520, got " + finalMonthlyCount);
+        console.error("❌ Monthly data injection verification failed! Expected ~520, got " + finalMonthlyCount);
       }
     } catch (error) {
-      console.error("⚠️ Sample data injection failed (non-fatal):", error);
-      // Don't throw - let app continue with whatever data exists
+      console.error("⚠️ Summary data injection failed:", error);
+      throw error; // Re-throw to be caught by parent
     }
   };
 
@@ -566,15 +604,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Check if month changed, trigger monthly rollup
       await checkAndRollupMonthly();
 
-      // Move cold data (older than 7 business days)
+      // Move cold data (older than 30 days - updated from 7 days)
       await archiveColdData();
 
       // Trigger backup to Google Drive (fire-and-forget)
-      // New: Use the exposed createBackup from GoogleAuthContext via a helper or direct access if possible
-      // Since we can't easily access GoogleAuthContext here due to circular dependency risk or context nesting,
-      // we'll dispatch a custom event or use the service directly if it was a singleton.
-      // But we have googleAuth from useGoogleAuth() hook at the top!
-      
       triggerBackupToGoogleDrive();
 
       // Send shift report as calendar event (fire-and-forget)
@@ -668,12 +701,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           itemId,
           sku: data.sku,
           itemName: data.name,
-          month,
+          yearMonth: month,
           totalQuantity: data.quantity,
           totalRevenue: data.revenue,
           transactionCount: data.count
         };
-        await db.upsert("monthlyItemSales", ["month", "itemId"], monthlyItem);
+        await db.upsert("monthlyItemSales", ["yearMonth", "itemId"], monthlyItem);
       }
 
       // Rollup sales summary
@@ -695,7 +728,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
 
       const monthlySummary: MonthlySalesSummary = {
-        month,
+        yearMonth: month,
         totalRevenue,
         totalReceipts,
         cashAmount: paymentTotals.cash,
@@ -703,7 +736,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         qrisDynamicAmount: paymentTotals.qrisDynamic,
         voucherAmount: paymentTotals.voucher
       };
-      await db.upsert("monthlySalesSummary", ["month"], monthlySummary);
+      await db.upsert("monthlySalesSummary", ["yearMonth"], monthlySummary);
 
       // Rollup attendance
       const attendance = await db.getAll<AttendanceRecord>("attendance");
@@ -715,7 +748,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const existing = monthlyAttendanceMap.get(record.employeeId) || { hours: 0, days: 0, late: 0, name: record.employeeName };
           existing.hours += hours;
           existing.days += 1;
-          // TODO: Calculate late based on shift start time from settings
           monthlyAttendanceMap.set(record.employeeId, existing);
         }
       });
@@ -724,12 +756,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const monthlyAttendance: MonthlyAttendanceSummary = {
           employeeId,
           employeeName: data.name,
-          month,
+          yearMonth: month,
           totalHours: data.hours,
           daysWorked: data.days,
           lateCount: data.late
         };
-        await db.upsert("monthlyAttendanceSummary", ["month", "employeeId"], monthlyAttendance);
+        await db.upsert("monthlyAttendanceSummary", ["yearMonth", "employeeId"], monthlyAttendance);
       }
 
       console.log(`Monthly rollup completed for ${month}`);
@@ -742,11 +774,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const today = getBusinessDate();
       const cutoffDate = new Date(today);
-      cutoffDate.setDate(cutoffDate.getDate() - 7);
+      cutoffDate.setDate(cutoffDate.getDate() - 30); // Changed from 7 to 30 days
       const cutoffString = cutoffDate.toISOString().split("T")[0];
 
-      // TODO: Implement proper archive logic with date filtering
-      console.log(`Archive triggered for transactions older than ${cutoffString}`);
+      // Delete daily records older than 30 days
+      const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
+      const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+
+      let deletedCount = 0;
+
+      for (const item of dailyItems) {
+        if (item.businessDate < cutoffString && item.id) {
+          await db.delete("dailyItemSales", item.id);
+          deletedCount++;
+        }
+      }
+
+      for (const payment of dailyPayments) {
+        if (payment.businessDate < cutoffString && payment.id) {
+          await db.delete("dailyPaymentSales", payment.id);
+          deletedCount++;
+        }
+      }
+
+      console.log(`✅ Archived cold data: Deleted ${deletedCount} records older than ${cutoffString}`);
     } catch (error) {
       console.error("Error archiving cold data:", error);
     }
@@ -755,9 +806,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const triggerBackupToGoogleDrive = async () => {
     try {
       console.log("Triggering auto-backup...");
-      // Check if signed in using the context hook we already have
       if (googleAuth.isSignedIn) {
-        // Fire and forget - don't await
         googleAuth.createBackup().then(result => {
           if (result.success) {
             console.log("✅ Auto-backup success");
@@ -767,20 +816,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error) {
-      // Silent fail
       console.error("Auto-backup trigger error:", error);
     }
   };
 
   const sendShiftReportToCalendar = async (shift: Shift) => {
     try {
-      // Only send if Google is linked
       if (!googleAuth.isSignedIn) {
         console.log("Google not linked, skipping calendar event");
         return;
       }
 
-      // Get shift transactions for summary
       const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
       
       const paymentBreakdown = {
@@ -815,12 +861,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       });
 
-      // Format currency
       const formatCurrency = (amount: number) => {
         return `Rp ${amount.toLocaleString("id-ID")}`;
       };
 
-      // Build description
       const description = `
 ━━━━━━━━━━━━━━━━━━━━━━
 💰 SALES SUMMARY
@@ -841,13 +885,11 @@ PAYMENT BREAKDOWN:
 ━━━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-      // OPTION A ENHANCEMENT: Revenue in title
       const eventTitle = `💰 ${formatCurrency(totalRevenue)} - ${shift.cashierName} - Shift Closed`;
 
-      // OPTION A ENHANCEMENT: 1-hour event (cleaner calendar)
       const shiftEndTime = shift.shiftEnd || Date.now();
       const eventStart = new Date(shiftEndTime).toISOString();
-      const eventEnd = new Date(shiftEndTime + 3600000).toISOString(); // +1 hour
+      const eventEnd = new Date(shiftEndTime + 3600000).toISOString();
 
       const result = await googleAuth.createCalendarEvent({
         summary: eventTitle,
@@ -858,15 +900,11 @@ PAYMENT BREAKDOWN:
 
       if (result.success) {
         console.log("✅ Shift report sent to Google Calendar");
-        // OPTION A ENHANCEMENT: Success toast notification
-        // Note: We'll need to use the toast system if available in this context
-        // For now, just log success - toast will be added when AppContext has access to it
       } else {
         console.error("❌ Failed to send shift report:", result.error);
       }
     } catch (error) {
       console.error("Error sending shift report to calendar:", error);
-      // Silent fail - don't block logout
     }
   };
 
@@ -934,7 +972,7 @@ PAYMENT BREAKDOWN:
       clockIn: activeRecord.clockIn,
       clockOut: clockOutTime,
       hoursWorked,
-      isLate: false // TODO: Compare with shift start time from settings
+      isLate: false
     };
 
     await db.upsert("dailyAttendance", ["date", "employeeId"], dailyAttendance);
@@ -1025,7 +1063,6 @@ PAYMENT BREAKDOWN:
         hasActiveSession,
         isInitializing,
         loadingStatus,
-        // Google Auth methods
         ...googleAuth
       }}
     >
