@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { runPOSSalesUAT } from "@/lib/pos-sales-uat";
+import type { POSUATReport } from "@/lib/pos-sales-uat";
 import Link from "next/link";
 import { ArrowLeft, Play, CheckCircle, XCircle, Clock, DollarSign, ShoppingCart, CreditCard } from "lucide-react";
 
