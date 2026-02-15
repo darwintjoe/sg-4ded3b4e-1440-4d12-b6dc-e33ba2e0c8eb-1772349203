@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -54,83 +54,76 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState("Initializing system...");
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Google Auth integration
   const googleAuth = useGoogleAuth();
 
-  // Initialize database
+  // Initialize database and load settings
   useEffect(() => {
-    const initDB = async () => {
+    const init = async () => {
       try {
-        setLoadingStatus("Connecting to database...");
-        await db.init();
+        await initializeApp();
         
-        setLoadingStatus("Loading settings...");
-        const settings = await db.getSettings();
-        if (settings) {
-          setSettingsState(settings);
-        }
+        // Run daily cleanup on initialization
+        await cleanupOldDailyRecords();
         
-        setLoadingStatus("Verifying session...");
-        
-        // Create default employees if they don't exist
-        await seedDefaultData();
-        
-        // Inject sample store data if database is empty
-        await loadSampleStoreData();
+        setIsInitialized(true);
       } catch (error) {
-        console.error("Failed to initialize DB:", error);
-        setLoadingStatus("Using offline fallback...");
-        
-        // Fallback to default settings if DB fails
-        const defaultSettings: Settings = {
-          key: "settings",
-          mode: "retail",
-          tax1Enabled: true,
-          tax1Label: "PPN",
-          tax1Rate: 10,
-          tax1Inclusive: false,
-          tax2Enabled: false,
-          tax2Label: "Service",
-          tax2Rate: 5,
-          tax2Inclusive: false,
-          language: "en",
-          printerWidth: 58,
-          businessName: "My Store",
-          businessLogo: undefined,
-          businessAddress: undefined,
-          taxId: undefined,
-          receiptFooter: "Thank you for your purchase!",
-          googleDriveLinked: false,
-          googleAccountEmail: undefined,
-          allowPriceOverride: false,
-          shifts: {
-            shift1: { name: "Morning", startTime: "06:00", endTime: "14:00", enabled: true },
-            shift2: { name: "Afternoon", startTime: "14:00", endTime: "22:00", enabled: true },
-            shift3: { name: "Night", startTime: "22:00", endTime: "06:00", enabled: true }
-          }
-        };
-        setSettingsState(defaultSettings);
+        console.error("Failed to initialize app:", error);
+      }
+    };
+    init();
+  }, []);
+
+  // Daily cleanup: Delete records older than 30 days
+  const cleanupOldDailyRecords = async () => {
+    try {
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+      const cutoffDate = thirtyDaysAgo.toISOString().split("T")[0];
+
+      console.log(`🧹 Cleaning up daily records older than ${cutoffDate}...`);
+
+      // Get all daily records
+      const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
+      const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+      const dailyAttendance = await db.getAll<DailyAttendance>("dailyAttendance");
+
+      // Delete old records
+      let deletedCount = 0;
+      
+      for (const record of dailyItems) {
+        if (record.businessDate < cutoffDate) {
+          await db.delete("dailyItemSales", record.id!);
+          deletedCount++;
+        }
       }
       
-      // Mark initialization complete
-      setLoadingStatus("Ready!");
-      setIsInitializing(false);
-    };
-
-    // Safety timeout: force initialization to complete after 10 seconds
-    const timeoutId = setTimeout(() => {
-      if (isInitializing) {
-        console.warn("⚠️ Initialization timeout - forcing completion");
-        setLoadingStatus("Ready! (timeout fallback)");
-        setIsInitializing(false);
+      for (const record of dailyPayments) {
+        if (record.businessDate < cutoffDate) {
+          await db.delete("dailyPaymentSales", record.id!);
+          deletedCount++;
+        }
       }
-    }, 10000);
+      
+      for (const record of dailyAttendance) {
+        if (record.date < cutoffDate) {
+          await db.delete("dailyAttendance", record.id!);
+          deletedCount++;
+        }
+      }
 
-    initDB();
-
-    return () => clearTimeout(timeoutId);
-  }, []);
+      if (deletedCount > 0) {
+        console.log(`🧹 Deleted ${deletedCount} old daily records`);
+      } else {
+        console.log("🧹 No old records to clean up");
+      }
+    } catch (error) {
+      console.error("Error cleaning up old daily records:", error);
+    }
+  };
 
   // Auto-save cart state whenever it changes
   useEffect(() => {
