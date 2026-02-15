@@ -500,6 +500,12 @@ export class Database {
 
     if (!this.db) throw new Error("Database not initialized");
 
+    // SAFETY: Check if store exists before trying to clear it
+    if (!this.db.objectStoreNames.contains(storeName)) {
+      console.warn(`Store '${storeName}' does not exist, skipping clear`);
+      return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(storeName, "readwrite");
       const store = transaction.objectStore(storeName);

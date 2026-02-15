@@ -320,9 +320,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (monthlyCount < 500) {
           console.log("⚠️ Insufficient monthly data detected (need 520, have " + monthlyCount + ")");
           console.log("🗑️ Clearing and re-injecting full 26-month dataset...");
-          await db.clear("monthlyItemSales");
-          await db.clear("monthlyPaymentSales");
-          await db.clear("monthlySalesSummary");
+          
+          // SAFETY: Only clear if tables exist
+          try {
+            await db.clear("monthlyItemSales");
+            await db.clear("monthlyPaymentSales");
+            await db.clear("monthlySalesSummary");
+          } catch (clearError) {
+            console.warn("⚠️ Error clearing tables (may not exist yet):", clearError);
+            // Continue anyway - tables will be created when we add data
+          }
+          
           // Fall through to re-injection below
         } else {
           console.log("✅ Monthly data sufficient, skipping injection");
@@ -398,7 +406,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("❌ Monthly data injection failed! Expected ~520, got " + finalMonthlyCount);
       }
     } catch (error) {
-      console.error("Sample data injection failed:", error);
+      console.error("⚠️ Sample data injection failed (non-fatal):", error);
+      // Don't throw - let app continue with whatever data exists
     }
   };
 
