@@ -321,7 +321,6 @@ export function ReportsPanel() {
         if (salesTimeRange === "mtd") {
           // MTD: day 1 to today
           const today = new Date(endDate);
-          const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
           const currentDay = today.getDate();
           for (let d = 1; d <= currentDay; d++) {
             const date = new Date(today.getFullYear(), today.getMonth(), d);
@@ -390,6 +389,10 @@ export function ReportsPanel() {
       }
     } catch (error) {
       console.error("Error loading sales report:", error);
+      // Set empty data on error
+      setSalesChartData([]);
+      setSalesData([]);
+      setSalesStats({ totalRevenue: 0, totalReceipts: 0, avgTransaction: 0 });
     }
   };
 
