@@ -6,6 +6,8 @@ import { AttendanceScreen } from "@/components/AttendanceScreen";
 import { POSScreen } from "@/components/POSScreen";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { SEO } from "@/components/SEO";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 

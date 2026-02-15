@@ -22,7 +22,7 @@ interface TestResult {
   data?: any;
 }
 
-interface UATReport {
+export interface UATReport {
   timestamp: string;
   totalTests: number;
   passed: number;
