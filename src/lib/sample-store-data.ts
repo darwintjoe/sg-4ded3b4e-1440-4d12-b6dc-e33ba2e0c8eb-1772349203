@@ -4,7 +4,7 @@
  * Generates realistic POS data for testing and demo purposes
  * 
  * TWO-TIER SUMMARY ARCHITECTURE:
- * 1. Daily summaries (dailyItemSales, dailyPaymentSales) - last 60 days
+ * 1. Daily summaries (dailyItemSales, dailyPaymentSales) - last 30 days
  * 2. Monthly summaries (monthlyItemSales, monthlyPaymentSales, monthlySalesSummary) - aggregated by month
  * 
  * Reports query ONLY from summary tables, never from raw transactions
@@ -22,9 +22,9 @@ export function generateSummaryData() {
   
   const today = new Date();
   
-  // Generate daily data for last 60 days (detailed recent history)
+  // Generate daily data for last 35 days (detailed recent history for L30D)
   const dailyStartDate = new Date(today);
-  dailyStartDate.setDate(dailyStartDate.getDate() - 60);
+  dailyStartDate.setDate(dailyStartDate.getDate() - 35);
   
   // Generate monthly data for last 26 months (long-term trends)
   const monthlyStartDate = new Date(today);
@@ -58,8 +58,10 @@ export function generateSummaryData() {
   const monthlyItemsMap = new Map<string, Map<number, { name: string; sku: string; quantity: number; revenue: number; count: number }>>();
   const monthlyPaymentsMap = new Map<string, Map<string, { amount: number; count: number }>>();
 
-  // Generate daily data
-  for (let d = new Date(dailyStartDate); d <= today; d.setDate(d.getDate() + 1)) {
+  // Generate data day by day
+  // We generate daily data for the whole period internally to build accurate monthly aggregates
+  // But we only RETURN daily records for the last 35 days
+  for (let d = new Date(monthlyStartDate); d <= today; d.setDate(d.getDate() + 1)) {
     const dateStr = formatDate(d);
     const yearMonth = dateStr.substring(0, 7); // YYYY-MM format
 
@@ -115,35 +117,38 @@ export function generateSummaryData() {
       monthPayments.set(method, monthlyPayment);
     }
 
-    // Create DailyItemSales records
-    dailyItemsMap.forEach((data, itemId) => {
-      dailyItemSales.push({
-        businessDate: dateStr,
-        itemId,
-        sku: data.sku,
-        itemName: data.name,
-        totalQuantity: data.quantity,
-        totalRevenue: data.revenue,
-        transactionCount: data.count
+    // ONLY add to dailyItemSales/dailyPaymentSales if within the last 35 days
+    if (d >= dailyStartDate) {
+      // Create DailyItemSales records
+      dailyItemsMap.forEach((data, itemId) => {
+        dailyItemSales.push({
+          businessDate: dateStr,
+          itemId,
+          sku: data.sku,
+          itemName: data.name,
+          totalQuantity: data.quantity,
+          totalRevenue: data.revenue,
+          transactionCount: data.count
+        });
       });
-    });
 
-    // Create DailyPaymentSales records
-    dailyPaymentsMap.forEach((data, method) => {
-      dailyPaymentSales.push({
-        businessDate: dateStr,
-        method: method as any,
-        totalAmount: data.amount,
-        transactionCount: data.count
+      // Create DailyPaymentSales records
+      dailyPaymentsMap.forEach((data, method) => {
+        dailyPaymentSales.push({
+          businessDate: dateStr,
+          method: method as any,
+          totalAmount: data.amount,
+          transactionCount: data.count
+        });
       });
-    });
+    }
   }
 
   // Create MonthlyItemSales records
   monthlyItemsMap.forEach((items, month) => {
     items.forEach((data, itemId) => {
       monthlyItemSales.push({
-        month,
+        yearMonth: month,
         itemId,
         sku: data.sku,
         itemName: data.name,
@@ -158,7 +163,7 @@ export function generateSummaryData() {
   monthlyPaymentsMap.forEach((payments, month) => {
     payments.forEach((data, method) => {
       monthlyPaymentSales.push({
-        month,
+        yearMonth: month,
         method: method as any,
         totalAmount: data.amount,
         transactionCount: data.count
@@ -186,7 +191,7 @@ export function generateSummaryData() {
     });
 
     monthlySalesSummary.push({
-      month,
+      yearMonth: month,
       totalRevenue,
       totalReceipts,
       cashAmount,
@@ -197,8 +202,8 @@ export function generateSummaryData() {
   });
 
   console.log(`📊 Generated summary data:`);
-  console.log(`  - Daily item sales: ${dailyItemSales.length} records`);
-  console.log(`  - Daily payment sales: ${dailyPaymentSales.length} records`);
+  console.log(`  - Daily item sales: ${dailyItemSales.length} records (last 35 days)`);
+  console.log(`  - Daily payment sales: ${dailyPaymentSales.length} records (last 35 days)`);
   console.log(`  - Monthly item sales: ${monthlyItemSales.length} records`);
   console.log(`  - Monthly payment sales: ${monthlyPaymentSales.length} records`);
   console.log(`  - Monthly sales summary: ${monthlySalesSummary.length} records`);

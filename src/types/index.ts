@@ -157,7 +157,7 @@ export interface MonthlyItemSales {
   itemId: number;
   sku: string;
   itemName: string;
-  month: string;
+  yearMonth: string;
   totalQuantity: number;
   totalRevenue: number;
   transactionCount: number;
@@ -166,14 +166,14 @@ export interface MonthlyItemSales {
 export interface MonthlyPaymentSales {
   id?: number;
   method: PaymentMethod;
-  month: string;
+  yearMonth: string;
   totalAmount: number;
   transactionCount: number;
 }
 
 export interface MonthlySalesSummary {
   id?: number;
-  month: string;
+  yearMonth: string;
   totalRevenue: number;
   totalReceipts: number;
   cashAmount: number;
@@ -186,7 +186,7 @@ export interface MonthlyAttendanceSummary {
   id?: number;
   employeeId: number;
   employeeName: string;
-  month: string;
+  yearMonth: string;
   totalHours: number;
   daysWorked: number;
   lateCount: number;

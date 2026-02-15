@@ -11,8 +11,8 @@ import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-type SalesTimeRange = "mtd" | "lm" | "ytd" | "ly" | "5y";
-type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
+type SalesTimeRange = "l30d" | "mtd" | "lm" | "ytd" | "ly" | "5y";
+type ItemsTimeRange = "1d" | "7d" | "l30d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
 type ChartView = "bar" | "pie";
 type SortBy = "quantity" | "revenue";
@@ -23,7 +23,9 @@ export function ReportsPanel() {
 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
-    if (amount >= 1_000_000) {
+    if (amount >= 1_000_000_000) {
+      return (amount / 1_000_000_000).toFixed(2) + "B";
+    } else if (amount >= 1_000_000) {
       return (amount / 1_000_000).toFixed(2) + "M";
     } else if (amount >= 1_000) {
       return (amount / 1_000).toFixed(0) + "K";
@@ -63,7 +65,7 @@ export function ReportsPanel() {
   };
 
   // Sales state
-  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
+  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("l30d");
   const [salesChartData, setSalesChartData] = useState<any[]>([]);
   const [salesStats, setSalesStats] = useState({
     totalRevenue: 0,
@@ -73,7 +75,7 @@ export function ReportsPanel() {
   const [salesData, setSalesData] = useState<any[]>([]); // New state for table
 
   // Items state
-  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
+  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("l30d");
   const [itemTopN, setItemTopN] = useState<10 | 20>(10);
   const [chartView, setChartView] = useState<ChartView>("bar");
   const [sortBy, setSortBy] = useState<SortBy>("quantity");
@@ -109,59 +111,28 @@ export function ReportsPanel() {
     loadAttendanceReport();
   }, [attendanceTimeRange]);
 
-  // Debug: Check database on mount
-  useEffect(() => {
-    const checkDatabase = async () => {
-      try {
-        console.log("🔍 DATABASE CHECK - Starting...");
-        
-        const allDailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
-        console.log("📦 Total dailyItemSales records:", allDailyItems.length);
-        
-        if (allDailyItems.length > 0) {
-          console.log("📦 First record:", allDailyItems[0]);
-          console.log("📦 First record keys:", Object.keys(allDailyItems[0]));
-          console.log("📦 Has 'businessDate'?", "businessDate" in allDailyItems[0]);
-          console.log("📦 Has 'date'?", "date" in allDailyItems[0]);
-          
-          // Show first 3 records
-          console.log("📦 First 3 records:", allDailyItems.slice(0, 3));
-        } else {
-          console.log("❌ NO RECORDS in dailyItemSales!");
-        }
-
-        const allMonthlyItems = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-        console.log("📦 Total monthlyItemSales records:", allMonthlyItems.length);
-        if (allMonthlyItems.length > 0) {
-          console.log("📦 First monthly record:", allMonthlyItems[0]);
-        }
-
-      } catch (error) {
-        console.error("❌ Database check error:", error);
-      }
-    };
-    
-    checkDatabase();
-  }, []); // Run once on mount
-
   const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean } => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     
-    if (salesTimeRange === "mtd") {
-      const monthStart = todayStr.substring(0, 8) + "01";
-      return { startDate: monthStart, endDate: todayStr, useMonthly: false };
-    } else if (salesTimeRange === "lm") {
+    if (salesTimeRange === "l30d") {
       const thirtyDaysAgo = new Date(today);
       thirtyDaysAgo.setDate(today.getDate() - 30);
       return { startDate: thirtyDaysAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: false };
+    } else if (salesTimeRange === "mtd") {
+      const monthStart = todayStr.substring(0, 8) + "01";
+      return { startDate: monthStart, endDate: todayStr, useMonthly: false };
+    } else if (salesTimeRange === "lm") {
+      const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+      return { startDate: lastMonthStart.toISOString().split("T")[0], endDate: lastMonthEnd.toISOString().split("T")[0], useMonthly: false };
     } else if (salesTimeRange === "ytd") {
       const yearStart = todayStr.substring(0, 4) + "-01-01";
       return { startDate: yearStart, endDate: todayStr, useMonthly: true };
     } else if (salesTimeRange === "ly") {
-      const twelveMonthsAgo = new Date(today);
-      twelveMonthsAgo.setMonth(today.getMonth() - 12);
-      return { startDate: twelveMonthsAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: true };
+      const lastYearStart = (today.getFullYear() - 1) + "-01-01";
+      const lastYearEnd = (today.getFullYear() - 1) + "-12-31";
+      return { startDate: lastYearStart, endDate: lastYearEnd, useMonthly: true };
     } else {
       // 5y
       const fiveYearsAgo = new Date(today);
@@ -170,148 +141,134 @@ export function ReportsPanel() {
     }
   };
 
-  const getItemsDateRange = (): { startDate: string; endDate: string } => {
-    const today = new Date();
-    let startDate: Date;
-
-    switch (itemsTimeRange) {
-      case "1d":
-        startDate = today;
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case "7d":
-        startDate = new Date(today);
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case "1m":
-        startDate = new Date(today);
-        startDate.setMonth(startDate.getMonth() - 1);
-        break;
-      case "3m":
-        startDate = new Date(today);
-        startDate.setMonth(startDate.getMonth() - 3);
-        break;
-      case "6m":
-        startDate = new Date(today);
-        startDate.setMonth(startDate.getMonth() - 6);
-        break;
-      case "1y":
-        startDate = new Date(today);
-        startDate.setFullYear(startDate.getFullYear() - 1);
-        break;
-      case "3y":
-        startDate = new Date(today);
-        startDate.setFullYear(startDate.getFullYear() - 3);
-        break;
-      case "5y":
-        startDate = new Date(today);
-        startDate.setFullYear(startDate.getFullYear() - 5);
-        break;
-      default:
-        startDate = new Date(today);
-        startDate.setMonth(startDate.getMonth() - 1);
-    }
-
-    return {
-      startDate: startDate.toISOString().split("T")[0],
-      endDate: today.toISOString().split("T")[0]
-    };
-  };
-
   const loadSalesReport = async () => {
     try {
       const { startDate, endDate, useMonthly } = getSalesDateRange();
 
       if (useMonthly) {
-        // DON'T query monthlySalesSummary - aggregate from daily data instead
-        const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+        // Query Monthly Tables (Two-Tier Architecture)
+        // For long ranges, we use the pre-aggregated monthly tables
+        // PLUS the current month's daily data aggregated on the fly
         
-        // Group by month or year
-        const dataMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number; receipts: number }>();
-        
-        filtered.forEach(d => {
-          let key: string;
-          if (salesTimeRange === "5y") {
-            key = d.businessDate.substring(0, 4); // Year only (YYYY)
-          } else {
-            key = d.businessDate.substring(0, 7); // Year-Month (YYYY-MM)
-          }
-          
-          const existing = dataMap.get(key) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0, receipts: 0 };
-          if (d.method === "cash") existing.cash += d.totalAmount;
-          else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
-          else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
-          else if (d.method === "voucher") existing.voucher += d.totalAmount;
-          existing.receipts += d.transactionCount;
-          dataMap.set(key, existing);
-        });
+        const startMonth = startDate.substring(0, 7);
+        const endMonth = endDate.substring(0, 7);
+        const currentMonth = new Date().toISOString().substring(0, 7);
 
-        // Generate complete month/year range
-        const periods: string[] = [];
-        if (salesTimeRange === "ytd") {
-          const currentYear = endDate.substring(0, 4);
-          const currentMonth = parseInt(endDate.substring(5, 7));
-          for (let m = 1; m <= currentMonth; m++) {
-            periods.push(`${currentYear}-${m.toString().padStart(2, '0')}`);
-          }
-        } else if (salesTimeRange === "ly") {
-          const end = new Date(endDate);
-          for (let i = 11; i >= 0; i--) {
-            const d = new Date(end);
-            d.setMonth(end.getMonth() - i);
-            periods.push(d.toISOString().substring(0, 7));
-          }
-        } else {
-          // 5Y
-          const currentYear = parseInt(endDate.substring(0, 4));
-          for (let y = currentYear - 4; y <= currentYear; y++) {
-            periods.push(`${y}`);
+        // 1. Get historical monthly data
+        const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
+        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
+
+        // 2. Get current month daily data and aggregate it
+        // We only do this if the requested range includes the current month
+        let currentMonthData = null;
+        if (endMonth >= currentMonth) {
+          const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+          const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
+          
+          if (currentDaily.length > 0) {
+            currentMonthData = {
+              yearMonth: currentMonth,
+              totalRevenue: 0,
+              totalReceipts: 0,
+              cashAmount: 0,
+              qrisStaticAmount: 0,
+              qrisDynamicAmount: 0,
+              voucherAmount: 0
+            };
+
+            currentDaily.forEach(d => {
+              currentMonthData!.totalRevenue += d.totalAmount;
+              currentMonthData!.totalReceipts += d.transactionCount; // This is approximate, summing daily counts
+              if (d.method === "cash") currentMonthData!.cashAmount += d.totalAmount;
+              else if (d.method === "qris-static") currentMonthData!.qrisStaticAmount += d.totalAmount;
+              else if (d.method === "qris-dynamic") currentMonthData!.qrisDynamicAmount += d.totalAmount;
+              else if (d.method === "voucher") currentMonthData!.voucherAmount += d.totalAmount;
+            });
           }
         }
-        
-        // Build chart data with complete range
-        const chartData = periods.map(period => {
-          const data = dataMap.get(period);
-          if (data) {
-            return {
-              name: salesTimeRange === "5y" ? period : period.substring(5),
-              cash: data.cash,
-              qrisStatic: data.qrisStatic,
-              qrisDynamic: data.qrisDynamic,
-              voucher: data.voucher
-            };
-          } else {
-            return {
-              name: salesTimeRange === "5y" ? period : period.substring(5),
-              cash: 0,
-              qrisStatic: 0,
-              qrisDynamic: 0,
-              voucher: 0
-            };
-          }
-        });
-        setSalesChartData(chartData);
-        
-        // Table data (only periods with actual data)
-        const tableData = Array.from(dataMap.entries())
-          .map(([period, data]) => ({
-            date: period,
-            revenue: data.cash + data.qrisStatic + data.qrisDynamic + data.voucher,
-            receipts: data.receipts,
-            cash: data.cash,
-            qrisStatic: data.qrisStatic,
-            qrisDynamic: data.qrisDynamic,
-            voucher: data.voucher
-          }))
-          .sort((a, b) => b.date.localeCompare(a.date));
-        setSalesData(tableData);
 
+        // Combine historical + current
+        const combinedData = [...filteredMonthly];
+        if (currentMonthData) {
+          // Check if current month already exists in monthly table (shouldn't, but safety check)
+          const exists = combinedData.find(m => m.yearMonth === currentMonth);
+          if (!exists) {
+            combinedData.push(currentMonthData as MonthlySalesSummary);
+          } else {
+             // If exists, replace it with fresh daily aggregation
+             const idx = combinedData.indexOf(exists);
+             combinedData[idx] = currentMonthData as MonthlySalesSummary;
+          }
+        }
+
+        // Sort by date
+        combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+
+        // Group by year for 5Y view
+        if (salesTimeRange === "5y") {
+          const yearlyMap = new Map<string, any>();
+          
+          combinedData.forEach(m => {
+            const year = m.yearMonth.substring(0, 4);
+            const existing = yearlyMap.get(year) || { 
+              name: year, cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0, receipts: 0, revenue: 0 
+            };
+            
+            existing.cash += m.cashAmount;
+            existing.qrisStatic += m.qrisStaticAmount;
+            existing.qrisDynamic += m.qrisDynamicAmount;
+            existing.voucher += m.voucherAmount;
+            existing.receipts += m.totalReceipts;
+            existing.revenue += m.totalRevenue;
+            
+            yearlyMap.set(year, existing);
+          });
+          
+          const chartData = Array.from(yearlyMap.values());
+          setSalesChartData(chartData);
+          
+          const tableData = chartData.map(d => ({
+            date: d.name,
+            revenue: d.revenue,
+            receipts: d.receipts,
+            cash: d.cash,
+            qrisStatic: d.qrisStatic,
+            qrisDynamic: d.qrisDynamic,
+            voucher: d.voucher
+          })).sort((a, b) => b.date.localeCompare(a.date));
+          
+          setSalesData(tableData);
+        } else {
+          // Monthly view (YTD, LY)
+          const chartData = combinedData.map(m => ({
+            name: m.yearMonth.substring(5), // MM
+            fullDate: m.yearMonth,
+            cash: m.cashAmount,
+            qrisStatic: m.qrisStaticAmount,
+            qrisDynamic: m.qrisDynamicAmount,
+            voucher: m.voucherAmount
+          }));
+          setSalesChartData(chartData);
+          
+          const tableData = combinedData.map(m => ({
+            date: m.yearMonth,
+            revenue: m.totalRevenue,
+            receipts: m.totalReceipts,
+            cash: m.cashAmount,
+            qrisStatic: m.qrisStaticAmount,
+            qrisDynamic: m.qrisDynamicAmount,
+            voucher: m.voucherAmount
+          })).sort((a, b) => b.date.localeCompare(a.date));
+          
+          setSalesData(tableData);
+        }
+
+        // Calculate totals
         let totalRevenue = 0;
         let totalReceipts = 0;
-        dataMap.forEach(data => {
-          totalRevenue += data.cash + data.qrisStatic + data.qrisDynamic + data.voucher;
-          totalReceipts += data.receipts;
+        combinedData.forEach(d => {
+          totalRevenue += d.totalRevenue;
+          totalReceipts += d.totalReceipts;
         });
 
         setSalesStats({
@@ -319,8 +276,10 @@ export function ReportsPanel() {
           totalReceipts,
           avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
         });
+
       } else {
-        // Daily view - same as before
+        // Daily View (L30D, MTD, LM)
+        // Query daily table directly
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const dataMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number; receipts: number }>();
         
@@ -336,46 +295,38 @@ export function ReportsPanel() {
           }
         });
 
-        // Generate complete date range
-        const dates: string[] = [];
-        if (salesTimeRange === "mtd") {
-          const today = new Date(endDate);
-          const currentDay = today.getDate();
-          for (let d = 1; d <= currentDay; d++) {
-            const date = new Date(today.getFullYear(), today.getMonth(), d);
-            dates.push(date.toISOString().split('T')[0]);
-          }
-        } else {
-          // LM: exactly last 30 days
-          const end = new Date(endDate);
-          for (let i = 29; i >= 0; i--) {
-            const d = new Date(end);
-            d.setDate(end.getDate() - i);
-            dates.push(d.toISOString().split('T')[0]);
-          }
-        }
-
-        // Build chart data with complete range
-        const chartData = dates.map(date => {
-          const data = dataMap.get(date);
+        // Generate complete date range for chart
+        const chartData = [];
+        const dateList = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split('T')[0];
+          dateList.push(dateStr);
+          
+          const data = dataMap.get(dateStr);
           if (data) {
-            return {
-              name: date.substring(5),
+            chartData.push({
+              name: dateStr.substring(8), // DD
+              fullDate: dateStr,
               cash: data.cash,
               qrisStatic: data.qrisStatic,
               qrisDynamic: data.qrisDynamic,
               voucher: data.voucher
-            };
+            });
           } else {
-            return {
-              name: date.substring(5),
+            chartData.push({
+              name: dateStr.substring(8),
+              fullDate: dateStr,
               cash: 0,
               qrisStatic: 0,
               qrisDynamic: 0,
               voucher: 0
-            };
+            });
           }
-        });
+        }
+        
         setSalesChartData(chartData);
 
         // Table data (only dates with actual data)
@@ -431,9 +382,13 @@ export function ReportsPanel() {
           startDate = new Date(today);
           startDate.setDate(startDate.getDate() - 7);
           break;
+        case "l30d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 30);
+          break;
         case "1m":
           startDate = new Date(today);
-          startDate.setMonth(startDate.getMonth() - 1);
+          startDate.setDate(1); // Start of month
           break;
         case "3m":
           startDate = new Date(today);
@@ -466,48 +421,46 @@ export function ReportsPanel() {
       }
 
       console.log("📅 Date range:", startDate.toISOString().split('T')[0], "to", today.toISOString().split('T')[0]);
-      console.log("🔄 Days diff:", Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)), "Use monthly:", useMonthly);
+      console.log("Use monthly:", useMonthly);
 
       const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
 
       if (useMonthly) {
+        // Two-Tier Query: Monthly + Current Daily
         const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
-        const endMonth = today.toISOString().split('T')[0].substring(0, 7);
-        console.log("📆 Monthly range:", startMonth, "to", endMonth);
-        console.log("🔍 Querying monthlyItemSales table...");
+        const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
         
+        // 1. Get historical monthly data
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-        console.log("📦 Total monthly records in DB:", allMonthly.length);
-        console.log("📦 Sample monthly record:", allMonthly[0]);
+        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
         
-        const filtered = allMonthly.filter(m => m.month >= startMonth && m.month <= endMonth);
-        console.log("✅ Filtered monthly records:", filtered.length);
-        
-        filtered.forEach(item => {
+        filteredMonthly.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
           existing.quantity += item.totalQuantity;
           existing.revenue += item.totalRevenue;
           existing.transactions += item.transactionCount;
           itemMap.set(item.itemId, existing);
         });
-      } else {
-        console.log("📆 Daily range:", startDate.toISOString().split('T')[0], "to", today.toISOString().split('T')[0]);
-        console.log("🔍 Querying dailyItemSales table...");
-        
+
+        // 2. Get current month daily data
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        console.log("📦 Total daily records in DB:", allDaily.length);
-        console.log("📦 Sample daily record:", allDaily[0]);
+        const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
         
-        const filtered = allDaily.filter(d => {
-          const hasBusinessDate = d.businessDate >= startDate.toISOString().split('T')[0] && d.businessDate <= today.toISOString().split('T')[0];
-          const hasDateField = (d as any).date >= startDate.toISOString().split('T')[0] && (d as any).date <= today.toISOString().split('T')[0];
-          return hasBusinessDate || hasDateField;
+        currentDaily.forEach(item => {
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
+          itemMap.set(item.itemId, existing);
         });
-        console.log("✅ Filtered daily records:", filtered.length);
+
+      } else {
+        // Daily Query Only (1D - L30D)
+        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = today.toISOString().split('T')[0];
         
-        if (filtered.length > 0) {
-          console.log("📊 First filtered record:", filtered[0]);
-        }
+        const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
         
         filtered.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
@@ -518,15 +471,11 @@ export function ReportsPanel() {
         });
       }
 
-      console.log("🗺️ ItemMap size:", itemMap.size);
-      
       // Sort by selected criteria
       const allItems = Array.from(itemMap.values());
       const sorted = allItems.sort((a, b) => 
         sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
       );
-      
-      console.log("📊 Sorted items count:", sorted.length);
       
       const topNItems = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
@@ -639,9 +588,6 @@ export function ReportsPanel() {
       : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
   }));
 
-  console.log("📊 Bar Chart Data:", barChartData);
-  console.log("🥧 Pie Chart Data:", pieChartData);
-
   return (
     <Tabs defaultValue="sales" className="flex flex-col h-full">
       {/* Header */}
@@ -718,16 +664,16 @@ export function ReportsPanel() {
               </div>
               
               {/* Time Range Switcher */}
-              <div className="flex justify-center gap-1 mt-3 pt-3 border-t">
-                {(["mtd", "lm", "ytd", "ly", "5y"] as SalesTimeRange[]).map((range) => (
+              <div className="flex justify-center gap-1 mt-3 pt-3 border-t overflow-x-auto">
+                {(["l30d", "mtd", "lm", "ytd", "ly", "5y"] as SalesTimeRange[]).map((range) => (
                   <Button
                     key={range}
                     variant={salesTimeRange === range ? "default" : "ghost"}
                     size="sm"
                     onClick={() => setSalesTimeRange(range)}
-                    className="h-6 px-2 text-[10px] uppercase"
+                    className="h-6 px-2 text-[10px] uppercase whitespace-nowrap"
                   >
-                    {range === "mtd" ? "MTD" : range === "lm" ? "LM" : range === "ytd" ? "YTD" : range === "ly" ? "LY" : "5Y"}
+                    {range === "l30d" ? "L30D" : range === "mtd" ? "MTD" : range === "lm" ? "LM" : range === "ytd" ? "YTD" : range === "ly" ? "LY" : "5Y"}
                   </Button>
                 ))}
               </div>
@@ -878,7 +824,7 @@ export function ReportsPanel() {
 
                 {/* Time Range Buttons */}
                 <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
-                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                  {(["1d", "7d", "l30d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
                     <Button
                       key={range}
                       variant={itemsTimeRange === range ? "default" : "ghost"}
