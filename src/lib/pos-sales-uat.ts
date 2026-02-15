@@ -138,9 +138,11 @@ export class POSSalesUAT {
       let item: Item;
       do {
         item = activeItems[Math.floor(Math.random() * activeItems.length)];
-      } while (selectedItems.has(item.id!)); // item.id should be defined
+      } while (item.id && selectedItems.has(String(item.id)));
       
-      selectedItems.add(item.id as unknown as string); // casting for Set compatibility if id is number
+      if (item.id) {
+        selectedItems.add(String(item.id));
+      }
 
       // Random quantity 1-5
       const quantity = 1 + Math.floor(Math.random() * 5);
