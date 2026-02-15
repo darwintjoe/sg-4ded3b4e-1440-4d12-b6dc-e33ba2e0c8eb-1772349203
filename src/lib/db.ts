@@ -31,7 +31,6 @@ export class Database {
 
   async init(): Promise<void> {
     // In preview mode, we don't need real DB connection for reads
-    // But we might need it if we want to mix data (which we don't)
     if (this.isPreviewMode()) {
       return Promise.resolve();
     }
@@ -41,8 +40,8 @@ export class Database {
     }
 
     this.initPromise = new Promise((resolve, reject) => {
-      // Bump version to 3 to force upgrade
-      const request = indexedDB.open("SellMoreDB", 3);
+      // Bump version to 4 to force complete rebuild with monthly tables
+      const request = indexedDB.open("SellMoreDB", 4);
 
       request.onerror = () => {
         reject(new Error("Failed to open database"));
@@ -50,17 +49,23 @@ export class Database {
 
       request.onsuccess = () => {
         this.db = request.result;
+        console.log("✅ Database initialized successfully (version 4)");
         resolve();
       };
 
       request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
         const db = (event.target as IDBOpenDBRequest).result;
         const oldVersion = event.oldVersion;
+        
+        console.log(`📦 Database upgrade: v${oldVersion} → v${event.newVersion}`);
 
-        // Create stores if they don't exist
+        // Create settings store
         if (!db.objectStoreNames.contains("settings")) {
           db.createObjectStore("settings", { keyPath: "key" });
+          console.log("  ✅ Created: settings");
         }
+
+        // Create items store
         if (!db.objectStoreNames.contains("items")) {
           const itemStore = db.createObjectStore("items", {
             keyPath: "id",
@@ -69,14 +74,20 @@ export class Database {
           itemStore.createIndex("sku", "sku", { unique: false });
           itemStore.createIndex("barcode", "barcode", { unique: false });
           itemStore.createIndex("active", "active", { unique: false });
+          console.log("  ✅ Created: items");
         }
+
+        // Create employees store
         if (!db.objectStoreNames.contains("employees")) {
           const empStore = db.createObjectStore("employees", {
             keyPath: "id",
             autoIncrement: true,
           });
           empStore.createIndex("pin", "pin", { unique: false });
+          console.log("  ✅ Created: employees");
         }
+
+        // Create transactions store
         if (!db.objectStoreNames.contains("transactions")) {
           const txStore = db.createObjectStore("transactions", {
             keyPath: "id",
@@ -85,7 +96,10 @@ export class Database {
           txStore.createIndex("businessDate", "businessDate", { unique: false });
           txStore.createIndex("shiftId", "shiftId", { unique: false });
           txStore.createIndex("cashierId", "cashierId", { unique: false });
+          console.log("  ✅ Created: transactions");
         }
+
+        // Create shifts store
         if (!db.objectStoreNames.contains("shifts")) {
           const shiftStore = db.createObjectStore("shifts", {
             keyPath: "id",
@@ -93,7 +107,10 @@ export class Database {
           });
           shiftStore.createIndex("businessDate", "businessDate", { unique: false });
           shiftStore.createIndex("cashierId", "cashierId", { unique: false });
+          console.log("  ✅ Created: shifts");
         }
+
+        // Create attendance store
         if (!db.objectStoreNames.contains("attendance")) {
           const attStore = db.createObjectStore("attendance", {
             keyPath: "id",
@@ -102,106 +119,116 @@ export class Database {
           attStore.createIndex("employeeId", "employeeId", { unique: false });
           attStore.createIndex("businessDate", "businessDate", { unique: false });
           attStore.createIndex("date", "date", { unique: false });
+          console.log("  ✅ Created: attendance");
         }
 
-        // Add missing stores for session management
+        // Create session management stores
         if (!db.objectStoreNames.contains("cashierSession")) {
           db.createObjectStore("cashierSession", { keyPath: "id" });
+          console.log("  ✅ Created: cashierSession");
         }
         if (!db.objectStoreNames.contains("pauseState")) {
           db.createObjectStore("pauseState", { keyPath: "id" });
+          console.log("  ✅ Created: pauseState");
         }
 
-        // Version 2: Add daily/monthly summary stores
-        if (oldVersion < 2) {
-          if (!db.objectStoreNames.contains("dailyItemSales")) {
-            const dailyItemStore = db.createObjectStore("dailyItemSales", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            dailyItemStore.createIndex("businessDate", "businessDate", { unique: false });
-            dailyItemStore.createIndex("itemId", "itemId", { unique: false });
-            dailyItemStore.createIndex(
-              "businessDate_itemId",
-              ["businessDate", "itemId"],
-              { unique: false }
-            );
-          }
-
-          if (!db.objectStoreNames.contains("dailyPaymentSales")) {
-            const dailyPaymentStore = db.createObjectStore("dailyPaymentSales", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            dailyPaymentStore.createIndex("businessDate", "businessDate", { unique: false });
-            dailyPaymentStore.createIndex("method", "method", { unique: false });
-            dailyPaymentStore.createIndex(
-              "businessDate_method",
-              ["businessDate", "method"],
-              { unique: false }
-            );
-          }
-
-          if (!db.objectStoreNames.contains("dailyAttendance")) {
-            const dailyAttendanceStore = db.createObjectStore("dailyAttendance", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            dailyAttendanceStore.createIndex("businessDate", "businessDate", { unique: false });
-            dailyAttendanceStore.createIndex("employeeId", "employeeId", { unique: false });
-          }
-
-          if (!db.objectStoreNames.contains("monthlyItemSales")) {
-            const monthlyItemStore = db.createObjectStore("monthlyItemSales", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            monthlyItemStore.createIndex("yearMonth", "yearMonth", { unique: false });
-            monthlyItemStore.createIndex("itemId", "itemId", { unique: false });
-            monthlyItemStore.createIndex(
-              "yearMonth_itemId",
-              ["yearMonth", "itemId"],
-              { unique: false }
-            );
-          }
-
-          if (!db.objectStoreNames.contains("monthlyPaymentSales")) {
-            const monthlyPaymentStore = db.createObjectStore("monthlyPaymentSales", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            monthlyPaymentStore.createIndex("yearMonth", "yearMonth", { unique: false });
-            monthlyPaymentStore.createIndex("method", "method", { unique: false });
-            monthlyPaymentStore.createIndex(
-              "yearMonth_method",
-              ["yearMonth", "method"],
-              { unique: false }
-            );
-          }
-
-          if (!db.objectStoreNames.contains("monthlySalesSummary")) {
-            const monthlySummaryStore = db.createObjectStore("monthlySalesSummary", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            monthlySummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
-          }
-
-          if (!db.objectStoreNames.contains("monthlyAttendanceSummary")) {
-            const monthlyAttendanceSummaryStore = db.createObjectStore("monthlyAttendanceSummary", {
-              keyPath: "id",
-              autoIncrement: true,
-            });
-            monthlyAttendanceSummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
-          }
+        // Version 2+: Create daily summary stores
+        if (!db.objectStoreNames.contains("dailyItemSales")) {
+          const dailyItemStore = db.createObjectStore("dailyItemSales", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          dailyItemStore.createIndex("businessDate", "businessDate", { unique: false });
+          dailyItemStore.createIndex("itemId", "itemId", { unique: false });
+          dailyItemStore.createIndex(
+            "businessDate_itemId",
+            ["businessDate", "itemId"],
+            { unique: false }
+          );
+          console.log("  ✅ Created: dailyItemSales");
         }
 
-        // Version 3: Add testBackup store for automated UAT
-        if (oldVersion < 3) {
-          if (!db.objectStoreNames.contains("testBackup")) {
-            db.createObjectStore("testBackup", { keyPath: "id" });
-          }
+        if (!db.objectStoreNames.contains("dailyPaymentSales")) {
+          const dailyPaymentStore = db.createObjectStore("dailyPaymentSales", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          dailyPaymentStore.createIndex("businessDate", "businessDate", { unique: false });
+          dailyPaymentStore.createIndex("method", "method", { unique: false });
+          dailyPaymentStore.createIndex(
+            "businessDate_method",
+            ["businessDate", "method"],
+            { unique: false }
+          );
+          console.log("  ✅ Created: dailyPaymentSales");
         }
+
+        if (!db.objectStoreNames.contains("dailyAttendance")) {
+          const dailyAttendanceStore = db.createObjectStore("dailyAttendance", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          dailyAttendanceStore.createIndex("businessDate", "businessDate", { unique: false });
+          dailyAttendanceStore.createIndex("employeeId", "employeeId", { unique: false });
+          console.log("  ✅ Created: dailyAttendance");
+        }
+
+        // Version 2+: Create monthly summary stores
+        if (!db.objectStoreNames.contains("monthlyItemSales")) {
+          const monthlyItemStore = db.createObjectStore("monthlyItemSales", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          monthlyItemStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          monthlyItemStore.createIndex("itemId", "itemId", { unique: false });
+          monthlyItemStore.createIndex(
+            "yearMonth_itemId",
+            ["yearMonth", "itemId"],
+            { unique: false }
+          );
+          console.log("  ✅ Created: monthlyItemSales");
+        }
+
+        if (!db.objectStoreNames.contains("monthlyPaymentSales")) {
+          const monthlyPaymentStore = db.createObjectStore("monthlyPaymentSales", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          monthlyPaymentStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          monthlyPaymentStore.createIndex("method", "method", { unique: false });
+          monthlyPaymentStore.createIndex(
+            "yearMonth_method",
+            ["yearMonth", "method"],
+            { unique: false }
+          );
+          console.log("  ✅ Created: monthlyPaymentSales");
+        }
+
+        if (!db.objectStoreNames.contains("monthlySalesSummary")) {
+          const monthlySummaryStore = db.createObjectStore("monthlySalesSummary", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          monthlySummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          console.log("  ✅ Created: monthlySalesSummary");
+        }
+
+        if (!db.objectStoreNames.contains("monthlyAttendanceSummary")) {
+          const monthlyAttendanceSummaryStore = db.createObjectStore("monthlyAttendanceSummary", {
+            keyPath: "id",
+            autoIncrement: true,
+          });
+          monthlyAttendanceSummaryStore.createIndex("yearMonth", "yearMonth", { unique: false });
+          console.log("  ✅ Created: monthlyAttendanceSummary");
+        }
+
+        // Version 3+: Add testBackup store for automated UAT
+        if (!db.objectStoreNames.contains("testBackup")) {
+          db.createObjectStore("testBackup", { keyPath: "id" });
+          console.log("  ✅ Created: testBackup");
+        }
+
+        console.log("✅ Database schema upgrade complete");
       };
     });
 
@@ -213,22 +240,19 @@ export class Database {
     if (this.isPreviewMode()) {
       const data = this.getPreviewData();
       if (data) {
-        // Return data from backup if available
         if (Array.isArray(data[storeName])) {
           return data[storeName] as T[];
         }
-        // Special mapping for settings which is object in backup but array in DB store typically
         if (storeName === 'settings' && data.settings) {
           return [data.settings] as unknown as T[];
         }
       }
-      // If not in backup (e.g. transactions), return empty in preview
       return [];
     }
 
     if (!this.db) throw new Error("Database not initialized");
 
-    // Check if store exists before trying to access it
+    // Check if store exists
     if (!this.db.objectStoreNames.contains(storeName)) {
       console.warn(`Store '${storeName}' does not exist in database`);
       return [];
@@ -252,7 +276,7 @@ export class Database {
   async count(storeName: string): Promise<number> {
     if (!this.db) throw new Error("Database not initialized");
 
-    // Check if store exists before trying to access it
+    // Check if store exists
     if (!this.db.objectStoreNames.contains(storeName)) {
       console.warn(`Store '${storeName}' does not exist in database`);
       return 0;
@@ -305,6 +329,12 @@ export class Database {
     }
 
     if (!this.db) throw new Error("Database not initialized");
+
+    // SAFETY: Check if store exists before trying to add
+    if (!this.db.objectStoreNames.contains(storeName)) {
+      console.warn(`⚠️ Store '${storeName}' does not exist, skipping add operation`);
+      return Promise.resolve(0);
+    }
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(storeName, "readwrite");
@@ -395,7 +425,6 @@ export class Database {
   }
 
   async moveToArchive(storeName: string, id: number): Promise<void> {
-    // For now, just mark as inactive/archived
     const record = await this.getById<any>(storeName, id);
     if (record) {
       record.isActive = false;
@@ -404,11 +433,10 @@ export class Database {
     }
   }
 
-  // OPTIMIZED: Use index lookup instead of scanning entire table
+  // OPTIMIZED: Use index lookup for daily item sales
   async upsertDailyItemSales(data: Omit<DailyItemSales, "id">): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    // Use index to find existing record quickly
     const existing = await this.searchByIndex<DailyItemSales>(
       "dailyItemSales",
       "businessDate_itemId",
@@ -416,7 +444,6 @@ export class Database {
     );
 
     if (existing.length > 0) {
-      // Update existing (accumulate)
       const record = existing[0];
       const updated: DailyItemSales = {
         ...record,
@@ -426,16 +453,14 @@ export class Database {
       };
       await this.put("dailyItemSales", updated);
     } else {
-      // Insert new
       await this.add("dailyItemSales", data);
     }
   }
 
-  // OPTIMIZED: Use index lookup instead of scanning entire table
+  // OPTIMIZED: Use index lookup for daily payment sales
   async upsertDailyPaymentSales(data: Omit<DailyPaymentSales, "id">): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    // Use index to find existing record quickly
     const existing = await this.searchByIndex<DailyPaymentSales>(
       "dailyPaymentSales",
       "businessDate_method",
@@ -443,7 +468,6 @@ export class Database {
     );
 
     if (existing.length > 0) {
-      // Update existing (accumulate)
       const record = existing[0];
       const updated: DailyPaymentSales = {
         ...record,
@@ -452,12 +476,11 @@ export class Database {
       };
       await this.put("dailyPaymentSales", updated);
     } else {
-      // Insert new
       await this.add("dailyPaymentSales", data);
     }
   }
 
-  // Generic upsert for other stores (kept for compatibility)
+  // Generic upsert for other stores
   async upsert<T extends Record<string, any>>(
     storeName: string,
     keyFields: string[],
@@ -465,15 +488,12 @@ export class Database {
   ): Promise<void> {
     if (!this.db) throw new Error("Database not initialized");
 
-    // Read all records first (separate transaction)
     const allRecords = await this.getAll<T>(storeName);
     const existing = allRecords.find((record: T) =>
       keyFields.every((field) => record[field] === data[field])
     );
 
-    // Now do the write in a fresh transaction
     if (existing) {
-      // Update existing record (merge numeric fields)
       const updated: Record<string, any> = { ...existing };
       Object.keys(data).forEach((key) => {
         if (key === "id") return;
@@ -487,7 +507,6 @@ export class Database {
       });
       await this.put(storeName, updated);
     } else {
-      // Insert new record
       await this.add(storeName, data);
     }
   }
@@ -500,7 +519,7 @@ export class Database {
 
     if (!this.db) throw new Error("Database not initialized");
 
-    // SAFETY: Check if store exists before trying to clear it
+    // SAFETY: Check if store exists
     if (!this.db.objectStoreNames.contains(storeName)) {
       console.warn(`Store '${storeName}' does not exist, skipping clear`);
       return Promise.resolve();
@@ -525,7 +544,8 @@ export class Database {
     const stores = [
       "items", "employees", "transactions", "shifts", 
       "attendance", "dailyItemSales", "dailyPaymentSales",
-      "monthlyItemSales", "monthlyPaymentSales", "settings"
+      "monthlyItemSales", "monthlyPaymentSales", "monthlySalesSummary",
+      "settings"
     ];
     for (const store of stores) {
       try {
@@ -559,7 +579,7 @@ export class Database {
         taxId: undefined,
         receiptFooter: "Thank you for your purchase!",
         googleDriveLinked: false,
-        googleAccountEmail: undefined, // Added for admin verification
+        googleAccountEmail: undefined,
         allowPriceOverride: false,
         shifts: {
           shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
@@ -727,7 +747,6 @@ export async function getAllData() {
 export async function importData(backupData: Record<string, any[]>) {
   await db.init();
   
-  // List of valid stores to prevent malicious writes
   const validStores = [
     "settings", 
     "items", 
@@ -744,10 +763,8 @@ export async function importData(backupData: Record<string, any[]>) {
   for (const storeName of validStores) {
     if (backupData[storeName] && Array.isArray(backupData[storeName])) {
       try {
-        // Clear existing data
         await db.clear(storeName);
         
-        // Insert new data
         for (const item of backupData[storeName]) {
           await db.put(storeName, item);
         }
