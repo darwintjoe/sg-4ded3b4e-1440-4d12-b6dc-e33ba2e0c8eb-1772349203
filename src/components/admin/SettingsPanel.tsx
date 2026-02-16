@@ -121,34 +121,64 @@ export function SettingsPanel() {
 
   // HANDLERS FOR DATABASE MANAGEMENT
   const handleFactoryReset = async () => {
-    if (!confirm("Are you sure? This will delete ALL data including items, employees, and transactions. This cannot be undone.")) {
+    if (!confirm("⚠️ FACTORY RESET: This will delete EVERYTHING and return to fresh install state. All data will be lost permanently. Are you absolutely sure?")) {
       return;
     }
 
     setLoading(true);
     try {
-      await db.clearAllData();
-      
-      // Also clear settings back to defaults
-      const defaultSettings = {
-        key: "default",
-        mode: "retail" as POSMode,
-        businessName: "My Store",
-        businessAddress: "",
-        taxId: "",
-        receiptFooter: "Thank you!",
-        language: "en" as const,
-        tax1Enabled: false,
-        tax1Label: "Tax",
-        tax1Rate: 0,
+      // 1. Close the current database connection
+      await db.closeAndReset();
+
+      // 2. Delete the entire database
+      await new Promise<void>((resolve, reject) => {
+        const deleteRequest = indexedDB.deleteDatabase("SellMoreDB");
+        deleteRequest.onsuccess = () => {
+          console.log("✅ Database deleted successfully");
+          resolve();
+        };
+        deleteRequest.onerror = () => {
+          console.error("❌ Failed to delete database", deleteRequest.error);
+          reject(deleteRequest.error);
+        };
+        deleteRequest.onblocked = () => {
+          console.warn("⚠️ Database deletion blocked");
+        };
+      });
+
+      // 3. Wait a bit to ensure deletion is complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 4. Reinitialize the database (creates fresh schema)
+      await db.init();
+
+      // 5. Create default settings
+      const defaultSettings: Settings = {
+        key: "settings",
+        mode: "retail",
+        tax1Enabled: true,
+        tax1Label: "PPN",
+        tax1Rate: 10,
         tax1Inclusive: false,
         tax2Enabled: false,
-        tax2Label: "Service Charge",
-        tax2Rate: 0,
+        tax2Label: "Service",
+        tax2Rate: 5,
         tax2Inclusive: false,
-        printerWidth: 58 as 58 | 80,
-        allowPriceOverride: false,
+        language: "en" as Language,
+        printerWidth: 58,
+        businessName: "My Store",
+        businessLogo: undefined,
+        businessAddress: undefined,
+        taxId: undefined,
+        receiptFooter: "Thank you for your purchase!",
         googleDriveLinked: false,
+        googleAccountEmail: undefined,
+        allowPriceOverride: false,
+        shifts: {
+          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
+        },
         paymentMethods: {
           cash: true,
           card: true,
@@ -156,24 +186,43 @@ export function SettingsPanel() {
           qr: true,
           transfer: true,
         },
-        shifts: {
-          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
-          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
-          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
-        },
       };
+
       await db.updateSettings(defaultSettings);
-      
-      toast({
-        title: "Factory Reset Complete",
-        description: "All data has been cleared. The page will reload.",
-      });
-      setTimeout(() => window.location.reload(), 1500);
+
+      // 6. Verify all stores are empty (except settings)
+      const items = await db.getItems();
+      const employees = await db.getEmployees();
+      const transactions = await db.getTransactions();
+      const shifts = await db.getShifts();
+      const attendance = await db.getAttendance();
+
+      console.log("📊 Verification after factory reset:");
+      console.log("  Items:", items.length);
+      console.log("  Employees:", employees.length);
+      console.log("  Transactions:", transactions.length);
+      console.log("  Shifts:", shifts.length);
+      console.log("  Attendance:", attendance.length);
+
+      if (items.length === 0 && employees.length === 0 && transactions.length === 0) {
+        toast({
+          title: "✅ Factory Reset Complete",
+          description: "All data cleared. Database reset to fresh install state. Reloading...",
+        });
+
+        // 7. Reload the page to reset app state
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        throw new Error(`Factory reset incomplete: ${items.length} items, ${employees.length} employees, ${transactions.length} transactions still exist`);
+      }
+
     } catch (error) {
-      console.error(error);
+      console.error("Factory reset error:", error);
       toast({
-        title: "Error",
-        description: "Failed to reset database",
+        title: "❌ Factory Reset Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
       setLoading(false);
@@ -1734,8 +1783,8 @@ export function SettingsPanel() {
                               // Second confirmation
                               if (window.confirm(
                                 "🔴 FINAL WARNING!\n\n" +
-                                "Click OK to permanently delete ALL DATA.\n\n" +
-                                "Click Cancel to keep your data."
+                                "Click OK to permanently delete everything and reload with fresh sample data.\n\n" +
+                                "Click Cancel to keep your current data."
                               )) {
                                 // Delete IndexedDB
                                 const deleteRequest = indexedDB.deleteDatabase("POSDatabase");

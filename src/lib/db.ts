@@ -585,6 +585,15 @@ export class Database {
     return this.clearAllData();
   }
 
+  // Close and reset the database instance
+  async closeAndReset(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+    this.initPromise = null;
+  }
+
   // Settings
   async getSettings(): Promise<Settings> {
     const settings = await this.getById<Settings>("settings", "default");
