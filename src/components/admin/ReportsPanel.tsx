@@ -12,7 +12,7 @@ import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type SalesTimeRange = "l30d" | "mtd" | "lm" | "ytd" | "ly" | "5y";
-type ItemsTimeRange = "1d" | "7d" | "l30d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
+type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
 type ChartView = "bar" | "pie";
 type SortBy = "quantity" | "revenue";
@@ -75,7 +75,7 @@ export function ReportsPanel() {
   const [salesData, setSalesData] = useState<any[]>([]); // New state for table
 
   // Items state
-  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("l30d");
+  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
   const [itemTopN, setItemTopN] = useState<10 | 20>(10);
   const [chartView, setChartView] = useState<ChartView>("bar");
   const [sortBy, setSortBy] = useState<SortBy>("quantity");
@@ -384,14 +384,10 @@ export function ReportsPanel() {
           startDate.setDate(startDate.getDate() - 6); // Last 7 days including today
           startDate.setHours(0, 0, 0, 0);
           break;
-        case "l30d":
+        case "1m":
           startDate = new Date(today);
           startDate.setDate(startDate.getDate() - 29); // Last 30 days including today
           startDate.setHours(0, 0, 0, 0);
-          break;
-        case "1m":
-          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-          startDate.setHours(0, 0, 0, 0); // Start of current month
           break;
         case "3m":
           startDate = new Date(today);
@@ -833,7 +829,7 @@ export function ReportsPanel() {
 
                 {/* Time Range Buttons */}
                 <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
-                  {(["1d", "7d", "l30d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
                     <Button
                       key={range}
                       variant={itemsTimeRange === range ? "default" : "ghost"}
