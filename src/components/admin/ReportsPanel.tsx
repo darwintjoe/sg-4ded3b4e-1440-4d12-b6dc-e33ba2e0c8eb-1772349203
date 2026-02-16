@@ -435,9 +435,13 @@ export function ReportsPanel() {
         const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
         const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
         
+        console.log("📊 Querying monthly data from", startMonth, "to", currentMonth);
+        
         // 1. Get historical monthly data
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
+        console.log("📦 Total monthly records:", allMonthly.length);
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
+        console.log("✅ Filtered monthly records:", filteredMonthly.length);
         
         filteredMonthly.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
@@ -449,7 +453,9 @@ export function ReportsPanel() {
 
         // 2. Get current month daily data
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        console.log("📦 Total daily records:", allDaily.length);
         const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
+        console.log("✅ Current month daily records:", currentDaily.length);
         
         currentDaily.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
@@ -460,12 +466,20 @@ export function ReportsPanel() {
         });
 
       } else {
-        // Daily Query Only (1D - L30D)
+        // Daily Query Only (1D - 1M)
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        console.log("📦 Total daily records in DB:", allDaily.length);
+        
         const startDateStr = startDate.toISOString().split('T')[0];
         const endDateStr = today.toISOString().split('T')[0];
         
+        console.log("🔍 Filtering daily records between", startDateStr, "and", endDateStr);
         const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
+        console.log("✅ Filtered daily records:", filtered.length);
+        
+        if (filtered.length > 0) {
+          console.log("📋 Sample filtered record:", filtered[0]);
+        }
         
         filtered.forEach(item => {
           const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
@@ -476,14 +490,20 @@ export function ReportsPanel() {
         });
       }
 
+      console.log("📊 Total unique items in map:", itemMap.size);
+      
       // Sort by selected criteria
       const allItems = Array.from(itemMap.values());
+      console.log("📊 Items before sorting:", allItems.length);
+      
       const sorted = allItems.sort((a, b) => 
         sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
       );
       
       const topNItems = sorted.slice(0, itemTopN);
       const others = sorted.slice(itemTopN);
+      
+      console.log("📊 Top items:", topNItems.length, "Others:", others.length);
       
       // For Chart
       const chartResult = topNItems.map(item => ({
@@ -509,6 +529,8 @@ export function ReportsPanel() {
         transactionCount: item.transactions
       }));
       setTopItemsData(tableData);
+      
+      console.log("✅ Items report complete - Chart items:", chartResult.length, "Table rows:", tableData.length);
 
     } catch (error) {
       console.error("❌ Error loading items report:", error);
