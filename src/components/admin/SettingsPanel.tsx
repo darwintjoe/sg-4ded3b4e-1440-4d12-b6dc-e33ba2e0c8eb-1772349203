@@ -54,6 +54,7 @@ import {
 import { db } from "@/lib/db";
 import { generateSampleStoreData } from "@/lib/sample-store-data";
 import { useToast } from "@/hooks/use-toast";
+import { RestorePreviewDialog } from "@/components/RestorePreviewDialog";
 
 // Helper component for tooltips
 function HelpTooltip({ content }: { content: string }) {
@@ -191,6 +192,12 @@ export function SettingsPanel() {
     title: "",
     message: "",
   });
+
+  // Preview Dialog State
+  const [previewDialog, setPreviewDialog] = useState<{
+    open: boolean;
+    backupData: any | null;
+  }>({ open: false, backupData: null });
 
   // HANDLERS FOR DATABASE MANAGEMENT
   const handleFactoryReset = async () => {

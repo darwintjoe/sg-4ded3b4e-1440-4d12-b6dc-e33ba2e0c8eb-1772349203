@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
+import { db } from "@/lib/db";
 
 interface GoogleUser {
   email: string;
@@ -64,11 +65,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       await googleAuth.initialize();
       const currentUser = googleAuth.getCurrentUser();
       
-      // If loadSavedUser returned null (expired), this will be null
       setUser(currentUser);
       setIsInitialized(true);
       
-      // Only check backup status if we have a valid user
       if (currentUser) {
         await refreshBackupStatus();
       }
@@ -87,16 +86,93 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         setBackupStatus(status);
       } catch (error) {
         console.warn("Backup status check skipped:", error);
-        // Silently fail - user might not be authenticated yet
       }
     };
 
     if (user) {
-      // Defer backup status check to prevent blocking app load
       const timeoutId = setTimeout(checkStatus, 2000);
       return () => clearTimeout(timeoutId);
     }
   }, [user]);
+
+  // Track operational time and promote candidate when ready
+  useEffect(() => {
+    const trackOperationalTime = async () => {
+      const candidateTime = localStorage.getItem("candidate_created_at");
+      const status = localStorage.getItem("last_backup_status");
+      
+      if (!candidateTime || status !== "pending") {
+        return;
+      }
+      
+      const isOperational = await checkIfOperational();
+      
+      if (!isOperational) {
+        localStorage.setItem("candidate_last_check", Date.now().toString());
+        return;
+      }
+      
+      const lastCheck = parseInt(localStorage.getItem("candidate_last_check") || Date.now().toString());
+      const now = Date.now();
+      const elapsedMinutes = Math.floor((now - lastCheck) / 60000);
+      
+      const currentHours = parseFloat(localStorage.getItem("candidate_operational_hours") || "0");
+      const newHours = currentHours + (elapsedMinutes / 60);
+      
+      localStorage.setItem("candidate_operational_hours", newHours.toString());
+      localStorage.setItem("candidate_last_check", now.toString());
+      
+      if (newHours >= 2.0) {
+        const isHealthy = await validateSystemHealth();
+        
+        if (isHealthy) {
+          await promoteCandidate();
+        } else {
+          console.warn("System not healthy, keeping candidate pending");
+        }
+      }
+    };
+    
+    const interval = setInterval(trackOperationalTime, 15 * 60 * 1000);
+    trackOperationalTime();
+    
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const checkIfOperational = async (): Promise<boolean> => {
+    try {
+      const allShifts = await db.getAll("shifts");
+      const activeShift = allShifts.find((s: any) => s.status === "active");
+      
+      if (activeShift) {
+        return true;
+      }
+      
+      const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+      const allTransactions = await db.getAll("transactions");
+      const recentTransactions = allTransactions.filter(
+        (t: any) => t.timestamp >= thirtyMinutesAgo
+      );
+      
+      return recentTransactions.length > 0;
+    } catch (error) {
+      console.error("Failed to check operational status:", error);
+      return false;
+    }
+  };
+
+  const validateSystemHealth = async (): Promise<boolean> => {
+    try {
+      const items = await db.getAll("items");
+      const employees = await db.getAll("employees");
+      const settings = await db.getById("settings", 1);
+
+      return !!(items && employees && settings);
+    } catch (error) {
+      console.error("Health check failed:", error);
+      return false;
+    }
+  };
 
   const refreshBackupStatus = async () => {
     const status = await backupService.getBackupStatus();
@@ -122,11 +198,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     const result = await backupService.createBackup();
     await refreshBackupStatus();
     
-    // If successful, try to promote after a short delay (simulating health check passed)
     if (result.success) {
-      setTimeout(async () => {
-        await promoteCandidate();
-      }, 5000); // 5 seconds delay for "validation"
+      localStorage.setItem("candidate_created_at", Date.now().toString());
+      localStorage.setItem("candidate_operational_hours", "0");
+      localStorage.setItem("candidate_last_check", Date.now().toString());
     }
     
     return result;
