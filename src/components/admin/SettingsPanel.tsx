@@ -1614,8 +1614,8 @@ export function SettingsPanel() {
                               let itemsAdded = 0, itemsSkipped = 0;
                               let employeesAdded = 0, employeesSkipped = 0;
                               let transactionsAdded = 0, transactionsSkipped = 0;
-                              let dailySummariesAdded = 0, dailySummariesSkipped = 0;
-                              let monthlySummariesAdded = 0, monthlySummariesSkipped = 0;
+                              let dailySummariesAdded = 0;
+                              let monthlySummariesAdded = 0;
 
                               // Add items (skip if exists)
                               for (const item of items) {
@@ -1659,13 +1659,13 @@ export function SettingsPanel() {
                                 }
                               }
 
-                              // Add daily summaries (use upsert - no skip counting)
+                              // Add daily summaries (use upsert - overwrite if exists)
                               for (const summary of dailySummaries) {
                                 await db.upsertDailyPaymentSales(summary);
                                 dailySummariesAdded++;
                               }
 
-                              // Add monthly summaries (use upsert - no skip counting)
+                              // Add monthly summaries (use upsert - overwrite if exists)
                               for (const summary of monthlySummaries.payments) {
                                 await db.upsertMonthlyPaymentSales(summary);
                                 monthlySummariesAdded++;
@@ -1675,6 +1675,8 @@ export function SettingsPanel() {
                                 await db.upsertMonthlySalesSummary(summary);
                               }
 
+                              setLoading(false);
+
                               // Show summary report
                               const report = [
                                 "✅ Sample Data Loaded!\n",
@@ -1683,7 +1685,7 @@ export function SettingsPanel() {
                                 `Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
                                 `Daily Summaries: ${dailySummariesAdded} processed`,
                                 `Monthly Summaries: ${monthlySummariesAdded} processed`,
-                                "\nReloading to refresh data..."
+                                "\nClick OK to reload and see the data..."
                               ].join("\n");
 
                               alert(report);
@@ -1691,7 +1693,6 @@ export function SettingsPanel() {
                             } catch (error) {
                               console.error(error);
                               alert("Failed to load sample data: " + (error instanceof Error ? error.message : "Unknown error"));
-                            } finally {
                               setLoading(false);
                             }
                           }}
@@ -1713,7 +1714,7 @@ export function SettingsPanel() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40"
+                          className="w-full border-orange-500 text-orange-600 hover:bg-orange-50"
                           onClick={async () => {
                             if (!window.confirm(
                               "⚠️ Clear All Transaction Data?\n\n" +
