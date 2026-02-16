@@ -64,7 +64,7 @@ interface RestoreState {
 }
 
 // In-memory cache for large backups when sessionStorage quota exceeded
-let inMemoryBackupCache: any = null;
+const inMemoryBackupCache: any = null;
 
 export class BackupService {
   private readonly BACKUP_FOLDER = "POS-Backups";

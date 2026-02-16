@@ -813,7 +813,6 @@ export function SettingsPanel() {
       if (manualData) {
         // Use manual uploaded data
         backupData = manualData;
-        // No need to clear temp data yet, we need it for preview
         setRestoreState(prev => ({ ...prev, progress: 50 }));
       } else {
         // Download from Google Drive
@@ -836,7 +835,11 @@ export function SettingsPanel() {
       
       setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
       
-      // DON'T reload - just show the preview UI
+      // Open preview dialog
+      setPreviewDialog({ open: true, backupData });
+      
+      // Close restore state modal
+      setRestoreState({ phase: "idle" });
     } catch (err) {
       setRestoreState(prev => ({ 
         ...prev, 
@@ -908,13 +911,31 @@ export function SettingsPanel() {
         throw new Error("Backup preview data not found");
       }
 
-      const backupData = previewData;
+      // Close preview dialog
+      setPreviewDialog({ open: false, backupData: null });
+      
+      // Show restoring progress
+      setRestoreState({ phase: "restoring" });
+      
+      // Clear preview mode BEFORE attempting to write
+      backupService.clearStoredBackup();
+      sessionStorage.removeItem("preview_mode");
+
+      const result = await finalizeRestore(previewData);
+      
+      if (result.success) {
+        setRestoreState({ phase: "success" });
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        throw new Error(result.error);
+      }
     } catch (err) {
-      setRestoreState(prev => ({ 
-        ...prev, 
+      setRestoreState({ 
         phase: "error", 
-        error: err instanceof Error ? err.message : "Preview data lost" 
-      }));
+        error: err instanceof Error ? err.message : "Restore failed" 
+      });
     }
   };
 
@@ -2069,6 +2090,17 @@ export function SettingsPanel() {
           Saving...
         </div>
       )}
+      
+      {/* Restore Preview Dialog */}
+      <RestorePreviewDialog
+        open={previewDialog.open}
+        backupData={previewDialog.backupData}
+        onClose={() => {
+          setPreviewDialog({ open: false, backupData: null });
+          setRestoreState({ phase: "idle" });
+        }}
+        onConfirm={handleConfirmRestore}
+      />
     </div>
   );
 }
