@@ -19,7 +19,7 @@ import {
 import { useApp } from "@/contexts/AppContext";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { backupService } from "@/lib/backup-service";
-import { Settings, POSMode } from "@/types";
+import { Settings, POSMode, Language } from "@/types";
 import { translations } from "@/lib/translations";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import {
