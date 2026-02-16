@@ -483,9 +483,10 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
           businessDate: date,
           employeeId,
           employeeName: employee.name,
-          checkInTime: record.checkIn,
-          checkOutTime: record.checkOut,
+          clockIn: record.checkIn,
+          clockOut: record.checkOut || 0,
           hoursWorked: record.hoursWorked,
+          isLate: false,
           shiftId: "shift1"
         });
       }
@@ -552,8 +553,9 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
           yearMonth: month,
           employeeId,
           employeeName: employee.name,
-          totalHoursWorked: stats.totalHours,
-          totalDaysWorked: stats.daysWorked
+          totalHours: stats.totalHours,
+          daysWorked: stats.daysWorked,
+          lateCount: Math.floor(Math.random() * 3)
         });
       }
     }
