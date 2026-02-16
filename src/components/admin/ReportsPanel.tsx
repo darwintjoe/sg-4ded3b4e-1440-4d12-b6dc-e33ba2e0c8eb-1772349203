@@ -369,6 +369,7 @@ export function ReportsPanel() {
       console.log("🔍 Items report triggered - Range:", itemsTimeRange, "TopN:", itemTopN, "Sort:", sortBy);
       
       const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
       let startDate: Date;
       let useMonthly = false;
 
@@ -376,48 +377,56 @@ export function ReportsPanel() {
       switch (itemsTimeRange) {
         case "1d":
           startDate = new Date(today);
-          startDate.setHours(0, 0, 0, 0);
+          startDate.setHours(0, 0, 0, 0); // Start of today
           break;
         case "7d":
           startDate = new Date(today);
-          startDate.setDate(startDate.getDate() - 7);
+          startDate.setDate(startDate.getDate() - 6); // Last 7 days including today
+          startDate.setHours(0, 0, 0, 0);
           break;
         case "l30d":
           startDate = new Date(today);
-          startDate.setDate(startDate.getDate() - 30);
+          startDate.setDate(startDate.getDate() - 29); // Last 30 days including today
+          startDate.setHours(0, 0, 0, 0);
           break;
         case "1m":
-          startDate = new Date(today);
-          startDate.setDate(1); // Start of month
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          startDate.setHours(0, 0, 0, 0); // Start of current month
           break;
         case "3m":
           startDate = new Date(today);
           startDate.setMonth(startDate.getMonth() - 3);
+          startDate.setHours(0, 0, 0, 0);
           useMonthly = true;
           break;
         case "6m":
           startDate = new Date(today);
           startDate.setMonth(startDate.getMonth() - 6);
+          startDate.setHours(0, 0, 0, 0);
           useMonthly = true;
           break;
         case "1y":
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 1);
+          startDate.setHours(0, 0, 0, 0);
           useMonthly = true;
           break;
         case "3y":
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 3);
+          startDate.setHours(0, 0, 0, 0);
           useMonthly = true;
           break;
         case "5y":
           startDate = new Date(today);
           startDate.setFullYear(startDate.getFullYear() - 5);
+          startDate.setHours(0, 0, 0, 0);
           useMonthly = true;
           break;
         default:
           startDate = new Date(today);
           startDate.setMonth(startDate.getMonth() - 1);
+          startDate.setHours(0, 0, 0, 0);
       }
 
       console.log("📅 Date range:", startDate.toISOString().split('T')[0], "to", today.toISOString().split('T')[0]);
