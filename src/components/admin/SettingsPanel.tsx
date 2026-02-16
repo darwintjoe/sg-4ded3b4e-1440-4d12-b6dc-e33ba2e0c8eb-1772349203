@@ -1605,10 +1605,14 @@ export function SettingsPanel() {
                               const { generateSampleItems, generateSampleEmployees, generateSampleTransactions, getDefaultSettings } = await import("@/lib/sample-store-data");
                               const { db } = await import("@/lib/db");
 
+                              console.log("🎨 Starting sample data injection...");
+
                               // Generate data
                               const items = generateSampleItems();
                               const employees = generateSampleEmployees();
                               const { transactions, dailySummaries, monthlySummaries } = generateSampleTransactions(items, employees);
+
+                              console.log(`Generated: ${items.length} items, ${employees.length} employees, ${transactions.length} transactions`);
 
                               // Track results
                               let itemsAdded = 0, itemsSkipped = 0;
@@ -1618,6 +1622,7 @@ export function SettingsPanel() {
                               let monthlySummariesAdded = 0;
 
                               // Add items (skip if exists)
+                              console.log("Adding items...");
                               for (const item of items) {
                                 try {
                                   await db.add("items", item);
@@ -1626,12 +1631,15 @@ export function SettingsPanel() {
                                   if (e.name === "ConstraintError") {
                                     itemsSkipped++;
                                   } else {
+                                    console.error("Item add error:", e);
                                     throw e;
                                   }
                                 }
                               }
+                              console.log(`✅ Items: ${itemsAdded} added, ${itemsSkipped} skipped`);
 
                               // Add employees (skip if exists)
+                              console.log("Adding employees...");
                               for (const emp of employees) {
                                 try {
                                   await db.add("employees", emp);
@@ -1640,12 +1648,15 @@ export function SettingsPanel() {
                                   if (e.name === "ConstraintError") {
                                     employeesSkipped++;
                                   } else {
+                                    console.error("Employee add error:", e);
                                     throw e;
                                   }
                                 }
                               }
+                              console.log(`✅ Employees: ${employeesAdded} added, ${employeesSkipped} skipped`);
 
                               // Add transactions (skip if exists)
+                              console.log("Adding transactions...");
                               for (const txn of transactions) {
                                 try {
                                   await db.add("transactions", txn);
@@ -1654,45 +1665,66 @@ export function SettingsPanel() {
                                   if (e.name === "ConstraintError") {
                                     transactionsSkipped++;
                                   } else {
+                                    console.error("Transaction add error:", e);
                                     throw e;
                                   }
                                 }
                               }
+                              console.log(`✅ Transactions: ${transactionsAdded} added, ${transactionsSkipped} skipped`);
 
                               // Add daily summaries (use upsert - overwrite if exists)
+                              console.log("Adding daily summaries...");
                               for (const summary of dailySummaries) {
-                                await db.upsertDailyPaymentSales(summary);
-                                dailySummariesAdded++;
+                                try {
+                                  await db.upsertDailyPaymentSales(summary);
+                                  dailySummariesAdded++;
+                                } catch (e: any) {
+                                  console.error("Daily summary error:", e);
+                                  throw e;
+                                }
                               }
+                              console.log(`✅ Daily Summaries: ${dailySummariesAdded} added`);
 
                               // Add monthly summaries (use upsert - overwrite if exists)
+                              console.log("Adding monthly summaries...");
                               for (const summary of monthlySummaries.payments) {
-                                await db.upsertMonthlyPaymentSales(summary);
-                                monthlySummariesAdded++;
+                                try {
+                                  await db.upsertMonthlyPaymentSales(summary);
+                                  monthlySummariesAdded++;
+                                } catch (e: any) {
+                                  console.error("Monthly payment summary error:", e);
+                                  throw e;
+                                }
                               }
 
                               for (const summary of monthlySummaries.summary) {
-                                await db.upsertMonthlySalesSummary(summary);
+                                try {
+                                  await db.upsertMonthlySalesSummary(summary);
+                                } catch (e: any) {
+                                  console.error("Monthly sales summary error:", e);
+                                  throw e;
+                                }
                               }
+                              console.log(`✅ Monthly Summaries: ${monthlySummariesAdded} added`);
 
                               setLoading(false);
 
                               // Show summary report
                               const report = [
-                                "✅ Sample Data Loaded!\n",
-                                `Items: ${itemsAdded} added${itemsSkipped > 0 ? `, ${itemsSkipped} skipped` : ""}`,
-                                `Employees: ${employeesAdded} added${employeesSkipped > 0 ? `, ${employeesSkipped} skipped` : ""}`,
-                                `Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
-                                `Daily Summaries: ${dailySummariesAdded} processed`,
-                                `Monthly Summaries: ${monthlySummariesAdded} processed`,
-                                "\nClick OK to reload and see the data..."
+                                "✅ Sample Data Loaded Successfully!\n",
+                                `📦 Items: ${itemsAdded} added${itemsSkipped > 0 ? `, ${itemsSkipped} skipped` : ""}`,
+                                `👥 Employees: ${employeesAdded} added${employeesSkipped > 0 ? `, ${employeesSkipped} skipped` : ""}`,
+                                `💰 Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
+                                `📊 Daily Summaries: ${dailySummariesAdded} added`,
+                                `📈 Monthly Summaries: ${monthlySummariesAdded} added`,
+                                "\nClick OK to reload and see your data..."
                               ].join("\n");
 
                               alert(report);
                               window.location.reload();
                             } catch (error) {
-                              console.error(error);
-                              alert("Failed to load sample data: " + (error instanceof Error ? error.message : "Unknown error"));
+                              console.error("Sample data injection error:", error);
+                              alert("Failed to load sample data:\n\n" + (error instanceof Error ? error.message : "Unknown error"));
                               setLoading(false);
                             }
                           }}
