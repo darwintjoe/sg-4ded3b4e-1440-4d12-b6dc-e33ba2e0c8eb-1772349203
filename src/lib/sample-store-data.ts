@@ -7,7 +7,9 @@ import {
   MonthlyPaymentSales, 
   MonthlySalesSummary,
   CartItem,
-  UserRole
+  UserRole,
+  DailyItemSales,
+  MonthlyItemSales
 } from "@/types";
 
 /**
@@ -231,11 +233,15 @@ export function generateSampleEmployees(): Employee[] {
 export function generateSampleTransactions(items: Item[], employees: Employee[]): {
   transactions: Transaction[];
   dailySummaries: DailyPaymentSales[];
+  dailyItemSales: DailyItemSales[];
+  monthlyItemSales: MonthlyItemSales[];
   monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
 } {
   const transactions: Transaction[] = [];
   const dailyMap = new Map<string, Map<string, number>>(); // date -> paymentMethod -> total
   const monthlyMap = new Map<string, Map<string, number>>(); // month -> paymentMethod -> total
+  const dailyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>(); // date -> itemId -> stats
+  const monthlyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>(); // month -> itemId -> stats
 
   const startDate = new Date("2024-01-01");
   const endDate = new Date("2026-02-28");
@@ -280,6 +286,40 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
           totalPrice: randomItem.price * quantity
         });
         subtotal += randomItem.price * quantity;
+        
+        // Track item sales daily
+        if (!dailyItemMap.has(dateStr)) {
+          dailyItemMap.set(dateStr, new Map());
+        }
+        const dayItemMap = dailyItemMap.get(dateStr)!;
+        const itemStats = dayItemMap.get(randomItem.id || 0) || { 
+          quantity: 0, 
+          revenue: 0, 
+          count: 0, 
+          itemName: randomItem.name,
+          sku: randomItem.sku || ""
+        };
+        itemStats.quantity += quantity;
+        itemStats.revenue += randomItem.price * quantity;
+        itemStats.count += 1;
+        dayItemMap.set(randomItem.id || 0, itemStats);
+        
+        // Track item sales monthly
+        if (!monthlyItemMap.has(monthStr)) {
+          monthlyItemMap.set(monthStr, new Map());
+        }
+        const monthItemMap = monthlyItemMap.get(monthStr)!;
+        const monthItemStats = monthItemMap.get(randomItem.id || 0) || { 
+          quantity: 0, 
+          revenue: 0, 
+          count: 0,
+          itemName: randomItem.name,
+          sku: randomItem.sku || ""
+        };
+        monthItemStats.quantity += quantity;
+        monthItemStats.revenue += randomItem.price * quantity;
+        monthItemStats.count += 1;
+        monthItemMap.set(randomItem.id || 0, monthItemStats);
       }
       
       // Random employee (weighted towards cashiers)
@@ -342,6 +382,38 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     }
   }
   
+  // Convert to daily item sales
+  const dailyItemSales: DailyItemSales[] = [];
+  for (const [date, itemMap] of dailyItemMap.entries()) {
+    for (const [itemId, stats] of itemMap.entries()) {
+      dailyItemSales.push({
+        businessDate: date,
+        itemId,
+        sku: stats.sku,
+        itemName: stats.itemName,
+        totalQuantity: stats.quantity,
+        totalRevenue: stats.revenue,
+        transactionCount: stats.count
+      });
+    }
+  }
+  
+  // Convert to monthly item sales
+  const monthlyItemSales: MonthlyItemSales[] = [];
+  for (const [month, itemMap] of monthlyItemMap.entries()) {
+    for (const [itemId, stats] of itemMap.entries()) {
+      monthlyItemSales.push({
+        yearMonth: month,
+        itemId,
+        sku: stats.sku,
+        itemName: stats.itemName,
+        totalQuantity: stats.quantity,
+        totalRevenue: stats.revenue,
+        transactionCount: stats.count
+      });
+    }
+  }
+  
   // Convert to monthly summaries
   const monthlyPayments: MonthlyPaymentSales[] = [];
   const monthlySummary: MonthlySalesSummary[] = [];
@@ -382,6 +454,8 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
   return {
     transactions,
     dailySummaries,
+    dailyItemSales,
+    monthlyItemSales,
     monthlySummaries: {
       payments: monthlyPayments,
       summary: monthlySummary,
