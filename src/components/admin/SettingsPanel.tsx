@@ -121,38 +121,29 @@ export function SettingsPanel() {
 
   // HANDLERS FOR DATABASE MANAGEMENT
   const handleFactoryReset = async () => {
-    if (!confirm("⚠️ FACTORY RESET: This will delete EVERYTHING and return to fresh install state. All data will be lost permanently. Are you absolutely sure?")) {
-      return;
-    }
-
     setLoading(true);
     try {
-      // 1. Close the current database connection
+      console.log("🏭 Starting factory reset...");
+      
+      // Step 1: Close the database connection
       await db.closeAndReset();
+      console.log("✅ Database connection closed");
 
-      // 2. Delete the entire database
+      // Delete the database
       await new Promise<void>((resolve, reject) => {
         const deleteRequest = indexedDB.deleteDatabase("SellMoreDB");
-        deleteRequest.onsuccess = () => {
-          console.log("✅ Database deleted successfully");
-          resolve();
-        };
-        deleteRequest.onerror = () => {
-          console.error("❌ Failed to delete database", deleteRequest.error);
-          reject(deleteRequest.error);
-        };
-        deleteRequest.onblocked = () => {
-          console.warn("⚠️ Database deletion blocked");
-        };
+        deleteRequest.onsuccess = () => resolve();
+        deleteRequest.onerror = () => reject(deleteRequest.error);
       });
 
-      // 3. Wait a bit to ensure deletion is complete
+      // Step 3: Wait a bit to ensure deletion is complete
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 4. Reinitialize the database (creates fresh schema)
+      // Step 4: Reinitialize the database (creates fresh schema)
       await db.init();
+      console.log("✅ Database reset completed");
 
-      // 5. Create default settings
+      // Step 5: Create default settings
       const defaultSettings: Settings = {
         key: "settings",
         mode: "retail",
@@ -190,7 +181,7 @@ export function SettingsPanel() {
 
       await db.updateSettings(defaultSettings);
 
-      // 6. Verify all stores are empty (except settings)
+      // Step 6: Verify all stores are empty (except settings)
       const items = await db.getItems();
       const employees = await db.getEmployees();
       const transactions = await db.getTransactions();
@@ -210,7 +201,7 @@ export function SettingsPanel() {
           description: "All data cleared. Database reset to fresh install state. Reloading...",
         });
 
-        // 7. Reload the page to reset app state
+        // Step 7: Reload the page to reset app state
         setTimeout(() => {
           window.location.reload();
         }, 1000);
@@ -595,11 +586,11 @@ export function SettingsPanel() {
         throw new Error(restoreResult.error || "Download failed");
       }
 
-      // 2. Backup Current (Local Safety)
+      // Step 2: Backup Current (Local Safety)
       await backupCurrentDatabase();
       setRestoreState(prev => ({ ...prev, progress: 75 }));
 
-      // 3. Load Preview
+      // Step 3: Load Preview
       await loadPreviewLocal(restoreResult.backupData);
       setRestoreState(prev => ({ ...prev, progress: 100, phase: "preview" }));
       
@@ -664,11 +655,11 @@ export function SettingsPanel() {
         setRestoreState(prev => ({ ...prev, progress: 50 }));
       }
 
-      // 2. Backup Current (Local Safety)
+      // Step 2: Backup Current (Local Safety)
       await backupCurrentDatabase();
       setRestoreState(prev => ({ ...prev, progress: 75 }));
 
-      // 3. Store preview data if it came from download (manual data is already stored)
+      // Step 3: Store preview data if it came from download (manual data is already stored)
       if (backupData && !manualData) {
         backupService.storeBackupForPreview(backupData);
       }
@@ -1783,7 +1774,7 @@ export function SettingsPanel() {
                               // Second confirmation
                               if (window.confirm(
                                 "🔴 FINAL WARNING!\n\n" +
-                                "Click OK to permanently delete everything and reload with fresh sample data.\n\n" +
+                                "Click OK to permanently delete everything and reload with fresh install data.\n\n" +
                                 "Click Cancel to keep your current data."
                               )) {
                                 // Delete IndexedDB
@@ -2008,73 +1999,6 @@ export function SettingsPanel() {
                 </div>
               )}
             </Card>
-
-            <Tabs defaultValue="basic" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="basic">Basic Settings</TabsTrigger>
-                <TabsTrigger value="receipt">Receipt & Printer</TabsTrigger>
-                <TabsTrigger value="advanced">Advanced</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="advanced" className="space-y-6">
-                <Card className="p-4 border-destructive/20 bg-destructive/5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Database className="h-5 w-5 text-destructive" />
-                    <h3 className="font-semibold text-lg text-destructive">Database Management</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Factory Reset</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Clears all data and returns to fresh install state.
-                      </p>
-                      <Button 
-                        variant="destructive" 
-                        className="w-full" 
-                        onClick={handleFactoryReset}
-                        disabled={loading}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Factory Reset
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Inject Sample Data</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Adds demo data: items, employees, and history.
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950" 
-                        onClick={handleInjectSampleData}
-                        disabled={loading}
-                      >
-                        <Database className="mr-2 h-4 w-4" />
-                        Inject Sample Data
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="font-medium">Clear Transactions</h4>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Removes sales history but keeps items & employees.
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        className="w-full border-orange-200 hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-950" 
-                        onClick={handleClearTransactions}
-                        disabled={loading}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Clear Transactions
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              </TabsContent>
-            </Tabs>
           </TabsContent>
         </Tabs>
       </div>
