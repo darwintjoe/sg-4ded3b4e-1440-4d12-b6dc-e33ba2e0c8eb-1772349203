@@ -9,15 +9,19 @@ import {
   CartItem,
   UserRole,
   DailyItemSales,
-  MonthlyItemSales
+  MonthlyItemSales,
+  DailyAttendance,
+  MonthlyAttendanceSummary
 } from "@/types";
 
 /**
  * Generate comprehensive sample data for new users
- * - 200 convenience store items
- * - 8 employees
- * - 26 months of transaction history (2024-01 to 2026-02)
- * - Properly calculated two-tier summaries
+ * Following Two-Tier Summary Architecture:
+ * - Transactions: Last 60 days only
+ * - Daily summaries: Last 60 days only
+ * - Monthly summaries: Full 26 months (2024-01 to 2026-02)
+ * 
+ * Total: ~10,000 records (optimized for performance)
  */
 
 // Convenience store item categories with realistic products
@@ -189,8 +193,8 @@ const SAMPLE_EMPLOYEES = [
   { name: "Dewi", pin: "4444", role: "cashier" as const, shift: "shift2" },
   { name: "Rudi", pin: "5555", role: "cashier" as const, shift: "shift3" },
   { name: "Maya", pin: "6666", role: "cashier" as const, shift: "shift3" },
-  { name: "Andi", pin: "7777", role: "admin" as const, shift: "shift1" }, // Changed to admin as manager is not in UserRole
-  { name: "Linda", pin: "8888", role: "admin" as const, shift: "shift2" }, // Changed to admin
+  { name: "Andi", pin: "7777", role: "admin" as const, shift: "shift1" },
+  { name: "Linda", pin: "8888", role: "admin" as const, shift: "shift2" },
 ];
 
 export function generateSampleItems(): Item[] {
@@ -200,12 +204,12 @@ export function generateSampleItems(): Item[] {
   for (const [category, products] of Object.entries(SAMPLE_ITEMS_DATA)) {
     for (const product of products) {
       items.push({
-        id: itemId, // Number ID
+        id: itemId,
         name: product.name,
         price: product.price,
         category,
-        sku: product.barcode, // Mapped to SKU
-        stock: Math.floor(Math.random() * 100) + 20, // 20-120 stock
+        sku: product.barcode,
+        stock: Math.floor(Math.random() * 100) + 20,
         isActive: true,
       });
       itemId++;
@@ -217,7 +221,7 @@ export function generateSampleItems(): Item[] {
 
 export function generateSampleEmployees(): Employee[] {
   return SAMPLE_EMPLOYEES.map((emp, index) => ({
-    id: index + 1, // Number ID
+    id: index + 1,
     name: emp.name,
     pin: emp.pin,
     role: emp.role as UserRole,
@@ -227,48 +231,54 @@ export function generateSampleEmployees(): Employee[] {
 }
 
 /**
- * Generate 26 months of realistic transaction data
- * From 2024-01-01 to 2026-02-28
+ * Generate sample data following Two-Tier Summary Architecture
+ * - Transactions: Last 60 days only
+ * - Daily summaries: Last 60 days only  
+ * - Monthly summaries: Full 26 months (2024-01 to 2026-02)
  */
 export function generateSampleTransactions(items: Item[], employees: Employee[]): {
   transactions: Transaction[];
   dailySummaries: DailyPaymentSales[];
   dailyItemSales: DailyItemSales[];
+  dailyAttendance: DailyAttendance[];
   monthlyItemSales: MonthlyItemSales[];
   monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
+  monthlyAttendanceSummaries: MonthlyAttendanceSummary[];
 } {
   const transactions: Transaction[] = [];
-  const dailyMap = new Map<string, Map<string, number>>(); // date -> paymentMethod -> total
-  const monthlyMap = new Map<string, Map<string, number>>(); // month -> paymentMethod -> total
-  const dailyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>(); // date -> itemId -> stats
-  const monthlyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>(); // month -> itemId -> stats
-
-  const startDate = new Date("2024-01-01");
-  const endDate = new Date("2026-02-28");
+  const dailyMap = new Map<string, Map<string, number>>();
+  const dailyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>();
+  const dailyAttendanceMap = new Map<string, Map<number, { checkIn: number; checkOut: number | null; hoursWorked: number }>>();
   
-  const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"]; // Matches PaymentMethod type
+  // Monthly maps for 26 months of synthetic data
+  const monthlyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>();
+  const monthlyPaymentMap = new Map<string, Map<string, number>>();
+  const monthlyAttendanceMap = new Map<string, Map<number, { totalHours: number; daysWorked: number }>>();
+  
+  const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"];
+  
+  // Generate transactions for LAST 60 DAYS ONLY
+  const today = new Date();
+  const sixtyDaysAgo = new Date(today);
+  sixtyDaysAgo.setDate(today.getDate() - 59); // 59 days ago + today = 60 days
   
   let transactionId = 1;
   
-  // Generate transactions for each day
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+  // Generate transactions for last 60 days
+  for (let d = new Date(sixtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split("T")[0];
-    const monthStr = dateStr.substring(0, 7); // YYYY-MM
     const dayOfWeek = d.getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
-    // More transactions on weekends
     const baseTransactionsPerDay = isWeekend ? 50 : 35;
     const transactionsToday = Math.floor(baseTransactionsPerDay + Math.random() * 20);
     
     for (let i = 0; i < transactionsToday; i++) {
-      // Random time during business hours (7am - 10pm)
       const hour = 7 + Math.floor(Math.random() * 15);
       const minute = Math.floor(Math.random() * 60);
       const timestamp = new Date(d);
       timestamp.setHours(hour, minute, 0, 0);
       
-      // Random 1-5 items per transaction
       const itemCount = Math.floor(Math.random() * 5) + 1;
       const transactionItems: CartItem[] = [];
       let subtotal = 0;
@@ -287,7 +297,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
         });
         subtotal += randomItem.price * quantity;
         
-        // Track item sales daily
+        // Track daily item sales
         if (!dailyItemMap.has(dateStr)) {
           dailyItemMap.set(dateStr, new Map());
         }
@@ -303,39 +313,20 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
         itemStats.revenue += randomItem.price * quantity;
         itemStats.count += 1;
         dayItemMap.set(randomItem.id || 0, itemStats);
-        
-        // Track item sales monthly
-        if (!monthlyItemMap.has(monthStr)) {
-          monthlyItemMap.set(monthStr, new Map());
-        }
-        const monthItemMap = monthlyItemMap.get(monthStr)!;
-        const monthItemStats = monthItemMap.get(randomItem.id || 0) || { 
-          quantity: 0, 
-          revenue: 0, 
-          count: 0,
-          itemName: randomItem.name,
-          sku: randomItem.sku || ""
-        };
-        monthItemStats.quantity += quantity;
-        monthItemStats.revenue += randomItem.price * quantity;
-        monthItemStats.count += 1;
-        monthItemMap.set(randomItem.id || 0, monthItemStats);
       }
       
-      // Random employee (weighted towards cashiers)
       const cashiers = employees.filter(e => e.role === "cashier");
       const employee = Math.random() < 0.9 
         ? cashiers[Math.floor(Math.random() * cashiers.length)]
         : employees[Math.floor(Math.random() * employees.length)];
       
-      // Random payment method
       const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
       
       const transaction: Transaction = {
         id: transactionId,
-        timestamp: timestamp.getTime(), // Changed to number timestamp
-        businessDate: dateStr, // Added businessDate
-        shiftId: "shift1", // Default shift
+        timestamp: timestamp.getTime(),
+        businessDate: dateStr,
+        shiftId: "shift1",
         cashierId: employee.id || 0,
         cashierName: employee.name,
         mode: "retail",
@@ -353,23 +344,109 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
       transactions.push(transaction);
       transactionId++;
       
-      // Accumulate daily
+      // Track daily payment sales
       if (!dailyMap.has(dateStr)) {
         dailyMap.set(dateStr, new Map());
       }
       const dayMap = dailyMap.get(dateStr)!;
       dayMap.set(paymentMethod, (dayMap.get(paymentMethod) || 0) + subtotal);
+    }
+    
+    // Track daily attendance (simplified - one entry per employee per day)
+    if (!dailyAttendanceMap.has(dateStr)) {
+      dailyAttendanceMap.set(dateStr, new Map());
+    }
+    const attendanceMap = dailyAttendanceMap.get(dateStr)!;
+    
+    // Random 5-7 employees work each day
+    const workingEmployees = [...employees]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 5 + Math.floor(Math.random() * 3));
+    
+    for (const emp of workingEmployees) {
+      const checkInHour = 7 + Math.floor(Math.random() * 2);
+      const checkIn = new Date(d);
+      checkIn.setHours(checkInHour, Math.floor(Math.random() * 60), 0, 0);
       
-      // Accumulate monthly
-      if (!monthlyMap.has(monthStr)) {
-        monthlyMap.set(monthStr, new Map());
-      }
-      const monthMap = monthlyMap.get(monthStr)!;
-      monthMap.set(paymentMethod, (monthMap.get(paymentMethod) || 0) + subtotal);
+      const workHours = 7 + Math.floor(Math.random() * 3);
+      const checkOut = new Date(checkIn);
+      checkOut.setHours(checkIn.getHours() + workHours);
+      
+      attendanceMap.set(emp.id || 0, {
+        checkIn: checkIn.getTime(),
+        checkOut: checkOut.getTime(),
+        hoursWorked: workHours
+      });
     }
   }
   
-  // Convert to daily summaries
+  // Generate SYNTHETIC monthly summaries for 26 months (2024-01 to 2026-02)
+  const startMonth = new Date("2024-01-01");
+  const endMonth = new Date("2026-02-28");
+  
+  for (let m = new Date(startMonth); m <= endMonth; m.setMonth(m.getMonth() + 1)) {
+    const monthStr = m.toISOString().substring(0, 7); // YYYY-MM
+    const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    
+    // Generate synthetic monthly item sales
+    if (!monthlyItemMap.has(monthStr)) {
+      monthlyItemMap.set(monthStr, new Map());
+    }
+    const monthItemMap = monthlyItemMap.get(monthStr)!;
+    
+    // Random 80-100 unique items sold per month
+    const itemsThisMonth = [...items]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 80 + Math.floor(Math.random() * 21));
+    
+    for (const item of itemsThisMonth) {
+      const avgDailyQty = 3 + Math.floor(Math.random() * 10);
+      const totalQty = avgDailyQty * daysInMonth;
+      const revenue = totalQty * item.price;
+      
+      monthItemMap.set(item.id || 0, {
+        quantity: totalQty,
+        revenue,
+        count: Math.floor(totalQty * 0.7), // Approximate transaction count
+        itemName: item.name,
+        sku: item.sku || ""
+      });
+    }
+    
+    // Generate synthetic monthly payment sales
+    if (!monthlyPaymentMap.has(monthStr)) {
+      monthlyPaymentMap.set(monthStr, new Map());
+    }
+    const monthPaymentMap = monthlyPaymentMap.get(monthStr)!;
+    
+    const baseTransactionsPerMonth = daysInMonth * 42; // Average 42 transactions/day
+    const totalRevenue = Math.floor(baseTransactionsPerMonth * (80000 + Math.random() * 40000));
+    
+    // Distribute across payment methods (realistic ratios)
+    monthPaymentMap.set("cash", Math.floor(totalRevenue * 0.45));
+    monthPaymentMap.set("qris-static", Math.floor(totalRevenue * 0.30));
+    monthPaymentMap.set("qris-dynamic", Math.floor(totalRevenue * 0.20));
+    monthPaymentMap.set("voucher", Math.floor(totalRevenue * 0.05));
+    
+    // Generate synthetic monthly attendance
+    if (!monthlyAttendanceMap.has(monthStr)) {
+      monthlyAttendanceMap.set(monthStr, new Map());
+    }
+    const monthAttendanceMap = monthlyAttendanceMap.get(monthStr)!;
+    
+    for (const emp of employees) {
+      const daysWorked = 20 + Math.floor(Math.random() * 6); // 20-25 days
+      const avgHoursPerDay = 7 + Math.random() * 2;
+      const totalHours = Math.floor(daysWorked * avgHoursPerDay);
+      
+      monthAttendanceMap.set(emp.id || 0, {
+        totalHours,
+        daysWorked
+      });
+    }
+  }
+  
+  // Convert to output format
   const dailySummaries: DailyPaymentSales[] = [];
   for (const [date, paymentMap] of dailyMap.entries()) {
     for (const [method, total] of paymentMap.entries()) {
@@ -377,12 +454,11 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
         businessDate: date,
         method: method as any,
         totalAmount: total,
-        transactionCount: 0 // Simplification
+        transactionCount: 0
       });
     }
   }
   
-  // Convert to daily item sales
   const dailyItemSales: DailyItemSales[] = [];
   for (const [date, itemMap] of dailyItemMap.entries()) {
     for (const [itemId, stats] of itemMap.entries()) {
@@ -398,7 +474,24 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     }
   }
   
-  // Convert to monthly item sales
+  const dailyAttendance: DailyAttendance[] = [];
+  for (const [date, attendanceMap] of dailyAttendanceMap.entries()) {
+    for (const [employeeId, record] of attendanceMap.entries()) {
+      const employee = employees.find(e => e.id === employeeId);
+      if (employee) {
+        dailyAttendance.push({
+          businessDate: date,
+          employeeId,
+          employeeName: employee.name,
+          checkInTime: record.checkIn,
+          checkOutTime: record.checkOut,
+          hoursWorked: record.hoursWorked,
+          shiftId: "shift1"
+        });
+      }
+    }
+  }
+  
   const monthlyItemSales: MonthlyItemSales[] = [];
   for (const [month, itemMap] of monthlyItemMap.entries()) {
     for (const [itemId, stats] of itemMap.entries()) {
@@ -414,11 +507,10 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     }
   }
   
-  // Convert to monthly summaries
   const monthlyPayments: MonthlyPaymentSales[] = [];
   const monthlySummary: MonthlySalesSummary[] = [];
   
-  for (const [month, paymentMap] of monthlyMap.entries()) {
+  for (const [month, paymentMap] of monthlyPaymentMap.entries()) {
     let monthTotal = 0;
     let cashAmount = 0;
     let qrisStaticAmount = 0;
@@ -430,7 +522,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
         yearMonth: month,
         method: method as any,
         totalAmount: total,
-        transactionCount: 0 // Simplification
+        transactionCount: 0
       });
       monthTotal += total;
 
@@ -443,7 +535,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     monthlySummary.push({
       yearMonth: month,
       totalRevenue: monthTotal,
-      totalReceipts: transactions.filter(t => new Date(t.timestamp).toISOString().startsWith(month)).length,
+      totalReceipts: Math.floor(monthTotal / 100000),
       cashAmount,
       qrisStaticAmount,
       qrisDynamicAmount,
@@ -451,15 +543,33 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     });
   }
   
+  const monthlyAttendanceSummaries: MonthlyAttendanceSummary[] = [];
+  for (const [month, attendanceMap] of monthlyAttendanceMap.entries()) {
+    for (const [employeeId, stats] of attendanceMap.entries()) {
+      const employee = employees.find(e => e.id === employeeId);
+      if (employee) {
+        monthlyAttendanceSummaries.push({
+          yearMonth: month,
+          employeeId,
+          employeeName: employee.name,
+          totalHoursWorked: stats.totalHours,
+          totalDaysWorked: stats.daysWorked
+        });
+      }
+    }
+  }
+  
   return {
     transactions,
     dailySummaries,
     dailyItemSales,
+    dailyAttendance,
     monthlyItemSales,
     monthlySummaries: {
       payments: monthlyPayments,
       summary: monthlySummary,
     },
+    monthlyAttendanceSummaries
   };
 }
 
@@ -498,7 +608,6 @@ export function getDefaultSettings(): Settings {
   };
 }
 
-// Wrapper for backward compatibility with UAT scripts
 export function generateSampleStoreData() {
   const items = generateSampleItems();
   const employees = generateSampleEmployees();
@@ -510,15 +619,14 @@ export function generateSampleStoreData() {
     transactions: transactionData.transactions,
     dailySummaries: transactionData.dailySummaries,
     dailyItemSales: transactionData.dailyItemSales,
+    dailyAttendance: transactionData.dailyAttendance,
     monthlyItemSales: transactionData.monthlyItemSales,
     monthlySummaries: transactionData.monthlySummaries,
+    monthlyAttendanceSummaries: transactionData.monthlyAttendanceSummaries,
     settings: getDefaultSettings()
   };
 }
 
-// Used by AppContext
 export function generateSummaryData(transactions: Transaction[]) {
-   // Placeholder implementation if needed by AppContext to avoid import errors
-   // The actual logic is likely inside generateSampleTransactions
-   return {};
+  return {};
 }
