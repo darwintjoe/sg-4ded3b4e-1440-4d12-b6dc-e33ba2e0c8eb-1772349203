@@ -125,97 +125,42 @@ export function SettingsPanel() {
     try {
       console.log("🏭 Starting factory reset...");
       
-      // Step 1: Close the database connection
+      // Step 1: Close database connection
       await db.closeAndReset();
       console.log("✅ Database connection closed");
 
-      // Delete the database
+      // Step 2: Wait for connection to fully close
+      await new Promise(resolve => setTimeout(resolve, 200));
+      console.log("⏳ Waited for connection cleanup");
+
+      // Step 3: Delete the database
       await new Promise<void>((resolve, reject) => {
         const deleteRequest = indexedDB.deleteDatabase("SellMoreDB");
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
+        
+        deleteRequest.onsuccess = () => {
+          console.log("✅ Database deleted successfully");
+          resolve();
+        };
+        
+        deleteRequest.onerror = (e) => {
+          console.error("❌ Delete error:", e);
+          reject(new Error("Failed to delete database"));
+        };
+        
+        deleteRequest.onblocked = () => {
+          console.warn("⚠️ Database deletion blocked");
+          reject(new Error("Database deletion blocked. Please close all other tabs."));
+        };
       });
 
-      // Step 3: Wait a bit to ensure deletion is complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log("✅ Factory reset complete");
+      alert("✅ Factory reset complete!\n\nReloading with fresh install...");
 
-      // Step 4: Reinitialize the database (creates fresh schema)
-      await db.init();
-      console.log("✅ Database reset completed");
-
-      // Step 5: Create default settings
-      const defaultSettings: Settings = {
-        key: "settings",
-        mode: "retail",
-        tax1Enabled: true,
-        tax1Label: "PPN",
-        tax1Rate: 10,
-        tax1Inclusive: false,
-        tax2Enabled: false,
-        tax2Label: "Service",
-        tax2Rate: 5,
-        tax2Inclusive: false,
-        language: "en" as Language,
-        printerWidth: 58,
-        businessName: "My Store",
-        businessLogo: undefined,
-        businessAddress: undefined,
-        taxId: undefined,
-        receiptFooter: "Thank you for your purchase!",
-        googleDriveLinked: false,
-        googleAccountEmail: undefined,
-        allowPriceOverride: false,
-        shifts: {
-          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
-          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
-          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
-        },
-        paymentMethods: {
-          cash: true,
-          card: true,
-          ewallet: true,
-          qr: true,
-          transfer: true,
-        },
-      };
-
-      await db.updateSettings(defaultSettings);
-
-      // Step 6: Verify all stores are empty (except settings)
-      const items = await db.getItems();
-      const employees = await db.getEmployees();
-      const transactions = await db.getTransactions();
-      const shifts = await db.getShifts();
-      const attendance = await db.getAttendance();
-
-      console.log("📊 Verification after factory reset:");
-      console.log("  Items:", items.length);
-      console.log("  Employees:", employees.length);
-      console.log("  Transactions:", transactions.length);
-      console.log("  Shifts:", shifts.length);
-      console.log("  Attendance:", attendance.length);
-
-      if (items.length === 0 && employees.length === 0 && transactions.length === 0) {
-        toast({
-          title: "✅ Factory Reset Complete",
-          description: "All data cleared. Database reset to fresh install state. Reloading...",
-        });
-
-        // Step 7: Reload the page to reset app state
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        throw new Error(`Factory reset incomplete: ${items.length} items, ${employees.length} employees, ${transactions.length} transactions still exist`);
-      }
-
+      // Step 4: Reload
+      window.location.reload();
     } catch (error) {
-      console.error("Factory reset error:", error);
-      toast({
-        title: "❌ Factory Reset Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
-        variant: "destructive",
-      });
+      console.error("Factory reset failed:", error);
+      alert("❌ Factory reset failed:\n\n" + (error instanceof Error ? error.message : "Unknown error"));
       setLoading(false);
     }
   };
@@ -1767,14 +1712,13 @@ export function SettingsPanel() {
                               "• All employees\n" +
                               "• All transactions and sales\n" +
                               "• All reports and summaries\n" +
-                              "• All settings and configuration\n\n" +
-                              "The app will return to fresh install state.\n\n" +
+                              "• All settings\n\n" +
                               "THIS ACTION CANNOT BE UNDONE!"
                             )) {
                               // Second confirmation
                               if (window.confirm(
                                 "🔴 FINAL WARNING!\n\n" +
-                                "Click OK to permanently delete everything and reload with fresh install data.\n\n" +
+                                "Click OK to permanently delete everything.\n\n" +
                                 "Click Cancel to keep your current data."
                               )) {
                                 // Delete IndexedDB
@@ -1798,6 +1742,67 @@ export function SettingsPanel() {
                               }
                             }
                           }}
+                          onClick={async () => {
+                            if (!window.confirm(
+                              "🔴 FACTORY RESET - DANGER!\n\n" +
+                              "This will DELETE EVERYTHING:\n" +
+                              "• All items and inventory\n" +
+                              "• All employees\n" +
+                              "• All transactions and sales\n" +
+                              "• All reports and summaries\n" +
+                              "• All settings\n\n" +
+                              "THIS ACTION CANNOT BE UNDONE!"
+                            )) return;
+
+                            if (!window.confirm(
+                              "🔴 FINAL WARNING!\n\n" +
+                              "Click OK to permanently delete everything.\n\n" +
+                              "Click Cancel to keep your current data."
+                            )) return;
+
+                            setLoading(true);
+                            try {
+                              console.log("🏭 Starting factory reset...");
+                              
+                              // Step 1: Close database connection
+                              await db.closeAndReset();
+                              console.log("✅ Database connection closed");
+
+                              // Step 2: Wait for connection to fully close
+                              await new Promise(resolve => setTimeout(resolve, 200));
+                              console.log("⏳ Waited for connection cleanup");
+
+                              // Step 3: Delete the database
+                              await new Promise<void>((resolve, reject) => {
+                                const deleteRequest = indexedDB.deleteDatabase("SellMoreDB");
+                                
+                                deleteRequest.onsuccess = () => {
+                                  console.log("✅ Database deleted successfully");
+                                  resolve();
+                                };
+                                
+                                deleteRequest.onerror = (e) => {
+                                  console.error("❌ Delete error:", e);
+                                  reject(new Error("Failed to delete database"));
+                                };
+                                
+                                deleteRequest.onblocked = () => {
+                                  console.warn("⚠️ Database deletion blocked");
+                                  reject(new Error("Database deletion blocked. Please close all other tabs."));
+                                };
+                              });
+
+                              console.log("✅ Factory reset complete");
+                              alert("✅ Factory reset complete!\n\nReloading with fresh install...");
+                              
+                              // Step 4: Reload
+                              window.location.reload();
+                            } catch (error) {
+                              console.error("Factory reset failed:", error);
+                              alert("❌ Factory reset failed:\n\n" + (error instanceof Error ? error.message : "Unknown error"));
+                              setLoading(false);
+                            }
+                          }}
                         >
                           <AlertTriangle className="h-4 w-4 mr-2" />
                           Factory Reset
@@ -1805,6 +1810,66 @@ export function SettingsPanel() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Reset Database Card - Inside Advanced Tab */}
+                  <Card className="p-4 border-red-200 dark:border-red-900">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                        <AlertTriangle className="h-5 w-5" />
+                        <h3 className="font-semibold">Reset Database</h3>
+                      </div>
+                      
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          This will permanently delete ALL data including items, sales, employees, and settings. 
+                          Fresh sample data will be generated on reload.
+                        </AlertDescription>
+                      </Alert>
+
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          if (window.confirm(
+                            "⚠️ DANGER: This will DELETE ALL DATA!\n\n" +
+                            "Are you absolutely sure you want to reset the database?\n\n" +
+                            "This action CANNOT be undone!"
+                          )) {
+                            // Second confirmation
+                            if (window.confirm(
+                              "🔴 FINAL WARNING!\n\n" +
+                              "Click OK to permanently delete everything and reload with fresh sample data.\n\n" +
+                              "Click Cancel to keep your current data."
+                            )) {
+                              // Delete IndexedDB
+                              const deleteRequest = indexedDB.deleteDatabase("POSDatabase");
+                              
+                              deleteRequest.onsuccess = () => {
+                                console.log("✅ Database deleted successfully");
+                                alert("Database reset complete. Reloading...");
+                                window.location.reload();
+                              };
+                              
+                              deleteRequest.onerror = (e) => {
+                                console.error("❌ Failed to delete database:", e);
+                                alert("Failed to delete database. Please try again or clear browser data manually.");
+                              };
+                              
+                              deleteRequest.onblocked = () => {
+                                console.warn("⚠️ Database deletion blocked. Closing connections...");
+                                alert("Please close all other tabs with this app open, then try again.");
+                              };
+                            }
+                          }
+                        }}
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Reset Database
+                      </Button>
+                    </div>
+                  </Card>
                 </div>
               </div>
             </Card>
