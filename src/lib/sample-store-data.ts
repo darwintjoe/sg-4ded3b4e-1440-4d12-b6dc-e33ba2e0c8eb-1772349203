@@ -480,14 +480,13 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
       const employee = employees.find(e => e.id === employeeId);
       if (employee) {
         dailyAttendance.push({
-          businessDate: date,
+          date: date,
           employeeId,
           employeeName: employee.name,
           clockIn: record.checkIn,
           clockOut: record.checkOut || 0,
           hoursWorked: record.hoursWorked,
-          isLate: false,
-          shiftId: "shift1"
+          isLate: false
         });
       }
     }
