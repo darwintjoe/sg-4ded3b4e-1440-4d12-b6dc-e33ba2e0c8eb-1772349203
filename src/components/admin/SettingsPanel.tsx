@@ -1596,10 +1596,12 @@ export function SettingsPanel() {
                               "• 8 sample employees\n" +
                               "• 26 months of transaction history\n" +
                               "• Properly calculated reports\n\n" +
-                              "Your existing data will be preserved."
+                              "Existing data will be preserved.\n" +
+                              "Duplicate records will be skipped."
                             )) return;
 
                             try {
+                              setLoading(true);
                               const { generateSampleItems, generateSampleEmployees, generateSampleTransactions, getDefaultSettings } = await import("@/lib/sample-store-data");
                               const { db } = await import("@/lib/db");
 
@@ -1608,26 +1610,89 @@ export function SettingsPanel() {
                               const employees = generateSampleEmployees();
                               const { transactions, dailySummaries, monthlySummaries } = generateSampleTransactions(items, employees);
 
-                              // Save to database
-                              for (const item of items) await db.add("items", item);
-                              for (const emp of employees) await db.add("employees", emp);
-                              for (const txn of transactions) await db.add("transactions", txn);
-                              for (const daily of dailySummaries) await db.upsertDailyPaymentSales(daily);
-                              for (const monthly of monthlySummaries.payments) await db.upsertMonthlyPaymentSales(monthly);
-                              for (const summary of monthlySummaries.summary) await db.upsertMonthlySalesSummary(summary);
+                              // Track results
+                              let itemsAdded = 0, itemsSkipped = 0;
+                              let employeesAdded = 0, employeesSkipped = 0;
+                              let transactionsAdded = 0, transactionsSkipped = 0;
+                              let dailySummariesAdded = 0, dailySummariesSkipped = 0;
+                              let monthlySummariesAdded = 0, monthlySummariesSkipped = 0;
 
-                              alert(
-                                `✅ Sample Data Loaded!\n\n` +
-                                `• ${items.length} items\n` +
-                                `• ${employees.length} employees\n` +
-                                `• ${transactions.length.toLocaleString()} transactions\n` +
-                                `• 26 months of history\n\n` +
-                                `Explore the POS and Reports now!`
-                              );
+                              // Add items (skip if exists)
+                              for (const item of items) {
+                                try {
+                                  await db.add("items", item);
+                                  itemsAdded++;
+                                } catch (e: any) {
+                                  if (e.name === "ConstraintError") {
+                                    itemsSkipped++;
+                                  } else {
+                                    throw e;
+                                  }
+                                }
+                              }
+
+                              // Add employees (skip if exists)
+                              for (const emp of employees) {
+                                try {
+                                  await db.add("employees", emp);
+                                  employeesAdded++;
+                                } catch (e: any) {
+                                  if (e.name === "ConstraintError") {
+                                    employeesSkipped++;
+                                  } else {
+                                    throw e;
+                                  }
+                                }
+                              }
+
+                              // Add transactions (skip if exists)
+                              for (const txn of transactions) {
+                                try {
+                                  await db.add("transactions", txn);
+                                  transactionsAdded++;
+                                } catch (e: any) {
+                                  if (e.name === "ConstraintError") {
+                                    transactionsSkipped++;
+                                  } else {
+                                    throw e;
+                                  }
+                                }
+                              }
+
+                              // Add daily summaries (use upsert - no skip counting)
+                              for (const summary of dailySummaries) {
+                                await db.upsertDailyPaymentSales(summary);
+                                dailySummariesAdded++;
+                              }
+
+                              // Add monthly summaries (use upsert - no skip counting)
+                              for (const summary of monthlySummaries.payments) {
+                                await db.upsertMonthlyPaymentSales(summary);
+                                monthlySummariesAdded++;
+                              }
+
+                              for (const summary of monthlySummaries.summary) {
+                                await db.upsertMonthlySalesSummary(summary);
+                              }
+
+                              // Show summary report
+                              const report = [
+                                "✅ Sample Data Loaded!\n",
+                                `Items: ${itemsAdded} added${itemsSkipped > 0 ? `, ${itemsSkipped} skipped` : ""}`,
+                                `Employees: ${employeesAdded} added${employeesSkipped > 0 ? `, ${employeesSkipped} skipped` : ""}`,
+                                `Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
+                                `Daily Summaries: ${dailySummariesAdded} processed`,
+                                `Monthly Summaries: ${monthlySummariesAdded} processed`,
+                                "\nReloading to refresh data..."
+                              ].join("\n");
+
+                              alert(report);
                               window.location.reload();
                             } catch (error) {
                               console.error(error);
                               alert("Failed to load sample data: " + (error instanceof Error ? error.message : "Unknown error"));
+                            } finally {
+                              setLoading(false);
                             }
                           }}
                         >
