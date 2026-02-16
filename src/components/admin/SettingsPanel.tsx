@@ -49,6 +49,7 @@ import {
   RotateCcw,
   Trash2,
   Database,
+  Loader2,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { generateSampleStoreData } from "@/lib/sample-store-data";
@@ -67,6 +68,65 @@ function HelpTooltip({ content }: { content: string }) {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+// Progress Dialog Component
+function ProgressDialog({ 
+  isOpen, 
+  title, 
+  message, 
+  progress, 
+  total 
+}: { 
+  isOpen: boolean; 
+  title: string; 
+  message: string; 
+  progress?: number; 
+  total?: number;
+}) {
+  if (!isOpen) return null;
+
+  const percentage = total ? Math.round((progress || 0) / total * 100) : undefined;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+      <Card className="w-full max-w-md p-6 shadow-2xl border-2 border-primary/20">
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-primary">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <h2 className="text-xl font-bold">{title}</h2>
+          </div>
+          
+          <p className="text-sm text-muted-foreground">{message}</p>
+          
+          {percentage !== undefined && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{progress?.toLocaleString()} / {total?.toLocaleString()}</span>
+                <span>{percentage}%</span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 ease-out" 
+                  style={{ width: `${percentage}%` }} 
+                />
+              </div>
+            </div>
+          )}
+          
+          {percentage === undefined && (
+            <div className="flex justify-center py-4">
+              <div className="flex space-x-2">
+                <div className="h-3 w-3 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-3 w-3 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-3 w-3 bg-primary rounded-full animate-bounce"></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
   );
 }
 
@@ -119,9 +179,27 @@ export function SettingsPanel() {
   // Revert state
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ available: false, hoursRemaining: null });
 
+  // Progress Dialog State
+  const [progressDialog, setProgressDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    progress?: number;
+    total?: number;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+  });
+
   // HANDLERS FOR DATABASE MANAGEMENT
   const handleFactoryReset = async () => {
-    setLoading(true);
+    setProgressDialog({
+      isOpen: true,
+      title: "Factory Reset",
+      message: "Resetting database to factory defaults...",
+    });
+
     try {
       console.log("🏭 Starting factory reset...");
       
@@ -154,14 +232,16 @@ export function SettingsPanel() {
       });
 
       console.log("✅ Factory reset complete");
-      alert("✅ Factory reset complete!\n\nReloading with fresh install...");
-
-      // Step 4: Reload
-      window.location.reload();
+      setProgressDialog(prev => ({ ...prev, message: "Factory reset complete! Reloading..." }));
+      
+      // Reload after a brief delay to show completion message
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error("Factory reset failed:", error);
+      setProgressDialog({ isOpen: false, title: "", message: "" });
       alert("❌ Factory reset failed:\n\n" + (error instanceof Error ? error.message : "Unknown error"));
-      setLoading(false);
     }
   };
 
@@ -170,67 +250,173 @@ export function SettingsPanel() {
       return;
     }
 
-    setLoading(true);
     try {
+      setProgressDialog({
+        isOpen: true,
+        title: "Loading Sample Data",
+        message: "Preparing sample data...",
+      });
+
       const data = generateSampleStoreData();
       
-      // Clear existing data first to avoid duplicates
-      await db.clearAllData();
-      
+      // Track results
+      let itemsAdded = 0, itemsSkipped = 0;
+      let employeesAdded = 0, employeesSkipped = 0;
+      let transactionsAdded = 0, transactionsSkipped = 0;
+      let dailySummariesAdded = 0;
+      let monthlySummariesAdded = 0;
+
       // Add Items
-      console.log(`Adding ${data.items.length} items...`);
-      for (const item of data.items) {
-        await db.add("items", { ...item, createdAt: Date.now() });
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Loading items...",
+        progress: 0,
+        total: data.items.length
+      }));
+      
+      for (let i = 0; i < data.items.length; i++) {
+        try {
+          await db.add("items", { ...data.items[i], createdAt: Date.now() });
+          itemsAdded++;
+        } catch (e: any) {
+          if (e.name === "ConstraintError") {
+            itemsSkipped++;
+          } else {
+            throw e;
+          }
+        }
+        if (i % 20 === 0) {
+          setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
+        }
       }
       
-      // Add Employees (including defaults)
-      console.log(`Adding ${data.employees.length} employees...`);
-      for (const emp of data.employees) {
-        await db.add("employees", emp);
+      // Add Employees
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Loading employees...",
+        progress: 0,
+        total: data.employees.length
+      }));
+      
+      for (let i = 0; i < data.employees.length; i++) {
+        try {
+          await db.add("employees", data.employees[i]);
+          employeesAdded++;
+        } catch (e: any) {
+          if (e.name === "ConstraintError") {
+            employeesSkipped++;
+          } else {
+            throw e;
+          }
+        }
+        setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
       }
       
-      // Add Transactions in chunks
-      console.log(`Adding ${data.transactions.length} transactions...`);
-      const chunkSize = 100;
-      for (let i = 0; i < data.transactions.length; i += chunkSize) {
-        const chunk = data.transactions.slice(i, i + chunkSize);
-        await Promise.all(chunk.map(t => db.add("transactions", t)));
+      // Add Transactions in optimized batches
+      const txnBatchSize = 500;
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Loading transactions...",
+        progress: 0,
+        total: data.transactions.length
+      }));
+      
+      for (let i = 0; i < data.transactions.length; i += txnBatchSize) {
+        const batch = data.transactions.slice(i, i + txnBatchSize);
+        
+        await new Promise<void>((resolve, reject) => {
+          const request = indexedDB.open("SellMoreDB", 4);
+          request.onsuccess = () => {
+            const idb = request.result;
+            const tx = idb.transaction(["transactions"], "readwrite");
+            const store = tx.objectStore("transactions");
+            
+            for (const txn of batch) {
+              const addRequest = store.add(txn);
+              addRequest.onsuccess = () => transactionsAdded++;
+              addRequest.onerror = (e: any) => {
+                if (e.target?.error?.name === "ConstraintError") {
+                  transactionsSkipped++;
+                }
+              };
+            }
+            
+            tx.oncomplete = () => {
+              idb.close();
+              resolve();
+            };
+            tx.onerror = () => {
+              idb.close();
+              reject(tx.error);
+            };
+          };
+          request.onerror = () => reject(request.error);
+        });
+        
+        setProgressDialog(prev => ({ ...prev, progress: Math.min(i + txnBatchSize, data.transactions.length) }));
       }
       
       // Add Daily Summaries
-      console.log(`Adding ${data.dailySummaries.length} daily summaries...`);
-      for (const summary of data.dailySummaries) {
-        await db.upsertDailyPaymentSales(summary);
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Processing daily summaries...",
+        progress: 0,
+        total: data.dailySummaries.length
+      }));
+      
+      for (let i = 0; i < data.dailySummaries.length; i++) {
+        await db.upsertDailyPaymentSales(data.dailySummaries[i]);
+        dailySummariesAdded++;
+        if (i % 50 === 0) {
+          setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
+        }
       }
       
       // Add Monthly Summaries
-      console.log(`Adding ${data.monthlySummaries.payments.length} monthly payment summaries...`);
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Processing monthly summaries...",
+        progress: 0,
+        total: data.monthlySummaries.payments.length + data.monthlySummaries.summary.length
+      }));
+      
+      let monthlySummaryProgress = 0;
       for (const summary of data.monthlySummaries.payments) {
         await db.upsertMonthlyPaymentSales(summary);
+        monthlySummariesAdded++;
+        monthlySummaryProgress++;
+        setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
       }
-      
-      console.log(`Adding ${data.monthlySummaries.summary.length} monthly sales summaries...`);
+
       for (const summary of data.monthlySummaries.summary) {
         await db.upsertMonthlySalesSummary(summary);
+        monthlySummaryProgress++;
+        setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
       }
       
       // Update Settings
       await db.updateSettings(data.settings);
 
-      toast({
-        title: "Sample Data Injected",
-        description: `Added ${data.items.length} items, ${data.employees.length} employees, and ${data.transactions.length} transactions.`,
-      });
-      setLoading(false);
-      setTimeout(() => window.location.reload(), 1500);
+      // Close progress dialog
+      setProgressDialog({ isOpen: false, title: "", message: "" });
+
+      // Show summary report
+      const report = [
+        "✅ Sample Data Loaded Successfully!\n",
+        `📦 Items: ${itemsAdded} added${itemsSkipped > 0 ? `, ${itemsSkipped} skipped` : ""}`,
+        `👥 Employees: ${employeesAdded} added${employeesSkipped > 0 ? `, ${employeesSkipped} skipped` : ""}`,
+        `💰 Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
+        `📊 Daily Summaries: ${dailySummariesAdded} added`,
+        `📈 Monthly Summaries: ${monthlySummariesAdded} added`,
+        "\nClick OK to reload and see your data..."
+      ].join("\n");
+
+      alert(report);
+      window.location.reload();
     } catch (error) {
-      console.error(error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to inject sample data",
-        variant: "destructive",
-      });
-      setLoading(false);
+      console.error("Sample data injection error:", error);
+      setProgressDialog({ isOpen: false, title: "", message: "" });
+      alert("Failed to load sample data:\n\n" + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -239,27 +425,31 @@ export function SettingsPanel() {
       return;
     }
 
-    setLoading(true);
     try {
+      setProgressDialog({
+        isOpen: true,
+        title: "Clearing Transaction Data",
+        message: "Removing all transactions and reports...",
+      });
+
       await db.clearTransactions();
       await db.clearDailySummaries();
       await db.clearMonthlySummaries();
       await db.clearAttendance();
       
-      toast({
-        title: "Transactions Cleared",
-        description: "All sales data has been removed. Items and employees remain.",
-      });
-      setLoading(false);
-      setTimeout(() => window.location.reload(), 1500);
+      setProgressDialog(prev => ({ ...prev, message: "Transaction data cleared! Reloading..." }));
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       console.error(error);
+      setProgressDialog({ isOpen: false, title: "", message: "" });
       toast({
         title: "Error",
         description: "Failed to clear transactions",
         variant: "destructive",
       });
-      setLoading(false);
     }
   };
 
@@ -978,6 +1168,15 @@ export function SettingsPanel() {
   return (
     <div className="h-full flex flex-col relative">
       {renderRestoreUI()}
+      
+      {/* Progress Dialog */}
+      <ProgressDialog 
+        isOpen={progressDialog.isOpen}
+        title={progressDialog.title}
+        message={progressDialog.message}
+        progress={progressDialog.progress}
+        total={progressDialog.total}
+      />
       
       {/* Sticky Tabs */}
       <div className="sticky top-0 z-10 bg-background border-b">
