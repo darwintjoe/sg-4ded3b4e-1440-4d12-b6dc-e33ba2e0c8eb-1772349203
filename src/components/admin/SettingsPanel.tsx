@@ -1655,20 +1655,43 @@ export function SettingsPanel() {
                               }
                               console.log(`✅ Employees: ${employeesAdded} added, ${employeesSkipped} skipped`);
 
-                              // Add transactions (skip if exists)
-                              console.log("Adding transactions...");
-                              for (const txn of transactions) {
-                                try {
-                                  await db.add("transactions", txn);
-                                  transactionsAdded++;
-                                } catch (e: any) {
-                                  if (e.name === "ConstraintError") {
-                                    transactionsSkipped++;
-                                  } else {
-                                    console.error("Transaction add error:", e);
-                                    throw e;
-                                  }
-                                }
+                              // Add transactions in optimized batches using single transaction
+                              console.log("Adding transactions in batches...");
+                              const txnBatchSize = 500;
+                              for (let i = 0; i < transactions.length; i += txnBatchSize) {
+                                const batch = transactions.slice(i, i + txnBatchSize);
+                                
+                                // Use a single IndexedDB transaction for the batch
+                                await new Promise<void>((resolve, reject) => {
+                                  const request = indexedDB.open("SellMoreDB", 4);
+                                  request.onsuccess = () => {
+                                    const idb = request.result;
+                                    const tx = idb.transaction(["transactions"], "readwrite");
+                                    const store = tx.objectStore("transactions");
+                                    
+                                    for (const txn of batch) {
+                                      const addRequest = store.add(txn);
+                                      addRequest.onsuccess = () => transactionsAdded++;
+                                      addRequest.onerror = (e: any) => {
+                                        if (e.target?.error?.name === "ConstraintError") {
+                                          transactionsSkipped++;
+                                        }
+                                      };
+                                    }
+                                    
+                                    tx.oncomplete = () => {
+                                      idb.close();
+                                      resolve();
+                                    };
+                                    tx.onerror = () => {
+                                      idb.close();
+                                      reject(tx.error);
+                                    };
+                                  };
+                                  request.onerror = () => reject(request.error);
+                                });
+                                
+                                console.log(`Progress: ${Math.min(i + txnBatchSize, transactions.length)} / ${transactions.length} transactions`);
                               }
                               console.log(`✅ Transactions: ${transactionsAdded} added, ${transactionsSkipped} skipped`);
 
@@ -1728,8 +1751,9 @@ export function SettingsPanel() {
                               setLoading(false);
                             }
                           }}
+                          disabled={loading}
                         >
-                          Load Sample Data
+                          {loading ? "Loading..." : "Load Sample Data"}
                         </Button>
                       </div>
                     </div>
