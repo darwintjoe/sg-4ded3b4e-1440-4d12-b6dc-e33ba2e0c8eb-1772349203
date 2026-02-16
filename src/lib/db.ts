@@ -542,19 +542,43 @@ export class Database {
   }
 
   async clearAllData(): Promise<void> {
-    const stores = [
-      "items", "employees", "transactions", "shifts", 
-      "attendance", "dailyItemSales", "dailyPaymentSales",
-      "monthlyItemSales", "monthlyPaymentSales", "monthlySalesSummary",
-      "settings"
-    ];
-    for (const store of stores) {
-      try {
-        await this.clear(store);
-      } catch (e) {
-        console.warn(`Failed to clear ${store}`, e);
-      }
-    }
+    if (!this.db) throw new Error("Database not initialized");
+    
+    const tx = this.db.transaction([
+      "items",
+      "employees", 
+      "transactions",
+      "shifts",
+      "attendance",
+      "dailyItemSales",
+      "dailyPaymentSales",
+      "dailyShiftSummary",
+      "monthlyItemSales",
+      "monthlySalesSummary",
+      "monthlyAttendanceSummary",
+      "monthlyPaymentSales",
+      "cashierSession",
+      "pauseState",
+      "dailyAttendance"
+    ], "readwrite");
+
+    await Promise.all([
+      tx.objectStore("items").clear(),
+      tx.objectStore("employees").clear(),
+      tx.objectStore("transactions").clear(),
+      tx.objectStore("shifts").clear(),
+      tx.objectStore("attendance").clear(),
+      tx.objectStore("dailyItemSales").clear(),
+      tx.objectStore("dailyPaymentSales").clear(),
+      tx.objectStore("dailyShiftSummary").clear(),
+      tx.objectStore("monthlyItemSales").clear(),
+      tx.objectStore("monthlySalesSummary").clear(),
+      tx.objectStore("monthlyAttendanceSummary").clear(),
+      tx.objectStore("monthlyPaymentSales").clear(),
+      tx.objectStore("cashierSession").clear(),
+      tx.objectStore("pauseState").clear(),
+      tx.objectStore("dailyAttendance").clear()
+    ]);
   }
 
   async clearAllStores(): Promise<void> {
@@ -740,14 +764,13 @@ export class Database {
   }
 
   async clearMonthlySummaries(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(["monthlyItemSales", "monthlyPaymentSales", "monthlySalesSummary"], "readwrite");
-      tx.objectStore("monthlyItemSales").clear();
-      tx.objectStore("monthlyPaymentSales").clear();
-      tx.objectStore("monthlySalesSummary").clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    const tx = this.db!.transaction(["monthlyItemSales", "monthlySalesSummary", "monthlyAttendanceSummary", "monthlyPaymentSales"], "readwrite");
+    await Promise.all([
+      tx.objectStore("monthlyItemSales").clear(),
+      tx.objectStore("monthlySalesSummary").clear(),
+      tx.objectStore("monthlyAttendanceSummary").clear(),
+      tx.objectStore("monthlyPaymentSales").clear()
+    ]);
   }
 
   async clearAttendance(): Promise<void> {

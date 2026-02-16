@@ -128,6 +128,42 @@ export function SettingsPanel() {
     setLoading(true);
     try {
       await db.clearAllData();
+      
+      // Also clear settings back to defaults
+      const defaultSettings = {
+        key: "default",
+        mode: "retail" as POSMode,
+        businessName: "My Store",
+        businessAddress: "",
+        taxId: "",
+        receiptFooter: "Thank you!",
+        language: "en" as const,
+        tax1Enabled: false,
+        tax1Label: "Tax",
+        tax1Rate: 0,
+        tax1Inclusive: false,
+        tax2Enabled: false,
+        tax2Label: "Service Charge",
+        tax2Rate: 0,
+        tax2Inclusive: false,
+        printerWidth: 58 as 58 | 80,
+        allowPriceOverride: false,
+        googleDriveLinked: false,
+        paymentMethods: {
+          cash: true,
+          card: true,
+          ewallet: true,
+          qr: true,
+          transfer: true,
+        },
+        shifts: {
+          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
+        },
+      };
+      await db.updateSettings(defaultSettings);
+      
       toast({
         title: "Factory Reset Complete",
         description: "All data has been cleared. The page will reload.",
@@ -153,33 +189,42 @@ export function SettingsPanel() {
     try {
       const data = generateSampleStoreData();
       
+      // Clear existing data first to avoid duplicates
+      await db.clearAllData();
+      
       // Add Items
+      console.log(`Adding ${data.items.length} items...`);
       for (const item of data.items) {
-        await db.addItem(item);
+        await db.add("items", { ...item, createdAt: Date.now() });
       }
       
-      // Add Employees
+      // Add Employees (including defaults)
+      console.log(`Adding ${data.employees.length} employees...`);
       for (const emp of data.employees) {
-        await db.addEmployee(emp);
+        await db.add("employees", emp);
       }
       
-      // Add Transactions
+      // Add Transactions in chunks
+      console.log(`Adding ${data.transactions.length} transactions...`);
       const chunkSize = 100;
       for (let i = 0; i < data.transactions.length; i += chunkSize) {
         const chunk = data.transactions.slice(i, i + chunkSize);
-        await Promise.all(chunk.map(t => db.addTransaction(t)));
+        await Promise.all(chunk.map(t => db.add("transactions", t)));
       }
       
       // Add Daily Summaries
+      console.log(`Adding ${data.dailySummaries.length} daily summaries...`);
       for (const summary of data.dailySummaries) {
         await db.upsertDailyPaymentSales(summary);
       }
       
       // Add Monthly Summaries
+      console.log(`Adding ${data.monthlySummaries.payments.length} monthly payment summaries...`);
       for (const summary of data.monthlySummaries.payments) {
         await db.upsertMonthlyPaymentSales(summary);
       }
       
+      console.log(`Adding ${data.monthlySummaries.summary.length} monthly sales summaries...`);
       for (const summary of data.monthlySummaries.summary) {
         await db.upsertMonthlySalesSummary(summary);
       }
@@ -197,7 +242,7 @@ export function SettingsPanel() {
       console.error(error);
       toast({
         title: "Error",
-        description: "Failed to inject sample data",
+        description: error instanceof Error ? error.message : "Failed to inject sample data",
         variant: "destructive",
       });
       setLoading(false);
@@ -1579,9 +1624,9 @@ export function SettingsPanel() {
                               const { transactions, dailySummaries, monthlySummaries } = generateSampleTransactions(items, employees);
 
                               // Save to database
-                              for (const item of items) await db.addItem(item);
-                              for (const emp of employees) await db.addEmployee(emp);
-                              for (const txn of transactions) await db.addTransaction(txn);
+                              for (const item of items) await db.add("items", item);
+                              for (const emp of employees) await db.add("employees", emp);
+                              for (const txn of transactions) await db.add("transactions", txn);
                               for (const daily of dailySummaries) await db.upsertDailyPaymentSales(daily);
                               for (const monthly of monthlySummaries.payments) await db.upsertMonthlyPaymentSales(monthly);
                               for (const summary of monthlySummaries.summary) await db.upsertMonthlySalesSummary(summary);
