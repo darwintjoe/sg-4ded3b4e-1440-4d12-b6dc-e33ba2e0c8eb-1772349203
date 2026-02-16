@@ -58,7 +58,7 @@ interface RestoreState {
   phase: "idle" | "downloading" | "verifying" | "backing_up" | "preview" | "finalizing" | "complete";
   progress: number;
   currentDBBackup: string | null;
-  previewDBName: string | null;
+  previewData: BackupData | null;
   canRevert: boolean;
   revertExpiresAt: number | null;
 }
@@ -79,7 +79,7 @@ export class BackupService {
     phase: "idle",
     progress: 0,
     currentDBBackup: null,
-    previewDBName: null,
+    previewData: null,
     canRevert: false,
     revertExpiresAt: null
   };
@@ -218,6 +218,7 @@ export class BackupService {
 
   /**
    * Export essential data only (not full transactions)
+   * FIXED: Daily summaries now limited to last 60 days
    */
   public async exportEssentialData(): Promise<BackupData> {
     try {
@@ -240,31 +241,36 @@ export class BackupService {
         return shiftDate >= cutoffDate;
       });
 
-      // Summary tables (already small) - Use getAll with error handling
+      // Daily summaries - FIXED: Last 60 days only
       let dailyItemSales: any[] = [];
       let dailyPaymentSales: any[] = [];
       let dailyAttendance: any[] = [];
-      let monthlyItemSales: any[] = [];
-      let monthlySalesSummary: any[] = [];
-      let monthlyAttendanceSummary: any[] = [];
 
       try {
-        dailyItemSales = await db.getAll("dailyItemSales");
+        const allDailyItems = await db.getAll("dailyItemSales");
+        dailyItemSales = allDailyItems.filter((d: any) => d.businessDate >= cutoffDate);
       } catch (e) {
         console.warn("dailyItemSales store not found, skipping");
       }
 
       try {
-        dailyPaymentSales = await db.getAll("dailyPaymentSales");
+        const allDailyPayments = await db.getAll("dailyPaymentSales");
+        dailyPaymentSales = allDailyPayments.filter((d: any) => d.businessDate >= cutoffDate);
       } catch (e) {
         console.warn("dailyPaymentSales store not found, skipping");
       }
 
       try {
-        dailyAttendance = await db.getAll("dailyAttendance");
+        const allDailyAttendance = await db.getAll("dailyAttendance");
+        dailyAttendance = allDailyAttendance.filter((d: any) => d.date >= cutoffDate);
       } catch (e) {
         console.warn("dailyAttendance store not found, skipping");
       }
+
+      // Monthly summaries - Keep ALL (historical data)
+      let monthlyItemSales: any[] = [];
+      let monthlySalesSummary: any[] = [];
+      let monthlyAttendanceSummary: any[] = [];
 
       try {
         monthlyItemSales = await db.getAll("monthlyItemSales");
@@ -357,9 +363,12 @@ export class BackupService {
         return { success: false, error: uploadResult.error };
       }
 
-      // Store last backup time
+      // Store candidate tracking (for operational time promotion)
       localStorage.setItem("last_backup_time", backupData.metadata.timestamp);
       localStorage.setItem("last_backup_status", "pending");
+      localStorage.setItem("candidate_created_at", Date.now().toString());
+      localStorage.setItem("candidate_operational_hours", "0");
+      localStorage.setItem("candidate_last_check", Date.now().toString());
 
       return { success: true };
     } catch (error) {
@@ -396,6 +405,7 @@ export class BackupService {
 
   /**
    * Promote candidate to "last known good" (after validation)
+   * FIXED: Uses rename instead of re-upload
    */
   async promoteCandidate(): Promise<{ success: boolean; error?: string }> {
     try {
@@ -424,36 +434,28 @@ export class BackupService {
         return { success: false, error: "No candidate backup found" };
       }
 
-      // Download candidate
-      const downloadResult = await googleAuth.downloadBackup(candidate.id);
-      if (!downloadResult.success || !downloadResult.data) {
-        return { success: false, error: "Failed to download candidate" };
+      // Delete old "last known good" if it exists
+      if (lastKnownGood) {
+        await googleAuth.deleteBackup(lastKnownGood.id);
       }
 
-      // Update metadata status
-      const backupData = downloadResult.data as BackupData;
-      backupData.metadata.status = "verified";
-
-      // Re-upload as "last known good"
-      const jsonString = JSON.stringify(backupData);
-      const compressed = await this.compressData(jsonString);
-
-      const uploadResult = await googleAuth.uploadBackup(
-        compressed,
+      // Rename candidate to "last known good" (no re-upload needed!)
+      const renameResult = await googleAuth.renameBackup(
+        candidate.id,
         this.LAST_KNOWN_GOOD_NAME
       );
 
-      if (!uploadResult.success) {
-        return { success: false, error: uploadResult.error };
-      }
-
-      // Delete old "last known good" if it exists
-      if (lastKnownGood) {
-        await this.deleteBackup(lastKnownGood.id);
+      if (!renameResult.success) {
+        return { success: false, error: renameResult.error };
       }
 
       // Update status
       localStorage.setItem("last_backup_status", "success");
+      
+      // Clear promotion tracking
+      localStorage.removeItem("candidate_created_at");
+      localStorage.removeItem("candidate_operational_hours");
+      localStorage.removeItem("candidate_last_check");
 
       return { success: true };
     } catch (error) {
@@ -462,25 +464,6 @@ export class BackupService {
         success: false, 
         error: error instanceof Error ? error.message : "Promotion failed" 
       };
-    }
-  }
-
-  /**
-   * Delete backup file
-   */
-  private async deleteBackup(fileId: string): Promise<void> {
-    try {
-      const user = googleAuth.getCurrentUser();
-      if (!user) return;
-
-      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${user.accessToken}`,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to delete backup:", error);
     }
   }
 
@@ -670,16 +653,17 @@ export class BackupService {
 
   /**
    * Load backup into preview mode
+   * FIXED: Store preview data in restoreState for UI display
    */
   async loadPreview(backupData: BackupData): Promise<{ success: boolean; error?: string }> {
     try {
       this.restoreState.phase = "preview";
       this.restoreState.progress = 95;
+      this.restoreState.previewData = backupData;
 
-      // Store preview data in IndexedDB instead of sessionStorage (avoids quota limits)
+      // Also store in IndexedDB for persistence
       await this.storeTempBackupData(backupData, "preview");
       
-      this.restoreState.previewDBName = "preview";
       this.restoreState.progress = 100;
 
       return { success: true };
@@ -705,7 +689,7 @@ export class BackupService {
         phase: "idle",
         progress: 0,
         currentDBBackup: null,
-        previewDBName: null,
+        previewData: null,
         canRevert: false,
         revertExpiresAt: null
       };
@@ -792,8 +776,9 @@ export class BackupService {
       this.restoreState.canRevert = true;
       this.restoreState.revertExpiresAt = expiresAt;
 
-      // Clear preview data from IndexedDB
+      // Clear preview data
       await this.clearTempBackupData("preview");
+      this.restoreState.previewData = null;
 
       this.restoreState.phase = "complete";
       this.restoreState.progress = 100;
@@ -930,16 +915,14 @@ export class BackupService {
    * Check if in preview mode
    */
   isPreviewMode(): boolean {
-    // Preview mode is active if preview data exists in IndexedDB
-    // This is checked synchronously by database layer
-    return false; // Actual check happens in db.ts via async call
+    return this.restoreState.phase === "preview";
   }
 
   /**
-   * Get preview data from IndexedDB
+   * Get preview data
    */
-  async getPreviewData(): Promise<BackupData | null> {
-    return await this.retrieveTempBackupData("preview");
+  getPreviewData(): BackupData | null {
+    return this.restoreState.previewData;
   }
 
   /**
@@ -968,59 +951,18 @@ export class BackupService {
     let message = "Ready";
     if (!canBackup) message = "Not signed in";
     else if (lastBackupStatus === "success") message = "Data protected";
+    else if (lastBackupStatus === "pending") message = "Backup pending validation";
     else if (lastBackupStatus === "failed") message = "Last backup failed";
 
     return { 
       lastBackupTime,
       lastBackupStatus,
-      isHealthy: true, // Basic app health assumed if running
+      isHealthy: true,
       message,
       canBackup, 
       canRestore, 
       backupInfo 
     };
-  }
-
-  /**
-   * Store backup data (try sessionStorage, fallback to memory)
-   */
-  storeBackupForPreview(data: any): void {
-    try {
-      sessionStorage.setItem("preview_data", JSON.stringify(data));
-      inMemoryBackupCache = null; // Clear memory cache if sessionStorage worked
-    } catch (error) {
-      console.warn("SessionStorage quota exceeded, using in-memory cache");
-      inMemoryBackupCache = data;
-    }
-  }
-
-  /**
-   * Get stored backup data (try sessionStorage, fallback to memory)
-   */
-  getStoredBackup(): any {
-    try {
-      const dataStr = sessionStorage.getItem("preview_data");
-      if (dataStr) {
-        return JSON.parse(dataStr);
-      }
-    } catch (error) {
-      console.warn("Failed to read from sessionStorage");
-    }
-    
-    // Fallback to in-memory cache
-    return inMemoryBackupCache;
-  }
-
-  /**
-   * Clear stored backup data
-   */
-  clearStoredBackup(): void {
-    try {
-      sessionStorage.removeItem("preview_data");
-    } catch (error) {
-      console.warn("Failed to clear sessionStorage");
-    }
-    inMemoryBackupCache = null;
   }
 
   /**
