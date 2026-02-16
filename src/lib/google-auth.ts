@@ -356,6 +356,76 @@ class GoogleAuthService {
   }
 
   /**
+   * Rename a backup file in Google Drive
+   */
+  async renameBackup(fileId: string, newName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.currentUser) {
+        return { success: false, error: "Not signed in" };
+      }
+
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Authorization": `Bearer ${this.currentUser.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: newName
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to rename file: ${response.statusText}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to rename backup:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Rename failed" 
+      };
+    }
+  }
+
+  /**
+   * Delete a backup file from Google Drive
+   */
+  async deleteBackup(fileId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.currentUser) {
+        return { success: false, error: "Not signed in" };
+      }
+
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${this.currentUser.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete file: ${response.statusText}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Failed to delete backup:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Delete failed" 
+      };
+    }
+  }
+
+  /**
    * Create calendar event for shift report
    */
   async createCalendarEvent(event: {
@@ -405,27 +475,6 @@ class GoogleAuthService {
       console.error("Failed to create calendar event:", error);
       return { success: false, error: error instanceof Error ? error.message : "Failed to create event" };
     }
-  }
-
-  /**
-   * Compress data using gzip-like algorithm
-   * (Simple compression for demo - use proper gzip library in production)
-   */
-  private compressData(data: string): Uint8Array {
-    // For now, just convert to Uint8Array
-    // TODO: Use pako or similar for real gzip compression
-    const encoder = new TextEncoder();
-    return encoder.encode(data);
-  }
-
-  /**
-   * Decompress data
-   */
-  private decompressData(data: Uint8Array): string {
-    // For now, just convert from Uint8Array
-    // TODO: Use pako or similar for real gzip decompression
-    const decoder = new TextDecoder();
-    return decoder.decode(data);
   }
 }
 
