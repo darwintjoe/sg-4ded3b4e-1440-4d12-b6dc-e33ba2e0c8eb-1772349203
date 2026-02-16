@@ -481,6 +481,30 @@ export class Database {
     }
   }
 
+  // OPTIMIZED: Use index lookup for monthly item sales
+  async upsertMonthlyItemSales(data: Omit<MonthlyItemSales, "id">): Promise<void> {
+    if (!this.db) throw new Error("Database not initialized");
+
+    const existing = await this.searchByIndex<MonthlyItemSales>(
+      "monthlyItemSales",
+      "yearMonth_itemId",
+      [data.yearMonth, data.itemId]
+    );
+
+    if (existing.length > 0) {
+      const record = existing[0];
+      const updated: MonthlyItemSales = {
+        ...record,
+        totalQuantity: record.totalQuantity + data.totalQuantity,
+        totalRevenue: record.totalRevenue + data.totalRevenue,
+        transactionCount: record.transactionCount + data.transactionCount,
+      };
+      await this.put("monthlyItemSales", updated);
+    } else {
+      await this.add("monthlyItemSales", data);
+    }
+  }
+
   // Generic upsert for other stores
   async upsert<T extends Record<string, any>>(
     storeName: string,

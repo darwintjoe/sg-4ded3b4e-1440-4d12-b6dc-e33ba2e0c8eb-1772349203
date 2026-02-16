@@ -372,12 +372,29 @@ export function SettingsPanel() {
         }
       }
       
+      // Add Daily Item Sales
+      setProgressDialog(prev => ({ 
+        ...prev, 
+        message: "Processing daily item sales...",
+        progress: 0,
+        total: data.dailyItemSales?.length || 0
+      }));
+      
+      if (data.dailyItemSales) {
+        for (let i = 0; i < data.dailyItemSales.length; i++) {
+          await db.upsertDailyItemSales(data.dailyItemSales[i]);
+          if (i % 50 === 0) {
+            setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
+          }
+        }
+      }
+      
       // Add Monthly Summaries
       setProgressDialog(prev => ({ 
         ...prev, 
         message: "Processing monthly summaries...",
         progress: 0,
-        total: data.monthlySummaries.payments.length + data.monthlySummaries.summary.length
+        total: data.monthlySummaries.payments.length + data.monthlySummaries.summary.length + (data.monthlyItemSales?.length || 0)
       }));
       
       let monthlySummaryProgress = 0;
@@ -394,6 +411,15 @@ export function SettingsPanel() {
         setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
       }
       
+      // Add Monthly Item Sales
+      if (data.monthlyItemSales) {
+        for (const itemSales of data.monthlyItemSales) {
+          await db.upsertMonthlyItemSales(itemSales);
+          monthlySummaryProgress++;
+          setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
+        }
+      }
+      
       // Update Settings
       await db.updateSettings(data.settings);
 
@@ -407,7 +433,9 @@ export function SettingsPanel() {
         `👥 Employees: ${employeesAdded} added${employeesSkipped > 0 ? `, ${employeesSkipped} skipped` : ""}`,
         `💰 Transactions: ${transactionsAdded.toLocaleString()} added${transactionsSkipped > 0 ? `, ${transactionsSkipped.toLocaleString()} skipped` : ""}`,
         `📊 Daily Summaries: ${dailySummariesAdded} added`,
+        `📊 Daily Item Sales: ${data.dailyItemSales?.length || 0} added`,
         `📈 Monthly Summaries: ${monthlySummariesAdded} added`,
+        `📈 Monthly Item Sales: ${data.monthlyItemSales?.length || 0} added`,
         "\nClick OK to reload and see your data..."
       ].join("\n");
 

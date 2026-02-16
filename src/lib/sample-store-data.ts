@@ -509,6 +509,8 @@ export function generateSampleStoreData() {
     employees,
     transactions: transactionData.transactions,
     dailySummaries: transactionData.dailySummaries,
+    dailyItemSales: transactionData.dailyItemSales,
+    monthlyItemSales: transactionData.monthlyItemSales,
     monthlySummaries: transactionData.monthlySummaries,
     settings: getDefaultSettings()
   };
