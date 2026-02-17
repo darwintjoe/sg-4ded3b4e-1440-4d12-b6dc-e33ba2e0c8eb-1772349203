@@ -768,11 +768,11 @@ export class Database {
   }
 
   async upsertMonthlyPaymentSales(data: MonthlyPaymentSales): Promise<void> {
-    await this.upsert<MonthlyPaymentSales>("monthlyPaymentSales", ["month", "paymentMethod"], data);
+    await this.upsert<MonthlyPaymentSales>("monthlyPaymentSales", ["yearMonth", "method"], data);
   }
 
   async upsertMonthlySalesSummary(summary: MonthlySalesSummary): Promise<void> {
-    await this.upsert<MonthlySalesSummary>("monthlySalesSummary", ["month"], summary);
+    await this.upsert<MonthlySalesSummary>("monthlySalesSummary", ["yearMonth"], summary);
   }
 
   // Clear methods for database management
