@@ -24,6 +24,8 @@ export function ReportsPanel() {
   const locale = language === "id" ? "id-ID" : "en-US";
   const salesChartRef = useRef<HTMLDivElement>(null);
   const salesTableRef = useRef<HTMLDivElement>(null);
+  const itemsChartRef = useRef<HTMLDivElement>(null);
+  const itemsTableRef = useRef<HTMLDivElement>(null);
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -656,6 +658,125 @@ export function ReportsPanel() {
     }
   };
 
+  const exportItemsAsPDF = async () => {
+    if (!itemsChartRef.current || !itemsTableRef.current) return;
+    
+    setIsExporting(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      
+      const chartCanvas = await html2canvas(itemsChartRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      const chartImgData = chartCanvas.toDataURL('image/png');
+      const chartWidth = pageWidth - (2 * margin);
+      const chartHeight = (chartCanvas.height * chartWidth) / chartCanvas.width;
+      
+      pdf.addImage(chartImgData, 'PNG', margin, margin, chartWidth, chartHeight);
+      
+      pdf.addPage();
+      
+      const tableCanvas = await html2canvas(itemsTableRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      const tableImgData = tableCanvas.toDataURL('image/png');
+      const tableWidth = pageWidth - (2 * margin);
+      const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
+      
+      let yPosition = margin;
+      const maxHeightPerPage = pageHeight - (2 * margin);
+      
+      if (tableHeight <= maxHeightPerPage) {
+        pdf.addImage(tableImgData, 'PNG', margin, yPosition, tableWidth, tableHeight);
+      } else {
+        const totalPages = Math.ceil(tableHeight / maxHeightPerPage);
+        
+        for (let i = 0; i < totalPages; i++) {
+          if (i > 0) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          
+          const sourceY = i * maxHeightPerPage * (tableCanvas.height / tableHeight);
+          const sourceHeight = Math.min(
+            maxHeightPerPage * (tableCanvas.height / tableHeight),
+            tableCanvas.height - sourceY
+          );
+          
+          const pageTableHeight = (sourceHeight * tableWidth) / tableCanvas.width;
+          
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = tableCanvas.width;
+          tempCanvas.height = sourceHeight;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          if (tempCtx) {
+            tempCtx.drawImage(
+              tableCanvas,
+              0, sourceY, tableCanvas.width, sourceHeight,
+              0, 0, tableCanvas.width, sourceHeight
+            );
+            
+            const tempImgData = tempCanvas.toDataURL('image/png');
+            pdf.addImage(tempImgData, 'PNG', margin, yPosition, tableWidth, pageTableHeight);
+          }
+        }
+      }
+      
+      pdf.save(`items-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportItemsAsImage = async () => {
+    if (!itemsChartRef.current || !itemsTableRef.current) return;
+    
+    setIsExporting(true);
+    try {
+      const container = document.createElement('div');
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '20px';
+      
+      const chartClone = itemsChartRef.current.cloneNode(true) as HTMLElement;
+      const tableClone = itemsTableRef.current.cloneNode(true) as HTMLElement;
+      
+      container.appendChild(chartClone);
+      container.appendChild(tableClone);
+      document.body.appendChild(container);
+      
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      document.body.removeChild(container);
+      
+      const link = document.createElement('a');
+      link.download = `items-report-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error exporting image:', error);
+      alert('Failed to export image. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const generateSpectrumColor = (index: number, total: number): string => {
     const hue = (index / total) * 360;
     return `hsl(${hue}, 70%, 55%)`;
@@ -865,153 +986,178 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
-          <Card>
-            <CardContent className="p-2">
-              <div className="relative">
-                <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
-                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                    <Button
-                      variant={chartView === "bar" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setChartView("bar")}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      Bar
-                    </Button>
-                    <Button
-                      variant={chartView === "pie" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setChartView("pie")}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      Pie
-                    </Button>
+          <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
+            <Card>
+              <CardContent className="p-2">
+                <div className="relative">
+                  <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
+                    <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                      <Button
+                        variant={chartView === "bar" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setChartView("bar")}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        Bar
+                      </Button>
+                      <Button
+                        variant={chartView === "pie" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setChartView("pie")}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        Pie
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                      <Button
+                        variant={sortBy === "quantity" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setSortBy("quantity")}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        Qty
+                      </Button>
+                      <Button
+                        variant={sortBy === "revenue" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setSortBy("revenue")}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        $$
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                      <Button
+                        variant={itemTopN === 10 ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setItemTopN(10)}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        10
+                      </Button>
+                      <Button
+                        variant={itemTopN === 20 ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setItemTopN(20)}
+                        className="h-5 px-1.5 text-[9px]"
+                      >
+                        20
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                    <Button
-                      variant={sortBy === "quantity" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setSortBy("quantity")}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      Qty
-                    </Button>
-                    <Button
-                      variant={sortBy === "revenue" ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setSortBy("revenue")}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      $$
-                    </Button>
+                  <div className="pb-12">
+                    <h4 className="text-[10px] font-medium mb-2">
+                      {sortBy === "quantity" ? t.reports.topItemsByQuantity : t.reports.topItemsByRevenue}
+                    </h4>
+                    <div className={chartView === "pie" ? "h-[300px]" : "h-[360px]"}>
+                      {chartView === "bar" ? (
+                        <HorizontalBarChart data={barChartData} />
+                      ) : (
+                        <PieChart data={pieChartData} />
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
-                    <Button
-                      variant={itemTopN === 10 ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setItemTopN(10)}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      10
-                    </Button>
-                    <Button
-                      variant={itemTopN === 20 ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setItemTopN(20)}
-                      className="h-5 px-1.5 text-[9px]"
-                    >
-                      20
-                    </Button>
+                  <div className="flex justify-center gap-0.5 pt-3 border-t flex-wrap relative z-20">
+                    {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                      <Button
+                        key={range}
+                        variant={itemsTimeRange === range ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setItemsTimeRange(range)}
+                        className="h-6 px-2 text-[10px] uppercase"
+                      >
+                        {range}
+                      </Button>
+                    ))}
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                <div>
-                  <h4 className="text-[10px] font-medium mb-2">
-                    {sortBy === "quantity" ? t.reports.topItemsByQuantity : t.reports.topItemsByRevenue}
-                  </h4>
-                  <div className={chartView === "pie" ? "h-[300px]" : "h-[360px]"}>
-                    {chartView === "bar" ? (
-                      <HorizontalBarChart data={barChartData} />
-                    ) : (
-                      <PieChart data={pieChartData} />
-                    )}
-                  </div>
-                </div>
+          <div className="flex justify-center gap-2">
+            <Button 
+              onClick={exportItemsAsPDF} 
+              variant="outline" 
+              size="sm"
+              disabled={isExporting}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isExporting ? t.reports.exporting : t.reports.exportPDF}
+            </Button>
+            <Button 
+              onClick={exportItemsAsImage} 
+              variant="outline" 
+              size="sm"
+              disabled={isExporting}
+            >
+              <FileImage className="h-4 w-4 mr-2" />
+              {isExporting ? t.reports.exporting : t.reports.exportImage}
+            </Button>
+          </div>
 
-                <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
-                  {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
-                    <Button
-                      key={range}
-                      variant={itemsTimeRange === range ? "default" : "ghost"}
-                      size="sm"
-                      onClick={() => setItemsTimeRange(range)}
-                      className="h-6 px-2 text-[10px] uppercase"
-                    >
-                      {range}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="mt-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium flex items-center gap-2">
-                <Table2 className="h-3 w-3" />
-                {t.reports.topItemsData} ({itemTopN} Items)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              {topItemsData.length > 0 ? (
-                <div className="overflow-x-auto -mx-2">
-                  <div className="inline-block min-w-full align-middle">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b">
-                          <TableHead className="w-8 text-[10px] font-medium py-1 px-2">#</TableHead>
-                          <TableHead className="text-[10px] font-medium py-1 px-2 min-w-[100px]">Item</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Qty</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Tx</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Avg</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {topItemsData.map((item, idx) => (
-                          <TableRow key={idx} className="border-b hover:bg-muted/50">
-                            <TableCell className="text-[10px] font-medium py-1 px-2">{idx + 1}</TableCell>
-                            <TableCell className="text-[10px] py-1 px-2 truncate max-w-[150px]">{item.name}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{item.value}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(item.revenue)}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{item.transactionCount}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{(item.value / item.transactionCount).toFixed(1)}</TableCell>
+          <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
+            <Card className="mt-4">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <Table2 className="h-3 w-3" />
+                  {t.reports.topItemsData} ({itemTopN} Items)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                {topItemsData.length > 0 ? (
+                  <div className="overflow-x-auto -mx-2">
+                    <div className="inline-block min-w-full align-middle">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b">
+                            <TableHead className="w-8 text-[10px] font-medium py-1 px-2">#</TableHead>
+                            <TableHead className="text-[10px] font-medium py-1 px-2 min-w-[100px]">Item</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Qty</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Tx</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Avg</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow className="bg-muted/50">
-                          <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.value, 0)}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">
-                            {(topItemsData.reduce((sum, item) => sum + item.value, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
-                          </TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {topItemsData.map((item, idx) => (
+                            <TableRow key={idx} className="border-b hover:bg-muted/50">
+                              <TableCell className="text-[10px] font-medium py-1 px-2">{idx + 1}</TableCell>
+                              <TableCell className="text-[10px] py-1 px-2 truncate max-w-[150px]">{item.name}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2">{item.value}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(item.revenue)}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2">{item.transactionCount}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2">{(item.value / item.transactionCount).toFixed(1)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow className="bg-muted/50">
+                            <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.value, 0)}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2">
+                              {(topItemsData.reduce((sum, item) => sum + item.value, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
+                            </TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-[10px] text-muted-foreground text-center py-6">
-                  {t.reports.noData}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center py-6">
+                    {t.reports.noData}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="attendance" className="space-y-4 mt-0">

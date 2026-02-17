@@ -44,7 +44,6 @@ export function PieChart({ data }: PieChartProps) {
             <Cell key={`cell-${index}`} fill={entry.color || "hsl(var(--chart-1))"} />
           ))}
         </Pie>
-        <Tooltip content={<CustomTooltip />} />
       </RechartsPie>
     </div>
   );
