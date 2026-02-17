@@ -25,9 +25,8 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
     return value.toLocaleString();
   };
 
-  // Mobile-optimized dimensions
   const chartWidth = 340;
-  const chartHeight = Math.min(data.length * 35 + 60, 400); // Dynamic height based on data, max 400px
+  const chartHeight = Math.min(data.length * 35 + 60, 400);
 
   return (
     <div className="w-full flex items-center justify-center overflow-x-auto">
@@ -55,7 +54,11 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
           contentStyle={{ fontSize: "11px" }}
           labelStyle={{ fontSize: "11px", fontWeight: "bold" }}
         />
-        <Bar dataKey="value" fill="hsl(var(--chart-1))" />
+        <Bar dataKey="value">
+          {data.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color || "hsl(var(--chart-1))"} />
+          ))}
+        </Bar>
       </RechartsBarChart>
     </div>
   );

@@ -4,27 +4,13 @@ interface PieChartProps {
   data: Array<{
     name: string;
     value: number;
+    color?: string;
   }>;
 }
 
-const COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(220, 70%, 60%)",
-  "hsl(280, 70%, 60%)",
-  "hsl(340, 70%, 60%)",
-  "hsl(40, 90%, 60%)",
-  "hsl(160, 70%, 50%)",
-];
-
 export function PieChart({ data }: PieChartProps) {
-  // Calculate total for percentages
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
-  // Custom tooltip component
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const item = payload[0];
@@ -55,7 +41,7 @@ export function PieChart({ data }: PieChartProps) {
           dataKey="value"
         >
           {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            <Cell key={`cell-${index}`} fill={entry.color || "hsl(var(--chart-1))"} />
           ))}
         </Pie>
         <Tooltip content={<CustomTooltip />} />
