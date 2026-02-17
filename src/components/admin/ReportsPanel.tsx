@@ -155,13 +155,16 @@ export function ReportsPanel() {
       setSalesDateRange(displayRange);
 
       if (useMonthly) {
+        // YTD, 12M, 5Y - Use monthly summary + current month from daily
         const startMonth = startDate.substring(0, 7);
         const endMonth = endDate.substring(0, 7);
         const currentMonth = new Date().toISOString().substring(0, 7);
 
+        // Get all monthly summary data
         const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
 
+        // Get current month data from daily if needed
         let currentMonthData = null;
         if (endMonth >= currentMonth) {
           const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
@@ -189,6 +192,7 @@ export function ReportsPanel() {
           }
         }
 
+        // Combine monthly + current month data
         const combinedData = [...filteredMonthly];
         if (currentMonthData) {
           combinedData.push(currentMonthData as MonthlySalesSummary);
@@ -196,6 +200,7 @@ export function ReportsPanel() {
 
         combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
+        // Handle 5Y - aggregate by year
         if (salesTimeRange === "5y") {
           const yearlyMap = new Map<string, any>();
           
@@ -236,8 +241,9 @@ export function ReportsPanel() {
           
           setSalesData(tableData);
         } else {
+          // YTD, 12M - show monthly data (no aggregation)
           const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5, 7),
+            name: m.yearMonth.substring(5, 7), // Show month number
             fullDate: m.yearMonth,
             cash: m.cashAmount,
             qrisStatic: m.qrisStaticAmount,
@@ -259,6 +265,7 @@ export function ReportsPanel() {
           setSalesData(tableData);
         }
 
+        // Calculate totals
         let totalRevenue = 0;
         let totalReceipts = 0;
         combinedData.forEach(d => {
@@ -266,6 +273,61 @@ export function ReportsPanel() {
           totalReceipts += d.totalReceipts;
         });
 
+        setSalesStats({
+          totalRevenue,
+          totalReceipts,
+          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
+        });
+
+      } else {
+        // MTD, 30D - Use daily data
+        const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+        
+        // Group by date
+        const dateMap = new Map<string, any>();
+        
+        filtered.forEach(d => {
+          const existing = dateMap.get(d.businessDate) || {
+            name: d.businessDate.substring(5), // MM-DD format
+            fullDate: d.businessDate,
+            cash: 0,
+            qrisStatic: 0,
+            qrisDynamic: 0,
+            voucher: 0,
+            receipts: 0,
+            revenue: 0
+          };
+          
+          existing.revenue += d.totalAmount;
+          existing.receipts += d.transactionCount;
+          if (d.method === "cash") existing.cash += d.totalAmount;
+          else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
+          else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
+          else if (d.method === "voucher") existing.voucher += d.totalAmount;
+          
+          dateMap.set(d.businessDate, existing);
+        });
+        
+        const chartData = Array.from(dateMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+        setSalesChartData(chartData);
+        
+        const tableData = chartData.map(d => ({
+          date: d.fullDate,
+          revenue: d.revenue,
+          receipts: d.receipts,
+          cash: d.cash,
+          qrisStatic: d.qrisStatic,
+          qrisDynamic: d.qrisDynamic,
+          voucher: d.voucher
+        })).sort((a, b) => b.date.localeCompare(a.date));
+        
+        setSalesData(tableData);
+        
+        // Calculate totals
+        const totalRevenue = chartData.reduce((sum, d) => sum + d.revenue, 0);
+        const totalReceipts = chartData.reduce((sum, d) => sum + d.receipts, 0);
+        
         setSalesStats({
           totalRevenue,
           totalReceipts,
