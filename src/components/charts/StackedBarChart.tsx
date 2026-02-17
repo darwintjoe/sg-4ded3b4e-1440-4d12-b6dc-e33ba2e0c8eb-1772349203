@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -10,7 +10,6 @@ interface DataPoint {
 
 interface StackedBarChartProps {
   data: DataPoint[];
-  height?: number;
 }
 
 export function StackedBarChart({ data }: StackedBarChartProps) {
@@ -24,17 +23,11 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
     return value.toLocaleString();
   };
 
-  // Mobile-optimized dimensions
-  const chartWidth = 340;
-  const chartHeight = 280;
-
   return (
-    <div className="w-full flex items-center justify-center overflow-x-auto">
+    <ResponsiveContainer width="100%" height={320}>
       <BarChart
-        width={chartWidth}
-        height={chartHeight}
         data={data}
-        margin={{ top: 10, right: 10, left: 0, bottom: 5 }}
+        margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
       >
         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
         <XAxis 
@@ -45,7 +38,7 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
         <YAxis 
           tickFormatter={formatValue}
           tick={{ fontSize: 9 }}
-          width={45}
+          width={55}
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
@@ -56,11 +49,11 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
           wrapperStyle={{ fontSize: "9px", paddingTop: "8px" }}
           iconSize={8}
         />
-        <Bar dataKey="cash" stackId="a" fill="hsl(var(--chart-1))" name="Cash" />
-        <Bar dataKey="qrisStatic" stackId="a" fill="hsl(var(--chart-2))" name="QRIS Static" />
-        <Bar dataKey="qrisDynamic" stackId="a" fill="hsl(var(--chart-3))" name="QRIS Dynamic" />
-        <Bar dataKey="voucher" stackId="a" fill="hsl(var(--chart-4))" name="Voucher" />
+        <Bar dataKey="cash" stackId="a" fill="#22c55e" name="Cash" />
+        <Bar dataKey="qrisStatic" stackId="a" fill="#3b82f6" name="QRIS Static" />
+        <Bar dataKey="qrisDynamic" stackId="a" fill="#a855f7" name="QRIS Dynamic" />
+        <Bar dataKey="voucher" stackId="a" fill="#f59e0b" name="Voucher" />
       </BarChart>
-    </div>
+    </ResponsiveContainer>
   );
 }

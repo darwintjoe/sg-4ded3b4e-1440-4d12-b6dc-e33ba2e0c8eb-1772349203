@@ -191,13 +191,7 @@ export function ReportsPanel() {
 
         const combinedData = [...filteredMonthly];
         if (currentMonthData) {
-          const exists = combinedData.find(m => m.yearMonth === currentMonth);
-          if (!exists) {
-            combinedData.push(currentMonthData as MonthlySalesSummary);
-          } else {
-            const idx = combinedData.indexOf(exists);
-            combinedData[idx] = currentMonthData as MonthlySalesSummary;
-          }
+          combinedData.push(currentMonthData as MonthlySalesSummary);
         }
 
         combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
@@ -208,7 +202,13 @@ export function ReportsPanel() {
           combinedData.forEach(m => {
             const year = m.yearMonth.substring(0, 4);
             const existing = yearlyMap.get(year) || { 
-              name: year, cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0, receipts: 0, revenue: 0 
+              name: year, 
+              cash: 0, 
+              qrisStatic: 0, 
+              qrisDynamic: 0, 
+              voucher: 0, 
+              receipts: 0, 
+              revenue: 0 
             };
             
             existing.cash += m.cashAmount;
@@ -221,7 +221,7 @@ export function ReportsPanel() {
             yearlyMap.set(year, existing);
           });
           
-          const chartData = Array.from(yearlyMap.values());
+          const chartData = Array.from(yearlyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
           setSalesChartData(chartData);
           
           const tableData = chartData.map(d => ({
@@ -294,27 +294,16 @@ export function ReportsPanel() {
         
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
+          const data = dataMap.get(dateStr) || { cash: 0, qrisStatic: 0, qrisDynamic: 0, voucher: 0, receipts: 0 };
           
-          const data = dataMap.get(dateStr);
-          if (data) {
-            chartData.push({
-              name: dateStr.substring(8),
-              fullDate: dateStr,
-              cash: data.cash,
-              qrisStatic: data.qrisStatic,
-              qrisDynamic: data.qrisDynamic,
-              voucher: data.voucher
-            });
-          } else {
-            chartData.push({
-              name: dateStr.substring(8),
-              fullDate: dateStr,
-              cash: 0,
-              qrisStatic: 0,
-              qrisDynamic: 0,
-              voucher: 0
-            });
-          }
+          chartData.push({
+            name: dateStr.substring(8),
+            fullDate: dateStr,
+            cash: data.cash,
+            qrisStatic: data.qrisStatic,
+            qrisDynamic: data.qrisDynamic,
+            voucher: data.voucher
+          });
         }
         
         setSalesChartData(chartData);
