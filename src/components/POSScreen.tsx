@@ -254,6 +254,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   };
 
   const handleLockScreen = () => {
+    console.log("Lock screen clicked, navigating to /");
     router.push("/");
   };
 
