@@ -241,9 +241,9 @@ export function ReportsPanel() {
           
           setSalesData(tableData);
         } else {
-          // YTD, 12M - show monthly data (no aggregation)
+          // YTD, 12M - show individual months (no aggregation)
           const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5, 7), // Show month number
+            name: m.yearMonth.substring(5, 7), // Show month number (01, 02, etc.)
             fullDate: m.yearMonth,
             cash: m.cashAmount,
             qrisStatic: m.qrisStaticAmount,

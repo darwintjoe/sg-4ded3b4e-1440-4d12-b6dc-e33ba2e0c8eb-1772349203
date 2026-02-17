@@ -44,10 +44,12 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
           formatter={(value: number) => value.toLocaleString()}
           contentStyle={{ fontSize: "10px" }}
           labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          cursor={false}
         />
         <Legend 
-          wrapperStyle={{ fontSize: "9px", paddingTop: "8px" }}
+          wrapperStyle={{ fontSize: "9px", paddingTop: "8px", textAlign: "center" }}
           iconSize={8}
+          align="center"
         />
         <Bar dataKey="cash" stackId="a" fill="#22c55e" name="Cash" />
         <Bar dataKey="qrisStatic" stackId="a" fill="#3b82f6" name="QRIS Static" />
