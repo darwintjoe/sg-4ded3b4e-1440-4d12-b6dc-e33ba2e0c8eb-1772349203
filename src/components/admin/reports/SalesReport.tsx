@@ -257,8 +257,8 @@ export function SalesReport({ language }: SalesReportProps) {
             name: d.key,
             fullDate: d.fullDate,
             cash: d.cash,
-            "qris-static": d.qrisStatic,
-            "qris-dynamic": d.qrisDynamic,
+            qrisStatic: d.qrisStatic,
+            qrisDynamic: d.qrisDynamic,
             voucher: d.voucher
           }));
 
@@ -271,8 +271,8 @@ export function SalesReport({ language }: SalesReportProps) {
             name: d.key,
             fullDate: d.fullDate,
             cash: d.cash,
-            "qris-static": d.qrisStatic,
-            "qris-dynamic": d.qrisDynamic,
+            qrisStatic: d.qrisStatic,
+            qrisDynamic: d.qrisDynamic,
             voucher: d.voucher
           }));
 
@@ -295,8 +295,8 @@ export function SalesReport({ language }: SalesReportProps) {
           name: d.key,
           fullDate: d.fullDate,
           cash: d.cash,
-          "qris-static": d.qrisStatic,
-          "qris-dynamic": d.qrisDynamic,
+          qrisStatic: d.qrisStatic,
+          qrisDynamic: d.qrisDynamic,
           voucher: d.voucher
         }));
 

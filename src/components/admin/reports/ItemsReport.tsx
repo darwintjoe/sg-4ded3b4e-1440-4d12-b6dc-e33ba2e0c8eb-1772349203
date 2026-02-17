@@ -8,7 +8,6 @@ import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
-import { generateChartColors } from "@/lib/chartColorUtils";
 
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type ChartView = "bar" | "pie";
@@ -24,6 +23,17 @@ interface AggregatedItemData {
   revenue: number;
   transactions: number;
 }
+
+// Smooth Color Spectrum Generator
+const generateSpectrumColor = (index: number, total: number): string => {
+  // Calculate hue based on position in spectrum (0-360 degrees)
+  // Distributes colors evenly across the rainbow spectrum
+  const hue = (index / total) * 360;
+  
+  // Use high saturation and medium lightness for vibrant, professional colors
+  // HSL format: hue (0-360), saturation (70%), lightness (50%)
+  return `hsl(${hue}, 70%, 50%)`;
+};
 
 export function ItemsReport({ language }: ItemsReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
@@ -61,6 +71,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
     itemName: string;
     quantity: number;
     revenue: number;
+    color: string;
   }>>([]);
   const [topItemsData, setTopItemsData] = useState<any[]>([]);
   const [isExporting, setIsExporting] = useState(false);
@@ -189,15 +200,12 @@ export function ItemsReport({ language }: ItemsReportProps) {
       // Take top N
       const topNItems = sorted.slice(0, itemTopN);
 
-      // Generate colors once
-      const colors = generateChartColors(topNItems.length, "spectrum");
-      
-      // Prepare chart data
+      // Generate smooth spectrum colors
       const chartResult = topNItems.map((item, idx) => ({
         itemName: item.name,
         quantity: item.quantity,
         revenue: item.revenue,
-        color: colors[idx]
+        color: generateSpectrumColor(idx, topNItems.length)
       }));
       
       setTopItems(chartResult);
@@ -208,7 +216,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
         value: item.quantity,
         revenue: item.revenue,
         transactionCount: item.transactions,
-        color: colors[idx]
+        color: generateSpectrumColor(idx, topNItems.length)
       }));
       setTopItemsData(tableData);
 
