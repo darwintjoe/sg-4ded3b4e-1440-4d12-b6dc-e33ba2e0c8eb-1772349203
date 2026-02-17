@@ -1,4 +1,4 @@
-import { Pie, PieChart as RechartsPie, Cell, Tooltip } from "recharts";
+import { Pie, PieChart as RechartsPie, Cell } from "recharts";
 
 interface PieChartProps {
   data: Array<{
@@ -9,25 +9,6 @@ interface PieChartProps {
 }
 
 export function PieChart({ data }: PieChartProps) {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0];
-      const percentage = ((item.value / total) * 100).toFixed(1);
-      
-      return (
-        <div className="bg-background border border-border rounded-md shadow-lg p-2">
-          <p className="text-[10px] font-semibold mb-1 text-foreground">{item.name}</p>
-          <p className="text-[9px] text-muted-foreground">
-            {item.value.toLocaleString()} ({percentage}%)
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="w-full h-full flex items-center justify-center">
       <RechartsPie width={280} height={280}>

@@ -1,4 +1,4 @@
-import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Cell } from "recharts";
 
 interface DataPoint {
   name: string;
@@ -48,11 +48,6 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
           dataKey="name" 
           width={100}
           tick={{ fontSize: 10 }}
-        />
-        <Tooltip 
-          formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "11px" }}
-          labelStyle={{ fontSize: "11px", fontWeight: "bold" }}
         />
         <Bar dataKey="value">
           {data.map((entry, index) => (
