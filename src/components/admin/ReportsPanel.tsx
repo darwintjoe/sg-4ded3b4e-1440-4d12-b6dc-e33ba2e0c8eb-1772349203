@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary } from "@/types";
 import { useApp } from "@/contexts/AppContext";
-import { Download, Printer, Table2, TrendingUp, DollarSign, Receipt, FileImage, Banknote } from "lucide-react";
+import { Download, Printer, Table2, TrendingUp, DollarSign, Receipt, FileImage } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
@@ -65,7 +65,6 @@ export function ReportsPanel() {
       totalRevenue: "Total Revenue",
       totalReceipts: "Total Receipts",
       avgTransaction: "Avg Transaction",
-      cashSales: "Cash Sales",
       paymentBreakdown: "Payment Breakdown",
       topItemsByQuantity: "Top Items by Quantity",
       topItemsByRevenue: "Top Items by Revenue",
@@ -80,8 +79,7 @@ export function ReportsPanel() {
   const [salesStats, setSalesStats] = useState({
     totalRevenue: 0,
     totalReceipts: 0,
-    avgTransaction: 0,
-    cashSales: 0
+    avgTransaction: 0
   });
   const [salesData, setSalesData] = useState<any[]>([]);
   const [salesDateRange, setSalesDateRange] = useState<string>("");
@@ -280,8 +278,7 @@ export function ReportsPanel() {
         setSalesStats({
           totalRevenue,
           totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0,
-          cashSales: combinedData.reduce((sum, d) => sum + d.cashAmount, 0)
+          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
         });
 
       } else {
@@ -336,8 +333,7 @@ export function ReportsPanel() {
         setSalesStats({
           totalRevenue,
           totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0,
-          cashSales: chartData.reduce((sum, d) => sum + d.cash, 0)
+          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
         });
       }
     } catch (error) {
@@ -876,18 +872,6 @@ export function ReportsPanel() {
                 </CardContent>
               </Card>
             </div>
-
-            <Card className="mt-2">
-              <CardContent className="pt-2 pb-2 px-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.cashSales}</p>
-                    <p className="text-base font-bold leading-tight mt-0.5 text-green-600 dark:text-green-400">{formatCurrency(salesStats.cashSales)}</p>
-                  </div>
-                  <Banknote className="h-5 w-5 text-green-600 dark:text-green-400" />
-                </div>
-              </CardContent>
-            </Card>
 
             <Card>
               <CardContent className="p-2">
