@@ -452,7 +452,6 @@ export function ReportsPanel() {
       );
       
       const topNItems = sorted.slice(0, itemTopN);
-      const others = sorted.slice(itemTopN);
       
       const chartResult = topNItems.map(item => ({
         itemName: item.name,
@@ -460,13 +459,6 @@ export function ReportsPanel() {
         revenue: item.revenue
       }));
       
-      if (others.length > 0) {
-        chartResult.push({
-          itemName: "Other Items",
-          quantity: others.reduce((sum, item) => sum + item.quantity, 0),
-          revenue: others.reduce((sum, item) => sum + item.revenue, 0)
-        });
-      }
       setTopItems(chartResult);
 
       const tableData = topNItems.map(item => ({
@@ -671,13 +663,27 @@ export function ReportsPanel() {
     quantity: item.quantity
   }));
 
-  const pieChartData = topItems.map((item, idx) => ({
-    name: item.itemName,
-    value: sortBy === "quantity" ? item.quantity : item.revenue,
-    color: item.itemName === "Other Items" 
-      ? "#94a3b8" 
-      : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
-  }));
+  const pieChartData = topItems.map((item, idx) => {
+    const colors20 = [
+      "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+      "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+      "#14b8a6", "#f43f5e", "#22c55e", "#eab308", "#a855f7",
+      "#db2777", "#0891b2", "#65a30d", "#ea580c", "#4f46e5"
+    ];
+    
+    const colors10 = [
+      "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+      "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
+    ];
+    
+    const colorPalette = itemTopN === 20 ? colors20 : colors10;
+    
+    return {
+      name: item.itemName,
+      value: sortBy === "quantity" ? item.quantity : item.revenue,
+      color: colorPalette[idx % colorPalette.length]
+    };
+  });
 
   const getPeriodLabel = () => {
     switch (salesTimeRange) {
