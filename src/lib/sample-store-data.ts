@@ -19,7 +19,7 @@ import {
  * Following Two-Tier Summary Architecture:
  * - Transactions: Last 60 days only
  * - Daily summaries: Last 60 days only
- * - Monthly summaries: Full 26 months (2024-01 to 2026-02)
+ * - Monthly summaries: Full 26 months (2023-12 to 2026-01)
  * 
  * Total: ~10,000 records (optimized for performance)
  */
@@ -234,7 +234,7 @@ export function generateSampleEmployees(): Employee[] {
  * Generate sample data following Two-Tier Summary Architecture
  * - Transactions: Last 60 days only
  * - Daily summaries: Last 60 days only  
- * - Monthly summaries: Full 26 months (2024-01 to 2026-02)
+ * - Monthly summaries: Full 26 months (2023-12 to 2026-01)
  */
 export function generateSampleTransactions(items: Item[], employees: Employee[]): {
   transactions: Transaction[];
@@ -380,9 +380,9 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
     }
   }
   
-  // Generate SYNTHETIC monthly summaries for 26 months (2024-01 to 2026-02)
-  const startMonth = new Date("2024-01-01");
-  const endMonth = new Date("2026-02-28");
+  // Generate SYNTHETIC monthly summaries for 26 months (2023-12 to 2026-01)
+  const startMonth = new Date("2023-12-01");
+  const endMonth = new Date("2026-01-31");
   
   for (let m = new Date(startMonth); m <= endMonth; m.setMonth(m.getMonth() + 1)) {
     const monthStr = m.toISOString().substring(0, 7); // YYYY-MM
@@ -526,10 +526,10 @@ export function generateSampleTransactions(items: Item[], employees: Employee[])
       });
       monthTotal += total;
 
-      if (method === "cash") cashAmount += total;
-      else if (method === "qris-static") qrisStaticAmount += total;
-      else if (method === "qris-dynamic") qrisDynamicAmount += total;
-      else if (method === "voucher") voucherAmount += total;
+      if (method === "cash") cashAmount = total;
+      else if (method === "qris-static") qrisStaticAmount = total;
+      else if (method === "qris-dynamic") qrisDynamicAmount = total;
+      else if (method === "voucher") voucherAmount = total;
     }
     
     monthlySummary.push({
