@@ -1,0 +1,433 @@
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DailyItemSales, MonthlyItemSales } from "@/types";
+import { db } from "@/lib/db";
+import { Download, Table2, FileImage } from "lucide-react";
+import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
+import { PieChart } from "@/components/charts/PieChart";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
+import { generateChartColors } from "@/lib/chartColorUtils";
+
+type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
+type ChartView = "bar" | "pie";
+type SortBy = "quantity" | "revenue";
+
+interface ItemsReportProps {
+  language: string;
+}
+
+export function ItemsReport({ language }: ItemsReportProps) {
+  const locale = language === "id" ? "id-ID" : "en-US";
+  const itemsChartRef = useRef<HTMLDivElement>(null);
+  const itemsTableRef = useRef<HTMLDivElement>(null);
+
+  const formatCurrency = (amount: number): string => {
+    if (amount >= 1_000_000_000) {
+      return (amount / 1_000_000_000).toFixed(2) + "B";
+    } else if (amount >= 1_000_000) {
+      return (amount / 1_000_000).toFixed(2) + "M";
+    } else if (amount >= 1_000) {
+      return (amount / 1_000).toFixed(0) + "K";
+    }
+    return amount.toLocaleString();
+  };
+
+  const t = {
+    reports: {
+      topItemsData: "Top Items Data",
+      noData: "No data available for the selected period",
+      topItemsByQuantity: "Top Items by Quantity",
+      topItemsByRevenue: "Top Items by Revenue",
+      exportPDF: "Export PDF",
+      exportImage: "Export Image",
+      exporting: "Exporting...",
+    }
+  };
+
+  const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
+  const [itemTopN, setItemTopN] = useState<10 | 20>(10);
+  const [chartView, setChartView] = useState<ChartView>("bar");
+  const [sortBy, setSortBy] = useState<SortBy>("quantity");
+  const [topItems, setTopItems] = useState<Array<{
+    itemName: string;
+    quantity: number;
+    revenue: number;
+  }>>([]);
+  const [topItemsData, setTopItemsData] = useState<any[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+
+  useEffect(() => {
+    loadItemsReport();
+  }, [itemsTimeRange, itemTopN, sortBy]);
+
+  const loadItemsReport = async () => {
+    try {
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      let startDate: Date;
+      let useMonthly = false;
+
+      switch (itemsTimeRange) {
+        case "1d":
+          startDate = new Date(today);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "7d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 6);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "1m":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 29);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case "3m":
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 3);
+          startDate.setHours(0, 0, 0, 0);
+          useMonthly = true;
+          break;
+        case "6m":
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 6);
+          startDate.setHours(0, 0, 0, 0);
+          useMonthly = true;
+          break;
+        case "1y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 1);
+          startDate.setHours(0, 0, 0, 0);
+          useMonthly = true;
+          break;
+        case "3y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 3);
+          startDate.setHours(0, 0, 0, 0);
+          useMonthly = true;
+          break;
+        case "5y":
+          startDate = new Date(today);
+          startDate.setFullYear(startDate.getFullYear() - 5);
+          startDate.setHours(0, 0, 0, 0);
+          useMonthly = true;
+          break;
+        default:
+          startDate = new Date(today);
+          startDate.setMonth(startDate.getMonth() - 1);
+          startDate.setHours(0, 0, 0, 0);
+      }
+
+      const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
+
+      if (useMonthly) {
+        const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
+        const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
+        
+        const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
+        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
+        
+        filteredMonthly.forEach(item => {
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
+          itemMap.set(item.itemId, existing);
+        });
+
+        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
+        
+        currentDaily.forEach(item => {
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
+          itemMap.set(item.itemId, existing);
+        });
+
+      } else {
+        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        
+        const startDateStr = startDate.toISOString().split('T')[0];
+        const endDateStr = today.toISOString().split('T')[0];
+        
+        const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
+        
+        filtered.forEach(item => {
+          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
+          existing.quantity += item.totalQuantity;
+          existing.revenue += item.totalRevenue;
+          existing.transactions += item.transactionCount;
+          itemMap.set(item.itemId, existing);
+        });
+      }
+
+      const allItems = Array.from(itemMap.values());
+      
+      const sorted = allItems.sort((a, b) => 
+        sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
+      );
+      
+      const topNItems = sorted.slice(0, itemTopN);
+      
+      const chartResult = topNItems.map(item => ({
+        itemName: item.name,
+        quantity: item.quantity,
+        revenue: item.revenue
+      }));
+      
+      setTopItems(chartResult);
+
+      const tableData = topNItems.map(item => ({
+        name: item.name,
+        value: item.quantity,
+        revenue: item.revenue,
+        transactionCount: item.transactions
+      }));
+      setTopItemsData(tableData);
+
+    } catch (error) {
+      console.error("Error loading items report:", error);
+    }
+  };
+
+  const exportItemsAsPDF = async () => {
+    if (!itemsChartRef.current || !itemsTableRef.current) return;
+    
+    setIsExporting(true);
+    const result = await exportChartAsPDF(
+      itemsChartRef.current,
+      itemsTableRef.current,
+      {
+        filename: `items-report-${new Date().toISOString().split('T')[0]}`,
+        title: t.reports.topItemsData,
+        includeTimestamp: true,
+        pageOrientation: "portrait"
+      }
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
+    }
+    setIsExporting(false);
+  };
+
+  const exportItemsAsImage = async () => {
+    if (!itemsChartRef.current || !itemsTableRef.current) return;
+    
+    setIsExporting(true);
+    const result = await exportChartAsImage(
+      itemsChartRef.current,
+      itemsTableRef.current,
+      {
+        filename: `items-report-${new Date().toISOString().split('T')[0]}`
+      }
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
+    }
+    setIsExporting(false);
+  };
+
+  const generateSpectrumColor = (index: number, total: number): string => {
+    const colors = generateChartColors(total, "spectrum");
+    return colors[index];
+  };
+
+  const barChartData = topItems.map((item, idx) => ({
+    name: item.itemName,
+    value: sortBy === "quantity" ? item.quantity : item.revenue,
+    revenue: item.revenue,
+    quantity: item.quantity,
+    color: generateSpectrumColor(idx, topItems.length)
+  }));
+
+  const pieChartData = topItems.map((item, idx) => {
+    return {
+      name: item.itemName,
+      value: sortBy === "quantity" ? item.quantity : item.revenue,
+      color: generateSpectrumColor(idx, topItems.length)
+    };
+  });
+
+  return (
+    <div className="space-y-4">
+      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
+        <Card>
+          <CardContent className="p-2">
+            <div className="relative">
+              <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                  <Button
+                    variant={chartView === "bar" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setChartView("bar")}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    Bar
+                  </Button>
+                  <Button
+                    variant={chartView === "pie" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setChartView("pie")}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    Pie
+                  </Button>
+                </div>
+
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                  <Button
+                    variant={sortBy === "quantity" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSortBy("quantity")}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    Qty
+                  </Button>
+                  <Button
+                    variant={sortBy === "revenue" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setSortBy("revenue")}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    $$
+                  </Button>
+                </div>
+
+                <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
+                  <Button
+                    variant={itemTopN === 10 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemTopN(10)}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    10
+                  </Button>
+                  <Button
+                    variant={itemTopN === 20 ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemTopN(20)}
+                    className="h-5 px-1.5 text-[9px]"
+                  >
+                    20
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pb-12">
+                <h4 className="text-[10px] font-medium mb-2">
+                  {sortBy === "quantity" ? t.reports.topItemsByQuantity : t.reports.topItemsByRevenue}
+                </h4>
+                <div className={chartView === "pie" ? "h-[300px]" : "h-[360px]"}>
+                  {chartView === "bar" ? (
+                    <HorizontalBarChart data={barChartData} />
+                  ) : (
+                    <PieChart data={pieChartData} />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-center gap-0.5 pt-3 border-t flex-wrap relative z-20">
+                {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
+                  <Button
+                    key={range}
+                    variant={itemsTimeRange === range ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setItemsTimeRange(range)}
+                    className="h-6 px-2 text-[10px] uppercase"
+                  >
+                    {range}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex justify-center gap-2">
+        <Button 
+          onClick={exportItemsAsPDF} 
+          variant="outline" 
+          size="sm"
+          disabled={isExporting}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          {isExporting ? t.reports.exporting : t.reports.exportPDF}
+        </Button>
+        <Button 
+          onClick={exportItemsAsImage} 
+          variant="outline" 
+          size="sm"
+          disabled={isExporting}
+        >
+          <FileImage className="h-4 w-4 mr-2" />
+          {isExporting ? t.reports.exporting : t.reports.exportImage}
+        </Button>
+      </div>
+
+      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
+        <Card className="mt-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-medium flex items-center gap-2">
+              <Table2 className="h-3 w-3" />
+              {t.reports.topItemsData} ({itemTopN} Items)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-2">
+            {topItemsData.length > 0 ? (
+              <div className="overflow-x-auto -mx-2">
+                <div className="inline-block min-w-full align-middle">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b">
+                        <TableHead className="w-8 text-[10px] font-medium py-1 px-2">#</TableHead>
+                        <TableHead className="text-[10px] font-medium py-1 px-2 min-w-[100px]">Item</TableHead>
+                        <TableHead className="text-right text-[10px] font-medium py-1 px-2">Qty</TableHead>
+                        <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
+                        <TableHead className="text-right text-[10px] font-medium py-1 px-2">Tx</TableHead>
+                        <TableHead className="text-right text-[10px] font-medium py-1 px-2">Avg</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topItemsData.map((item, idx) => (
+                        <TableRow key={idx} className="border-b hover:bg-muted/50">
+                          <TableCell className="text-[10px] font-medium py-1 px-2">{idx + 1}</TableCell>
+                          <TableCell className="text-[10px] py-1 px-2 truncate max-w-[150px]">{item.name}</TableCell>
+                          <TableCell className="text-right text-[10px] py-1 px-2">{item.value}</TableCell>
+                          <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(item.revenue)}</TableCell>
+                          <TableCell className="text-right text-[10px] py-1 px-2">{item.transactionCount}</TableCell>
+                          <TableCell className="text-right text-[10px] py-1 px-2">{(item.value / item.transactionCount).toFixed(1)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow className="bg-muted/50">
+                        <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.value, 0)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">
+                          {(topItemsData.reduce((sum, item) => sum + item.value, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted-foreground text-center py-6">
+                {t.reports.noData}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
