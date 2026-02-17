@@ -39,17 +39,16 @@ export default function DebugMonthly() {
               <th className="border border-gray-300 p-2">Year-Month</th>
               <th className="border border-gray-300 p-2">Total Revenue</th>
               <th className="border border-gray-300 p-2">Total Receipts</th>
-              <th className="border border-gray-300 p-2">Avg Transaction</th>
-              <th className="border border-gray-300 p-2">Cash</th>
-              <th className="border border-gray-300 p-2">QRIS Dynamic</th>
+              <th className="border border-gray-300 p-2">Cash Amount</th>
               <th className="border border-gray-300 p-2">QRIS Static</th>
+              <th className="border border-gray-300 p-2">QRIS Dynamic</th>
               <th className="border border-gray-300 p-2">Voucher</th>
             </tr>
           </thead>
           <tbody>
             {monthlyData.length === 0 ? (
               <tr>
-                <td colSpan={9} className="border border-gray-300 p-4 text-center text-red-500">
+                <td colSpan={8} className="border border-gray-300 p-4 text-center text-red-500">
                   ⚠️ No monthly summary data found! This table should have 26 rows.
                 </td>
               </tr>
@@ -65,19 +64,16 @@ export default function DebugMonthly() {
                     {row.totalReceipts?.toLocaleString() || 0}
                   </td>
                   <td className="border border-gray-300 p-2 text-right">
-                    {row.avgTransaction?.toLocaleString() || 0}
+                    {row.cashAmount?.toLocaleString() || 0}
                   </td>
                   <td className="border border-gray-300 p-2 text-right">
-                    {row.cash?.toLocaleString() || 0}
+                    {row.qrisStaticAmount?.toLocaleString() || 0}
                   </td>
                   <td className="border border-gray-300 p-2 text-right">
-                    {row.qrisDynamic?.toLocaleString() || 0}
+                    {row.qrisDynamicAmount?.toLocaleString() || 0}
                   </td>
                   <td className="border border-gray-300 p-2 text-right">
-                    {row.qrisStatic?.toLocaleString() || 0}
-                  </td>
-                  <td className="border border-gray-300 p-2 text-right">
-                    {row.voucher?.toLocaleString() || 0}
+                    {row.voucherAmount?.toLocaleString() || 0}
                   </td>
                 </tr>
               ))
@@ -91,6 +87,26 @@ export default function DebugMonthly() {
         <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs">
           {JSON.stringify(monthlyData, null, 2)}
         </pre>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-2">Analysis</h2>
+        <ul className="list-disc pl-6 space-y-2">
+          <li>
+            <strong>Expected:</strong> 26 months (December 2023 to January 2026)
+          </li>
+          <li>
+            <strong>Actual:</strong> {monthlyData.length} rows
+          </li>
+          <li>
+            <strong>Status:</strong>{" "}
+            {monthlyData.length === 26 ? (
+              <span className="text-green-600">✅ Correct count</span>
+            ) : (
+              <span className="text-red-600">❌ Missing data</span>
+            )}
+          </li>
+        </ul>
       </div>
     </div>
   );
