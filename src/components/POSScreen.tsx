@@ -18,10 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 interface POSScreenProps {
   onAdminClick: () => void;
   onAttendanceClick: () => void;
+  onLockScreen: () => void;
 }
 
-export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
-  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, mode, language } = useApp();
+export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POSScreenProps) {
+  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language } = useApp();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
@@ -253,9 +254,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
     setShowPauseConfirm(false);
   };
 
-  const handleLockScreen = () => {
-    console.log("Lock screen clicked, navigating to /");
-    router.push("/");
+  const handleLockScreen = async () => {
+    console.log("Lock screen clicked, locking session...");
+    await lockSession();
+    onLockScreen(); // Notify parent to switch screen state if needed
   };
 
   const filteredItems = items.filter(item => {

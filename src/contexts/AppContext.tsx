@@ -23,6 +23,7 @@ interface AppContextType {
   loginAdmin: (pin: string) => Promise<boolean>;
   loginAdminViaGoogle: (email: string) => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
+  lockSession: () => Promise<void>;
   isPaused: boolean;
   pauseSession: () => Promise<void>;
   resumeSession: (pin: string) => Promise<boolean>;
@@ -447,6 +448,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logoutAdmin = async () => {
     setAdminUser(null);
+  };
+
+  const lockSession = async () => {
+    if (currentUser && currentShift) {
+      await saveSessionState();
+    }
+    setCurrentUser(null);
   };
 
   const logout = async (): Promise<{ success: boolean; message: string }> => {
@@ -944,6 +952,7 @@ PAYMENT BREAKDOWN:
         loginAdmin,
         loginAdminViaGoogle,
         logoutAdmin,
+        lockSession,
         isPaused,
         pauseSession,
         resumeSession,

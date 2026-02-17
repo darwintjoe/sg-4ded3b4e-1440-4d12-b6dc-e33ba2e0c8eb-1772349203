@@ -110,6 +110,7 @@ export default function Home() {
         <POSScreen
           onAdminClick={handleAdminClick}
           onAttendanceClick={handleAttendanceClick}
+          onLockScreen={handleBackToLogin}
         />
       )}
       
