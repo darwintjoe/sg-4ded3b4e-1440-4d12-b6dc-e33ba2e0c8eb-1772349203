@@ -1,4 +1,4 @@
-import { Pie, PieChart as RechartsPie, Cell } from "recharts";
+import { Pie, PieChart as RechartsPie, Cell, Tooltip } from "recharts";
 
 interface PieChartProps {
   data: Array<{
@@ -25,6 +25,12 @@ export function PieChart({ data }: PieChartProps) {
             <Cell key={`cell-${index}`} fill={entry.color || "hsl(var(--chart-1))"} />
           ))}
         </Pie>
+        <Tooltip 
+          formatter={(value: number) => value.toLocaleString()}
+          contentStyle={{ fontSize: "10px" }}
+          labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          cursor={false}
+        />
       </RechartsPie>
     </div>
   );
