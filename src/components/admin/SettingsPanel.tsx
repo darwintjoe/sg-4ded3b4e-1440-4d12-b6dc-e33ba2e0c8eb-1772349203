@@ -426,7 +426,23 @@ export function SettingsPanel() {
           setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
         }
       }
-      
+
+      // Add Monthly Attendance Summaries
+      if (data.monthlyAttendanceSummaries) {
+        for (const summary of data.monthlyAttendanceSummaries) {
+          await db.add("monthlyAttendanceSummary", summary);
+        }
+        console.log(`✅ Added ${data.monthlyAttendanceSummaries.length} monthly attendance summaries`);
+      }
+
+      // Add Daily Attendance Records
+      if (data.dailyAttendance) {
+        for (const record of data.dailyAttendance) {
+          await db.add("dailyAttendance", record);
+        }
+        console.log(`✅ Added ${data.dailyAttendance.length} daily attendance records`);
+      }
+
       // Update Settings
       await db.updateSettings(data.settings);
 
