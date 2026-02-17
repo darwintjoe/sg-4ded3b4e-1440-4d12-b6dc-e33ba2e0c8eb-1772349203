@@ -656,7 +656,7 @@ export function ReportsPanel() {
     }
   };
 
-  const barChartData = topItems.map(item => ({
+  const barChartData = topItems.map((item, idx) => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
     revenue: item.revenue,
