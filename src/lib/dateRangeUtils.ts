@@ -9,7 +9,7 @@ export interface DateRangeResult {
   endDate: Date;
   label: string;
   useDailySummary: boolean; // True if should query daily summaries
-  useMonthly Summary: boolean; // True if should query monthly summaries
+  useMonthlySummary: boolean; // True if should query monthly summaries
 }
 
 /**
