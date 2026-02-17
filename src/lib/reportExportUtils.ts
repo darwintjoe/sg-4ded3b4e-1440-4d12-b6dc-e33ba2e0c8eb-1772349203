@@ -99,24 +99,41 @@ export async function exportChartAsPDF(
 
       // If table is too tall, split across multiple pages
       let remainingHeight = tableHeight;
-      let sourceY = 0;
+      let sourceY = 0; // in PDF units
 
       while (remainingHeight > 0) {
         const availableHeight = pageHeight - yOffset - margin;
+        
+        // If available space is too small (e.g. < 20mm), push to next page
+        if (availableHeight < 20 && sourceY === 0) {
+             pdf.addPage();
+             yOffset = margin;
+             continue;
+        }
+
         const sliceHeight = Math.min(remainingHeight, availableHeight);
 
-        pdf.addImage(
-          tableImgData,
-          "PNG",
-          margin,
-          yOffset,
-          tableWidth,
-          sliceHeight,
-          undefined,
-          "FAST",
-          0,
-          sourceY / tableHeight
-        );
+        // Calculate pixel coordinates for slicing
+        // tableCanvas.width / tableWidth gives pixels per mm
+        const pdfToPx = tableCanvas.width / tableWidth;
+        const sX = 0;
+        const sY = sourceY * pdfToPx;
+        const sWidth = tableCanvas.width;
+        const sHeight = sliceHeight * pdfToPx;
+
+        // Create temp canvas for slice
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = sWidth;
+        tempCanvas.height = sHeight;
+        const ctx = tempCanvas.getContext("2d");
+        
+        if (ctx) {
+             // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+             ctx.drawImage(tableCanvas, sX, sY, sWidth, sHeight, 0, 0, sWidth, sHeight);
+             const sliceData = tempCanvas.toDataURL("image/png");
+             
+             pdf.addImage(sliceData, "PNG", margin, yOffset, tableWidth, sliceHeight, undefined, "FAST");
+        }
 
         remainingHeight -= sliceHeight;
         sourceY += sliceHeight;
