@@ -639,8 +639,8 @@ export function ReportsPanel() {
       
       const tableImgData = tableCanvas.toDataURL('image/png');
       
-      let tableWidth = pageWidth - (2 * margin);
-      let tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
+      const tableWidth = pageWidth - (2 * margin);
+      const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
       
       // Paginate if table is too long
       let yPosition = margin;
