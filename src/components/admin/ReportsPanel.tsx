@@ -10,14 +10,23 @@ import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { getDateRange, formatBusinessDate, getYearMonth } from "@/lib/dateRangeUtils";
+import { getPaymentMethodColor, generateChartColors } from "@/lib/chartColorUtils";
+import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
+import type { TimeRange } from "@/lib/dateRangeUtils";
 
-type SalesTimeRange = "mtd" | "30d" | "ytd" | "12m" | "5y";
+type SalesTimeRange = "MTD" | "30D" | "YTD" | "12M" | "5Y";
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
 type ChartView = "bar" | "pie";
 type SortBy = "quantity" | "revenue";
+
+const PAYMENT_METHOD_COLORS = {
+  cash: "#10b981",
+  "qris-static": "#3b82f6", 
+  "qris-dynamic": "#8b5cf6",
+  voucher: "#f59e0b"
+};
 
 export function ReportsPanel() {
   const { language } = useApp();
@@ -74,7 +83,7 @@ export function ReportsPanel() {
     }
   };
 
-  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
+  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("MTD");
   const [salesChartData, setSalesChartData] = useState<any[]>([]);
   const [salesStats, setSalesStats] = useState({
     totalRevenue: 0,
@@ -83,6 +92,7 @@ export function ReportsPanel() {
   });
   const [salesData, setSalesData] = useState<any[]>([]);
   const [salesDateRange, setSalesDateRange] = useState<string>("");
+  const [salesPeriodLabel, setSalesPeriodLabel] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
 
   const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
@@ -104,8 +114,6 @@ export function ReportsPanel() {
     lateCount: number;
   }>>([]);
 
-  const isSalesMonthlyView = ["ytd", "12m", "5y"].includes(salesTimeRange);
-
   useEffect(() => {
     loadSalesReport();
   }, [salesTimeRange]);
@@ -118,49 +126,23 @@ export function ReportsPanel() {
     loadAttendanceReport();
   }, [attendanceTimeRange]);
 
-  const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean; displayRange: string } => {
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
-    
-    if (salesTimeRange === "mtd") {
-      const monthStart = todayStr.substring(0, 8) + "01";
-      const displayRange = `${monthStart} - ${todayStr}`;
-      return { startDate: monthStart, endDate: todayStr, useMonthly: false, displayRange };
-    } else if (salesTimeRange === "30d") {
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 29);
-      const startDate = thirtyDaysAgo.toISOString().split("T")[0];
-      const displayRange = `${startDate} - ${todayStr}`;
-      return { startDate, endDate: todayStr, useMonthly: false, displayRange };
-    } else if (salesTimeRange === "ytd") {
-      const yearStart = todayStr.substring(0, 4) + "-01-01";
-      const displayRange = `${yearStart} - ${todayStr}`;
-      return { startDate: yearStart, endDate: todayStr, useMonthly: true, displayRange };
-    } else if (salesTimeRange === "12m") {
-      const twelveMonthsAgo = new Date(today);
-      twelveMonthsAgo.setMonth(today.getMonth() - 11);
-      const startDate = twelveMonthsAgo.toISOString().split("T")[0].substring(0, 7) + "-01";
-      const displayRange = `${startDate.substring(0, 7)} - ${todayStr.substring(0, 7)}`;
-      return { startDate, endDate: todayStr, useMonthly: true, displayRange };
-    } else {
-      const fiveYearsAgo = new Date(today);
-      fiveYearsAgo.setFullYear(today.getFullYear() - 4);
-      const startDate = fiveYearsAgo.toISOString().split("T")[0].substring(0, 4) + "-01-01";
-      const displayRange = `${startDate.substring(0, 4)} - ${todayStr.substring(0, 4)}`;
-      return { startDate, endDate: todayStr, useMonthly: true, displayRange };
-    }
-  };
-
   const loadSalesReport = async () => {
     try {
-      const { startDate, endDate, useMonthly, displayRange } = getSalesDateRange();
-      setSalesDateRange(displayRange);
+      const { startDate, endDate, label, useDailySummary, useMonthlySummary } = getDateRange(
+        salesTimeRange as TimeRange
+      );
 
-      if (useMonthly) {
+      setSalesPeriodLabel(label);
+      setSalesDateRange(`${formatBusinessDate(startDate)} - ${formatBusinessDate(endDate)}`);
+
+      const startDateStr = formatBusinessDate(startDate);
+      const endDateStr = formatBusinessDate(endDate);
+      const currentMonth = getYearMonth(new Date());
+
+      if (useMonthlySummary) {
         // YTD, 12M, 5Y - Use monthly summary + current month from daily
-        const startMonth = startDate.substring(0, 7);
-        const endMonth = endDate.substring(0, 7);
-        const currentMonth = new Date().toISOString().substring(0, 7);
+        const startMonth = getYearMonth(startDate);
+        const endMonth = getYearMonth(endDate);
 
         // Get all monthly summary data
         const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
@@ -202,8 +184,8 @@ export function ReportsPanel() {
 
         combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
-        // Handle 5Y - aggregate by year
-        if (salesTimeRange === "5y") {
+        // Handle 5Y - aggregate by year (max 5 bars)
+        if (salesTimeRange === "5Y") {
           const yearlyMap = new Map<string, any>();
           
           combinedData.forEach(m => {
@@ -211,16 +193,16 @@ export function ReportsPanel() {
             const existing = yearlyMap.get(year) || { 
               name: year, 
               cash: 0, 
-              qrisStatic: 0, 
-              qrisDynamic: 0, 
+              "qris-static": 0, 
+              "qris-dynamic": 0, 
               voucher: 0, 
               receipts: 0, 
               revenue: 0 
             };
             
             existing.cash += m.cashAmount;
-            existing.qrisStatic += m.qrisStaticAmount;
-            existing.qrisDynamic += m.qrisDynamicAmount;
+            existing["qris-static"] += m.qrisStaticAmount;
+            existing["qris-dynamic"] += m.qrisDynamicAmount;
             existing.voucher += m.voucherAmount;
             existing.receipts += m.totalReceipts;
             existing.revenue += m.totalRevenue;
@@ -236,20 +218,20 @@ export function ReportsPanel() {
             revenue: d.revenue,
             receipts: d.receipts,
             cash: d.cash,
-            qrisStatic: d.qrisStatic,
-            qrisDynamic: d.qrisDynamic,
+            qrisStatic: d["qris-static"],
+            qrisDynamic: d["qris-dynamic"],
             voucher: d.voucher
           })).sort((a, b) => b.date.localeCompare(a.date));
           
           setSalesData(tableData);
         } else {
-          // YTD, 12M - show individual months (no aggregation)
+          // YTD, 12M - show individual months
           const chartData = combinedData.map(m => ({
             name: m.yearMonth.substring(5, 7),
             fullDate: m.yearMonth,
             cash: m.cashAmount,
-            qrisStatic: m.qrisStaticAmount,
-            qrisDynamic: m.qrisDynamicAmount,
+            "qris-static": m.qrisStaticAmount,
+            "qris-dynamic": m.qrisDynamicAmount,
             voucher: m.voucherAmount
           }));
           setSalesChartData(chartData);
@@ -282,9 +264,9 @@ export function ReportsPanel() {
         });
 
       } else {
-        // MTD, 30D - Use daily data
+        // MTD, 30D - Use daily data only
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDate && d.businessDate <= endDate);
+        const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
         
         // Group by date
         const dateMap = new Map<string, any>();
@@ -294,8 +276,8 @@ export function ReportsPanel() {
             name: d.businessDate.substring(5),
             fullDate: d.businessDate,
             cash: 0,
-            qrisStatic: 0,
-            qrisDynamic: 0,
+            "qris-static": 0,
+            "qris-dynamic": 0,
             voucher: 0,
             receipts: 0,
             revenue: 0
@@ -304,8 +286,8 @@ export function ReportsPanel() {
           existing.revenue += d.totalAmount;
           existing.receipts += d.transactionCount;
           if (d.method === "cash") existing.cash += d.totalAmount;
-          else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
-          else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
+          else if (d.method === "qris-static") existing["qris-static"] += d.totalAmount;
+          else if (d.method === "qris-dynamic") existing["qris-dynamic"] += d.totalAmount;
           else if (d.method === "voucher") existing.voucher += d.totalAmount;
           
           dateMap.set(d.businessDate, existing);
@@ -319,8 +301,8 @@ export function ReportsPanel() {
           revenue: d.revenue,
           receipts: d.receipts,
           cash: d.cash,
-          qrisStatic: d.qrisStatic,
-          qrisDynamic: d.qrisDynamic,
+          qrisStatic: d["qris-static"],
+          qrisDynamic: d["qris-dynamic"],
           voucher: d.voucher
         })).sort((a, b) => b.date.localeCompare(a.date));
         
@@ -542,244 +524,83 @@ export function ReportsPanel() {
     if (!salesChartRef.current || !salesTableRef.current) return;
     
     setIsExporting(true);
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      
-      const chartCanvas = await html2canvas(salesChartRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      const chartImgData = chartCanvas.toDataURL('image/png');
-      const chartWidth = pageWidth - (2 * margin);
-      const chartHeight = (chartCanvas.height * chartWidth) / chartCanvas.width;
-      
-      pdf.addImage(chartImgData, 'PNG', margin, margin, chartWidth, chartHeight);
-      
-      pdf.addPage();
-      
-      const tableCanvas = await html2canvas(salesTableRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      const tableImgData = tableCanvas.toDataURL('image/png');
-      
-      const tableWidth = pageWidth - (2 * margin);
-      const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
-      
-      let yPosition = margin;
-      const maxHeightPerPage = pageHeight - (2 * margin);
-      
-      if (tableHeight <= maxHeightPerPage) {
-        pdf.addImage(tableImgData, 'PNG', margin, yPosition, tableWidth, tableHeight);
-      } else {
-        const totalPages = Math.ceil(tableHeight / maxHeightPerPage);
-        
-        for (let i = 0; i < totalPages; i++) {
-          if (i > 0) {
-            pdf.addPage();
-            yPosition = margin;
-          }
-          
-          const sourceY = i * maxHeightPerPage * (tableCanvas.height / tableHeight);
-          const sourceHeight = Math.min(
-            maxHeightPerPage * (tableCanvas.height / tableHeight),
-            tableCanvas.height - sourceY
-          );
-          
-          const pageTableHeight = (sourceHeight * tableWidth) / tableCanvas.width;
-          
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = tableCanvas.width;
-          tempCanvas.height = sourceHeight;
-          const tempCtx = tempCanvas.getContext('2d');
-          
-          if (tempCtx) {
-            tempCtx.drawImage(
-              tableCanvas,
-              0, sourceY, tableCanvas.width, sourceHeight,
-              0, 0, tableCanvas.width, sourceHeight
-            );
-            
-            const tempImgData = tempCanvas.toDataURL('image/png');
-            pdf.addImage(tempImgData, 'PNG', margin, yPosition, tableWidth, pageTableHeight);
-          }
-        }
+    const result = await exportChartAsPDF(
+      salesChartRef.current,
+      salesTableRef.current,
+      {
+        filename: `sales-report-${new Date().toISOString().split('T')[0]}`,
+        title: t.reports.salesReport,
+        includeTimestamp: true,
+        pageOrientation: "portrait"
       }
-      
-      pdf.save(`sales-report-${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      alert('Failed to export PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
     }
+    setIsExporting(false);
   };
 
   const exportSalesAsImage = async () => {
     if (!salesChartRef.current || !salesTableRef.current) return;
     
     setIsExporting(true);
-    try {
-      const container = document.createElement('div');
-      container.style.backgroundColor = '#ffffff';
-      container.style.padding = '20px';
-      
-      const chartClone = salesChartRef.current.cloneNode(true) as HTMLElement;
-      const tableClone = salesTableRef.current.cloneNode(true) as HTMLElement;
-      
-      container.appendChild(chartClone);
-      container.appendChild(tableClone);
-      document.body.appendChild(container);
-      
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      document.body.removeChild(container);
-      
-      const link = document.createElement('a');
-      link.download = `sales-report-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (error) {
-      console.error('Error exporting image:', error);
-      alert('Failed to export image. Please try again.');
-    } finally {
-      setIsExporting(false);
+    const result = await exportChartAsImage(
+      salesChartRef.current,
+      salesTableRef.current,
+      {
+        filename: `sales-report-${new Date().toISOString().split('T')[0]}`
+      }
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
     }
+    setIsExporting(false);
   };
 
   const exportItemsAsPDF = async () => {
     if (!itemsChartRef.current || !itemsTableRef.current) return;
     
     setIsExporting(true);
-    try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      
-      const chartCanvas = await html2canvas(itemsChartRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      const chartImgData = chartCanvas.toDataURL('image/png');
-      const chartWidth = pageWidth - (2 * margin);
-      const chartHeight = (chartCanvas.height * chartWidth) / chartCanvas.width;
-      
-      pdf.addImage(chartImgData, 'PNG', margin, margin, chartWidth, chartHeight);
-      
-      pdf.addPage();
-      
-      const tableCanvas = await html2canvas(itemsTableRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      const tableImgData = tableCanvas.toDataURL('image/png');
-      const tableWidth = pageWidth - (2 * margin);
-      const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
-      
-      let yPosition = margin;
-      const maxHeightPerPage = pageHeight - (2 * margin);
-      
-      if (tableHeight <= maxHeightPerPage) {
-        pdf.addImage(tableImgData, 'PNG', margin, yPosition, tableWidth, tableHeight);
-      } else {
-        const totalPages = Math.ceil(tableHeight / maxHeightPerPage);
-        
-        for (let i = 0; i < totalPages; i++) {
-          if (i > 0) {
-            pdf.addPage();
-            yPosition = margin;
-          }
-          
-          const sourceY = i * maxHeightPerPage * (tableCanvas.height / tableHeight);
-          const sourceHeight = Math.min(
-            maxHeightPerPage * (tableCanvas.height / tableHeight),
-            tableCanvas.height - sourceY
-          );
-          
-          const pageTableHeight = (sourceHeight * tableWidth) / tableCanvas.width;
-          
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = tableCanvas.width;
-          tempCanvas.height = sourceHeight;
-          const tempCtx = tempCanvas.getContext('2d');
-          
-          if (tempCtx) {
-            tempCtx.drawImage(
-              tableCanvas,
-              0, sourceY, tableCanvas.width, sourceHeight,
-              0, 0, tableCanvas.width, sourceHeight
-            );
-            
-            const tempImgData = tempCanvas.toDataURL('image/png');
-            pdf.addImage(tempImgData, 'PNG', margin, yPosition, tableWidth, pageTableHeight);
-          }
-        }
+    const result = await exportChartAsPDF(
+      itemsChartRef.current,
+      itemsTableRef.current,
+      {
+        filename: `items-report-${new Date().toISOString().split('T')[0]}`,
+        title: t.reports.topItemsData,
+        includeTimestamp: true,
+        pageOrientation: "portrait"
       }
-      
-      pdf.save(`items-report-${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      alert('Failed to export PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
     }
+    setIsExporting(false);
   };
 
   const exportItemsAsImage = async () => {
     if (!itemsChartRef.current || !itemsTableRef.current) return;
     
     setIsExporting(true);
-    try {
-      const container = document.createElement('div');
-      container.style.backgroundColor = '#ffffff';
-      container.style.padding = '20px';
-      
-      const chartClone = itemsChartRef.current.cloneNode(true) as HTMLElement;
-      const tableClone = itemsTableRef.current.cloneNode(true) as HTMLElement;
-      
-      container.appendChild(chartClone);
-      container.appendChild(tableClone);
-      document.body.appendChild(container);
-      
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false
-      });
-      
-      document.body.removeChild(container);
-      
-      const link = document.createElement('a');
-      link.download = `items-report-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (error) {
-      console.error('Error exporting image:', error);
-      alert('Failed to export image. Please try again.');
-    } finally {
-      setIsExporting(false);
+    const result = await exportChartAsImage(
+      itemsChartRef.current,
+      itemsTableRef.current,
+      {
+        filename: `items-report-${new Date().toISOString().split('T')[0]}`
+      }
+    );
+    
+    if (!result.success) {
+      alert(`Export failed: ${result.error}`);
     }
+    setIsExporting(false);
   };
 
   const generateSpectrumColor = (index: number, total: number): string => {
-    const hue = (index / total) * 360;
-    return `hsl(${hue}, 70%, 55%)`;
+    const colors = generateChartColors(total, "spectrum");
+    return colors[index];
   };
 
   const barChartData = topItems.map((item, idx) => ({
@@ -798,16 +619,7 @@ export function ReportsPanel() {
     };
   });
 
-  const getPeriodLabel = () => {
-    switch (salesTimeRange) {
-      case "mtd": return "Month to Date";
-      case "30d": return "Last 30 Days";
-      case "ytd": return "Year to Date";
-      case "12m": return "Last 12 Months";
-      case "5y": return "Last 5 Years";
-      default: return "";
-    }
-  };
+  const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
 
   return (
     <Tabs defaultValue="sales" className="flex flex-col h-full">
@@ -833,7 +645,7 @@ export function ReportsPanel() {
           <div ref={salesChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
             <div className="text-center space-y-1 pb-3 border-b">
               <h2 className="text-lg font-bold">{t.reports.salesReport}</h2>
-              <p className="text-sm text-muted-foreground">{getPeriodLabel()}</p>
+              <p className="text-sm text-muted-foreground">{salesPeriodLabel}</p>
               <p className="text-xs text-muted-foreground">{salesDateRange}</p>
             </div>
 
@@ -885,7 +697,7 @@ export function ReportsPanel() {
                 </div>
                 
                 <div className="flex justify-center gap-1 mt-3 pt-3 border-t overflow-x-auto">
-                  {(["mtd", "30d", "ytd", "12m", "5y"] as SalesTimeRange[]).map((range) => (
+                  {(["MTD", "30D", "YTD", "12M", "5Y"] as SalesTimeRange[]).map((range) => (
                     <Button
                       key={range}
                       variant={salesTimeRange === range ? "default" : "ghost"}
@@ -893,7 +705,7 @@ export function ReportsPanel() {
                       onClick={() => setSalesTimeRange(range)}
                       className="h-6 px-2 text-[10px] uppercase whitespace-nowrap"
                     >
-                      {range === "mtd" ? "MTD" : range === "30d" ? "30D" : range === "ytd" ? "YTD" : range === "12m" ? "12M" : "5Y"}
+                      {range}
                     </Button>
                   ))}
                 </div>
@@ -927,7 +739,7 @@ export function ReportsPanel() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-medium flex items-center gap-2">
                   <Table2 className="h-3 w-3" />
-                  {isSalesMonthlyView ? (salesTimeRange === "5y" ? t.reports.year : t.reports.monthlySalesData) : t.reports.dailySalesData}
+                  {isSalesMonthlyView ? (salesTimeRange === "5Y" ? t.reports.year : t.reports.monthlySalesData) : t.reports.dailySalesData}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-2">
@@ -938,7 +750,7 @@ export function ReportsPanel() {
                         <TableHeader>
                           <TableRow className="border-b">
                             <TableHead className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">
-                              {salesTimeRange === "5y" ? t.reports.year : (isSalesMonthlyView ? t.reports.month : t.reports.date)}
+                              {salesTimeRange === "5Y" ? t.reports.year : (isSalesMonthlyView ? t.reports.month : t.reports.date)}
                             </TableHead>
                             <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
                             <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rcpt</TableHead>
