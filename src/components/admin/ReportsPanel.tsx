@@ -243,7 +243,7 @@ export function ReportsPanel() {
         } else {
           // YTD, 12M - show individual months (no aggregation)
           const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5, 7), // Show month number (01, 02, etc.)
+            name: m.yearMonth.substring(5, 7),
             fullDate: m.yearMonth,
             cash: m.cashAmount,
             qrisStatic: m.qrisStaticAmount,
@@ -289,7 +289,7 @@ export function ReportsPanel() {
         
         filtered.forEach(d => {
           const existing = dateMap.get(d.businessDate) || {
-            name: d.businessDate.substring(5), // MM-DD format
+            name: d.businessDate.substring(5),
             fullDate: d.businessDate,
             cash: 0,
             qrisStatic: 0,

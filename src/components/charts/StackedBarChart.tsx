@@ -47,7 +47,7 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
           cursor={false}
         />
         <Legend 
-          wrapperStyle={{ fontSize: "9px", paddingTop: "8px" }}
+          wrapperStyle={{ fontSize: "9px", paddingTop: "8px", textAlign: "center" }}
           iconSize={8}
           align="center"
         />
