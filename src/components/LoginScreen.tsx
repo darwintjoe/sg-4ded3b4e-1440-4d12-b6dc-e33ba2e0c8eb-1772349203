@@ -52,6 +52,27 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
     }
   };
 
+  const handleResume = async () => {
+    if (pin.length !== 4) {
+      setError(translate("login.pinRequired", language));
+      return;
+    }
+
+    setError("");
+
+    try {
+      const success = await resumeSession(pin);
+      if (success) {
+        setPin("");
+        setError("");
+      } else {
+        setError(translate("login.resumeFailed", language));
+      }
+    } catch (err) {
+      setError(translate("login.error", language));
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] via-[#2d2520] to-[#1a1a1a] p-4 overflow-hidden relative">
       {/* Top Bar */}

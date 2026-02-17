@@ -27,6 +27,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [editingItem, setEditingItem] = useState<{ item: CartItem; index: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showPauseConfirm, setShowPauseConfirm] = useState(false);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -237,6 +238,16 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
     setShowLogoutConfirm(false);
   };
 
+  const handlePauseSession = () => {
+    setShowPauseConfirm(true);
+  };
+
+  const handleConfirmPause = async () => {
+    await pauseSession();
+    await logout();
+    setShowPauseConfirm(false);
+  };
+
   const filteredItems = items.filter(item => {
     if (!searchQuery.trim()) return false;
     const query = searchQuery.toLowerCase();
@@ -279,7 +290,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={pauseSession}
+            onClick={handlePauseSession}
             className="flex-1 h-10"
           >
             <PauseCircle className="h-4 w-4 mr-2" />
@@ -518,6 +529,29 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
               className="bg-red-600 hover:bg-red-700"
             >
               {translate("pos.clearAll", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Pause Session Confirmation */}
+      <AlertDialog open={showPauseConfirm} onOpenChange={setShowPauseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("pos.confirmPause", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate("pos.confirmPauseMessage", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowPauseConfirm(false)}>
+              {translate("common.cancel", language)}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmPause}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {translate("pos.pauseSession", language)}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
