@@ -11,7 +11,9 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
-import { Search, ShoppingCart, Trash2, PauseCircle, LogOut, Settings as SettingsIcon, Clock, X } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus } from "lucide-react";
+import { useRouter } from "next/router";
+import { useToast } from "@/hooks/use-toast";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -34,8 +36,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const router = useRouter();
 
   useEffect(() => {
     loadItems();
@@ -248,6 +253,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
     setShowPauseConfirm(false);
   };
 
+  const handleLockScreen = () => {
+    router.push("/");
+  };
+
   const filteredItems = items.filter(item => {
     if (!searchQuery.trim()) return false;
     const query = searchQuery.toLowerCase();
@@ -290,11 +299,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick }: POSScreenProps) {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handlePauseSession}
+            onClick={handleLockScreen}
             className="flex-1 h-10"
           >
-            <PauseCircle className="h-4 w-4 mr-2" />
-            {translate("pos.pause", language)}
+            <Lock className="h-4 w-4 mr-2" />
+            {translate("pos.lockScreen", language)}
           </Button>
           <Button 
             variant="outline" 
