@@ -25,7 +25,6 @@ export function ReportsPanel() {
   const salesChartRef = useRef<HTMLDivElement>(null);
   const salesTableRef = useRef<HTMLDivElement>(null);
 
-  // Helper function to format currency
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
       return (amount / 1_000_000_000).toFixed(2) + "B";
@@ -73,7 +72,6 @@ export function ReportsPanel() {
     }
   };
 
-  // Sales state
   const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
   const [salesChartData, setSalesChartData] = useState<any[]>([]);
   const [salesStats, setSalesStats] = useState({
@@ -85,7 +83,6 @@ export function ReportsPanel() {
   const [salesDateRange, setSalesDateRange] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
 
-  // Items state
   const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
   const [itemTopN, setItemTopN] = useState<10 | 20>(10);
   const [chartView, setChartView] = useState<ChartView>("bar");
@@ -97,7 +94,6 @@ export function ReportsPanel() {
   }>>([]);
   const [topItemsData, setTopItemsData] = useState<any[]>([]);
 
-  // Attendance state
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
   const [attendanceData, setAttendanceData] = useState<Array<{
     employeeName: string;
@@ -106,7 +102,6 @@ export function ReportsPanel() {
     lateCount: number;
   }>>([]);
 
-  // Helper to determine if we are in monthly view for rendering
   const isSalesMonthlyView = ["ytd", "12m", "5y"].includes(salesTimeRange);
 
   useEffect(() => {
@@ -126,31 +121,26 @@ export function ReportsPanel() {
     const todayStr = today.toISOString().split("T")[0];
     
     if (salesTimeRange === "mtd") {
-      // Month to Date
       const monthStart = todayStr.substring(0, 8) + "01";
       const displayRange = `${monthStart} - ${todayStr}`;
       return { startDate: monthStart, endDate: todayStr, useMonthly: false, displayRange };
     } else if (salesTimeRange === "30d") {
-      // Last 30 Days
       const thirtyDaysAgo = new Date(today);
       thirtyDaysAgo.setDate(today.getDate() - 29);
       const startDate = thirtyDaysAgo.toISOString().split("T")[0];
       const displayRange = `${startDate} - ${todayStr}`;
       return { startDate, endDate: todayStr, useMonthly: false, displayRange };
     } else if (salesTimeRange === "ytd") {
-      // Year to Date
       const yearStart = todayStr.substring(0, 4) + "-01-01";
       const displayRange = `${yearStart} - ${todayStr}`;
       return { startDate: yearStart, endDate: todayStr, useMonthly: true, displayRange };
     } else if (salesTimeRange === "12m") {
-      // Last 12 Months
       const twelveMonthsAgo = new Date(today);
       twelveMonthsAgo.setMonth(today.getMonth() - 11);
       const startDate = twelveMonthsAgo.toISOString().split("T")[0].substring(0, 7) + "-01";
       const displayRange = `${startDate.substring(0, 7)} - ${todayStr.substring(0, 7)}`;
       return { startDate, endDate: todayStr, useMonthly: true, displayRange };
     } else {
-      // 5Y - Last 5 Years
       const fiveYearsAgo = new Date(today);
       fiveYearsAgo.setFullYear(today.getFullYear() - 4);
       const startDate = fiveYearsAgo.toISOString().split("T")[0].substring(0, 4) + "-01-01";
@@ -165,19 +155,13 @@ export function ReportsPanel() {
       setSalesDateRange(displayRange);
 
       if (useMonthly) {
-        // Query Monthly Tables (Two-Tier Architecture)
-        // For long ranges, we use the pre-aggregated monthly tables
-        // PLUS the current month's daily data aggregated on the fly
-        
         const startMonth = startDate.substring(0, 7);
         const endMonth = endDate.substring(0, 7);
         const currentMonth = new Date().toISOString().substring(0, 7);
 
-        // 1. Get historical monthly data
         const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
 
-        // 2. Get current month daily data and aggregate it
         let currentMonthData = null;
         if (endMonth >= currentMonth) {
           const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
@@ -205,7 +189,6 @@ export function ReportsPanel() {
           }
         }
 
-        // Combine historical + current
         const combinedData = [...filteredMonthly];
         if (currentMonthData) {
           const exists = combinedData.find(m => m.yearMonth === currentMonth);
@@ -217,10 +200,8 @@ export function ReportsPanel() {
           }
         }
 
-        // Sort by date
         combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
 
-        // Group by year for 5Y view
         if (salesTimeRange === "5y") {
           const yearlyMap = new Map<string, any>();
           
@@ -255,7 +236,6 @@ export function ReportsPanel() {
           
           setSalesData(tableData);
         } else {
-          // Monthly view (YTD, 12M)
           const chartData = combinedData.map(m => ({
             name: m.yearMonth.substring(5),
             fullDate: m.yearMonth,
@@ -279,7 +259,6 @@ export function ReportsPanel() {
           setSalesData(tableData);
         }
 
-        // Calculate totals
         let totalRevenue = 0;
         let totalReceipts = 0;
         combinedData.forEach(d => {
@@ -294,7 +273,6 @@ export function ReportsPanel() {
         });
 
       } else {
-        // Daily View (MTD, 30D)
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const dataMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number; receipts: number }>();
         
@@ -310,7 +288,6 @@ export function ReportsPanel() {
           }
         });
 
-        // Generate complete date range for chart
         const chartData = [];
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -342,7 +319,6 @@ export function ReportsPanel() {
         
         setSalesChartData(chartData);
 
-        // Table data (only dates with actual data)
         const tableData = Array.from(dataMap.entries())
           .map(([date, data]) => ({
             date,
@@ -589,7 +565,6 @@ export function ReportsPanel() {
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
       
-      // Page 1: Chart + Summary
       const chartCanvas = await html2canvas(salesChartRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
@@ -602,7 +577,6 @@ export function ReportsPanel() {
       
       pdf.addImage(chartImgData, 'PNG', margin, margin, chartWidth, chartHeight);
       
-      // Page 2: Table
       pdf.addPage();
       
       const tableCanvas = await html2canvas(salesTableRef.current, {
@@ -616,15 +590,12 @@ export function ReportsPanel() {
       const tableWidth = pageWidth - (2 * margin);
       const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
       
-      // Paginate if table is too long
       let yPosition = margin;
       const maxHeightPerPage = pageHeight - (2 * margin);
       
       if (tableHeight <= maxHeightPerPage) {
-        // Fits on one page
         pdf.addImage(tableImgData, 'PNG', margin, yPosition, tableWidth, tableHeight);
       } else {
-        // Need to split across pages
         const totalPages = Math.ceil(tableHeight / maxHeightPerPage);
         
         for (let i = 0; i < totalPages; i++) {
@@ -641,7 +612,6 @@ export function ReportsPanel() {
           
           const pageTableHeight = (sourceHeight * tableWidth) / tableCanvas.width;
           
-          // Create temporary canvas for this page section
           const tempCanvas = document.createElement('canvas');
           tempCanvas.width = tableCanvas.width;
           tempCanvas.height = sourceHeight;
@@ -674,7 +644,6 @@ export function ReportsPanel() {
     
     setIsExporting(true);
     try {
-      // Combine chart and table into one image
       const container = document.createElement('div');
       container.style.backgroundColor = '#ffffff';
       container.style.padding = '20px';
@@ -706,7 +675,6 @@ export function ReportsPanel() {
     }
   };
 
-  // Prepare chart data
   const barChartData = topItems.map(item => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
@@ -735,7 +703,6 @@ export function ReportsPanel() {
 
   return (
     <Tabs defaultValue="sales" className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="sales">Sales</TabsTrigger>
@@ -753,19 +720,15 @@ export function ReportsPanel() {
         </div>
       </div>
 
-      {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4">
         <TabsContent value="sales" className="space-y-4 mt-0">
-          {/* Chart Section - For Export */}
           <div ref={salesChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
-            {/* Report Header */}
             <div className="text-center space-y-1 pb-3 border-b">
               <h2 className="text-lg font-bold">{t.reports.salesReport}</h2>
               <p className="text-sm text-muted-foreground">{getPeriodLabel()}</p>
               <p className="text-xs text-muted-foreground">{salesDateRange}</p>
             </div>
 
-            {/* Stats Row */}
             <div className="grid grid-cols-3 gap-1.5">
               <Card>
                 <CardContent className="pt-2 pb-2 px-2">
@@ -802,11 +765,9 @@ export function ReportsPanel() {
               </Card>
             </div>
 
-            {/* Chart */}
             <Card>
               <CardContent className="p-2">
                 <div className="space-y-3">
-                  {/* Payment Methods Breakdown */}
                   <div>
                     <h4 className="text-[10px] font-medium mb-2">{t.reports.paymentBreakdown}</h4>
                     <div className="h-[320px]">
@@ -815,7 +776,6 @@ export function ReportsPanel() {
                   </div>
                 </div>
                 
-                {/* Time Range Switcher */}
                 <div className="flex justify-center gap-1 mt-3 pt-3 border-t overflow-x-auto">
                   {(["mtd", "30d", "ytd", "12m", "5y"] as SalesTimeRange[]).map((range) => (
                     <Button
@@ -833,7 +793,6 @@ export function ReportsPanel() {
             </Card>
           </div>
 
-          {/* Export Buttons */}
           <div className="flex justify-center gap-2">
             <Button 
               onClick={exportSalesAsPDF} 
@@ -855,7 +814,6 @@ export function ReportsPanel() {
             </Button>
           </div>
 
-          {/* Sales Data Table - For Export */}
           <div ref={salesTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
             <Card>
               <CardHeader className="pb-2">
@@ -920,13 +878,10 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
-          {/* Chart Card - Full Width, Takes Most of Screen */}
           <Card>
             <CardContent className="p-2">
               <div className="relative">
-                {/* Floating Controls - Top Right */}
                 <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
-                  {/* Chart Type Selector */}
                   <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                     <Button
                       variant={chartView === "bar" ? "default" : "ghost"}
@@ -946,7 +901,6 @@ export function ReportsPanel() {
                     </Button>
                   </div>
 
-                  {/* Sort Selector */}
                   <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                     <Button
                       variant={sortBy === "quantity" ? "default" : "ghost"}
@@ -966,7 +920,6 @@ export function ReportsPanel() {
                     </Button>
                   </div>
 
-                  {/* Top N Selector */}
                   <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
                     <Button
                       variant={itemTopN === 10 ? "default" : "ghost"}
@@ -987,7 +940,6 @@ export function ReportsPanel() {
                   </div>
                 </div>
 
-                {/* Chart Area */}
                 <div>
                   <h4 className="text-[10px] font-medium mb-2">
                     {sortBy === "quantity" ? t.reports.topItemsByQuantity : t.reports.topItemsByRevenue}
@@ -1001,7 +953,6 @@ export function ReportsPanel() {
                   </div>
                 </div>
 
-                {/* Time Range Buttons */}
                 <div className="flex justify-center gap-0.5 mt-3 pt-3 border-t flex-wrap">
                   {(["1d", "7d", "1m", "3m", "6m", "1y", "3y", "5y"] as ItemsTimeRange[]).map((range) => (
                     <Button
@@ -1019,7 +970,6 @@ export function ReportsPanel() {
             </CardContent>
           </Card>
 
-          {/* Items Data Table - Below Chart (Scroll to View) */}
           <Card className="mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-xs font-medium flex items-center gap-2">
@@ -1078,7 +1028,6 @@ export function ReportsPanel() {
         </TabsContent>
 
         <TabsContent value="attendance" className="space-y-4 mt-0">
-          {/* Time Range Switcher */}
           <div className="flex justify-end gap-2">
             <Button
               variant={attendanceTimeRange === "mtd" ? "default" : "outline"}
@@ -1096,7 +1045,6 @@ export function ReportsPanel() {
             </Button>
           </div>
 
-          {/* Table */}
           <Card>
             <CardContent className="p-4">
               {attendanceData.length > 0 ? (
