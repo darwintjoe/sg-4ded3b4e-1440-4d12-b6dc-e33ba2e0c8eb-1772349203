@@ -656,32 +656,24 @@ export function ReportsPanel() {
     }
   };
 
+  const generateSpectrumColor = (index: number, total: number): string => {
+    const hue = (index / total) * 360;
+    return `hsl(${hue}, 70%, 55%)`;
+  };
+
   const barChartData = topItems.map((item, idx) => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
     revenue: item.revenue,
-    quantity: item.quantity
+    quantity: item.quantity,
+    color: generateSpectrumColor(idx, topItems.length)
   }));
 
   const pieChartData = topItems.map((item, idx) => {
-    const colors20 = [
-      "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-      "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-      "#14b8a6", "#f43f5e", "#22c55e", "#eab308", "#a855f7",
-      "#db2777", "#0891b2", "#65a30d", "#ea580c", "#4f46e5"
-    ];
-    
-    const colors10 = [
-      "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-      "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1"
-    ];
-    
-    const colorPalette = itemTopN === 20 ? colors20 : colors10;
-    
     return {
       name: item.itemName,
       value: sortBy === "quantity" ? item.quantity : item.revenue,
-      color: colorPalette[idx % colorPalette.length]
+      color: generateSpectrumColor(idx, topItems.length)
     };
   });
 
