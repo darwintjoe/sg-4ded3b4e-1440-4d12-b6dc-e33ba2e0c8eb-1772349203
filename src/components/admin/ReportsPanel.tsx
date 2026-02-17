@@ -237,7 +237,7 @@ export function ReportsPanel() {
           setSalesData(tableData);
         } else {
           const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5),
+            name: salesTimeRange === "ytd" ? m.yearMonth.substring(5, 7) : m.yearMonth.substring(5, 7),
             fullDate: m.yearMonth,
             cash: m.cashAmount,
             qrisStatic: m.qrisStaticAmount,
