@@ -18,6 +18,13 @@ interface ItemsReportProps {
   language: string;
 }
 
+interface AggregatedItemData {
+  name: string;
+  quantity: number;
+  revenue: number;
+  transactions: number;
+}
+
 export function ItemsReport({ language }: ItemsReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
   const itemsChartRef = useRef<HTMLDivElement>(null);
@@ -61,6 +68,29 @@ export function ItemsReport({ language }: ItemsReportProps) {
   useEffect(() => {
     loadItemsReport();
   }, [itemsTimeRange, itemTopN, sortBy]);
+
+  // Single-pass aggregation for item data
+  const aggregateItemData = (items: (DailyItemSales | MonthlyItemSales)[]): Map<number, AggregatedItemData> => {
+    const map = new Map<number, AggregatedItemData>();
+    
+    for (const item of items) {
+      const existing = map.get(item.itemId);
+      if (existing) {
+        existing.quantity += item.totalQuantity;
+        existing.revenue += item.totalRevenue;
+        existing.transactions += item.transactionCount;
+      } else {
+        map.set(item.itemId, {
+          name: item.itemName,
+          quantity: item.totalQuantity,
+          revenue: item.totalRevenue,
+          transactions: item.transactionCount
+        });
+      }
+    }
+    
+    return map;
+  };
 
   const loadItemsReport = async () => {
     try {
@@ -120,77 +150,72 @@ export function ItemsReport({ language }: ItemsReportProps) {
           startDate.setHours(0, 0, 0, 0);
       }
 
-      const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
+      const startDateStr = startDate.toISOString().split('T')[0];
+      const endDateStr = today.toISOString().split('T')[0];
+      const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
+      const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
+
+      let itemMap: Map<number, AggregatedItemData>;
 
       if (useMonthly) {
-        const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
-        const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
-        
-        const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
-        
-        filteredMonthly.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
-          existing.quantity += item.totalQuantity;
-          existing.revenue += item.totalRevenue;
-          existing.transactions += item.transactionCount;
-          itemMap.set(item.itemId, existing);
-        });
+        // Batch fetch all data upfront
+        const [allMonthly, allDaily] = await Promise.all([
+          db.getAll<MonthlyItemSales>("monthlyItemSales"),
+          db.getAll<DailyItemSales>("dailyItemSales")
+        ]);
 
-        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
+        // Filter and aggregate in single pass
+        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
         const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
-        
-        currentDaily.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
-          existing.quantity += item.totalQuantity;
-          existing.revenue += item.totalRevenue;
-          existing.transactions += item.transactionCount;
-          itemMap.set(item.itemId, existing);
-        });
+
+        // Combine and aggregate
+        itemMap = aggregateItemData([...filteredMonthly, ...currentDaily]);
 
       } else {
+        // Daily data only
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        
-        const startDateStr = startDate.toISOString().split('T')[0];
-        const endDateStr = today.toISOString().split('T')[0];
-        
         const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
         
-        filtered.forEach(item => {
-          const existing = itemMap.get(item.itemId) || { name: item.itemName, quantity: 0, revenue: 0, transactions: 0 };
-          existing.quantity += item.totalQuantity;
-          existing.revenue += item.totalRevenue;
-          existing.transactions += item.transactionCount;
-          itemMap.set(item.itemId, existing);
-        });
+        // Single-pass aggregation
+        itemMap = aggregateItemData(filtered);
       }
 
+      // Convert to array and sort once (single sort operation)
       const allItems = Array.from(itemMap.values());
-      
       const sorted = allItems.sort((a, b) => 
         sortBy === "quantity" ? b.quantity - a.quantity : b.revenue - a.revenue
       );
       
+      // Take top N
       const topNItems = sorted.slice(0, itemTopN);
+
+      // Generate colors once
+      const colors = generateChartColors(topNItems.length, "spectrum");
       
-      const chartResult = topNItems.map(item => ({
+      // Prepare chart data
+      const chartResult = topNItems.map((item, idx) => ({
         itemName: item.name,
         quantity: item.quantity,
-        revenue: item.revenue
+        revenue: item.revenue,
+        color: colors[idx]
       }));
       
       setTopItems(chartResult);
 
-      const tableData = topNItems.map(item => ({
+      // Prepare table data
+      const tableData = topNItems.map((item, idx) => ({
         name: item.name,
         value: item.quantity,
         revenue: item.revenue,
-        transactionCount: item.transactions
+        transactionCount: item.transactions,
+        color: colors[idx]
       }));
       setTopItemsData(tableData);
 
     } catch (error) {
       console.error("Error loading items report:", error);
+      setTopItems([]);
+      setTopItemsData([]);
     }
   };
 
@@ -233,26 +258,31 @@ export function ItemsReport({ language }: ItemsReportProps) {
     setIsExporting(false);
   };
 
-  const generateSpectrumColor = (index: number, total: number): string => {
-    const colors = generateChartColors(total, "spectrum");
-    return colors[index];
-  };
-
-  const barChartData = topItems.map((item, idx) => ({
+  const barChartData = topItems.map(item => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
     revenue: item.revenue,
     quantity: item.quantity,
-    color: generateSpectrumColor(idx, topItems.length)
+    color: item.color
   }));
 
-  const pieChartData = topItems.map((item, idx) => {
-    return {
-      name: item.itemName,
-      value: sortBy === "quantity" ? item.quantity : item.revenue,
-      color: generateSpectrumColor(idx, topItems.length)
-    };
-  });
+  const pieChartData = topItems.map(item => ({
+    name: item.itemName,
+    value: sortBy === "quantity" ? item.quantity : item.revenue,
+    color: item.color
+  }));
+
+  // Pre-calculate table totals
+  const tableTotals = topItemsData.length > 0 ? {
+    quantity: topItemsData.reduce((sum, item) => sum + item.value, 0),
+    revenue: topItemsData.reduce((sum, item) => sum + item.revenue, 0),
+    transactions: topItemsData.reduce((sum, item) => sum + item.transactionCount, 0),
+    avgQty: 0
+  } : { quantity: 0, revenue: 0, transactions: 0, avgQty: 0 };
+
+  if (tableTotals.transactions > 0) {
+    tableTotals.avgQty = tableTotals.quantity / tableTotals.transactions;
+  }
 
   return (
     <div className="space-y-4">
@@ -409,11 +439,11 @@ export function ItemsReport({ language }: ItemsReportProps) {
                     <TableFooter>
                       <TableRow className="bg-muted/50">
                         <TableCell colSpan={2} className="text-[10px] font-bold py-1 px-2">Total</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.value, 0)}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(topItemsData.reduce((sum, item) => sum + item.revenue, 0))}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{tableTotals.quantity}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.revenue)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{tableTotals.transactions}</TableCell>
                         <TableCell className="text-right text-[10px] font-bold py-1 px-2">
-                          {(topItemsData.reduce((sum, item) => sum + item.value, 0) / topItemsData.reduce((sum, item) => sum + item.transactionCount, 0)).toFixed(1)}
+                          {tableTotals.avgQty.toFixed(1)}
                         </TableCell>
                       </TableRow>
                     </TableFooter>

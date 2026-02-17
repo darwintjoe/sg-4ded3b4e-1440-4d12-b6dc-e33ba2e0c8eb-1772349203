@@ -16,6 +16,17 @@ interface SalesReportProps {
   language: string;
 }
 
+interface AggregatedSalesData {
+  key: string;
+  fullDate: string;
+  revenue: number;
+  receipts: number;
+  cash: number;
+  qrisStatic: number;
+  qrisDynamic: number;
+  voucher: number;
+}
+
 export function SalesReport({ language }: SalesReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
   const salesChartRef = useRef<HTMLDivElement>(null);
@@ -60,7 +71,7 @@ export function SalesReport({ language }: SalesReportProps) {
     totalReceipts: 0,
     avgTransaction: 0
   });
-  const [salesData, setSalesData] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<AggregatedSalesData[]>([]);
   const [salesDateRange, setSalesDateRange] = useState<string>("");
   const [salesPeriodLabel, setSalesPeriodLabel] = useState<string>("");
   const [isExporting, setIsExporting] = useState(false);
@@ -68,6 +79,105 @@ export function SalesReport({ language }: SalesReportProps) {
   useEffect(() => {
     loadSalesReport();
   }, [salesTimeRange]);
+
+  // Single-pass aggregation helper
+  const aggregateDailyData = (daily: DailyPaymentSales[]): Map<string, AggregatedSalesData> => {
+    const map = new Map<string, AggregatedSalesData>();
+    
+    for (const d of daily) {
+      const existing = map.get(d.businessDate);
+      if (existing) {
+        existing.revenue += d.totalAmount;
+        existing.receipts += d.transactionCount;
+        if (d.method === "cash") existing.cash += d.totalAmount;
+        else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
+        else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
+        else if (d.method === "voucher") existing.voucher += d.totalAmount;
+      } else {
+        map.set(d.businessDate, {
+          key: d.businessDate.substring(5),
+          fullDate: d.businessDate,
+          revenue: d.totalAmount,
+          receipts: d.transactionCount,
+          cash: d.method === "cash" ? d.totalAmount : 0,
+          qrisStatic: d.method === "qris-static" ? d.totalAmount : 0,
+          qrisDynamic: d.method === "qris-dynamic" ? d.totalAmount : 0,
+          voucher: d.method === "voucher" ? d.totalAmount : 0
+        });
+      }
+    }
+    
+    return map;
+  };
+
+  // Single-pass monthly aggregation
+  const aggregateMonthlyData = (monthly: MonthlySalesSummary[]): Map<string, AggregatedSalesData> => {
+    const map = new Map<string, AggregatedSalesData>();
+    
+    for (const m of monthly) {
+      map.set(m.yearMonth, {
+        key: m.yearMonth.substring(5, 7),
+        fullDate: m.yearMonth,
+        revenue: m.totalRevenue,
+        receipts: m.totalReceipts,
+        cash: m.cashAmount,
+        qrisStatic: m.qrisStaticAmount,
+        qrisDynamic: m.qrisDynamicAmount,
+        voucher: m.voucherAmount
+      });
+    }
+    
+    return map;
+  };
+
+  // Single-pass yearly aggregation from monthly data
+  const aggregateYearlyData = (monthly: MonthlySalesSummary[]): Map<string, AggregatedSalesData> => {
+    const map = new Map<string, AggregatedSalesData>();
+    
+    for (const m of monthly) {
+      const year = m.yearMonth.substring(0, 4);
+      const existing = map.get(year);
+      
+      if (existing) {
+        existing.revenue += m.totalRevenue;
+        existing.receipts += m.totalReceipts;
+        existing.cash += m.cashAmount;
+        existing.qrisStatic += m.qrisStaticAmount;
+        existing.qrisDynamic += m.qrisDynamicAmount;
+        existing.voucher += m.voucherAmount;
+      } else {
+        map.set(year, {
+          key: year,
+          fullDate: year,
+          revenue: m.totalRevenue,
+          receipts: m.totalReceipts,
+          cash: m.cashAmount,
+          qrisStatic: m.qrisStaticAmount,
+          qrisDynamic: m.qrisDynamicAmount,
+          voucher: m.voucherAmount
+        });
+      }
+    }
+    
+    return map;
+  };
+
+  // Calculate totals in single pass
+  const calculateTotals = (data: AggregatedSalesData[]) => {
+    let totalRevenue = 0;
+    let totalReceipts = 0;
+    
+    for (const d of data) {
+      totalRevenue += d.revenue;
+      totalReceipts += d.receipts;
+    }
+    
+    return {
+      totalRevenue,
+      totalReceipts,
+      avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
+    };
+  };
 
   const loadSalesReport = async () => {
     try {
@@ -87,179 +197,112 @@ export function SalesReport({ language }: SalesReportProps) {
         const startMonth = getYearMonth(startDate);
         const endMonth = getYearMonth(endDate);
 
-        // Get all monthly summary data
-        const allMonthly = await db.getAll<MonthlySalesSummary>("monthlySalesSummary");
+        // Batch fetch all data upfront
+        const [allMonthly, allDaily] = await Promise.all([
+          db.getAll<MonthlySalesSummary>("monthlySalesSummary"),
+          db.getAll<DailyPaymentSales>("dailyPaymentSales")
+        ]);
+
+        // Filter in single pass
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
+        const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
 
-        // Get current month data from daily if needed
-        let currentMonthData = null;
-        if (endMonth >= currentMonth) {
-          const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-          const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
-          
-          if (currentDaily.length > 0) {
-            currentMonthData = {
-              yearMonth: currentMonth,
-              totalRevenue: 0,
-              totalReceipts: 0,
-              cashAmount: 0,
-              qrisStaticAmount: 0,
-              qrisDynamicAmount: 0,
-              voucherAmount: 0
-            };
+        // Aggregate monthly data
+        const dataMap = aggregateMonthlyData(filteredMonthly);
 
-            currentDaily.forEach(d => {
-              currentMonthData!.totalRevenue += d.totalAmount;
-              currentMonthData!.totalReceipts += d.transactionCount;
-              if (d.method === "cash") currentMonthData!.cashAmount += d.totalAmount;
-              else if (d.method === "qris-static") currentMonthData!.qrisStaticAmount += d.totalAmount;
-              else if (d.method === "qris-dynamic") currentMonthData!.qrisDynamicAmount += d.totalAmount;
-              else if (d.method === "voucher") currentMonthData!.voucherAmount += d.totalAmount;
-            });
+        // Add current month daily data if needed
+        if (endMonth >= currentMonth && currentDaily.length > 0) {
+          const currentMonthData: AggregatedSalesData = {
+            key: currentMonth.substring(5, 7),
+            fullDate: currentMonth,
+            revenue: 0,
+            receipts: 0,
+            cash: 0,
+            qrisStatic: 0,
+            qrisDynamic: 0,
+            voucher: 0
+          };
+
+          for (const d of currentDaily) {
+            currentMonthData.revenue += d.totalAmount;
+            currentMonthData.receipts += d.transactionCount;
+            if (d.method === "cash") currentMonthData.cash += d.totalAmount;
+            else if (d.method === "qris-static") currentMonthData.qrisStatic += d.totalAmount;
+            else if (d.method === "qris-dynamic") currentMonthData.qrisDynamic += d.totalAmount;
+            else if (d.method === "voucher") currentMonthData.voucher += d.totalAmount;
           }
+
+          dataMap.set(currentMonth, currentMonthData);
         }
 
-        // Combine monthly + current month data
-        const combinedData = [...filteredMonthly];
-        if (currentMonthData) {
-          combinedData.push(currentMonthData as MonthlySalesSummary);
-        }
+        // Convert to array and sort once
+        const sortedData = Array.from(dataMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
 
-        combinedData.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
-
-        // Handle 5Y - aggregate by year (max 5 bars)
+        // Handle 5Y - aggregate by year
         if (salesTimeRange === "5Y") {
-          const yearlyMap = new Map<string, any>();
-          
-          combinedData.forEach(m => {
-            const year = m.yearMonth.substring(0, 4);
-            const existing = yearlyMap.get(year) || { 
-              name: year, 
-              cash: 0, 
-              "qris-static": 0, 
-              "qris-dynamic": 0, 
-              voucher: 0, 
-              receipts: 0, 
-              revenue: 0 
-            };
-            
-            existing.cash += m.cashAmount;
-            existing["qris-static"] += m.qrisStaticAmount;
-            existing["qris-dynamic"] += m.qrisDynamicAmount;
-            existing.voucher += m.voucherAmount;
-            existing.receipts += m.totalReceipts;
-            existing.revenue += m.totalRevenue;
-            
-            yearlyMap.set(year, existing);
-          });
-          
-          const chartData = Array.from(yearlyMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-          setSalesChartData(chartData);
-          
-          const tableData = chartData.map(d => ({
-            date: d.name,
-            revenue: d.revenue,
-            receipts: d.receipts,
+          const yearlyMap = aggregateYearlyData([...filteredMonthly, ...(endMonth >= currentMonth ? [{
+            yearMonth: currentMonth,
+            totalRevenue: sortedData.find(d => d.fullDate === currentMonth)?.revenue || 0,
+            totalReceipts: sortedData.find(d => d.fullDate === currentMonth)?.receipts || 0,
+            cashAmount: sortedData.find(d => d.fullDate === currentMonth)?.cash || 0,
+            qrisStaticAmount: sortedData.find(d => d.fullDate === currentMonth)?.qrisStatic || 0,
+            qrisDynamicAmount: sortedData.find(d => d.fullDate === currentMonth)?.qrisDynamic || 0,
+            voucherAmount: sortedData.find(d => d.fullDate === currentMonth)?.voucher || 0
+          }] : [])]);
+
+          const yearlyData = Array.from(yearlyMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+
+          // Prepare chart data
+          const chartData = yearlyData.map(d => ({
+            name: d.key,
+            fullDate: d.fullDate,
             cash: d.cash,
-            qrisStatic: d["qris-static"],
-            qrisDynamic: d["qris-dynamic"],
+            "qris-static": d.qrisStatic,
+            "qris-dynamic": d.qrisDynamic,
             voucher: d.voucher
-          })).sort((a, b) => b.date.localeCompare(a.date));
-          
-          setSalesData(tableData);
+          }));
+
+          setSalesChartData(chartData);
+          setSalesData(yearlyData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
+          setSalesStats(calculateTotals(yearlyData));
         } else {
           // YTD, 12M - show individual months
-          const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5, 7),
-            fullDate: m.yearMonth,
-            cash: m.cashAmount,
-            "qris-static": m.qrisStaticAmount,
-            "qris-dynamic": m.qrisDynamicAmount,
-            voucher: m.voucherAmount
+          const chartData = sortedData.map(d => ({
+            name: d.key,
+            fullDate: d.fullDate,
+            cash: d.cash,
+            "qris-static": d.qrisStatic,
+            "qris-dynamic": d.qrisDynamic,
+            voucher: d.voucher
           }));
+
           setSalesChartData(chartData);
-          
-          const tableData = combinedData.map(m => ({
-            date: m.yearMonth,
-            revenue: m.totalRevenue,
-            receipts: m.totalReceipts,
-            cash: m.cashAmount,
-            qrisStatic: m.qrisStaticAmount,
-            qrisDynamic: m.qrisDynamicAmount,
-            voucher: m.voucherAmount
-          })).sort((a, b) => b.date.localeCompare(a.date));
-          
-          setSalesData(tableData);
+          setSalesData(sortedData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
+          setSalesStats(calculateTotals(sortedData));
         }
-
-        // Calculate totals
-        let totalRevenue = 0;
-        let totalReceipts = 0;
-        combinedData.forEach(d => {
-          totalRevenue += d.totalRevenue;
-          totalReceipts += d.totalReceipts;
-        });
-
-        setSalesStats({
-          totalRevenue,
-          totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
-        });
 
       } else {
         // MTD, 30D - Use daily data only
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
         
-        // Group by date
-        const dateMap = new Map<string, any>();
-        
-        filtered.forEach(d => {
-          const existing = dateMap.get(d.businessDate) || {
-            name: d.businessDate.substring(5),
-            fullDate: d.businessDate,
-            cash: 0,
-            "qris-static": 0,
-            "qris-dynamic": 0,
-            voucher: 0,
-            receipts: 0,
-            revenue: 0
-          };
-          
-          existing.revenue += d.totalAmount;
-          existing.receipts += d.transactionCount;
-          if (d.method === "cash") existing.cash += d.totalAmount;
-          else if (d.method === "qris-static") existing["qris-static"] += d.totalAmount;
-          else if (d.method === "qris-dynamic") existing["qris-dynamic"] += d.totalAmount;
-          else if (d.method === "voucher") existing.voucher += d.totalAmount;
-          
-          dateMap.set(d.businessDate, existing);
-        });
-        
-        const chartData = Array.from(dateMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
-        setSalesChartData(chartData);
-        
-        const tableData = chartData.map(d => ({
-          date: d.fullDate,
-          revenue: d.revenue,
-          receipts: d.receipts,
+        // Single-pass aggregation
+        const dataMap = aggregateDailyData(filtered);
+        const sortedData = Array.from(dataMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+
+        // Prepare chart data
+        const chartData = sortedData.map(d => ({
+          name: d.key,
+          fullDate: d.fullDate,
           cash: d.cash,
-          qrisStatic: d["qris-static"],
-          qrisDynamic: d["qris-dynamic"],
+          "qris-static": d.qrisStatic,
+          "qris-dynamic": d.qrisDynamic,
           voucher: d.voucher
-        })).sort((a, b) => b.date.localeCompare(a.date));
-        
-        setSalesData(tableData);
-        
-        // Calculate totals
-        const totalRevenue = chartData.reduce((sum, d) => sum + d.revenue, 0);
-        const totalReceipts = chartData.reduce((sum, d) => sum + d.receipts, 0);
-        
-        setSalesStats({
-          totalRevenue,
-          totalReceipts,
-          avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
-        });
+        }));
+
+        setSalesChartData(chartData);
+        setSalesData(sortedData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
+        setSalesStats(calculateTotals(sortedData));
       }
     } catch (error) {
       console.error("Error loading sales report:", error);
@@ -309,6 +352,16 @@ export function SalesReport({ language }: SalesReportProps) {
   };
 
   const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
+
+  // Pre-calculate table totals (memoized in render)
+  const tableTotals = {
+    revenue: salesData.reduce((sum, row) => sum + row.revenue, 0),
+    receipts: salesData.reduce((sum, row) => sum + row.receipts, 0),
+    cash: salesData.reduce((sum, row) => sum + row.cash, 0),
+    qrisStatic: salesData.reduce((sum, row) => sum + row.qrisStatic, 0),
+    qrisDynamic: salesData.reduce((sum, row) => sum + row.qrisDynamic, 0),
+    voucher: salesData.reduce((sum, row) => sum + row.voucher, 0)
+  };
 
   return (
     <div className="space-y-4">
@@ -426,7 +479,7 @@ export function SalesReport({ language }: SalesReportProps) {
                     <TableBody>
                       {salesData.map((row, idx) => (
                         <TableRow key={idx} className="border-b hover:bg-muted/50">
-                          <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.date}</TableCell>
+                          <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.fullDate}</TableCell>
                           <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.revenue)}</TableCell>
                           <TableCell className="text-right text-[10px] py-1 px-2">{row.receipts}</TableCell>
                           <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.cash)}</TableCell>
@@ -439,12 +492,12 @@ export function SalesReport({ language }: SalesReportProps) {
                     <TableFooter>
                       <TableRow className="bg-muted/50">
                         <TableCell className="text-[10px] font-bold py-1 px-2">Total</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.revenue, 0))}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{salesData.reduce((sum, row) => sum + row.receipts, 0)}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.cash, 0))}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisStatic, 0))}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisDynamic, 0))}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.voucher, 0))}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.revenue)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2">{tableTotals.receipts}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.cash)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.qrisStatic)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.qrisDynamic)}</TableCell>
+                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.voucher)}</TableCell>
                       </TableRow>
                     </TableFooter>
                   </Table>
