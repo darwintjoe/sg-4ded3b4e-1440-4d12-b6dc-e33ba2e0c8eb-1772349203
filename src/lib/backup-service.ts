@@ -84,6 +84,40 @@ export class BackupService {
     revertExpiresAt: null
   };
 
+  // Store backup data temporarily for preview
+  private storedBackup: any | null = null;
+
+  storeBackupForPreview(data: any) {
+    this.storedBackup = data;
+    // Also store in sessionStorage to survive refresh
+    try {
+      sessionStorage.setItem("preview_backup_data", JSON.stringify(data));
+    } catch (e) {
+      console.warn("Backup too large for sessionStorage, preview might not survive refresh");
+    }
+  }
+
+  getStoredBackup(): any | null {
+    if (this.storedBackup) return this.storedBackup;
+    
+    // Try retrieving from sessionStorage
+    try {
+      const stored = sessionStorage.getItem("preview_backup_data");
+      if (stored) {
+        this.storedBackup = JSON.parse(stored);
+        return this.storedBackup;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  }
+
+  clearStoredBackup() {
+    this.storedBackup = null;
+    sessionStorage.removeItem("preview_backup_data");
+  }
+
   /**
    * Get device ID (stable across sessions)
    */

@@ -38,18 +38,16 @@ interface BackupData {
 
 interface RestorePreviewDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  backupData: BackupData | null;
-  onConfirm: () => Promise<void>;
-  onCancel: () => void;
+  backupData: any | null;
+  onClose: () => void;
+  onConfirm: () => void;
 }
 
 export function RestorePreviewDialog({
   open,
-  onOpenChange,
   backupData,
+  onClose,
   onConfirm,
-  onCancel,
 }: RestorePreviewDialogProps) {
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -92,7 +90,7 @@ export function RestorePreviewDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -261,7 +259,7 @@ export function RestorePreviewDialog({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={onCancel}
+            onClick={onClose}
             disabled={isRestoring}
           >
             Cancel

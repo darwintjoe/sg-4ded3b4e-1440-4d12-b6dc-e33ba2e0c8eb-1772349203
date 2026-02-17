@@ -1,17 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { DailyItemSales, DailyPaymentSales, DailyAttendance, MonthlyItemSales, MonthlySalesSummary } from "@/types";
 import { useApp } from "@/contexts/AppContext";
-import { Download, Printer, Table2, TrendingUp, TrendingDown, Minus, DollarSign, Receipt, Users, Clock } from "lucide-react";
+import { Download, Printer, Table2, TrendingUp, TrendingDown, Minus, DollarSign, Receipt, Users, Clock, FileImage } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
-type SalesTimeRange = "l30d" | "mtd" | "lm" | "ytd" | "ly" | "5y";
+type SalesTimeRange = "mtd" | "30d" | "ytd" | "12m" | "5y";
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type AttendanceTimeRange = "mtd" | "ytd";
 type ChartView = "bar" | "pie";
@@ -20,6 +22,8 @@ type SortBy = "quantity" | "revenue";
 export function ReportsPanel() {
   const { language } = useApp();
   const locale = language === "id" ? "id-ID" : "en-US";
+  const salesChartRef = useRef<HTMLDivElement>(null);
+  const salesTableRef = useRef<HTMLDivElement>(null);
 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
@@ -41,12 +45,14 @@ export function ReportsPanel() {
       voucher: "Voucher",
     },
     reports: {
+      salesReport: "Sales Report",
       dailySalesData: "Daily Sales Data",
       monthlySalesData: "Monthly Sales Data",
       topItemsData: "Top Items Data",
       noData: "No data available for the selected period",
       date: "Date",
       month: "Month",
+      year: "Year",
       revenue: "Revenue",
       receipts: "Receipts",
       total: "Total",
@@ -61,18 +67,23 @@ export function ReportsPanel() {
       paymentBreakdown: "Payment Breakdown",
       topItemsByQuantity: "Top Items by Quantity",
       topItemsByRevenue: "Top Items by Revenue",
+      exportPDF: "Export PDF",
+      exportImage: "Export Image",
+      exporting: "Exporting...",
     }
   };
 
   // Sales state
-  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("l30d");
+  const [salesTimeRange, setSalesTimeRange] = useState<SalesTimeRange>("mtd");
   const [salesChartData, setSalesChartData] = useState<any[]>([]);
   const [salesStats, setSalesStats] = useState({
     totalRevenue: 0,
     totalReceipts: 0,
     avgTransaction: 0
   });
-  const [salesData, setSalesData] = useState<any[]>([]); // New state for table
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [salesDateRange, setSalesDateRange] = useState<string>("");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Items state
   const [itemsTimeRange, setItemsTimeRange] = useState<ItemsTimeRange>("1m");
@@ -84,7 +95,7 @@ export function ReportsPanel() {
     quantity: number;
     revenue: number;
   }>>([]);
-  const [topItemsData, setTopItemsData] = useState<any[]>([]); // New state for table
+  const [topItemsData, setTopItemsData] = useState<any[]>([]);
 
   // Attendance state
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
@@ -96,7 +107,7 @@ export function ReportsPanel() {
   }>>([]);
 
   // Helper to determine if we are in monthly view for rendering
-  const isSalesMonthlyView = ["ytd", "ly", "5y"].includes(salesTimeRange);
+  const isSalesMonthlyView = ["ytd", "12m", "5y"].includes(salesTimeRange);
 
   useEffect(() => {
     loadSalesReport();
@@ -111,39 +122,48 @@ export function ReportsPanel() {
     loadAttendanceReport();
   }, [attendanceTimeRange]);
 
-  const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean } => {
+  const getSalesDateRange = (): { startDate: string; endDate: string; useMonthly: boolean; displayRange: string } => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
     
-    if (salesTimeRange === "l30d") {
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-      return { startDate: thirtyDaysAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: false };
-    } else if (salesTimeRange === "mtd") {
+    if (salesTimeRange === "mtd") {
+      // Month to Date
       const monthStart = todayStr.substring(0, 8) + "01";
-      return { startDate: monthStart, endDate: todayStr, useMonthly: false };
-    } else if (salesTimeRange === "lm") {
-      const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      return { startDate: lastMonthStart.toISOString().split("T")[0], endDate: lastMonthEnd.toISOString().split("T")[0], useMonthly: false };
+      const displayRange = `${monthStart} - ${todayStr}`;
+      return { startDate: monthStart, endDate: todayStr, useMonthly: false, displayRange };
+    } else if (salesTimeRange === "30d") {
+      // Last 30 Days
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 29);
+      const startDate = thirtyDaysAgo.toISOString().split("T")[0];
+      const displayRange = `${startDate} - ${todayStr}`;
+      return { startDate, endDate: todayStr, useMonthly: false, displayRange };
     } else if (salesTimeRange === "ytd") {
+      // Year to Date
       const yearStart = todayStr.substring(0, 4) + "-01-01";
-      return { startDate: yearStart, endDate: todayStr, useMonthly: true };
-    } else if (salesTimeRange === "ly") {
-      const lastYearStart = (today.getFullYear() - 1) + "-01-01";
-      const lastYearEnd = (today.getFullYear() - 1) + "-12-31";
-      return { startDate: lastYearStart, endDate: lastYearEnd, useMonthly: true };
+      const displayRange = `${yearStart} - ${todayStr}`;
+      return { startDate: yearStart, endDate: todayStr, useMonthly: true, displayRange };
+    } else if (salesTimeRange === "12m") {
+      // Last 12 Months
+      const twelveMonthsAgo = new Date(today);
+      twelveMonthsAgo.setMonth(today.getMonth() - 11);
+      const startDate = twelveMonthsAgo.toISOString().split("T")[0].substring(0, 7) + "-01";
+      const displayRange = `${startDate.substring(0, 7)} - ${todayStr.substring(0, 7)}`;
+      return { startDate, endDate: todayStr, useMonthly: true, displayRange };
     } else {
-      // 5y
+      // 5Y - Last 5 Years
       const fiveYearsAgo = new Date(today);
-      fiveYearsAgo.setFullYear(today.getFullYear() - 5);
-      return { startDate: fiveYearsAgo.toISOString().split("T")[0], endDate: todayStr, useMonthly: true };
+      fiveYearsAgo.setFullYear(today.getFullYear() - 4);
+      const startDate = fiveYearsAgo.toISOString().split("T")[0].substring(0, 4) + "-01-01";
+      const displayRange = `${startDate.substring(0, 4)} - ${todayStr.substring(0, 4)}`;
+      return { startDate, endDate: todayStr, useMonthly: true, displayRange };
     }
   };
 
   const loadSalesReport = async () => {
     try {
-      const { startDate, endDate, useMonthly } = getSalesDateRange();
+      const { startDate, endDate, useMonthly, displayRange } = getSalesDateRange();
+      setSalesDateRange(displayRange);
 
       if (useMonthly) {
         // Query Monthly Tables (Two-Tier Architecture)
@@ -159,7 +179,6 @@ export function ReportsPanel() {
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
 
         // 2. Get current month daily data and aggregate it
-        // We only do this if the requested range includes the current month
         let currentMonthData = null;
         if (endMonth >= currentMonth) {
           const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
@@ -178,7 +197,7 @@ export function ReportsPanel() {
 
             currentDaily.forEach(d => {
               currentMonthData!.totalRevenue += d.totalAmount;
-              currentMonthData!.totalReceipts += d.transactionCount; // This is approximate, summing daily counts
+              currentMonthData!.totalReceipts += d.transactionCount;
               if (d.method === "cash") currentMonthData!.cashAmount += d.totalAmount;
               else if (d.method === "qris-static") currentMonthData!.qrisStaticAmount += d.totalAmount;
               else if (d.method === "qris-dynamic") currentMonthData!.qrisDynamicAmount += d.totalAmount;
@@ -190,12 +209,10 @@ export function ReportsPanel() {
         // Combine historical + current
         const combinedData = [...filteredMonthly];
         if (currentMonthData) {
-          // Check if current month already exists in monthly table (shouldn't, but safety check)
           const exists = combinedData.find(m => m.yearMonth === currentMonth);
           if (!exists) {
             combinedData.push(currentMonthData as MonthlySalesSummary);
           } else {
-             // If exists, replace it with fresh daily aggregation
              const idx = combinedData.indexOf(exists);
              combinedData[idx] = currentMonthData as MonthlySalesSummary;
           }
@@ -239,9 +256,9 @@ export function ReportsPanel() {
           
           setSalesData(tableData);
         } else {
-          // Monthly view (YTD, LY)
+          // Monthly view (YTD, 12M)
           const chartData = combinedData.map(m => ({
-            name: m.yearMonth.substring(5), // MM
+            name: m.yearMonth.substring(5),
             fullDate: m.yearMonth,
             cash: m.cashAmount,
             qrisStatic: m.qrisStaticAmount,
@@ -278,8 +295,7 @@ export function ReportsPanel() {
         });
 
       } else {
-        // Daily View (L30D, MTD, LM)
-        // Query daily table directly
+        // Daily View (MTD, 30D)
         const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const dataMap = new Map<string, { cash: number; qrisStatic: number; qrisDynamic: number; voucher: number; receipts: number }>();
         
@@ -297,18 +313,16 @@ export function ReportsPanel() {
 
         // Generate complete date range for chart
         const chartData = [];
-        const dateList = [];
         const start = new Date(startDate);
         const end = new Date(endDate);
         
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0];
-          dateList.push(dateStr);
           
           const data = dataMap.get(dateStr);
           if (data) {
             chartData.push({
-              name: dateStr.substring(8), // DD
+              name: dateStr.substring(8),
               fullDate: dateStr,
               cash: data.cash,
               qrisStatic: data.qrisStatic,
@@ -369,24 +383,23 @@ export function ReportsPanel() {
       console.log("🔍 Items report triggered - Range:", itemsTimeRange, "TopN:", itemTopN, "Sort:", sortBy);
       
       const today = new Date();
-      today.setHours(23, 59, 59, 999); // End of today
+      today.setHours(23, 59, 59, 999);
       let startDate: Date;
       let useMonthly = false;
 
-      // Determine date range and whether to use monthly data
       switch (itemsTimeRange) {
         case "1d":
           startDate = new Date(today);
-          startDate.setHours(0, 0, 0, 0); // Start of today
+          startDate.setHours(0, 0, 0, 0);
           break;
         case "7d":
           startDate = new Date(today);
-          startDate.setDate(startDate.getDate() - 6); // Last 7 days including today
+          startDate.setDate(startDate.getDate() - 6);
           startDate.setHours(0, 0, 0, 0);
           break;
         case "1m":
           startDate = new Date(today);
-          startDate.setDate(startDate.getDate() - 29); // Last 30 days including today
+          startDate.setDate(startDate.getDate() - 29);
           startDate.setHours(0, 0, 0, 0);
           break;
         case "3m":
@@ -431,13 +444,11 @@ export function ReportsPanel() {
       const itemMap = new Map<number, { name: string; quantity: number; revenue: number; transactions: number }>();
 
       if (useMonthly) {
-        // Two-Tier Query: Monthly + Current Daily
         const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
         const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
         
         console.log("📊 Querying monthly data from", startMonth, "to", currentMonth);
         
-        // 1. Get historical monthly data
         const allMonthly = await db.getAll<MonthlyItemSales>("monthlyItemSales");
         console.log("📦 Total monthly records:", allMonthly.length);
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
@@ -451,7 +462,6 @@ export function ReportsPanel() {
           itemMap.set(item.itemId, existing);
         });
 
-        // 2. Get current month daily data
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
         console.log("📦 Total daily records:", allDaily.length);
         const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
@@ -466,7 +476,6 @@ export function ReportsPanel() {
         });
 
       } else {
-        // Daily Query Only (1D - 1M)
         const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
         console.log("📦 Total daily records in DB:", allDaily.length);
         
@@ -492,7 +501,6 @@ export function ReportsPanel() {
 
       console.log("📊 Total unique items in map:", itemMap.size);
       
-      // Sort by selected criteria
       const allItems = Array.from(itemMap.values());
       console.log("📊 Items before sorting:", allItems.length);
       
@@ -505,7 +513,6 @@ export function ReportsPanel() {
       
       console.log("📊 Top items:", topNItems.length, "Others:", others.length);
       
-      // For Chart
       const chartResult = topNItems.map(item => ({
         itemName: item.name,
         quantity: item.quantity,
@@ -521,10 +528,9 @@ export function ReportsPanel() {
       }
       setTopItems(chartResult);
 
-      // For Table (Detailed top items)
       const tableData = topNItems.map(item => ({
         name: item.name,
-        value: item.quantity, // quantity
+        value: item.quantity,
         revenue: item.revenue,
         transactionCount: item.transactions
       }));
@@ -599,6 +605,133 @@ export function ReportsPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const exportSalesAsPDF = async () => {
+    if (!salesChartRef.current || !salesTableRef.current) return;
+    
+    setIsExporting(true);
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      
+      // Page 1: Chart + Summary
+      const chartCanvas = await html2canvas(salesChartRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      const chartImgData = chartCanvas.toDataURL('image/png');
+      const chartWidth = pageWidth - (2 * margin);
+      const chartHeight = (chartCanvas.height * chartWidth) / chartCanvas.width;
+      
+      pdf.addImage(chartImgData, 'PNG', margin, margin, chartWidth, chartHeight);
+      
+      // Page 2: Table
+      pdf.addPage();
+      
+      const tableCanvas = await html2canvas(salesTableRef.current, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      const tableImgData = tableCanvas.toDataURL('image/png');
+      
+      let tableWidth = pageWidth - (2 * margin);
+      let tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
+      
+      // Paginate if table is too long
+      let yPosition = margin;
+      const maxHeightPerPage = pageHeight - (2 * margin);
+      
+      if (tableHeight <= maxHeightPerPage) {
+        // Fits on one page
+        pdf.addImage(tableImgData, 'PNG', margin, yPosition, tableWidth, tableHeight);
+      } else {
+        // Need to split across pages
+        const totalPages = Math.ceil(tableHeight / maxHeightPerPage);
+        
+        for (let i = 0; i < totalPages; i++) {
+          if (i > 0) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          
+          const sourceY = i * maxHeightPerPage * (tableCanvas.height / tableHeight);
+          const sourceHeight = Math.min(
+            maxHeightPerPage * (tableCanvas.height / tableHeight),
+            tableCanvas.height - sourceY
+          );
+          
+          const pageTableHeight = (sourceHeight * tableWidth) / tableCanvas.width;
+          
+          // Create temporary canvas for this page section
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = tableCanvas.width;
+          tempCanvas.height = sourceHeight;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          if (tempCtx) {
+            tempCtx.drawImage(
+              tableCanvas,
+              0, sourceY, tableCanvas.width, sourceHeight,
+              0, 0, tableCanvas.width, sourceHeight
+            );
+            
+            const tempImgData = tempCanvas.toDataURL('image/png');
+            pdf.addImage(tempImgData, 'PNG', margin, yPosition, tableWidth, pageTableHeight);
+          }
+        }
+      }
+      
+      pdf.save(`sales-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportSalesAsImage = async () => {
+    if (!salesChartRef.current || !salesTableRef.current) return;
+    
+    setIsExporting(true);
+    try {
+      // Combine chart and table into one image
+      const container = document.createElement('div');
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '20px';
+      
+      const chartClone = salesChartRef.current.cloneNode(true) as HTMLElement;
+      const tableClone = salesTableRef.current.cloneNode(true) as HTMLElement;
+      
+      container.appendChild(chartClone);
+      container.appendChild(tableClone);
+      document.body.appendChild(container);
+      
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
+      document.body.removeChild(container);
+      
+      const link = document.createElement('a');
+      link.download = `sales-report-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Error exporting image:', error);
+      alert('Failed to export image. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Prepare chart data
   const barChartData = topItems.map(item => ({
     name: item.itemName,
@@ -615,6 +748,17 @@ export function ReportsPanel() {
       : `hsl(${(idx * 360) / topItems.length}, 70%, 60%)`
   }));
 
+  const getPeriodLabel = () => {
+    switch (salesTimeRange) {
+      case "mtd": return "Month to Date";
+      case "30d": return "Last 30 Days";
+      case "ytd": return "Year to Date";
+      case "12m": return "Last 12 Months";
+      case "5y": return "Last 5 Years";
+      default: return "";
+    }
+  };
+
   return (
     <Tabs defaultValue="sales" className="flex flex-col h-full">
       {/* Header */}
@@ -626,10 +770,10 @@ export function ReportsPanel() {
         </TabsList>
         
         <div className="flex gap-2">
-          <Button onClick={exportToCSV} variant="ghost" size="sm">
+          <Button onClick={exportToCSV} variant="ghost" size="sm" disabled={isExporting}>
             <Download className="h-4 w-4" />
           </Button>
-          <Button onClick={() => window.print()} variant="ghost" size="sm">
+          <Button onClick={() => window.print()} variant="ghost" size="sm" disabled={isExporting}>
             <Printer className="h-4 w-4" />
           </Button>
         </div>
@@ -638,133 +782,167 @@ export function ReportsPanel() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4">
         <TabsContent value="sales" className="space-y-4 mt-0">
-          {/* Stats Row */}
-          <div className="grid grid-cols-3 gap-1.5">
-            <Card>
-              <CardContent className="pt-2 pb-2 px-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalRevenue}</p>
-                    <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.totalRevenue)}</p>
+          {/* Chart Section - For Export */}
+          <div ref={salesChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
+            {/* Report Header */}
+            <div className="text-center space-y-1 pb-3 border-b">
+              <h2 className="text-lg font-bold">{t.reports.salesReport}</h2>
+              <p className="text-sm text-muted-foreground">{getPeriodLabel()}</p>
+              <p className="text-xs text-muted-foreground">{salesDateRange}</p>
+            </div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-1.5">
+              <Card>
+                <CardContent className="pt-2 pb-2 px-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalRevenue}</p>
+                      <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.totalRevenue)}</p>
+                    </div>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-2 pb-2 px-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalReceipts}</p>
+                      <p className="text-sm font-bold leading-tight mt-0.5">{salesStats.totalReceipts}</p>
+                    </div>
+                    <Receipt className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-2 pb-2 px-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.avgTransaction}</p>
+                      <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.avgTransaction)}</p>
+                    </div>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Chart */}
+            <Card>
+              <CardContent className="p-2">
+                <div className="space-y-3">
+                  {/* Payment Methods Breakdown */}
+                  <div>
+                    <h4 className="text-[10px] font-medium mb-2">{t.reports.paymentBreakdown}</h4>
+                    <div className="h-[320px]">
+                      <StackedBarChart data={salesChartData} />
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-2 pb-2 px-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.totalReceipts}</p>
-                    <p className="text-sm font-bold leading-tight mt-0.5">{salesStats.totalReceipts}</p>
-                  </div>
-                  <Receipt className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-2 pb-2 px-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[9px] text-muted-foreground leading-tight">{t.reports.avgTransaction}</p>
-                    <p className="text-sm font-bold leading-tight mt-0.5">{formatCurrency(salesStats.avgTransaction)}</p>
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                
+                {/* Time Range Switcher */}
+                <div className="flex justify-center gap-1 mt-3 pt-3 border-t overflow-x-auto">
+                  {(["mtd", "30d", "ytd", "12m", "5y"] as SalesTimeRange[]).map((range) => (
+                    <Button
+                      key={range}
+                      variant={salesTimeRange === range ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setSalesTimeRange(range)}
+                      className="h-6 px-2 text-[10px] uppercase whitespace-nowrap"
+                    >
+                      {range === "mtd" ? "MTD" : range === "30d" ? "30D" : range === "ytd" ? "YTD" : range === "12m" ? "12M" : "5Y"}
+                    </Button>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Chart - Full Width, Takes Most of Screen */}
-          <Card>
-            <CardContent className="p-2">
-              <div className="space-y-3">
-                {/* Payment Methods Breakdown */}
-                <div>
-                  <h4 className="text-[10px] font-medium mb-2">{t.reports.paymentBreakdown}</h4>
-                  <div className="h-[320px]">
-                    <StackedBarChart
-                      data={salesChartData}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Time Range Switcher */}
-              <div className="flex justify-center gap-1 mt-3 pt-3 border-t overflow-x-auto">
-                {(["l30d", "mtd", "lm", "ytd", "ly", "5y"] as SalesTimeRange[]).map((range) => (
-                  <Button
-                    key={range}
-                    variant={salesTimeRange === range ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setSalesTimeRange(range)}
-                    className="h-6 px-2 text-[10px] uppercase whitespace-nowrap"
-                  >
-                    {range === "l30d" ? "L30D" : range === "mtd" ? "MTD" : range === "lm" ? "LM" : range === "ytd" ? "YTD" : range === "ly" ? "LY" : "5Y"}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Export Buttons */}
+          <div className="flex justify-center gap-2">
+            <Button 
+              onClick={exportSalesAsPDF} 
+              variant="outline" 
+              size="sm"
+              disabled={isExporting}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isExporting ? t.reports.exporting : t.reports.exportPDF}
+            </Button>
+            <Button 
+              onClick={exportSalesAsImage} 
+              variant="outline" 
+              size="sm"
+              disabled={isExporting}
+            >
+              <FileImage className="h-4 w-4 mr-2" />
+              {isExporting ? t.reports.exporting : t.reports.exportImage}
+            </Button>
+          </div>
 
-          {/* Sales Data Table - Below Chart (Scroll to View) */}
-          <Card className="mt-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-medium flex items-center gap-2">
-                <Table2 className="h-3 w-3" />
-                {isSalesMonthlyView ? t.reports.monthlySalesData : t.reports.dailySalesData}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              {salesData.length > 0 ? (
-                <div className="overflow-x-auto -mx-2">
-                  <div className="inline-block min-w-full align-middle">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b">
-                          <TableHead className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{isSalesMonthlyView ? t.reports.month : t.reports.date}</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rcpt</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Cash</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-S</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-D</TableHead>
-                          <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Vchr</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {salesData.map((row, idx) => (
-                          <TableRow key={idx} className="border-b hover:bg-muted/50">
-                            <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.date}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.revenue)}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2">{row.receipts}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.cash)}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisStatic)}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisDynamic)}</TableCell>
-                            <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.voucher)}</TableCell>
+          {/* Sales Data Table - For Export */}
+          <div ref={salesTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <Table2 className="h-3 w-3" />
+                  {isSalesMonthlyView ? (salesTimeRange === "5y" ? t.reports.year : t.reports.monthlySalesData) : t.reports.dailySalesData}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-2">
+                {salesData.length > 0 ? (
+                  <div className="overflow-x-auto -mx-2">
+                    <div className="inline-block min-w-full align-middle">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b">
+                            <TableHead className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">
+                              {salesTimeRange === "5y" ? t.reports.year : (isSalesMonthlyView ? t.reports.month : t.reports.date)}
+                            </TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rcpt</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Cash</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-S</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-D</TableHead>
+                            <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Vchr</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                      <TableFooter>
-                        <TableRow className="bg-muted/50">
-                          <TableCell className="text-[10px] font-bold py-1 px-2">Total</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.revenue, 0))}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2">{salesData.reduce((sum, row) => sum + row.receipts, 0)}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.cash, 0))}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisStatic, 0))}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisDynamic, 0))}</TableCell>
-                          <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.voucher, 0))}</TableCell>
-                        </TableRow>
-                      </TableFooter>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {salesData.map((row, idx) => (
+                            <TableRow key={idx} className="border-b hover:bg-muted/50">
+                              <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.date}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.revenue)}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2">{row.receipts}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.cash)}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisStatic)}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisDynamic)}</TableCell>
+                              <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.voucher)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow className="bg-muted/50">
+                            <TableCell className="text-[10px] font-bold py-1 px-2">Total</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.revenue, 0))}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2">{salesData.reduce((sum, row) => sum + row.receipts, 0)}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.cash, 0))}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisStatic, 0))}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.qrisDynamic, 0))}</TableCell>
+                            <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(salesData.reduce((sum, row) => sum + row.voucher, 0))}</TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <p className="text-[10px] text-muted-foreground text-center py-6">
-                  {t.reports.noData}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground text-center py-6">
+                    {t.reports.noData}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="items" className="space-y-4 mt-0">
