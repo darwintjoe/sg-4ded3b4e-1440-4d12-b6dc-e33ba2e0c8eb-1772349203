@@ -470,33 +470,24 @@ export function ItemsPanel() {
     if (!sku) return;
 
     try {
-      const response = await fetch(`https://go-upc.com/search?q=${sku}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      
-      if (response.ok) {
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        const productName = 
-          doc.querySelector('h1.product-name')?.textContent?.trim() ||
-          doc.querySelector('h1')?.textContent?.trim() ||
-          doc.querySelector('.product-title')?.textContent?.trim() ||
-          doc.querySelector('[itemprop="name"]')?.textContent?.trim();
-        
-        if (productName) {
-          setEditingItem(prev => {
-            // Only update if name is empty to avoid overwriting user input
-            if (prev && (!prev.name || prev.name.trim() === "")) {
-              return { ...prev, name: capitalizeWords(productName) };
-            }
-            return prev;
-          });
-        }
+      // Use our API route to bypass CORS
+      const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
+      const data = await response.json();
+
+      if (data.success && data.productName) {
+        setEditingItem(prev => {
+          if (!prev) return null;
+          // Don't overwrite if user has already entered a name
+          if (prev.name && prev.name.trim() !== "") return prev;
+          
+          return {
+            ...prev,
+            name: data.productName
+          };
+        });
       }
     } catch (error) {
+      // Silent failure - offline, not found, or API error
       console.debug('Product lookup failed (expected behavior):', error);
     }
   };
