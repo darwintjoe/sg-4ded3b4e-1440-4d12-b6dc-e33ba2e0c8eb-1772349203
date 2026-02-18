@@ -77,9 +77,9 @@ export default function SoundTestPage() {
         };
         
         const now = audioContext.currentTime;
-        playTone(1046.5, now, 0.15); // C6
-        playTone(1318.5, now + 0.1, 0.15); // E6
-        playTone(1568, now + 0.2, 0.25); // G6
+        playTone(1046.5, now, 0.15);
+        playTone(1318.5, now + 0.1, 0.15);
+        playTone(1568, now + 0.2, 0.25);
       })
     },
     {
@@ -91,7 +91,6 @@ export default function SoundTestPage() {
         const audioContext = new AudioContext();
         const now = audioContext.currentTime;
         
-        // Create multiple harmonics for bell-like sound
         const frequencies = [800, 1200, 1600, 2000];
         const gains = [0.3, 0.2, 0.15, 0.1];
         
@@ -122,7 +121,6 @@ export default function SoundTestPage() {
         const audioContext = new AudioContext();
         const now = audioContext.currentTime;
         
-        // Simulate multiple coin drops with descending pitch
         const coinTimes = [0, 0.08, 0.14, 0.18, 0.21];
         const pitches = [1200, 1100, 1000, 950, 900];
         
@@ -177,8 +175,7 @@ export default function SoundTestPage() {
         const audioContext = new AudioContext();
         const now = audioContext.currentTime;
         
-        // Ascending arpeggio with sparkle effect
-        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5]; // C5, E5, G5, C6, E6
+        const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5];
         const timings = [0, 0.06, 0.12, 0.18, 0.24];
         
         notes.forEach((freq, i) => {
@@ -208,10 +205,9 @@ export default function SoundTestPage() {
         const audioContext = new AudioContext();
         const now = audioContext.currentTime;
         
-        // Triumphant chord progression
-        const chord1 = [523.25, 659.25, 783.99]; // C major
-        const chord2 = [587.33, 739.99, 880]; // D major
-        const chord3 = [659.25, 830.61, 987.77]; // E major
+        const chord1 = [523.25, 659.25, 783.99];
+        const chord2 = [587.33, 739.99, 880];
+        const chord3 = [659.25, 830.61, 987.77];
         
         const playChord = (frequencies: number[], startTime: number, duration: number) => {
           frequencies.forEach(freq => {
@@ -283,12 +279,12 @@ export default function SoundTestPage() {
         // "CHING" - Bright polyphonic bell (multiple harmonic overtones)
         const bellStart = now + 0.05;
         const bellFrequencies = [
-          { freq: 1760, gain: 0.25 },  // A6 fundamental
-          { freq: 2217, gain: 0.18 },  // C#7
-          { freq: 2637, gain: 0.15 },  // E7
-          { freq: 3520, gain: 0.12 },  // A7
-          { freq: 4435, gain: 0.08 },  // C#8
-          { freq: 5274, gain: 0.05 }   // E8
+          { freq: 1760, gain: 0.25 },
+          { freq: 2217, gain: 0.18 },
+          { freq: 2637, gain: 0.15 },
+          { freq: 3520, gain: 0.12 },
+          { freq: 4435, gain: 0.08 },
+          { freq: 5274, gain: 0.05 }
         ];
 
         bellFrequencies.forEach(({ freq, gain: volume }) => {
@@ -298,7 +294,6 @@ export default function SoundTestPage() {
           osc.type = "sine";
           osc.frequency.setValueAtTime(freq, bellStart);
           
-          // Natural bell envelope - quick attack, long decay
           oscGain.gain.setValueAtTime(0, bellStart);
           oscGain.gain.linearRampToValueAtTime(volume, bellStart + 0.01);
           oscGain.gain.exponentialRampToValueAtTime(0.001, bellStart + 0.8);
