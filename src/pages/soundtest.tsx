@@ -235,8 +235,8 @@ export default function SoundTestPage() {
     },
     {
       id: "ka-ching",
-      name: "Cash Register Ka-Ching",
-      description: "Authentic mechanical drawer + rich polyphonic bell",
+      name: "High-Quality Ka-Ching",
+      description: "Authentic cash register: metallic click + drawer thud + rich polyphonic bell",
       color: "bg-emerald-600",
       play: () => playSound("ka-ching", () => {
         const ctx = new AudioContext();
@@ -244,7 +244,6 @@ export default function SoundTestPage() {
         const masterGain = ctx.createGain();
         masterGain.connect(ctx.destination);
 
-        // "KA" - Sharp metallic transient (drawer mechanism release)
         const kaClick = ctx.createOscillator();
         const kaGain = ctx.createGain();
         kaClick.type = "square";
@@ -256,7 +255,6 @@ export default function SoundTestPage() {
         kaClick.start(now);
         kaClick.stop(now + 0.02);
 
-        // "CHUNK" - Deep impact (drawer hitting stop)
         const chunkNoise = ctx.createBufferSource();
         const chunkBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
         const chunkData = chunkBuffer.getChannelData(0);
@@ -276,7 +274,6 @@ export default function SoundTestPage() {
         chunkNoise.connect(chunkFilter).connect(chunkGain).connect(masterGain);
         chunkNoise.start(now + 0.015);
 
-        // "CHING" - Bright polyphonic bell (multiple harmonic overtones)
         const bellStart = now + 0.05;
         const bellFrequencies = [
           { freq: 1760, gain: 0.25 },
@@ -303,7 +300,6 @@ export default function SoundTestPage() {
           osc.stop(bellStart + 0.8);
         });
 
-        // Add subtle metallic shimmer to the bell
         const shimmer = ctx.createOscillator();
         const shimmerGain = ctx.createGain();
         shimmer.type = "triangle";
