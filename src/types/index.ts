@@ -285,17 +285,5 @@ export interface ShiftConfig {
 }
 
 export interface Translations {
-  [key: string]: string | object;
-  scanner: {
-    title: string;
-    instruction: string;
-    tip: string;
-    scanned: string;
-    lastScanned: string;
-    noCamera: string;
-    cameraError: string;
-    error: string;
-    itemNotFound: string;
-    itemAdded: string;
-  };
+  [key: string]: string;
 }

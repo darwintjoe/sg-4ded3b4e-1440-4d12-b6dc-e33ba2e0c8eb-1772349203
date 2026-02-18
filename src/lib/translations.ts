@@ -112,18 +112,18 @@ export const translations: Record<Language, Translations> = {
     "common.discard": "Discard",
     "common.yes": "Yes",
     "common.no": "No",
-    scanner: {
-      title: "Barcode Scanner",
-      instruction: "Point camera at barcode",
-      tip: "Align barcode within the frame for best results",
-      scanned: "Scanned",
-      lastScanned: "Last scanned",
-      noCamera: "No camera detected",
-      cameraError: "Unable to access camera. Please check permissions.",
-      error: "Scanner Error",
-      itemNotFound: "Item not found for barcode:",
-      itemAdded: "Added to cart",
-    },
+    
+    // Scanner
+    "scanner.title": "Barcode Scanner",
+    "scanner.instruction": "Point camera at barcode",
+    "scanner.tip": "Align barcode within the frame for best results",
+    "scanner.scanned": "Scanned",
+    "scanner.lastScanned": "Last scanned",
+    "scanner.noCamera": "No camera detected",
+    "scanner.cameraError": "Unable to access camera. Please check permissions.",
+    "scanner.error": "Scanner Error",
+    "scanner.itemNotFound": "Item not found for barcode:",
+    "scanner.itemAdded": "Added to cart",
   },
   
   id: {
@@ -237,18 +237,18 @@ export const translations: Record<Language, Translations> = {
     "common.discard": "Buang",
     "common.yes": "Ya",
     "common.no": "Tidak",
-    scanner: {
-      title: "Pemindai Barcode",
-      instruction: "Arahkan kamera ke barcode",
-      tip: "Sejajarkan barcode dalam bingkai untuk hasil terbaik",
-      scanned: "Terpindai",
-      lastScanned: "Terakhir dipindai",
-      noCamera: "Kamera tidak terdeteksi",
-      cameraError: "Tidak dapat mengakses kamera. Silakan periksa izin.",
-      error: "Kesalahan Pemindai",
-      itemNotFound: "Item tidak ditemukan untuk barcode:",
-      itemAdded: "Ditambahkan ke keranjang",
-    },
+    
+    // Scanner
+    "scanner.title": "Pemindai Barcode",
+    "scanner.instruction": "Arahkan kamera ke barcode",
+    "scanner.tip": "Sejajarkan barcode dalam bingkai untuk hasil terbaik",
+    "scanner.scanned": "Terpindai",
+    "scanner.lastScanned": "Terakhir dipindai",
+    "scanner.noCamera": "Kamera tidak terdeteksi",
+    "scanner.cameraError": "Tidak dapat mengakses kamera. Silakan periksa izin.",
+    "scanner.error": "Kesalahan Pemindai",
+    "scanner.itemNotFound": "Item tidak ditemukan untuk barcode:",
+    "scanner.itemAdded": "Ditambahkan ke keranjang",
   },
   
   zh: {
@@ -362,18 +362,18 @@ export const translations: Record<Language, Translations> = {
     "common.discard": "放弃",
     "common.yes": "是",
     "common.no": "否",
-    scanner: {
-      title: "条形码扫描器",
-      instruction: "将相机指向条形码",
-      tip: "将条形码对齐框内以获得最佳结果",
-      scanned: "已扫描",
-      lastScanned: "最后扫描",
-      noCamera: "未检测到相机",
-      cameraError: "无法访问相机。请检查权限。",
-      error: "扫描器错误",
-      itemNotFound: "条形码:",
-      itemAdded: "已添加到购物车",
-    },
+    
+    // Scanner
+    "scanner.title": "条形码扫描器",
+    "scanner.instruction": "将相机指向条形码",
+    "scanner.tip": "将条形码对齐框内以获得最佳结果",
+    "scanner.scanned": "已扫描",
+    "scanner.lastScanned": "最后扫描",
+    "scanner.noCamera": "未检测到相机",
+    "scanner.cameraError": "无法访问相机。请检查权限。",
+    "scanner.error": "扫描器错误",
+    "scanner.itemNotFound": "条形码:",
+    "scanner.itemAdded": "已添加到购物车",
   }
 };
 
