@@ -466,6 +466,41 @@ export function ItemsPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const lookupProductBySKU = async (sku: string) => {
+    if (!sku) return;
+
+    try {
+      const response = await fetch(`https://go-upc.com/search?q=${sku}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const productName = 
+          doc.querySelector('h1.product-name')?.textContent?.trim() ||
+          doc.querySelector('h1')?.textContent?.trim() ||
+          doc.querySelector('.product-title')?.textContent?.trim() ||
+          doc.querySelector('[itemprop="name"]')?.textContent?.trim();
+        
+        if (productName) {
+          setEditingItem(prev => {
+            // Only update if name is empty to avoid overwriting user input
+            if (prev && (!prev.name || prev.name.trim() === "")) {
+              return { ...prev, name: capitalizeWords(productName) };
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (error) {
+      console.debug('Product lookup failed (expected behavior):', error);
+    }
+  };
+
   const handleBarcodeScan = async (barcode: string) => {
     setScannerOpen(false);
     
@@ -474,37 +509,8 @@ export function ItemsPanel() {
     // Set SKU immediately
     handleFieldChange("sku", barcode);
     
-    // Try to lookup product info from go-upc.com (silent failure)
-    try {
-      const response = await fetch(`https://go-upc.com/search?q=${barcode}`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
-      
-      if (response.ok) {
-        const html = await response.text();
-        
-        // Parse HTML to extract product name
-        // go-upc.com typically shows product name in <h1> or product title elements
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        // Try multiple selectors to find product name
-        const productName = 
-          doc.querySelector('h1.product-name')?.textContent?.trim() ||
-          doc.querySelector('h1')?.textContent?.trim() ||
-          doc.querySelector('.product-title')?.textContent?.trim() ||
-          doc.querySelector('[itemprop="name"]')?.textContent?.trim();
-        
-        if (productName && !editingItem.name) {
-          // Only set name if current name is empty
-          handleFieldChange("name", capitalizeWords(productName));
-        }
-      }
-    } catch (error) {
-      // Silent failure - no internet or API error
-      console.debug('Product lookup failed (expected behavior):', error);
-    }
+    // Trigger lookup
+    await lookupProductBySKU(barcode);
   };
 
   const filteredItems = items
@@ -752,35 +758,49 @@ export function ItemsPanel() {
                     </Alert>
                   )}
 
-                  <div className="space-y-2">
-                    <Label>Item Name <span className="text-red-500">*</span></Label>
-                    <Input
-                      value={editingItem.name}
-                      onChange={(e) => handleFieldChange("name", e.target.value)}
-                      placeholder="Coffee Latte"
-                      className="placeholder:text-slate-400/60"
-                    />
-                  </div>
-
+                  {/* SKU Field - Now First */}
                   <div className="space-y-2">
                     <Label>SKU (Barcode)</Label>
-                    <div className="relative">
+                    <div className="flex gap-2">
                       <Input
-                        value={editingItem.sku || ""}
-                        onChange={(e) => handleFieldChange("sku", e.target.value)}
+                        value={editingItem?.sku || ""}
+                        onChange={(e) =>
+                          setEditingItem({ ...editingItem!, sku: e.target.value })
+                        }
+                        onBlur={async (e) => {
+                          // Trigger lookup when user tabs away from SKU field
+                          const sku = e.target.value?.trim();
+                          if (sku && (!editingItem?.name || editingItem.name === "")) {
+                            await lookupProductBySKU(sku);
+                          }
+                        }}
                         placeholder="COFFEE-001"
-                        className="placeholder:text-slate-400/60 pr-10"
                       />
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="sm"
+                        size="icon"
+                        variant="outline"
                         onClick={() => setScannerOpen(true)}
-                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                        className="shrink-0"
                       >
-                        <ScanBarcode className="h-5 w-5 text-blue-600" />
+                        <ScanBarcode className="h-4 w-4 text-blue-600" />
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Item Name Field - Now Second */}
+                  <div className="space-y-2">
+                    <Label>
+                      Item Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={editingItem?.name || ""}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem!, name: e.target.value })
+                      }
+                      placeholder="Coffee Latte"
+                      required
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -795,6 +815,7 @@ export function ItemsPanel() {
                     />
                   </div>
 
+                  {/* Category */}
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <Dialog open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
