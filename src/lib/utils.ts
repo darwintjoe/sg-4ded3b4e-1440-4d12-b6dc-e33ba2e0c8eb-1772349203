@@ -187,6 +187,7 @@ const soundGenerators: Record<string, () => void> = {
   },
   
   "ka-ching": () => {
+    // High-quality synthesized cash register sound - v2.0
     const ctx = new AudioContext();
     const now = ctx.currentTime;
     const masterGain = ctx.createGain();
