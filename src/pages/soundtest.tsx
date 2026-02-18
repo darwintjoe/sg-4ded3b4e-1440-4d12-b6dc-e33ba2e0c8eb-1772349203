@@ -244,6 +244,7 @@ export default function SoundTestPage() {
         const masterGain = ctx.createGain();
         masterGain.connect(ctx.destination);
 
+        // "KA" - metallic click
         const kaClick = ctx.createOscillator();
         const kaGain = ctx.createGain();
         kaClick.type = "square";
@@ -255,6 +256,7 @@ export default function SoundTestPage() {
         kaClick.start(now);
         kaClick.stop(now + 0.02);
 
+        // "CHUNK" - drawer thud
         const chunkNoise = ctx.createBufferSource();
         const chunkBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
         const chunkData = chunkBuffer.getChannelData(0);
@@ -274,6 +276,7 @@ export default function SoundTestPage() {
         chunkNoise.connect(chunkFilter).connect(chunkGain).connect(masterGain);
         chunkNoise.start(now + 0.015);
 
+        // "CHING" - polyphonic bell
         const bellStart = now + 0.05;
         const bellFrequencies = [
           { freq: 1760, gain: 0.25 },
@@ -300,6 +303,7 @@ export default function SoundTestPage() {
           osc.stop(bellStart + 0.8);
         });
 
+        // Shimmer overlay
         const shimmer = ctx.createOscillator();
         const shimmerGain = ctx.createGain();
         shimmer.type = "triangle";
