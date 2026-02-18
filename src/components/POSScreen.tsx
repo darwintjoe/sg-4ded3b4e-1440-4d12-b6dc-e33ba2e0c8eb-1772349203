@@ -157,29 +157,56 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
-      // Find item by SKU (barcode)
-      const item = items.find(i => i.sku?.toLowerCase() === barcode.toLowerCase());
+      // Find item by SKU
+      const item = items.find(i => i.sku === barcode);
       
       if (item) {
-        // Add item to cart
-        handleItemClick(item);
+        // Check if item already exists in cart
+        const existingItemIndex = cart.findIndex(
+          cartItem => cartItem.itemId === item.id && 
+          !cartItem.variant &&
+          (!cartItem.modifiers || cartItem.modifiers.length === 0)
+        );
+
+        if (existingItemIndex !== -1) {
+          // Item exists - increment quantity
+          const updatedCart = [...cart];
+          const existingItem = updatedCart[existingItemIndex];
+          updatedCart[existingItemIndex] = {
+            ...existingItem,
+            quantity: existingItem.quantity + 1,
+            totalPrice: existingItem.basePrice * (existingItem.quantity + 1)
+          };
+          setCart(updatedCart);
+        } else {
+          // New item - add to cart
+          const newItem: CartItem = {
+            itemId: item.id,
+            sku: item.sku || `ITEM-${item.id}`,
+            name: item.name,
+            quantity: 1,
+            basePrice: item.price,
+            totalPrice: item.price,
+            variant: undefined,
+            modifiers: []
+          };
+          setCart([...cart, newItem]);
+        }
         
-        // Note: Sound is now handled by BarcodeScanner component ("ding")
-        // Toast is also handled by BarcodeScanner for immediate feedback
+        // Sound is handled by BarcodeScanner for immediate feedback
       } else {
         // Item not found
         toast({
-          title: translate("scanner.itemNotFound", language),
-          description: barcode,
+          title: translate("pos.itemNotFound", language),
+          description: `SKU: ${barcode}`,
           variant: "destructive",
-          duration: 3000,
         });
       }
     } catch (error) {
-      console.error("Error processing barcode:", error);
+      console.error("Barcode scan error:", error);
       toast({
-        title: translate("scanner.error", language),
-        description: "Failed to process barcode",
+        title: translate("pos.error", language),
+        description: translate("pos.itemNotFound", language),
         variant: "destructive",
       });
     }
@@ -347,17 +374,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 z-10" />
           <Input
-            ref={searchInputRef}
-            placeholder={translate("pos.search", language)}
+            type="text"
+            placeholder={translate("pos.searchPlaceholder", language)}
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setShowItemPicker(e.target.value.trim().length > 0);
-            }}
-            onFocus={() => {
-              if (searchQuery.trim().length > 0) setShowItemPicker(true);
-            }}
-            className="pl-10 pr-24 h-12 text-base"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            disabled={scannerOpen}
+            className="flex-1"
           />
           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
             {searchQuery && (

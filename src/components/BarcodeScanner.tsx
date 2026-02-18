@@ -1,165 +1,212 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Minimize2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Html5Qrcode } from "html5-qrcode";
 import { useToast } from "@/hooks/use-toast";
-import { Language } from "@/types";
 
 interface BarcodeScannerProps {
   isOpen: boolean;
-  onClose: () => void;
   onScan: (barcode: string) => void;
-  language: Language;
+  onClose: () => void;
+  language: "en" | "id" | "zh";
 }
 
-const translations = {
-  en: {
-    title: "Scan Barcode",
-    close: "Close",
-    scanning: "Ready to scan...",
-    scanned: "Scanned!",
-  },
-  id: {
-    title: "Pindai Barcode",
-    close: "Tutup",
-    scanning: "Siap memindai...",
-    scanned: "Terpindai!",
-  },
-  zh: {
-    title: "扫描条形码",
-    close: "关闭",
-    scanning: "准备扫描...",
-    scanned: "已扫描!",
-  },
-};
-
-export function BarcodeScanner({ isOpen, onClose, onScan, language }: BarcodeScannerProps) {
+export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastScanTime, setLastScanTime] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<any>(null);
   const { toast } = useToast();
-  const t = translations[language];
 
-  // Play simple beep/ding sound on successful scan
-  const playDingSound = () => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Higher pitch, short duration for a "beep"
-      oscillator.frequency.value = 1200; 
-      oscillator.type = "sine";
-      
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.1);
-    } catch (error) {
-      console.error("Error playing ding sound:", error);
+  const t = {
+    en: {
+      title: "Scan Barcode",
+      ready: "Ready to scan",
+      processing: "Processing...",
+      error: "Camera access denied",
+      close: "Close"
+    },
+    id: {
+      title: "Pindai Barcode",
+      ready: "Siap memindai",
+      processing: "Memproses...",
+      error: "Akses kamera ditolak",
+      close: "Tutup"
+    },
+    zh: {
+      title: "扫描条形码",
+      ready: "准备扫描",
+      processing: "处理中...",
+      error: "相机访问被拒绝",
+      close: "关闭"
     }
+  }[language];
+
+  // Play ding sound on successful scan
+  const playDingSound = () => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 880; // Higher pitch "ding" (A5)
+    oscillator.type = "sine";
+    
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
   };
 
   useEffect(() => {
     if (!isOpen) return;
 
-    // Small delay to ensure container is rendered
-    const timer = setTimeout(() => {
-      startScanner();
-    }, 100);
+    let mounted = true;
+
+    const startScanner = async () => {
+      try {
+        setIsScanning(true);
+        setError(null);
+
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+
+        if (!mounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+
+          // Use Barcode Detection API if available
+          if ('BarcodeDetector' in window) {
+            const barcodeDetector = new (window as any).BarcodeDetector({
+              formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e']
+            });
+            scannerRef.current = barcodeDetector;
+
+            const detectBarcode = async () => {
+              if (!mounted || !videoRef.current || isProcessing) return;
+
+              try {
+                const barcodes = await barcodeDetector.detect(videoRef.current);
+                if (barcodes.length > 0 && !isProcessing) {
+                  const now = Date.now();
+                  // 2-second debounce between scans
+                  if (now - lastScanTime > 2000) {
+                    setLastScanTime(now);
+                    setIsProcessing(true);
+                    
+                    const barcode = barcodes[0].rawValue;
+                    playDingSound();
+                    toast({
+                      title: "Scanned: " + barcode,
+                      duration: 1500,
+                    });
+                    onScan(barcode);
+
+                    // Reset processing state after 2 seconds
+                    setTimeout(() => {
+                      if (mounted) {
+                        setIsProcessing(false);
+                      }
+                    }, 2000);
+                  }
+                }
+              } catch (err) {
+                // Silently continue scanning
+              }
+
+              if (mounted) {
+                requestAnimationFrame(detectBarcode);
+              }
+            };
+
+            detectBarcode();
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(t.error);
+          setIsScanning(false);
+        }
+      }
+    };
+
+    startScanner();
 
     return () => {
-      clearTimeout(timer);
-      stopScanner();
-    };
-  }, [isOpen]);
-
-  const startScanner = async () => {
-    try {
-      if (scannerRef.current) return;
-
-      const scanner = new Html5Qrcode("barcode-reader");
-      scannerRef.current = scanner;
-
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
-          aspectRatio: 1.77,
-        },
-        (decodedText) => {
-          // 1. Play ding sound
-          playDingSound();
-          
-          // 2. Show non-blocking toast
-          toast({
-            title: t.scanned,
-            description: decodedText,
-            duration: 1500,
-            className: "bg-green-600 text-white border-none",
-          });
-          
-          // 3. Send barcode to parent (adds to cart)
-          onScan(decodedText);
-          
-          // 4. Scanner STAYS OPEN for rapid scanning
-        },
-        () => {
-          // Ignore scan failures/scanning errors
-        }
-      );
-
-      setIsScanning(true);
-    } catch (error) {
-      console.error("Error starting scanner:", error);
-      setIsScanning(false);
-    }
-  };
-
-  const stopScanner = async () => {
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.stop();
-        scannerRef.current = null;
-        setIsScanning(false);
-      } catch (err) {
-        console.error("Error stopping scanner:", err);
+      mounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
-    }
-  };
+    };
+  }, [isOpen, onScan, lastScanTime, isProcessing, toast, t.error]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[100] bg-black h-[40vh] shadow-[0_-4px_20px_rgba(0,0,0,0.5)] border-t border-slate-800 flex flex-col">
-      {/* Header / Controls */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 text-white shrink-0">
+    <div className="fixed bottom-0 left-0 right-0 h-[40vh] z-[100] bg-black shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-bottom duration-300">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-t border-slate-800">
         <div className="flex items-center gap-2">
-          <span className="animate-pulse h-2 w-2 rounded-full bg-red-500"/>
-          <h2 className="text-sm font-medium">{t.scanning}</h2>
+          {isProcessing ? (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+              <span className="text-xs font-medium text-yellow-500">{t.processing}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-xs font-medium text-green-500">{t.ready}</span>
+            </div>
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
+        
+        <button
           onClick={onClose}
-          className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800"
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"
         >
-          <Minimize2 className="h-5 w-5" />
-        </Button>
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* Scanner Viewport */}
+      {/* Video Area */}
       <div className="relative flex-1 bg-black overflow-hidden">
-        <div id="barcode-reader" className="w-full h-full [&>div]:!shadow-none [&>video]:object-cover" />
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-cover"
+          playsInline
+          muted
+        />
         
-        {/* Visual Guide Overlay (Optional) */}
-        <div className="absolute inset-0 pointer-events-none border-2 border-white/10 flex items-center justify-center">
-          <div className="w-[80%] h-[1px] bg-red-500/50 shadow-[0_0_4px_rgba(239,68,68,0.8)]" />
+        {/* Red Line Guide - Centered */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-[80%] h-[1px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)] relative">
+             <div className="absolute top-1/2 left-0 w-2 h-2 bg-red-500 transform -translate-y-1/2 -translate-x-1/2" />
+             <div className="absolute top-1/2 right-0 w-2 h-2 bg-red-500 transform -translate-y-1/2 translate-x-1/2" />
+          </div>
+          <div className="absolute text-[10px] text-red-500/80 mt-6 font-mono tracking-wider">
+            SCAN
+          </div>
         </div>
+
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <p className="text-red-500 font-medium px-4 text-center">{error}</p>
+          </div>
+        )}
       </div>
     </div>
   );
