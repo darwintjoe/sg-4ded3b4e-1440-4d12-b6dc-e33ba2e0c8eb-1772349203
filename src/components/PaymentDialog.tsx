@@ -234,7 +234,7 @@ export function PaymentDialog({
 
               {/* Items */}
               <div className="border-t border-b border-dashed border-gray-300 py-2 my-2 space-y-2">
-                {cart.map((item, idx) => (
+                {lastTransaction?.items.map((item, idx) => (
                   <div key={idx} className="flex flex-col">
                     <div>{item.name}</div>
                     <div className="flex justify-between">
