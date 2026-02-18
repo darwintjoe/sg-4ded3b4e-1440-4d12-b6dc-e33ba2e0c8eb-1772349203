@@ -61,6 +61,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.discardChangesMessage": "You have unsaved changes. Are you sure you want to discard them?",
     "pos.confirmRemoveItem": "Are you sure you want to remove this item?",
     "pos.confirmDiscardChanges": "Are you sure you want to discard your changes?",
+    "pos.testSound": "Test Sound",
 
     // Payment
     "payment.title": "Payment",
@@ -173,6 +174,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.discardChangesMessage": "Anda memiliki perubahan yang belum disimpan. Yakin ingin membuangnya?",
     "pos.confirmRemoveItem": "Apakah Anda yakin ingin menghapus barang ini?",
     "pos.confirmDiscardChanges": "Apakah Anda yakin ingin membuang perubahan?",
+    "pos.testSound": "Tes Suara",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -285,6 +287,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "pos.discardChangesMessage": "您有未保存的更改。确定要放弃吗？",
     "pos.confirmRemoveItem": "您确定要删除此商品吗？",
     "pos.confirmDiscardChanges": "您确定要放弃更改吗？",
+    "pos.testSound": "测试声音",
 
     // Payment
     "payment.title": "付款",

@@ -11,9 +11,10 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
-import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency, playSuccessSound } from "@/lib/utils";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -285,37 +286,48 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           </div>
           <div className="flex items-center gap-2">
             <LanguageSelector />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => playSuccessSound()}
+              className="h-8 w-8"
+              title={translate("pos.testSound", language)}
+            >
+              <Volume2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
         
-        {/* Action Buttons Row */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onAttendanceClick}
-            className="flex-1 h-10"
+            className="flex items-center gap-1.5"
           >
-            <Clock className="h-4 w-4 mr-2" />
-            {translate("attendance.title", language)}
+            <Clock className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{translate("pos.attendance", language)}</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleLockScreen}
-            className="flex-1 h-10"
+            className="flex items-center gap-1.5"
           >
-            <Lock className="h-4 w-4 mr-2" />
-            {translate("pos.lockScreen", language)}
+            <Lock className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{translate("pos.lockScreen", language)}</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleLogoutClick}
-            className="flex-1 h-10"
+            className="flex items-center gap-1.5"
           >
-            <LogOut className="h-4 w-4 mr-2" />
-            {translate("pos.logout", language)}
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{translate("pos.logout", language)}</span>
           </Button>
         </div>
       </div>

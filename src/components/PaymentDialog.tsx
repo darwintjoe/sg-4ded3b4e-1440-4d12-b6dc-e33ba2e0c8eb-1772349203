@@ -8,6 +8,44 @@ import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
+import { useToast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/lib/utils";
+
+// Success sound generator using Web Audio API
+const playSuccessSound = () => {
+  try {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    
+    // Create a pleasant two-tone "ding" sound
+    const playTone = (frequency: number, startTime: number, duration: number) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = frequency;
+      oscillator.type = "sine";
+      
+      // Envelope for smooth attack and decay
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+      
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    };
+    
+    // Two-tone ding: E6 -> A6
+    const now = audioContext.currentTime;
+    playTone(1318.51, now, 0.15); // E6
+    playTone(1760.00, now + 0.08, 0.2); // A6
+    
+  } catch (error) {
+    console.error("Error playing success sound:", error);
+    // Fail silently - sound is optional UX enhancement
+  }
+};
 
 interface PaymentDialogProps {
   open: boolean;
@@ -129,6 +167,9 @@ export function PaymentDialog({
       setLastTransaction(transaction);
       setCompleted(true);
       clearCart();
+      
+      // Play success sound
+      playSuccessSound();
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction. Please try again or contact support.");
