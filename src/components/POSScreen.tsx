@@ -307,6 +307,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     );
   });
 
+  // Automatically show dropdown when user types
+  useEffect(() => {
+    if (searchQuery.trim().length > 0) {
+      setShowItemPicker(true);
+    } else {
+      setShowItemPicker(false);
+    }
+  }, [searchQuery]);
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
       {/* Fixed Top Header */}
