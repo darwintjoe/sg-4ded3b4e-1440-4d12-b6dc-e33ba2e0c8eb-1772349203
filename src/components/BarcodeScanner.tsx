@@ -91,7 +91,7 @@ export function BarcodeScanner({ onScan, onClose, language }: BarcodeScannerProp
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="fixed inset-0 z-[100] bg-black">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm">
         <div className="flex items-center justify-between p-4">
