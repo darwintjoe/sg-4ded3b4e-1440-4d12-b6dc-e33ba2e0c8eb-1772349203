@@ -14,8 +14,9 @@ import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2 } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
@@ -68,6 +69,9 @@ export function ItemsPanel() {
   // Import Progress State
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
+
+  // Scanner State
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -462,6 +466,47 @@ export function ItemsPanel() {
     URL.revokeObjectURL(url);
   };
 
+  const handleBarcodeScan = async (barcode: string) => {
+    setScannerOpen(false);
+    
+    if (!editingItem) return;
+    
+    // Set SKU immediately
+    handleFieldChange("sku", barcode);
+    
+    // Try to lookup product info from go-upc.com (silent failure)
+    try {
+      const response = await fetch(`https://go-upc.com/search?q=${barcode}`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const html = await response.text();
+        
+        // Parse HTML to extract product name
+        // go-upc.com typically shows product name in <h1> or product title elements
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Try multiple selectors to find product name
+        const productName = 
+          doc.querySelector('h1.product-name')?.textContent?.trim() ||
+          doc.querySelector('h1')?.textContent?.trim() ||
+          doc.querySelector('.product-title')?.textContent?.trim() ||
+          doc.querySelector('[itemprop="name"]')?.textContent?.trim();
+        
+        if (productName && !editingItem.name) {
+          // Only set name if current name is empty
+          handleFieldChange("name", capitalizeWords(productName));
+        }
+      }
+    } catch (error) {
+      // Silent failure - no internet or API error
+      console.debug('Product lookup failed (expected behavior):', error);
+    }
+  };
+
   const filteredItems = items
     .filter((item) => {
       const matchesSearch =
@@ -719,12 +764,23 @@ export function ItemsPanel() {
 
                   <div className="space-y-2">
                     <Label>SKU (Barcode)</Label>
-                    <Input
-                      value={editingItem.sku || ""}
-                      onChange={(e) => handleFieldChange("sku", e.target.value)}
-                      placeholder="COFFEE-001"
-                      className="placeholder:text-slate-400/60"
-                    />
+                    <div className="relative">
+                      <Input
+                        value={editingItem.sku || ""}
+                        onChange={(e) => handleFieldChange("sku", e.target.value)}
+                        placeholder="COFFEE-001"
+                        className="placeholder:text-slate-400/60 pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setScannerOpen(true)}
+                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      >
+                        <ScanBarcode className="h-5 w-5 text-blue-600" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -839,6 +895,14 @@ export function ItemsPanel() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Barcode Scanner */}
+      {scannerOpen && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
     </div>
   );
 }
