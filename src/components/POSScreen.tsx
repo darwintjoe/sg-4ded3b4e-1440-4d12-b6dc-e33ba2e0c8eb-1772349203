@@ -371,37 +371,38 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
       {/* Fixed Search Bar */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-3 py-2 flex-shrink-0">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 z-10" />
-          <Input
-            type="text"
-            placeholder={translate("pos.search", language)}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1"
-          />
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder=""
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
             {searchQuery && (
               <button
                 onClick={() => {
                   setSearchQuery("");
                   setShowItemPicker(false);
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setScannerOpen(true)}
-              className="h-9 w-9 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-              title={translate("scanner.title", language)}
-            >
-              <ScanBarcode className="h-5 w-5" />
-            </Button>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setScannerOpen(true)}
+            className="h-10 w-10 flex-shrink-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            title={translate("scanner.title", language)}
+          >
+            <ScanBarcode className="h-5 w-5" />
+          </Button>
         </div>
 
         {/* Item Picker Dropdown */}
