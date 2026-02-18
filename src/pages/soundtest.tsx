@@ -147,43 +147,85 @@ export default function SoundTestPage() {
     {
       id: "ka-ching",
       name: "Cash Register Ka-Ching",
-      description: "Classic retail sound with mechanical feel",
+      description: "Loud mechanical click with rich polyphonic bell",
       color: "bg-emerald-600",
       play: () => playSound("ka-ching", () => {
-        const audioContext = new AudioContext();
-        const now = audioContext.currentTime;
-        
-        // "Ka" sound - mechanical click
-        const noise = audioContext.createBufferSource();
-        const noiseBuffer = audioContext.createBuffer(1, 4410, 44100); // 0.1 seconds
-        const output = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < 4410; i++) {
-          output[i] = Math.random() * 2 - 1;
+        const ctx = new AudioContext();
+        const now = ctx.currentTime;
+        const masterGain = ctx.createGain();
+        masterGain.connect(ctx.destination);
+
+        // "KA" - Sharp metallic transient (drawer mechanism release)
+        const kaClick = ctx.createOscillator();
+        const kaGain = ctx.createGain();
+        kaClick.type = "square";
+        kaClick.frequency.setValueAtTime(3000, now);
+        kaClick.frequency.exponentialRampToValueAtTime(1500, now + 0.01);
+        kaGain.gain.setValueAtTime(0.3, now);
+        kaGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+        kaClick.connect(kaGain).connect(masterGain);
+        kaClick.start(now);
+        kaClick.stop(now + 0.02);
+
+        // "CHUNK" - Deep impact (drawer hitting stop)
+        const chunkNoise = ctx.createBufferSource();
+        const chunkBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
+        const chunkData = chunkBuffer.getChannelData(0);
+        for (let i = 0; i < chunkData.length; i++) {
+          chunkData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (chunkData.length * 0.3));
         }
-        noise.buffer = noiseBuffer;
+        chunkNoise.buffer = chunkBuffer;
         
-        const noiseGain = audioContext.createGain();
-        noise.connect(noiseGain);
-        noiseGain.connect(audioContext.destination);
-        noiseGain.gain.setValueAtTime(0.1, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        noise.start(now);
+        const chunkFilter = ctx.createBiquadFilter();
+        chunkFilter.type = "lowpass";
+        chunkFilter.frequency.setValueAtTime(200, now);
         
-        // "Ching" sound - bell tone
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        const chunkGain = ctx.createGain();
+        chunkGain.gain.setValueAtTime(0.4, now + 0.015);
+        chunkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
         
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(1760, now + 0.05);
-        oscillator.type = "sine";
-        
-        gainNode.gain.setValueAtTime(0.3, now + 0.05);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        
-        oscillator.start(now + 0.05);
-        oscillator.stop(now + 0.4);
+        chunkNoise.connect(chunkFilter).connect(chunkGain).connect(masterGain);
+        chunkNoise.start(now + 0.015);
+
+        // "CHING" - Bright polyphonic bell (multiple harmonic overtones)
+        const bellStart = now + 0.05;
+        const bellFrequencies = [
+          { freq: 1760, gain: 0.25 },  // A6 fundamental
+          { freq: 2217, gain: 0.18 },  // C#7
+          { freq: 2637, gain: 0.15 },  // E7
+          { freq: 3520, gain: 0.12 },  // A7
+          { freq: 4435, gain: 0.08 },  // C#8
+          { freq: 5274, gain: 0.05 }   // E8
+        ];
+
+        bellFrequencies.forEach(({ freq, gain: volume }) => {
+          const osc = ctx.createOscillator();
+          const oscGain = ctx.createGain();
+          
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, bellStart);
+          
+          // Natural bell envelope - quick attack, long decay
+          oscGain.gain.setValueAtTime(0, bellStart);
+          oscGain.gain.linearRampToValueAtTime(volume, bellStart + 0.01);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, bellStart + 0.8);
+          
+          osc.connect(oscGain).connect(masterGain);
+          osc.start(bellStart);
+          osc.stop(bellStart + 0.8);
+        });
+
+        // Add subtle metallic shimmer to the bell
+        const shimmer = ctx.createOscillator();
+        const shimmerGain = ctx.createGain();
+        shimmer.type = "triangle";
+        shimmer.frequency.setValueAtTime(7040, bellStart);
+        shimmerGain.gain.setValueAtTime(0, bellStart);
+        shimmerGain.gain.linearRampToValueAtTime(0.03, bellStart + 0.01);
+        shimmerGain.gain.exponentialRampToValueAtTime(0.001, bellStart + 0.4);
+        shimmer.connect(shimmerGain).connect(masterGain);
+        shimmer.start(bellStart);
+        shimmer.stop(bellStart + 0.4);
       })
     },
     {
