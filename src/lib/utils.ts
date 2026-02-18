@@ -55,9 +55,9 @@ const soundGenerators: Record<string, () => void> = {
     };
     
     const now = audioContext.currentTime;
-    playTone(1046.5, now, 0.15); // C6
-    playTone(1318.5, now + 0.1, 0.15); // E6
-    playTone(1568, now + 0.2, 0.25); // G6
+    playTone(1046.5, now, 0.15);
+    playTone(1318.5, now + 0.1, 0.15);
+    playTone(1568, now + 0.2, 0.25);
   },
   
   "success-bell": () => {
@@ -192,7 +192,6 @@ const soundGenerators: Record<string, () => void> = {
     const masterGain = ctx.createGain();
     masterGain.connect(ctx.destination);
 
-    // "KA" - Sharp metallic transient (drawer mechanism release)
     const kaClick = ctx.createOscillator();
     const kaGain = ctx.createGain();
     kaClick.type = "square";
@@ -204,7 +203,6 @@ const soundGenerators: Record<string, () => void> = {
     kaClick.start(now);
     kaClick.stop(now + 0.02);
 
-    // "CHUNK" - Deep impact (drawer hitting stop)
     const chunkNoise = ctx.createBufferSource();
     const chunkBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
     const chunkData = chunkBuffer.getChannelData(0);
@@ -224,15 +222,14 @@ const soundGenerators: Record<string, () => void> = {
     chunkNoise.connect(chunkFilter).connect(chunkGain).connect(masterGain);
     chunkNoise.start(now + 0.015);
 
-    // "CHING" - Bright polyphonic bell (multiple harmonic overtones)
     const bellStart = now + 0.05;
     const bellFrequencies = [
-      { freq: 1760, gain: 0.25 },  // A6 fundamental
-      { freq: 2217, gain: 0.18 },  // C#7
-      { freq: 2637, gain: 0.15 },  // E7
-      { freq: 3520, gain: 0.12 },  // A7
-      { freq: 4435, gain: 0.08 },  // C#8
-      { freq: 5274, gain: 0.05 }   // E8
+      { freq: 1760, gain: 0.25 },
+      { freq: 2217, gain: 0.18 },
+      { freq: 2637, gain: 0.15 },
+      { freq: 3520, gain: 0.12 },
+      { freq: 4435, gain: 0.08 },
+      { freq: 5274, gain: 0.05 }
     ];
 
     bellFrequencies.forEach(({ freq, gain: volume }) => {
@@ -242,7 +239,6 @@ const soundGenerators: Record<string, () => void> = {
       osc.type = "sine";
       osc.frequency.setValueAtTime(freq, bellStart);
       
-      // Natural bell envelope - quick attack, long decay
       oscGain.gain.setValueAtTime(0, bellStart);
       oscGain.gain.linearRampToValueAtTime(volume, bellStart + 0.01);
       oscGain.gain.exponentialRampToValueAtTime(0.001, bellStart + 0.8);
@@ -252,7 +248,6 @@ const soundGenerators: Record<string, () => void> = {
       osc.stop(bellStart + 0.8);
     });
 
-    // Add subtle metallic shimmer to the bell
     const shimmer = ctx.createOscillator();
     const shimmerGain = ctx.createGain();
     shimmer.type = "triangle";
@@ -268,7 +263,6 @@ const soundGenerators: Record<string, () => void> = {
 
 export const playSuccessSound = () => {
   try {
-    // Get selected sound from localStorage, default to classic-ding
     const selectedSound = typeof window !== "undefined" 
       ? localStorage.getItem("pos-success-sound") || "classic-ding"
       : "classic-ding";
