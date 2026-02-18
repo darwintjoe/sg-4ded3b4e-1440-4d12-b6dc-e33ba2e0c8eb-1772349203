@@ -240,7 +240,7 @@ export default function SoundTestPage() {
     {
       id: "ka-ching",
       name: "Cash Register Ka-Ching",
-      description: "Loud mechanical click with rich polyphonic bell",
+      description: "Authentic mechanical drawer + rich polyphonic bell",
       color: "bg-emerald-600",
       play: () => playSound("ka-ching", () => {
         const ctx = new AudioContext();
