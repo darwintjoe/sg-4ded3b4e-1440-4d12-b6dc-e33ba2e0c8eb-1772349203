@@ -1,202 +1,166 @@
-import { useEffect, useRef, useState } from "react";
-import { BrowserMultiFormatReader, NotFoundException } from "@zxing/library";
+import { useState, useEffect, useRef } from "react";
+import { X, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { X, Camera } from "lucide-react";
-import { translate } from "@/lib/translations";
+import { Html5Qrcode } from "html5-qrcode";
+import { useToast } from "@/hooks/use-toast";
 import { Language } from "@/types";
 
 interface BarcodeScannerProps {
-  onScan: (code: string) => void;
+  isOpen: boolean;
   onClose: () => void;
+  onScan: (barcode: string) => void;
   language: Language;
 }
 
-export function BarcodeScanner({ onScan, onClose, language }: BarcodeScannerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastScanned, setLastScanned] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(true);
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+const translations = {
+  en: {
+    title: "Scan Barcode",
+    close: "Close",
+    scanning: "Ready to scan...",
+    scanned: "Scanned!",
+  },
+  id: {
+    title: "Pindai Barcode",
+    close: "Tutup",
+    scanning: "Siap memindai...",
+    scanned: "Terpindai!",
+  },
+  zh: {
+    title: "扫描条形码",
+    close: "关闭",
+    scanning: "准备扫描...",
+    scanned: "已扫描!",
+  },
+};
 
-  useEffect(() => {
-    let mounted = true;
-    const reader = new BrowserMultiFormatReader();
-    readerRef.current = reader;
+export function BarcodeScanner({ isOpen, onClose, onScan, language }: BarcodeScannerProps) {
+  const [isScanning, setIsScanning] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const { toast } = useToast();
+  const t = translations[language];
 
-    const startScanning = async () => {
-      try {
-        const videoInputDevices = await reader.listVideoInputDevices();
-        
-        if (videoInputDevices.length === 0) {
-          setError(translate("scanner.noCamera", language));
-          return;
-        }
-
-        // Prefer back camera on mobile devices
-        const selectedDevice = videoInputDevices.find(device => 
-          device.label.toLowerCase().includes("back") || 
-          device.label.toLowerCase().includes("rear")
-        ) || videoInputDevices[0];
-
-        if (!videoRef.current || !mounted) return;
-
-        await reader.decodeFromVideoDevice(
-          selectedDevice.deviceId,
-          videoRef.current,
-          (result, error) => {
-            if (!mounted || !isScanning) return;
-
-            if (result) {
-              const code = result.getText();
-              // Avoid duplicate scans within 1 second
-              if (code !== lastScanned) {
-                setLastScanned(code);
-                onScan(code);
-                
-                // Brief pause to show visual feedback
-                setIsScanning(false);
-                setTimeout(() => {
-                  if (mounted) {
-                    setIsScanning(true);
-                    setLastScanned(null);
-                  }
-                }, 1000);
-              }
-            }
-
-            if (error && !(error instanceof NotFoundException)) {
-              console.error("Barcode scan error:", error);
-            }
-          }
-        );
-      } catch (err) {
-        console.error("Camera access error:", err);
-        setError(translate("scanner.cameraError", language));
-      }
-    };
-
-    startScanning();
-
-    return () => {
-      mounted = false;
-      reader.reset();
-    };
-  }, [onScan, language, lastScanned, isScanning]);
-
-  const handleClose = () => {
-    if (readerRef.current) {
-      readerRef.current.reset();
+  // Play simple beep/ding sound on successful scan
+  const playDingSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Higher pitch, short duration for a "beep"
+      oscillator.frequency.value = 1200; 
+      oscillator.type = "sine";
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (error) {
+      console.error("Error playing ding sound:", error);
     }
-    onClose();
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Small delay to ensure container is rendered
+    const timer = setTimeout(() => {
+      startScanner();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      stopScanner();
+    };
+  }, [isOpen]);
+
+  const startScanner = async () => {
+    try {
+      if (scannerRef.current) return;
+
+      const scanner = new Html5Qrcode("barcode-reader");
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          aspectRatio: 1.77,
+        },
+        (decodedText) => {
+          // 1. Play ding sound
+          playDingSound();
+          
+          // 2. Show non-blocking toast
+          toast({
+            title: t.scanned,
+            description: decodedText,
+            duration: 1500,
+            className: "bg-green-600 text-white border-none",
+          });
+          
+          // 3. Send barcode to parent (adds to cart)
+          onScan(decodedText);
+          
+          // 4. Scanner STAYS OPEN for rapid scanning
+        },
+        () => {
+          // Ignore scan failures/scanning errors
+        }
+      );
+
+      setIsScanning(true);
+    } catch (error) {
+      console.error("Error starting scanner:", error);
+      setIsScanning(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current = null;
+        setIsScanning(false);
+      } catch (err) {
+        console.error("Error stopping scanner:", err);
+      }
+    }
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-[100] bg-black">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <Camera className="h-6 w-6 text-white" />
-            <div>
-              <h2 className="text-white font-bold text-lg">
-                {translate("scanner.title", language)}
-              </h2>
-              <p className="text-white/70 text-sm">
-                {translate("scanner.instruction", language)}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            className="text-white hover:bg-white/20"
-          >
-            <X className="h-6 w-6" />
-          </Button>
+    <div className="fixed inset-x-0 bottom-0 z-[100] bg-black h-[40vh] shadow-[0_-4px_20px_rgba(0,0,0,0.5)] border-t border-slate-800 flex flex-col">
+      {/* Header / Controls */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 text-white shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="animate-pulse h-2 w-2 rounded-full bg-red-500"/>
+          <h2 className="text-sm font-medium">{t.scanning}</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800"
+        >
+          <Minimize2 className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Scanner Viewport */}
+      <div className="relative flex-1 bg-black overflow-hidden">
+        <div id="barcode-reader" className="w-full h-full [&>div]:!shadow-none [&>video]:object-cover" />
+        
+        {/* Visual Guide Overlay (Optional) */}
+        <div className="absolute inset-0 pointer-events-none border-2 border-white/10 flex items-center justify-center">
+          <div className="w-[80%] h-[1px] bg-red-500/50 shadow-[0_0_4px_rgba(239,68,68,0.8)]" />
         </div>
       </div>
-
-      {/* Video Preview */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        {error ? (
-          <div className="text-center p-6">
-            <div className="bg-red-500/20 border-2 border-red-500 rounded-lg p-6 max-w-sm">
-              <p className="text-white text-lg font-semibold mb-2">
-                {translate("scanner.error", language)}
-              </p>
-              <p className="text-white/80 text-sm">{error}</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover"
-              playsInline
-              muted
-            />
-            
-            {/* Scan Frame Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="relative">
-                {/* Scanning Frame */}
-                <div className="w-72 h-48 border-4 border-white/50 rounded-lg relative">
-                  {/* Corner Markers */}
-                  <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
-                  <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
-                  <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-green-400 rounded-bl-lg" />
-                  <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-green-400 rounded-br-lg" />
-                  
-                  {/* Scanning Line Animation */}
-                  {isScanning && (
-                    <div className="absolute inset-0 overflow-hidden rounded-lg">
-                      <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-green-400 to-transparent animate-scan" />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Success Feedback */}
-                {!isScanning && lastScanned && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-green-500 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-lg animate-pulse">
-                      ✓ {translate("scanner.scanned", language)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Bottom Info */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/80 backdrop-blur-sm p-6">
-        <div className="text-center space-y-2">
-          <p className="text-white/90 text-sm">
-            {translate("scanner.tip", language)}
-          </p>
-          {lastScanned && (
-            <div className="bg-white/10 rounded-lg px-4 py-2 inline-block">
-              <p className="text-white/70 text-xs mb-1">
-                {translate("scanner.lastScanned", language)}
-              </p>
-              <p className="text-white font-mono font-bold">{lastScanned}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes scan {
-          0% { top: 0; }
-          50% { top: 100%; }
-          100% { top: 0; }
-        }
-        .animate-scan {
-          animation: scan 2s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 }

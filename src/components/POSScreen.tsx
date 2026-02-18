@@ -164,15 +164,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         // Add item to cart
         handleItemClick(item);
         
-        // Play success sound
-        playSuccessSound();
-        
-        // Show toast notification
-        toast({
-          title: translate("scanner.itemAdded", language),
-          description: `${item.name} - Rp ${item.price.toLocaleString("id-ID")}`,
-          duration: 2000,
-        });
+        // Note: Sound is now handled by BarcodeScanner component ("ding")
+        // Toast is also handled by BarcodeScanner for immediate feedback
       } else {
         // Item not found
         toast({
