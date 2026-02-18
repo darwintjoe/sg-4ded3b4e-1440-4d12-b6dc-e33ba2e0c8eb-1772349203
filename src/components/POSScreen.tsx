@@ -559,6 +559,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       {/* Barcode Scanner */}
       {scannerOpen && (
         <BarcodeScanner
+          isOpen={true}
           onScan={handleBarcodeScan}
           onClose={() => setScannerOpen(false)}
           language={language}

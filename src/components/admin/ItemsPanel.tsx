@@ -911,6 +911,7 @@ export function ItemsPanel() {
       {/* Barcode Scanner */}
       {scannerOpen && (
         <BarcodeScanner
+          isOpen={true}
           onScan={handleBarcodeScan}
           onClose={() => setScannerOpen(false)}
           language={language}
