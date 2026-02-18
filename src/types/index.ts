@@ -283,3 +283,18 @@ export interface ShiftConfig {
   startTime: string;
   endTime: string;
 }
+
+export interface Translations {
+  scanner: {
+    title: string;
+    instruction: string;
+    tip: string;
+    scanned: string;
+    lastScanned: string;
+    noCamera: string;
+    cameraError: string;
+    error: string;
+    itemNotFound: string;
+    itemAdded: string;
+  };
+}

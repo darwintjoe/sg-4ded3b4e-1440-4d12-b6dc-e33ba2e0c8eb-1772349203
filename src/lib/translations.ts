@@ -1,6 +1,6 @@
 import { Language } from "@/types";
 
-export const translations: Record<Language, Record<string, string>> = {
+export const translations: Record<Language, Translations> = {
   en: {
     // Login & Auth
     "login.title": "SELL MORE",
@@ -111,7 +111,19 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.discardChanges": "Discard Changes",
     "common.discard": "Discard",
     "common.yes": "Yes",
-    "common.no": "No"
+    "common.no": "No",
+    scanner: {
+      title: "Barcode Scanner",
+      instruction: "Point camera at barcode",
+      tip: "Align barcode within the frame for best results",
+      scanned: "Scanned",
+      lastScanned: "Last scanned",
+      noCamera: "No camera detected",
+      cameraError: "Unable to access camera. Please check permissions.",
+      error: "Scanner Error",
+      itemNotFound: "Item not found for barcode:",
+      itemAdded: "Added to cart",
+    },
   },
   
   id: {
@@ -224,7 +236,19 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.discardChanges": "Buang Perubahan",
     "common.discard": "Buang",
     "common.yes": "Ya",
-    "common.no": "Tidak"
+    "common.no": "Tidak",
+    scanner: {
+      title: "Pemindai Barcode",
+      instruction: "Arahkan kamera ke barcode",
+      tip: "Sejajarkan barcode dalam bingkai untuk hasil terbaik",
+      scanned: "Terpindai",
+      lastScanned: "Terakhir dipindai",
+      noCamera: "Kamera tidak terdeteksi",
+      cameraError: "Tidak dapat mengakses kamera. Silakan periksa izin.",
+      error: "Kesalahan Pemindai",
+      itemNotFound: "Item tidak ditemukan untuk barcode:",
+      itemAdded: "Ditambahkan ke keranjang",
+    },
   },
   
   zh: {
@@ -337,7 +361,19 @@ export const translations: Record<Language, Record<string, string>> = {
     "common.discardChanges": "放弃更改",
     "common.discard": "放弃",
     "common.yes": "是",
-    "common.no": "否"
+    "common.no": "否",
+    scanner: {
+      title: "条形码扫描器",
+      instruction: "将相机指向条形码",
+      tip: "将条形码对齐框内以获得最佳结果",
+      scanned: "已扫描",
+      lastScanned: "最后扫描",
+      noCamera: "未检测到相机",
+      cameraError: "无法访问相机。请检查权限。",
+      error: "扫描器错误",
+      itemNotFound: "条形码:",
+      itemAdded: "已添加到购物车",
+    },
   }
 };
 

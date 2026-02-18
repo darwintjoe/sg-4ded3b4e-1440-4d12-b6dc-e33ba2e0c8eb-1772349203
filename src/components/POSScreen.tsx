@@ -8,10 +8,11 @@ import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
 import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
-import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2 } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound } from "@/lib/utils";
@@ -38,6 +39,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -107,28 +109,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   }
 
   const totalTax = tax1Amount + tax2Amount;
-  // If Tax 1 is inclusive, itemsTotal already includes it. We add exclusive Tax 1 and Tax 2.
-  // Wait, if Tax 1 is inclusive, itemsTotal = subtotal + tax1Amount.
-  // If Tax 1 is exclusive, itemsTotal = subtotal.
-  // Tax 2 is always calculated on subtotal.
-  
-  // Total logic:
-  // Base = subtotal
-  // + Tax 1 (if exclusive)
-  // + Tax 1 (if inclusive, it's already in base? No, subtotal is net.)
-  // Let's stick to the calculation:
-  // Total = subtotal + tax1Amount + tax2Amount?
-  // If inclusive: itemsTotal (110) = subtotal (100) + tax1 (10).
-  // Total should be 110 + tax2 (5% of 100 = 5) = 115.
-  // Formula: subtotal + tax1Amount + tax2Amount. 
-  // 100 + 10 + 5 = 115. Correct.
-  
-  // What if exclusive?
-  // ItemsTotal (100) = subtotal (100).
-  // Tax 1 (10% of 100) = 10.
-  // Tax 2 (5% of 100) = 5.
-  // Total = 100 + 10 + 5 = 115. Correct.
-  
   const total = subtotal + tax1Amount + tax2Amount;
 
   const handlePayment = () => {
@@ -173,6 +153,43 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 50);
+  };
+
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      // Find item by SKU (barcode)
+      const item = items.find(i => i.sku?.toLowerCase() === barcode.toLowerCase());
+      
+      if (item) {
+        // Add item to cart
+        handleItemClick(item);
+        
+        // Play success sound
+        playSuccessSound();
+        
+        // Show toast notification
+        toast({
+          title: translate("scanner.itemAdded", language),
+          description: `${item.name} - Rp ${item.price.toLocaleString("id-ID")}`,
+          duration: 2000,
+        });
+      } else {
+        // Item not found
+        toast({
+          title: translate("scanner.itemNotFound", language),
+          description: barcode,
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Error processing barcode:", error);
+      toast({
+        title: translate("scanner.error", language),
+        description: "Failed to process barcode",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
@@ -347,19 +364,30 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             onFocus={() => {
               if (searchQuery.trim().length > 0) setShowItemPicker(true);
             }}
-            className="pl-10 h-12 text-base"
+            className="pl-10 pr-24 h-12 text-base"
           />
-          {searchQuery && (
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setShowItemPicker(false);
-              }}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowItemPicker(false);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setScannerOpen(true)}
+              className="h-9 w-9 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              title={translate("scanner.title", language)}
             >
-              <X className="h-5 w-5" />
-            </button>
-          )}
+              <ScanBarcode className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Item Picker Dropdown */}
@@ -534,6 +562,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         allowPriceOverride={settings?.allowPriceOverride || false}
         language={language}
       />
+
+      {/* Barcode Scanner */}
+      {scannerOpen && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setScannerOpen(false)}
+          language={language}
+        />
+      )}
 
       {/* Clear Cart Confirmation */}
       <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
