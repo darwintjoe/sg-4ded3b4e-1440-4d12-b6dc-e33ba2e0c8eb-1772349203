@@ -11,39 +11,16 @@ import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 
-// Success sound generator using Web Audio API
+// Success sound using audio file
 const playSuccessSound = () => {
   try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Create a pleasant two-tone "ding" sound
-    const playTone = (frequency: number, startTime: number, duration: number) => {
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = frequency;
-      oscillator.type = "sine";
-      
-      // Envelope for smooth attack and decay
-      gainNode.gain.setValueAtTime(0, startTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-      
-      oscillator.start(startTime);
-      oscillator.stop(startTime + duration);
-    };
-    
-    // Two-tone ding: E6 -> A6
-    const now = audioContext.currentTime;
-    playTone(1318.51, now, 0.15); // E6
-    playTone(1760.00, now + 0.08, 0.2); // A6
-    
+    const audio = new Audio("/ka-ching.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(err => {
+      console.warn("Audio playback failed:", err);
+    });
   } catch (error) {
     console.error("Error playing success sound:", error);
-    // Fail silently - sound is optional UX enhancement
   }
 };
 
