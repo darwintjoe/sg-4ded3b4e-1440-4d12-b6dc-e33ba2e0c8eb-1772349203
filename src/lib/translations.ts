@@ -97,6 +97,20 @@ export const translations: Record<Language, Translations> = {
     "settings.tabs.security": "Security",
     "settings.tabs.advanced": "Advanced",
 
+    // Business Settings
+    "settings.business.title": "Business Information",
+    "settings.business.name": "Business Name",
+    "settings.business.namePlaceholder": "My Store",
+    "settings.business.address": "Address",
+    "settings.business.addressHint": "Appears on printed receipts",
+    "settings.business.addressPlaceholder": "123 Main St, City, State",
+    "settings.business.taxId": "Tax ID / NPWP",
+    "settings.business.taxIdHint": "Optional tax identification number",
+    "settings.business.taxIdPlaceholder": "12.345.678.9-012.000",
+    "settings.business.receiptFooter": "Receipt Footer",
+    "settings.business.receiptFooterHint": "Custom message at bottom of receipt",
+    "settings.business.receiptFooterPlaceholder": "Thank you for your purchase!",
+
     // Security Tab
     "settings.security.accessControl": "Access Control",
     "settings.security.roleBased": "Role-based access control coming soon",
@@ -354,6 +368,20 @@ export const translations: Record<Language, Translations> = {
     "settings.tabs.security": "Keamanan",
     "settings.tabs.advanced": "Lanjutan",
 
+    // Business Settings
+    "settings.business.title": "Informasi Bisnis",
+    "settings.business.name": "Nama Bisnis",
+    "settings.business.namePlaceholder": "Toko Saya",
+    "settings.business.address": "Alamat",
+    "settings.business.addressHint": "Muncul di struk cetak",
+    "settings.business.addressPlaceholder": "Jl. Utama 123, Kota, Provinsi",
+    "settings.business.taxId": "NPWP / ID Pajak",
+    "settings.business.taxIdHint": "Nomor identifikasi pajak opsional",
+    "settings.business.taxIdPlaceholder": "12.345.678.9-012.000",
+    "settings.business.receiptFooter": "Footer Struk",
+    "settings.business.receiptFooterHint": "Pesan khusus di bagian bawah struk",
+    "settings.business.receiptFooterPlaceholder": "Thank you for your purchase!",
+
     // Security Tab
     "settings.security.accessControl": "Kontrol Akses",
     "settings.security.roleBased": "Kontrol akses berbasis peran akan segera hadir",
@@ -610,6 +638,20 @@ export const translations: Record<Language, Translations> = {
     "settings.tabs.pos": "POS",
     "settings.tabs.security": "安全",
     "settings.tabs.advanced": "高级",
+
+    // Business Settings
+    "settings.business.title": "商业信息",
+    "settings.business.name": "商家名称",
+    "settings.business.namePlaceholder": "我的商店",
+    "settings.business.address": "地址",
+    "settings.business.addressHint": "显示在打印收据上",
+    "settings.business.addressPlaceholder": "主街123号，城市，州",
+    "settings.business.taxId": "税号 / NPWP",
+    "settings.business.taxIdHint": "可选税务识别号",
+    "settings.business.taxIdPlaceholder": "12.345.678.9-012.000",
+    "settings.business.receiptFooter": "收据页脚",
+    "settings.business.receiptFooterHint": "收据底部的自定义消息",
+    "settings.business.receiptFooterPlaceholder": "感谢您的购买！",
 
     // Security Tab
     "settings.security.accessControl": "访问控制",
