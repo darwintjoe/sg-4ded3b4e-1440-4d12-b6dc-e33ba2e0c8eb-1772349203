@@ -16,6 +16,7 @@ import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, C
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound } from "@/lib/utils";
+import Image from "next/image";
 
 interface POSScreenProps {
   onAdminClick: () => void;

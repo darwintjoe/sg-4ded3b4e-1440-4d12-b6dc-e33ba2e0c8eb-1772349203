@@ -1,0 +1,43 @@
+{
+  "name": "SELL MORE - POS System",
+  "short_name": "SELL MORE",
+  "description": "Professional Point of Sale system for retail businesses",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/logowotext.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logowotext.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "POS",
+      "short_name": "POS",
+      "description": "Open POS screen",
+      "url": "/",
+      "icons": [{ "src": "/logowotext.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Admin",
+      "short_name": "Admin",
+      "description": "Open admin dashboard",
+      "url": "/?admin=true",
+      "icons": [{ "src": "/logowotext.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity", "finance"],
+  "prefer_related_applications": false
+}

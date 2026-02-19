@@ -5,6 +5,7 @@ import { Settings, Clock } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import Image from "next/image";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface LoginScreenProps {
   onAdminClick: () => void;
@@ -125,7 +126,7 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
         {/* Logo */}
         <div className="flex justify-center mb-3">
           <Image 
-            src="/Copilot_20260129_181915.png" 
+            src="/logowtext.png" 
             alt="SELL MORE" 
             width={180}
             height={45}
