@@ -5,8 +5,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Store } from "lucide-react";
 import { Settings } from "@/types";
 import { HelpTooltip } from "./HelpTooltip";
-import { useApp } from "@/contexts/AppContext";
-import { translate } from "@/lib/translations";
 
 interface BusinessSettingsSectionProps {
   settings: Settings;
@@ -14,18 +12,16 @@ interface BusinessSettingsSectionProps {
 }
 
 export function BusinessSettingsSection({ settings, onUpdate }: BusinessSettingsSectionProps) {
-  const { language } = useApp();
-  
   return (
     <Card className="p-4">
       <h3 className="font-semibold mb-3 flex items-center gap-2">
         <Store className="h-4 w-4" />
-        {translate("settings.business.title", language)}
+        Business Information
       </h3>
       <div className="space-y-3">
         <div>
           <Label htmlFor="businessName" className="text-sm">
-            {translate("settings.business.name", language)} *
+            Business Name *
           </Label>
           <Input
             id="businessName"
@@ -38,8 +34,8 @@ export function BusinessSettingsSection({ settings, onUpdate }: BusinessSettings
 
         <div>
           <Label htmlFor="businessAddress" className="text-sm">
-            {translate("settings.business.address", language)}
-            <HelpTooltip content={translate("settings.business.addressHint", language)} />
+            Address
+            <HelpTooltip content="Printed on receipts" />
           </Label>
           <Textarea
             id="businessAddress"
@@ -53,8 +49,8 @@ export function BusinessSettingsSection({ settings, onUpdate }: BusinessSettings
 
         <div>
           <Label htmlFor="taxId" className="text-sm">
-            {translate("settings.business.taxId", language)}
-            <HelpTooltip content={translate("settings.business.taxIdHint", language)} />
+            Tax ID / NPWP
+            <HelpTooltip content="Tax identification number" />
           </Label>
           <Input
             id="taxId"
@@ -67,8 +63,8 @@ export function BusinessSettingsSection({ settings, onUpdate }: BusinessSettings
 
         <div>
           <Label htmlFor="receiptFooter" className="text-sm">
-            {translate("settings.business.footer", language)}
-            <HelpTooltip content={translate("settings.business.footerHint", language)} />
+            Receipt Footer
+            <HelpTooltip content="Message at bottom of receipts" />
           </Label>
           <Textarea
             id="receiptFooter"
