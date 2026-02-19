@@ -14,6 +14,8 @@ import { Employee, UserRole } from "@/types";
 import { useLongPress } from "@/hooks/use-long-press";
 import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/contexts/AppContext";
+import { translate } from "@/lib/translations";
 
 type SortField = "name" | "pin" | "joinDate";
 type SortDirection = "asc" | "desc";
@@ -53,6 +55,7 @@ const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Emp
 };
 
 export function EmployeesPanel() {
+  const { language } = useApp();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resigned">("active");
@@ -385,7 +388,7 @@ export function EmployeesPanel() {
           <div className="relative flex-1 min-w-[100px] max-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
             <Input
-              placeholder="Search..."
+              placeholder={translate("common.search", language)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-sm"
@@ -397,9 +400,9 @@ export function EmployeesPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="resigned">Resigned</SelectItem>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
+              <SelectItem value="resigned">{translate("employees.resigned", language)}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -408,10 +411,10 @@ export function EmployeesPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="cashier">Cashier</SelectItem>
-              <SelectItem value="employee">Employee</SelectItem>
+              <SelectItem value="all">{translate("employees.allRoles", language)}</SelectItem>
+              <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
+              <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
+              <SelectItem value="employee">{translate("employees.employee", language)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -425,7 +428,7 @@ export function EmployeesPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Upload className="h-4 w-4" />
-            <span>Import</span>
+            <span>{translate("common.import", language)}</span>
           </Button>
 
           <Button 
@@ -435,7 +438,7 @@ export function EmployeesPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Download className="h-4 w-4" />
-            <span>Export</span>
+            <span>{translate("common.export", language)}</span>
           </Button>
 
           <input
@@ -457,17 +460,17 @@ export function EmployeesPanel() {
                 <TableRow>
                   <TableHead className="w-[50%]">
                     <button onClick={() => handleSort("name")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
-                      Name <ArrowUpDown className="h-3 w-3" />
+                      {translate("employees.name", language)} <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
                   <TableHead className="w-[25%]">
                     <button onClick={() => handleSort("pin")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
-                      PIN <ArrowUpDown className="h-3 w-3" />
+                      {translate("employees.pin", language)} <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
                   <TableHead className="w-[25%] text-right">
                     <button onClick={() => handleSort("joinDate")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto">
-                      Joined <ArrowUpDown className="h-3 w-3" />
+                      {translate("employees.joined", language)} <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
                 </TableRow>
@@ -476,7 +479,7 @@ export function EmployeesPanel() {
                 {filteredEmployees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                      {searchQuery ? "No employees found" : "No employees yet"}
+                      {searchQuery ? translate("employees.noEmployeesFound", language) : translate("employees.noEmployees", language)}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -514,17 +517,17 @@ export function EmployeesPanel() {
                     onClick={handleCloseDialog}
                     className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
                   >
-                    Cancel
+                    {translate("common.cancel", language)}
                   </Button>
                   <h2 className="text-lg font-semibold">
-                    {editingEmployee?.id ? "Edit Employee" : "Add New Employee"}
+                    {editingEmployee?.id ? translate("employees.editEmployee", language) : translate("employees.addEmployee", language)}
                   </h2>
                   <Button 
                     onClick={handleSaveEmployee}
                     disabled={!editingEmployee || !editingEmployee.name || !editingEmployee.pin}
                     className="bg-blue-600 hover:bg-blue-700 -mr-3"
                   >
-                    Save
+                    {translate("common.save", language)}
                   </Button>
                 </div>
               </div>
@@ -543,7 +546,7 @@ export function EmployeesPanel() {
                   )}
 
                   <div className="space-y-2">
-                    <Label>Full Name <span className="text-red-500">*</span></Label>
+                    <Label>{translate("employees.fullName", language)} <span className="text-red-500">*</span></Label>
                     <Input
                       value={editingEmployee.name}
                       onChange={(e) => handleFieldChange("name", e.target.value)}
@@ -553,7 +556,7 @@ export function EmployeesPanel() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>PIN (4-6 digits) <span className="text-red-500">*</span></Label>
+                    <Label>{translate("employees.pin", language)} (4-6 digits) <span className="text-red-500">*</span></Label>
                     <Input
                       ref={pinInputRef}
                       type="text"
@@ -569,12 +572,12 @@ export function EmployeesPanel() {
                       disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
                     />
                     <p className="text-xs text-slate-500/60">
-                      Unique for active employees
+                      {translate("employees.uniquePin", language)}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Role <span className="text-red-500">*</span></Label>
+                    <Label>{translate("employees.role", language)} <span className="text-red-500">*</span></Label>
                     <Dialog open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
                       <Button
                         variant="outline"
@@ -582,18 +585,18 @@ export function EmployeesPanel() {
                         onClick={() => setRoleSheetOpen(true)}
                       >
                         <span className="capitalize">
-                          {editingEmployee.role || "Select or type role..."}
+                          {editingEmployee.role || translate("employees.selectRole", language)}
                         </span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                       <DialogContent className="max-w-md max-h-[50vh] flex flex-col p-0">
                         <div className="px-6 pt-6 pb-4 flex-shrink-0">
-                          <h3 className="text-lg font-semibold">Select or Add Role</h3>
+                          <h3 className="text-lg font-semibold">{translate("employees.selectOrAddRole", language)}</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto px-6 pb-2">
                           <Command className="rounded-lg border">
                             <CommandInput 
-                              placeholder="Type to search or add new role..." 
+                              placeholder={translate("employees.searchRole", language)}
                               value={roleSearch}
                               onValueChange={setRoleSearch}
                               className="placeholder:text-slate-400/60"
@@ -601,7 +604,7 @@ export function EmployeesPanel() {
                             <CommandList>
                               <CommandEmpty>
                                 <div className="py-6 text-center text-sm text-slate-500">
-                                  No role found
+                                  {translate("employees.noRoleFound", language)}
                                 </div>
                               </CommandEmpty>
                               <CommandGroup>
@@ -631,17 +634,17 @@ export function EmployeesPanel() {
                               className="w-full"
                               size="lg"
                             >
-                              Create "{capitalizeWords(roleSearch)}"
+                              {translate("employees.createRole", language).replace("{role}", capitalizeWords(roleSearch))}
                             </Button>
                           </div>
                         )}
                       </DialogContent>
                     </Dialog>
-                    <p className="text-xs text-slate-500/60">Tap to select existing or type new role</p>
+                    <p className="text-xs text-slate-500/60">{translate("employees.roleHint", language)}</p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Join Date</Label>
+                    <Label>{translate("employees.joinDate", language)}</Label>
                     <Input
                       type="date"
                       value={
@@ -658,9 +661,9 @@ export function EmployeesPanel() {
 
                   <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900">
                     <div className="space-y-1">
-                      <Label>Status</Label>
+                      <Label>{translate("employees.status", language)}</Label>
                       <p className="text-xs text-slate-500/60">
-                        Toggle to mark as resigned
+                        {translate("employees.statusHint", language)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -668,7 +671,7 @@ export function EmployeesPanel() {
                         "text-sm font-medium",
                         editingEmployee.isActive === false ? "text-slate-500" : "text-green-600"
                       )}>
-                        {editingEmployee.isActive === false ? "Resigned" : "Active"}
+                        {editingEmployee.isActive === false ? translate("employees.resigned", language) : translate("common.active", language)}
                       </Label>
                       <Switch
                         id="employee-status"

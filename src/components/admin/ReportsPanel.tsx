@@ -5,6 +5,7 @@ import { Download, Printer } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
+import { translate } from "@/lib/translations";
 
 export function ReportsPanel() {
   const { language } = useApp();
@@ -27,16 +28,16 @@ export function ReportsPanel() {
     <Tabs defaultValue="sales" className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
         <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="items">Items</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
+          <TabsTrigger value="sales">{translate("reports.tabs.sales", language)}</TabsTrigger>
+          <TabsTrigger value="items">{translate("reports.tabs.items", language)}</TabsTrigger>
+          <TabsTrigger value="attendance">{translate("reports.tabs.attendance", language)}</TabsTrigger>
         </TabsList>
         
         <div className="flex gap-2">
-          <Button onClick={exportToCSV} variant="ghost" size="sm">
+          <Button onClick={exportToCSV} variant="ghost" size="sm" title={translate("reports.export", language)}>
             <Download className="h-4 w-4" />
           </Button>
-          <Button onClick={() => window.print()} variant="ghost" size="sm">
+          <Button onClick={() => window.print()} variant="ghost" size="sm" title={translate("reports.print", language)}>
             <Printer className="h-4 w-4" />
           </Button>
         </div>

@@ -18,10 +18,10 @@ export function AdminDashboard() {
       <div className="flex-shrink-0 border-b bg-white dark:bg-slate-800 shadow-sm z-30">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold tracking-tight">
-            {activeTab === "settings" && "SETTINGS"}
-            {activeTab === "items" && "ITEMS"}
-            {activeTab === "employees" && "EMPLOYEES"}
-            {activeTab === "reports" && "REPORTS"}
+            {activeTab === "settings" && translate("settings.title", language)}
+            {activeTab === "items" && translate("items.title", language)}
+            {activeTab === "employees" && translate("employees.title", language)}
+            {activeTab === "reports" && translate("reports.title", language)}
           </h1>
           <div className="flex items-center gap-2">
             <Button onClick={logoutAdmin} variant="ghost" size="sm">
@@ -54,7 +54,7 @@ export function AdminDashboard() {
               }`}
             >
               <Settings className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Settings</span>
+              <span className="text-xs font-medium">{translate("settings.title", language)}</span>
             </button>
 
             <button
@@ -66,7 +66,7 @@ export function AdminDashboard() {
               }`}
             >
               <Package className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Items</span>
+              <span className="text-xs font-medium">{translate("items.title", language)}</span>
             </button>
 
             <button
@@ -78,7 +78,7 @@ export function AdminDashboard() {
               }`}
             >
               <Users className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Employees</span>
+              <span className="text-xs font-medium">{translate("employees.title", language)}</span>
             </button>
 
             <button
@@ -90,7 +90,7 @@ export function AdminDashboard() {
               }`}
             >
               <BarChart3 className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Reports</span>
+              <span className="text-xs font-medium">{translate("reports.title", language)}</span>
             </button>
           </div>
         </div>

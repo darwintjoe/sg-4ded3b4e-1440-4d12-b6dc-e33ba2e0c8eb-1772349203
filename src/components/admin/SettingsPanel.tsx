@@ -31,6 +31,7 @@ import { db } from "@/lib/db";
 import { generateSampleStoreData } from "@/lib/sample-store-data";
 import { useToast } from "@/hooks/use-toast";
 import { RestorePreviewDialog } from "@/components/RestorePreviewDialog";
+import { translate } from "@/lib/translations";
 
 // Extracted components
 import { HelpTooltip } from "./settings/HelpTooltip";
@@ -920,19 +921,19 @@ export function SettingsPanel() {
           <TabsList className="w-full grid grid-cols-4 rounded-none h-12">
             <TabsTrigger value="business" className="gap-2 text-xs sm:text-sm">
               <Store className="h-4 w-4" />
-              <span className="hidden sm:inline">Business</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.business", language)}</span>
             </TabsTrigger>
             <TabsTrigger value="pos" className="gap-2 text-xs sm:text-sm">
               <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">POS</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.pos", language)}</span>
             </TabsTrigger>
             <TabsTrigger value="security" className="gap-2 text-xs sm:text-sm">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Security</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.security", language)}</span>
             </TabsTrigger>
             <TabsTrigger value="advanced" className="gap-2 text-xs sm:text-sm">
               <SettingsIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">Advanced</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.advanced", language)}</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -962,12 +963,12 @@ export function SettingsPanel() {
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Access Control
+                {translate("settings.security.accessControl", language)}
               </h3>
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Role-based access control coming soon
+                  {translate("settings.security.roleBased", language)}
                 </AlertDescription>
               </Alert>
             </Card>
@@ -975,12 +976,12 @@ export function SettingsPanel() {
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                Data Privacy
+                {translate("settings.security.dataPrivacy", language)}
               </h3>
               <div className="text-xs text-muted-foreground space-y-1">
-                <div>✓ All data stored locally on your device</div>
-                <div>✓ No data sent to external servers</div>
-                <div>✓ Full control over your business data</div>
+                <div>✓ {translate("settings.security.localData", language)}</div>
+                <div>✓ {translate("settings.security.noServer", language)}</div>
+                <div>✓ {translate("settings.security.fullControl", language)}</div>
               </div>
             </Card>
           </TabsContent>
@@ -999,29 +1000,29 @@ export function SettingsPanel() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Cloud className="h-4 w-4" />
-                  Cloud Backup
+                  {translate("settings.backup.title", language)}
                 </h3>
                 {isSignedIn && backupStatus.isHealthy && (
                   <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
                     <CheckCircle2 className="h-3 w-3 mr-1" />
-                    Data Safe
+                    {translate("settings.backup.safe", language)}
                   </Badge>
                 )}
               </div>
 
               {!isInitialized ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
+                <div className="text-sm text-muted-foreground">{translate("common.loading", language)}</div>
               ) : !isSignedIn ? (
                 <div className="space-y-3">
                   <Alert>
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
-                      Sign in to enable automatic "Last Known Good" backups.
+                      {translate("settings.backup.signInHint", language)}
                     </AlertDescription>
                   </Alert>
                   <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
                     <Cloud className="h-3 w-3 mr-2" />
-                    Connect Google Drive
+                    {translate("settings.backup.connect", language)}
                   </Button>
                 </div>
               ) : (
@@ -1035,13 +1036,13 @@ export function SettingsPanel() {
                         <div className="font-medium">{user?.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {backupStatus.lastBackupTime 
-                            ? `Last backup: ${new Date(backupStatus.lastBackupTime).toLocaleString()}`
-                            : "No backup yet"}
+                            ? `${translate("settings.backup.lastBackup", language)} ${new Date(backupStatus.lastBackupTime).toLocaleString()}`
+                            : translate("settings.backup.noBackup", language)}
                         </div>
                       </div>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-xs h-8">
-                      Disconnect
+                      {translate("settings.backup.disconnect", language)}
                     </Button>
                   </div>
 
@@ -1057,13 +1058,13 @@ export function SettingsPanel() {
                     ) : (
                       <Upload className="h-3 w-3 mr-2" />
                     )}
-                    Backup Now
+                    {translate("settings.backup.backupNow", language)}
                   </Button>
                   
                   <div className="pt-6 border-t mt-4">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
-                        <Lock className="h-3 w-3" /> Emergency Zone
+                        <Lock className="h-3 w-3" /> {translate("settings.backup.emergency", language)}
                       </h4>
                     </div>
                     
@@ -1086,7 +1087,7 @@ export function SettingsPanel() {
                         className="w-full border-blue-500 text-blue-600 hover:bg-blue-50"
                       >
                         <Upload className="h-3 w-3 mr-2" />
-                        Upload Backup File
+                        {translate("settings.backup.upload", language)}
                       </Button>
                       
                       <Button
@@ -1096,7 +1097,7 @@ export function SettingsPanel() {
                         className="w-full bg-red-100 text-red-900 hover:bg-red-200 border-red-200"
                       >
                         <Download className="h-3 w-3 mr-2" />
-                        Restore from Google Drive
+                        {translate("settings.backup.restore", language)}
                       </Button>
                       
                       {revertStatus.available && (
@@ -1107,12 +1108,12 @@ export function SettingsPanel() {
                           className="w-full border-amber-500 text-amber-600 hover:bg-amber-50"
                         >
                           <RotateCcw className="h-3 w-3 mr-2" />
-                          Revert Restore ({revertStatus.hoursRemaining}h left)
+                          {translate("settings.backup.revert", language)} ({revertStatus.hoursRemaining}h left)
                         </Button>
                       )}
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-2 text-center">
-                      Advanced recovery options. Admin access only.
+                      {translate("settings.backup.advancedHint", language)}
                     </p>
                   </div>
                 </div>
