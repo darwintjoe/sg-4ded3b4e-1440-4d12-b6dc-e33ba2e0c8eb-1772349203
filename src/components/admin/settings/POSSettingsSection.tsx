@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X } from "lucide-react";
+import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X, Receipt } from "lucide-react";
 import { Settings, Language } from "@/types";
 import { HelpTooltip } from "./HelpTooltip";
 import { translate } from "@/lib/translations";
@@ -368,19 +368,11 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
 
       {/* Price Override */}
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              {translate("settings.pos.priceOverride", language)}
-              <HelpTooltip content={translate("settings.pos.priceOverrideHint", language)} />
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {settings.allowPriceOverride 
-                ? translate("settings.pos.priceOverrideEnabled", language)
-                : translate("settings.pos.priceOverrideDisabled", language)
-              }
-            </p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-muted-foreground" />
+            <span className="font-medium">{translate("settings.pos.priceOverride", language)}</span>
+            <HelpTooltip content={translate("settings.pos.priceOverrideHelp", language)} />
           </div>
           <Switch
             checked={settings.allowPriceOverride}
@@ -391,10 +383,10 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
 
       {/* Tax Configuration */}
       <Card className="p-4">
-        <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
-          <DollarSign className="w-4 h-4" />
-          {translate("settings.pos.taxConfiguration", language)}
-        </h3>
+        <div className="flex items-center gap-2 mb-4">
+          <Receipt className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium">{translate("settings.taxConfiguration", language)}</span>
+        </div>
         
         <div className="space-y-4">
           {/* Tax 1 */}
