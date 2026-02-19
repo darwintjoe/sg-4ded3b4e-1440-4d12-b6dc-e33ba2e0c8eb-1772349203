@@ -42,7 +42,7 @@ export function ReportsPanel() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-0 md:p-4">
         <TabsContent value="sales" className="mt-0">
           <SalesReport language={language} />
         </TabsContent>
