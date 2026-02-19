@@ -234,5 +234,126 @@ export const translations: Record<Language, Translations> = {
     "settings.business.remove": "Hapus",
     "settings.business.processing": "Memproses...",
     "settings.business.uploadLogoHelp": "Unggah logo untuk pencetakan struk. Otomatis diubah ukuran ke lebar 512px, dikonversi ke grayscale untuk printer thermal."
+  },
+  zh: {
+    // Login & Auth
+    "login.title": "SELL MORE",
+    "login.subtitle": "Enter your PIN to continue",
+    "login.adminSubtitle": "Enter admin PIN to access dashboard",
+    "login.invalid": "Invalid PIN",
+    "login.clockIn": "Clock In",
+    "login.clockOut": "Clock Out",
+    "login.sessionRestored": "Session restored - welcome back!",
+    "login.google": "Sign in with Google",
+    
+    // Attendance
+    "attendance.title": "ATTENDANCE",
+    "attendance.subtitle": "Select mode and enter your PIN",
+    "attendance.clockedIn": "Clocked in successfully!",
+    "attendance.clockedOut": "Clocked out successfully!",
+    "attendance.alreadyClockedIn": "Already clocked in today",
+    "attendance.notClockedIn": "Not clocked in yet",
+    
+    // Admin
+    "admin.subtitle": "System configuration and management",
+    "admin.settings": "Settings",
+    "admin.items": "Item Master",
+    "admin.employees": "Employees",
+    "admin.reports": "Reports",
+    "admin.backup": "Backup",
+
+    // POS Screen
+    "pos.search": "Search items or scan barcode...",
+    "pos.cart": "Cart",
+    "pos.empty": "Cart is empty",
+    "pos.subtotal": "Subtotal",
+    "pos.tax": "Tax",
+    "pos.total": "Total",
+    "pos.payment": "Payment",
+    "pos.lockScreen": "Lock Screen",
+    "pos.attendance": "Attendance",
+    "pos.logout": "Logout",
+    "pos.endShift": "End Shift",
+    "pos.confirmLogout": "End Shift?",
+    "pos.confirmLogoutMessage": "Are you sure you want to end your shift and logout?",
+    "pos.cannotLogout": "Cannot Logout",
+    "pos.cannotLogoutWithCart": "Cannot logout with items in cart. Complete or clear the transaction first.",
+    "pos.clearCart": "Clear Cart",
+    "pos.confirmClearCart": "Clear Cart?",
+    "pos.confirmClearCartMessage": "Remove all items from cart?",
+    "pos.editItem": "Edit Item",
+    "pos.quantity": "Quantity",
+    "pos.unitPrice": "Unit Price",
+    "pos.overrideEnabled": "Override Enabled",
+    "pos.overrideDisabled": "Price Locked",
+    "pos.priceOverrideWarning": "Price override will only apply to this transaction",
+    "pos.deleteItem": "Remove Item",
+    "pos.confirmDelete": "Remove Item?",
+    "pos.confirmDeleteMessage": "Remove this item from cart",
+    "pos.unsavedChanges": "Unsaved Changes",
+    "pos.unsavedChangesMessage": "You have unsaved changes. Discard them?",
+    "pos.discardChanges": "Discard Changes?",
+    "pos.discardChangesMessage": "You have unsaved changes. Are you sure you want to discard them?",
+    "pos.confirmRemoveItem": "Are you sure you want to remove this item?",
+    "pos.confirmDiscardChanges": "Are you sure you want to discard your changes?",
+    "pos.testSound": "Test Sound",
+
+    // Payment
+    "payment.title": "Payment",
+    "payment.method": "Payment Method",
+    "payment.cash": "Cash",
+    "payment.qrisStatic": "QRIS Static",
+    "payment.qrisDynamic": "QRIS Dynamic",
+    "payment.voucher": "Voucher",
+    "payment.amount": "Amount",
+    "payment.qrisRef": "QRIS Reference (optional)",
+    "payment.add": "Add Payment",
+    "payment.paid": "Paid",
+    "payment.remaining": "Remaining",
+    "payment.change": "Change",
+    "payment.complete": "Complete Sale",
+    "payment.success": "Transaction completed successfully!",
+    "payment.cancel": "Cancel",
+
+    // Settings
+    "settings.title": "SETTINGS",
+    "settings.mode": "POS Mode",
+    "settings.language": "Language",
+    "settings.printer": "Printer Width",
+    "settings.shiftManagement": "Shift Management",
+    "settings.taxConfiguration": "Tax Configuration",
+    "settings.paymentMethods": "Payment Methods",
+    "settings.priceOverride": "Price Override",
+    
+    // Settings Tabs
+    "settings.tabs.business": "Business",
+    "settings.tabs.pos": "POS",
+    "settings.tabs.security": "Security",
+    "settings.tabs.advanced": "Advanced",
+
+    // Business Settings
+    "settings.business.title": "Business Information",
+    "settings.business.businessInformation": "Business Information",
+    "settings.business.name": "Business Name",
+    "settings.business.namePlaceholder": "My Store",
+    "settings.business.businessName": "Business Name",
+    "settings.business.businessNamePlaceholder": "My Store",
+    "settings.business.address": "Address",
+    "settings.business.addressHint": "Appears on printed receipts",
+    "settings.business.addressPlaceholder": "123 Main St, City, State",
+    "settings.business.taxId": "Tax ID / NPWP",
+    "settings.business.taxIdHint": "Optional tax identification number",
+    "settings.business.taxIdPlaceholder": "12.345.678.9-012.000",
+    "settings.business.receiptFooter": "Receipt Footer",
+    "settings.business.receiptFooterHint": "Custom message at bottom of receipt",
+    "settings.business.receiptFooterPlaceholder": "Thank you for your purchase!",
+    "settings.business.uploadLogo": "Upload Logo",
+    "settings.business.remove": "Remove",
+    "settings.business.processing": "Processing...",
+    "settings.business.uploadLogoHelp": "Upload logo for receipt printing. Auto-resized to 512px width, converted to grayscale for thermal printers."
   }
 };
+
+export function translate(key: string, language: Language = "en"): string {
+  return translations[language]?.[key] || translations["en"]?.[key] || key;
+}
