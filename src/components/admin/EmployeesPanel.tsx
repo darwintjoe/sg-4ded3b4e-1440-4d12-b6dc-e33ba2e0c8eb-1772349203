@@ -12,7 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
 import { useLongPress } from "@/hooks/use-long-press";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, Download } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, Download, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/contexts/AppContext";
 import { translate } from "@/lib/translations";
