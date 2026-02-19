@@ -137,6 +137,32 @@ export const translations: Record<Language, Translations> = {
     "settings.backup.clearData": "Clear Transaction Data",
     "settings.backup.injectSample": "Inject Sample Data",
 
+    // Database Management
+    "settings.database.title": "Database Management",
+    "settings.database.description": "Manage your store data for onboarding, testing, or starting fresh.",
+    "settings.database.sampleData.title": "🎨 Inject Sample Data",
+    "settings.database.sampleData.description": "Load demo data: 200 items, 8 employees, 26 months of transactions. Perfect for learning the system.",
+    "settings.database.sampleData.button": "Load Sample Data",
+    "settings.database.clearTransactions.title": "🗑️ Clear Transaction Data",
+    "settings.database.clearTransactions.description": "Remove all transactions and reports. Items, employees, and settings remain intact.",
+    "settings.database.clearTransactions.button": "Clear Transaction Data",
+    "settings.database.factoryReset.title": "🏭 Factory Reset",
+    "settings.database.factoryReset.description": "Delete EVERYTHING and return to fresh install state. All data will be lost permanently.",
+    "settings.database.factoryReset.button": "Factory Reset",
+
+    // Printer Settings
+    "settings.printer.title": "Receipt Printer",
+    "settings.printer.paperWidth": "Paper Width",
+    "settings.printer.bluetooth": "Bluetooth Printer",
+    "settings.printer.notSupported": "Bluetooth printing requires Android Chrome",
+    "settings.printer.connected": "Connected",
+    "settings.printer.notConnected": "Not Connected",
+    "settings.printer.disconnect": "Disconnect",
+    "settings.printer.connect": "Connect",
+    "settings.printer.connecting": "Connecting...",
+    "settings.printer.testPrint": "Test Print",
+    "settings.printer.printing": "Printing...",
+
     // Reports
     "reports.title": "REPORTS",
     "reports.query": "Ask a question about your sales...",
@@ -408,6 +434,32 @@ export const translations: Record<Language, Translations> = {
     "settings.backup.clearData": "Hapus Data Transaksi",
     "settings.backup.injectSample": "Masukkan Data Contoh",
 
+    // Database Management
+    "settings.database.title": "Manajemen Database",
+    "settings.database.description": "Kelola data toko Anda untuk orientasi, pengujian, atau memulai dari awal.",
+    "settings.database.sampleData.title": "🎨 Masukkan Data Contoh",
+    "settings.database.sampleData.description": "Muat data demo: 200 barang, 8 karyawan, 26 bulan transaksi. Sempurna untuk mempelajari sistem.",
+    "settings.database.sampleData.button": "Muat Data Contoh",
+    "settings.database.clearTransactions.title": "🗑️ Hapus Data Transaksi",
+    "settings.database.clearTransactions.description": "Hapus semua transaksi dan laporan. Barang, karyawan, dan pengaturan tetap utuh.",
+    "settings.database.clearTransactions.button": "Hapus Data Transaksi",
+    "settings.database.factoryReset.title": "🏭 Reset Pabrik",
+    "settings.database.factoryReset.description": "Hapus SEMUA dan kembali ke kondisi fresh install. Semua data akan hilang permanen.",
+    "settings.database.factoryReset.button": "Reset Pabrik",
+
+    // Printer Settings
+    "settings.printer.title": "Printer Struk",
+    "settings.printer.paperWidth": "Lebar Kertas",
+    "settings.printer.bluetooth": "Printer Bluetooth",
+    "settings.printer.notSupported": "Pencetakan Bluetooth memerlukan Android Chrome",
+    "settings.printer.connected": "Terhubung",
+    "settings.printer.notConnected": "Tidak Terhubung",
+    "settings.printer.disconnect": "Putuskan",
+    "settings.printer.connect": "Hubungkan",
+    "settings.printer.connecting": "Menghubungkan...",
+    "settings.printer.testPrint": "Tes Cetak",
+    "settings.printer.printing": "Mencetak...",
+
     // Reports
     "reports.title": "LAPORAN",
     "reports.query": "Tanyakan tentang penjualan Anda...",
@@ -678,6 +730,32 @@ export const translations: Record<Language, Translations> = {
     "settings.backup.factoryReset": "恢复出厂设置",
     "settings.backup.clearData": "清除交易数据",
     "settings.backup.injectSample": "注入示例数据",
+
+    // Database Management
+    "settings.database.title": "数据库管理",
+    "settings.database.description": "管理您的商店数据以进行入职、测试或重新开始。",
+    "settings.database.sampleData.title": "🎨 注入示例数据",
+    "settings.database.sampleData.description": "加载演示数据：200个商品、8名员工、26个月的交易。非常适合学习系统。",
+    "settings.database.sampleData.button": "加载示例数据",
+    "settings.database.clearTransactions.title": "🗑️ 清除交易数据",
+    "settings.database.clearTransactions.description": "删除所有交易和报告。商品、员工和设置保持不变。",
+    "settings.database.clearTransactions.button": "清除交易数据",
+    "settings.database.factoryReset.title": "🏭 恢复出厂设置",
+    "settings.database.factoryReset.description": "删除所有内容并返回到全新安装状态。所有数据将永久丢失。",
+    "settings.database.factoryReset.button": "恢复出厂设置",
+
+    // Printer Settings
+    "settings.printer.title": "收据打印机",
+    "settings.printer.paperWidth": "纸张宽度",
+    "settings.printer.bluetooth": "蓝牙打印机",
+    "settings.printer.notSupported": "蓝牙打印需要Android Chrome",
+    "settings.printer.connected": "已连接",
+    "settings.printer.notConnected": "未连接",
+    "settings.printer.disconnect": "断开连接",
+    "settings.printer.connect": "连接",
+    "settings.printer.connecting": "连接中...",
+    "settings.printer.testPrint": "测试打印",
+    "settings.printer.printing": "打印中...",
 
     // Reports
     "reports.title": "报表",
