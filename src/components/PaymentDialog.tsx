@@ -79,6 +79,13 @@ export function PaymentDialog({
     }
   }, [remaining]);
 
+  // Reset amount when payment method changes
+  useEffect(() => {
+    if (remaining > 0) {
+      setAmount(remaining.toString());
+    }
+  }, [selectedMethod]);
+
   const addPayment = () => {
     const paymentAmount = parseFloat(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) return;
