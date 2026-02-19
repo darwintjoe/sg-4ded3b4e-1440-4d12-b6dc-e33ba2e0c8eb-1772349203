@@ -25,7 +25,7 @@ interface POSScreenProps {
 }
 
 export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POSScreenProps) {
-  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language } = useApp();
+  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings } = useApp();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
@@ -38,7 +38,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const { toast } = useToast();
@@ -49,18 +48,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   useEffect(() => {
     loadItems();
-    loadSettings();
     loadCurrentShift();
   }, []);
-
-  const loadSettings = async () => {
-    try {
-      const loadedSettings = await db.getSettings();
-      setSettings(loadedSettings);
-    } catch (error) {
-      console.error("Error loading settings:", error);
-    }
-  };
 
   const loadCurrentShift = async () => {
     try {
