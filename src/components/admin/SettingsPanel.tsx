@@ -950,6 +950,7 @@ export function SettingsPanel() {
             <PrinterSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
+              language={language}
             />
           </TabsContent>
 
@@ -957,6 +958,7 @@ export function SettingsPanel() {
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
+              language={language}
             />
           </TabsContent>
 
@@ -993,6 +995,7 @@ export function SettingsPanel() {
               onClearTransactions={handleClearTransactions}
               onFactoryReset={handleFactoryReset}
               isProcessing={progressDialog.isOpen}
+              language={language}
             />
 
             <Separator className="my-6" />
