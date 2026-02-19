@@ -1,0 +1,76 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+interface SplashScreenProps {
+  onComplete: () => void;
+}
+
+export function SplashScreen({ onComplete }: SplashScreenProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Handle video end
+    const handleVideoEnd = () => {
+      // Fade out transition
+      setIsVisible(false);
+      // Wait for fade animation to complete before calling onComplete
+      setTimeout(() => {
+        onComplete();
+      }, 500);
+    };
+
+    // Handle video error (fallback to auto-complete after 5 seconds)
+    const handleVideoError = () => {
+      console.error("Video failed to load, proceeding to app...");
+      setTimeout(() => {
+        setIsVisible(false);
+        setTimeout(() => {
+          onComplete();
+        }, 500);
+      }, 5000);
+    };
+
+    video.addEventListener("ended", handleVideoEnd);
+    video.addEventListener("error", handleVideoError);
+
+    // Attempt to play video
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((error) => {
+        console.error("Video autoplay failed:", error);
+        // If autoplay fails, still proceed after 5 seconds
+        handleVideoError();
+      });
+    }
+
+    return () => {
+      video.removeEventListener("ended", handleVideoEnd);
+      video.removeEventListener("error", handleVideoError);
+    };
+  }, [onComplete]);
+
+  return (
+    <div
+      className={`fixed inset-0 z-[9999] bg-black flex items-center justify-center transition-opacity duration-500 ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
+      style={{ pointerEvents: isVisible ? "auto" : "none" }}
+    >
+      <video
+        ref={videoRef}
+        className="w-full h-full object-cover"
+        playsInline
+        muted
+        preload="auto"
+      >
+        <source src="/splash.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  );
+}
