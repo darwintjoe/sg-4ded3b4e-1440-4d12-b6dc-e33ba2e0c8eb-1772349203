@@ -27,9 +27,15 @@ export function PieChart({ data }: PieChartProps) {
         </Pie>
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "10px", backgroundColor: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", border: "none" }}
+          contentStyle={{ 
+            fontSize: "10px", 
+            backgroundColor: "white", 
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
+            border: "none",
+            borderRadius: "4px"
+          }}
           labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
-          wrapperStyle={{ outline: "none" }}
+          wrapperStyle={{ outline: "none", border: "none" }}
           cursor={false}
         />
       </RechartsPie>
