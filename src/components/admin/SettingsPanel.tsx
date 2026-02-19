@@ -945,6 +945,7 @@ export function SettingsPanel() {
             <BusinessSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
+              language={language}
             />
             <PrinterSettingsSection 
               settings={settings} 
