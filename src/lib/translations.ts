@@ -10,6 +10,7 @@ export const translations: Record<Language, Translations> = {
     "login.clockIn": "Clock In",
     "login.clockOut": "Clock Out",
     "login.sessionRestored": "Session restored - welcome back!",
+    "login.google": "Sign in with Google",
     
     // Attendance
     "attendance.title": "ATTENDANCE",
@@ -192,6 +193,7 @@ export const translations: Record<Language, Translations> = {
     "login.clockIn": "Masuk",
     "login.clockOut": "Keluar",
     "login.sessionRestored": "Sesi dipulihkan - selamat datang kembali!",
+    "login.google": "Masuk dengan Google",
     
     // Attendance
     "attendance.title": "ABSENSI",
@@ -374,6 +376,7 @@ export const translations: Record<Language, Translations> = {
     "login.clockIn": "打卡上班",
     "login.clockOut": "打卡下班",
     "login.sessionRestored": "会话已恢复 - 欢迎回来！",
+    "login.google": "使用 Google 登录",
     
     // Attendance
     "attendance.title": "考勤",

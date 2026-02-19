@@ -17,6 +17,7 @@ import { Item } from "@/types";
 import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { translate } from "@/lib/translations";
 
 type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
@@ -577,7 +578,7 @@ export function ItemsPanel() {
           <div className="relative flex-1 min-w-[100px] max-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
             <Input
-              placeholder="Search..."
+              placeholder={translate("common.search", language)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 text-sm"
@@ -589,9 +590,9 @@ export function ItemsPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
+              <SelectItem value="inactive">{translate("common.inactive", language)}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -600,7 +601,7 @@ export function ItemsPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
               {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
@@ -618,7 +619,7 @@ export function ItemsPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Upload className="h-4 w-4" />
-            <span>Import</span>
+            <span>{translate("common.import", language)}</span>
           </Button>
 
           <Button 
@@ -629,7 +630,7 @@ export function ItemsPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <Download className="h-4 w-4" />
-            <span>Export</span>
+            <span>{translate("common.export", language)}</span>
           </Button>
 
           <input
@@ -654,7 +655,7 @@ export function ItemsPanel() {
                       onClick={() => handleSort("sku")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
                     >
-                      SKU
+                      {translate("items.sku", language)}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -663,7 +664,7 @@ export function ItemsPanel() {
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
                     >
-                      Name
+                      {translate("items.name", language)}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -672,7 +673,7 @@ export function ItemsPanel() {
                       onClick={() => handleSort("price")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
                     >
-                      Price
+                      {translate("items.price", language)}
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
@@ -682,7 +683,7 @@ export function ItemsPanel() {
                 {filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                      {searchQuery ? "No items found" : "No items yet"}
+                      {searchQuery ? translate("items.noResults", language) : translate("items.noItems", language)}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -721,17 +722,17 @@ export function ItemsPanel() {
                     onClick={handleCloseDialog}
                     className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
                   >
-                    Cancel
+                    {translate("common.cancel", language)}
                   </Button>
                   <h2 className="text-lg font-semibold">
-                    {editingItem?.id ? "Edit Item" : "Add New Item"}
+                    {editingItem?.id ? translate("items.editItem", language) : translate("items.addItem", language)}
                   </h2>
                   <Button 
                     onClick={handleSaveItem}
                     disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
                     className="bg-blue-600 hover:bg-blue-700 -mr-3"
                   >
-                    Save
+                    {translate("common.save", language)}
                   </Button>
                 </div>
               </div>
@@ -751,7 +752,7 @@ export function ItemsPanel() {
 
                   {/* SKU Field - Now First */}
                   <div className="space-y-2">
-                    <Label>SKU (Barcode)</Label>
+                    <Label>{translate("items.skuLabel", language)}</Label>
                     <div className="flex gap-2">
                       <Input
                         value={editingItem?.sku || ""}
@@ -782,7 +783,7 @@ export function ItemsPanel() {
                   {/* Item Name Field - Now Second */}
                   <div className="space-y-2">
                     <Label>
-                      Item Name <span className="text-red-500">*</span>
+                      {translate("items.itemName", language)} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       value={editingItem?.name || ""}
@@ -795,7 +796,7 @@ export function ItemsPanel() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Selling Price (Rp) <span className="text-red-500">*</span></Label>
+                    <Label>{translate("items.sellingPrice", language)} <span className="text-red-500">*</span></Label>
                     <Input
                       type="text"
                       inputMode="numeric"
@@ -808,24 +809,24 @@ export function ItemsPanel() {
 
                   {/* Category */}
                   <div className="space-y-2">
-                    <Label>Category</Label>
+                    <Label>{translate("items.category", language)}</Label>
                     <Dialog open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
                       <Button
                         variant="outline"
                         className="w-full justify-between"
                         onClick={() => setCategorySheetOpen(true)}
                       >
-                        {editingItem.category || "Select or type category..."}
+                        {editingItem.category || translate("items.selectCategory", language)}
                         <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                       <DialogContent className="max-w-md max-h-[50vh] flex flex-col p-0">
                         <div className="px-6 pt-6 pb-4 flex-shrink-0">
-                          <h3 className="text-lg font-semibold">Select or Add Category</h3>
+                          <h3 className="text-lg font-semibold">{translate("items.selectCategory", language)}</h3>
                         </div>
                         <div className="flex-1 overflow-y-auto px-6 pb-2">
                           <Command className="rounded-lg border">
                             <CommandInput 
-                              placeholder="Type to search or add new category..." 
+                              placeholder={translate("common.search", language)}
                               value={categorySearch}
                               onValueChange={setCategorySearch}
                               className="placeholder:text-slate-400/60"
@@ -833,7 +834,7 @@ export function ItemsPanel() {
                             <CommandList>
                               <CommandEmpty>
                                 <div className="py-6 text-center text-sm text-slate-500">
-                                  No category found
+                                  {translate("items.noCategoryFound", language)}
                                 </div>
                               </CommandEmpty>
                               <CommandGroup>
@@ -863,23 +864,23 @@ export function ItemsPanel() {
                               className="w-full"
                               size="lg"
                             >
-                              Create "{capitalizeWords(categorySearch)}"
+                              {translate("items.createCategory", language)} "{capitalizeWords(categorySearch)}"
                             </Button>
                           </div>
                         )}
                       </DialogContent>
                     </Dialog>
                     <p className="text-xs text-slate-500/60">
-                      Tap to select existing or type new category
+                      {translate("items.tapSelectCategory", language)}
                     </p>
                   </div>
 
                   {editingItem.id && (
                     <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
                       <div>
-                        <p className="font-medium text-sm">Active Status</p>
+                        <p className="font-medium text-sm">{translate("items.activeStatus", language)}</p>
                         <p className="text-xs text-slate-500/60">
-                          Inactive items hidden from POS
+                          {translate("items.activeHelp", language)}
                         </p>
                       </div>
                       <Switch
@@ -897,7 +898,7 @@ export function ItemsPanel() {
                         className="w-full"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Item
+                        {translate("items.deleteItem", language)}
                       </Button>
                     </div>
                   )}

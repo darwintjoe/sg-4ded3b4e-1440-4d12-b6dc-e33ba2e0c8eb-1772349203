@@ -453,14 +453,14 @@ export function PaymentDialog({
             {selectedMethod.includes("qris") && (
               <Input
                 type="text"
-                placeholder="QRIS Reference (optional)"
+                placeholder={translate("payment.qrisRef", language)}
                 value={qrisRef}
                 onChange={(e) => setQrisRef(e.target.value)}
                 className="text-sm"
               />
             )}
             <Button onClick={addPayment} className="w-full" disabled={!amount}>
-              Add Payment
+              {translate("payment.add", language)}
             </Button>
           </div>
 
@@ -486,7 +486,7 @@ export function PaymentDialog({
               disabled={remaining > 0}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >
-              {remaining > 0 ? `Remaining: Rp ${remaining.toLocaleString()}` : translate("payment.complete", language)}
+              {remaining > 0 ? `${translate("payment.remaining", language)}: Rp ${remaining.toLocaleString()}` : translate("payment.complete", language)}
             </Button>
           </div>
         </div>
