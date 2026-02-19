@@ -622,7 +622,7 @@ export const translations: Record<Language, Translations> = {
     // Advanced Tab / Backup
     "settings.backup.title": "云备份",
     "settings.backup.safe": "数据安全",
-    "settings.backup.signInHint": "登录以启用自动"最后已知良好"备份。",
+    "settings.backup.signInHint": "登录以启用自动“最后已知良好”备份。",
     "settings.backup.connect": "连接 Google Drive",
     "settings.backup.disconnect": "断开连接",
     "settings.backup.lastBackup": "上次备份:",
