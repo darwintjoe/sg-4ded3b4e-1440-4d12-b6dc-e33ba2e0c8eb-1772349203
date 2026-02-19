@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 import { createRequire } from "module";
+import withPWA from "next-pwa";
 
 // Check if element-tagger is available
 function isElementTaggerAvailable() {
@@ -45,4 +46,22 @@ const nextConfig = {
   allowedDevOrigins: ["*.daytona.work", "*.softgen.dev"],
 };
 
-export default nextConfig;
+const pwaConfig = withPWA({
+  dest: "public",
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === "development",
+  runtimeCaching: [
+    {
+      urlPattern: /^https?.*/,
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "offlineCache",
+        expiration: {
+          maxEntries: 200,
+        },
+        networkTimeoutSeconds: 10,
+      },
+    },
+  ],
+});
