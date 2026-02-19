@@ -8,6 +8,8 @@ import { AttendanceReport } from "./reports/AttendanceReport";
 import { MoreVertical, FileDown, Image, FileText, Printer, Send } from "lucide-react";
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { parseQuery } from "@/lib/chatbot-parser";
+import { formatHelpResponse, getQuickExamples } from "@/lib/chatbot-help";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -48,12 +50,24 @@ export function ReportsPanel() {
     setChatInput("");
 
     setTimeout(() => {
+      const parsedQuery = parseQuery(userMessage.content);
+      let assistantResponse = "";
+
+      if (parsedQuery.intent === "help") {
+        assistantResponse = formatHelpResponse();
+      } else if (parsedQuery.intent === "unknown") {
+        assistantResponse = "I'm not sure I understand that query. Type **HELP** to see what I can do!\n\nHere are some quick examples:\n\n" + 
+          getQuickExamples().map(ex => `• ${ex}`).join("\n");
+      } else {
+        assistantResponse = `🔍 Query detected: **${parsedQuery.intent.replace("_", " ")}**\n\nTime range: ${parsedQuery.timeRange.type}\n\n_Full implementation coming soon..._\n\nFor now, try:\n• **HELP** - See all available commands\n• Use the tabs above for detailed reports`;
+      }
+
       const assistantMessage: ChatMessage = {
         role: "assistant",
-        content: "AI response functionality coming soon. Your query: " + userMessage.content,
+        content: assistantResponse,
       };
       setChatMessages((prev) => [...prev, assistantMessage]);
-    }, 500);
+    }, 300);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -121,25 +135,58 @@ export function ReportsPanel() {
                   How can I help you today?
                 </h2>
                 <p className="text-muted-foreground text-lg">
-                  Ask for any specific report, or HELP for more
+                  Ask for any specific report, or type <strong>HELP</strong> for examples
                 </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
+                  {getQuickExamples().map((example, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setChatInput(example);
+                        setTimeout(() => handleSendMessage(), 100);
+                      }}
+                      className="text-left p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors"
+                    >
+                      <p className="text-sm text-foreground">{example}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+            <div className="flex-1 overflow-y-auto space-y-4 mb-4 px-2">
               {chatMessages.map((message, index) => (
                 <div
                   key={index}
                   className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
+                      {message.content.split('\n').map((line, i) => {
+                        if (line.startsWith('# ')) {
+                          return <h1 key={i} className="text-lg font-bold mt-2 mb-2">{line.substring(2)}</h1>;
+                        }
+                        if (line.startsWith('## ')) {
+                          return <h2 key={i} className="text-base font-semibold mt-3 mb-1">{line.substring(3)}</h2>;
+                        }
+                        if (line.startsWith('• ')) {
+                          return <li key={i} className="ml-4">{line.substring(2)}</li>;
+                        }
+                        if (line.startsWith('---')) {
+                          return <hr key={i} className="my-3 border-t border-border" />;
+                        }
+                        if (line.match(/^\*\*(.+)\*\*$/)) {
+                          return <p key={i} className="font-semibold mt-2">{line.replace(/\*\*/g, '')}</p>;
+                        }
+                        return line ? <p key={i}>{line}</p> : <br key={i} />;
+                      })}
+                    </div>
                   </div>
                 </div>
               ))}
