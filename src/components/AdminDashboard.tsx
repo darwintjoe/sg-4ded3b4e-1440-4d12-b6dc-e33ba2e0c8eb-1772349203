@@ -5,7 +5,6 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { ItemsPanel } from "@/components/admin/ItemsPanel";
 import { EmployeesPanel } from "@/components/admin/EmployeesPanel";
 import { ReportsPanel } from "@/components/admin/ReportsPanel";
-import { LanguageSelector } from "@/components/LanguageSelector";
 import { LogOut, Settings, Package, Users, BarChart3 } from "lucide-react";
 import { translate } from "@/lib/translations";
 
@@ -25,7 +24,6 @@ export function AdminDashboard() {
             {activeTab === "reports" && "REPORTS"}
           </h1>
           <div className="flex items-center gap-2">
-            <LanguageSelector />
             <Button onClick={logoutAdmin} variant="ghost" size="sm">
               <LogOut className="h-4 w-4" />
             </Button>

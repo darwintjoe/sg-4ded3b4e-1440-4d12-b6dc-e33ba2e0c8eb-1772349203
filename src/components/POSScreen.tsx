@@ -372,7 +372,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             </Badge>
           </div>
           <div className="flex items-center gap-2">
-            <LanguageSelector />
             <Button
               variant="outline"
               size="icon"
