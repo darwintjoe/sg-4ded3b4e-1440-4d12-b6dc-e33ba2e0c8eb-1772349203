@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DailyItemSales, MonthlyItemSales } from "@/types";
+import { DailyItemSales, MonthlyItemSales, Language } from "@/types";
 import { db } from "@/lib/db";
 import { translate } from "@/lib/translations";
 import { Download, Table2, FileImage, Package } from "lucide-react";
@@ -415,7 +415,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Package className="h-4 w-4" />
-              {translate("reports.items.table", language)} ({topItemsData.length} Items)
+              {translate("reports.items.table", language as Language)} ({topItemsData.length} Items)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">

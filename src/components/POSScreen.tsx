@@ -298,14 +298,55 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     onLockScreen(); // Notify parent to switch screen state if needed
   };
 
-  const filteredItems = items.filter(item => {
-    if (!searchQuery.trim()) return false;
-    const query = searchQuery.toLowerCase();
-    return (
-      item.name.toLowerCase().includes(query) ||
-      (item.sku && item.sku.toLowerCase().includes(query))
-    );
-  });
+  const filteredItems = items
+    .filter(item => {
+      if (!searchQuery.trim()) return false;
+      const query = searchQuery.toLowerCase();
+      return (
+        item.name.toLowerCase().includes(query) ||
+        (item.sku && item.sku.toLowerCase().includes(query))
+      );
+    })
+    .sort((a, b) => {
+      const query = searchQuery.toLowerCase();
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const aSku = a.sku?.toLowerCase() || "";
+      const bSku = b.sku?.toLowerCase() || "";
+      
+      // Priority 1: Exact match (full name)
+      const aExact = aName === query;
+      const bExact = bName === query;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      
+      // Priority 2: Starts with query
+      const aStarts = aName.startsWith(query);
+      const bStarts = bName.startsWith(query);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      
+      // Priority 3: Word boundary match (any word starts with query)
+      const aWordBoundary = aName.split(' ').some(word => word.startsWith(query));
+      const bWordBoundary = bName.split(' ').some(word => word.startsWith(query));
+      if (aWordBoundary && !bWordBoundary) return -1;
+      if (!aWordBoundary && bWordBoundary) return 1;
+      
+      // Priority 4: Contains query in name
+      const aContains = aName.includes(query);
+      const bContains = bName.includes(query);
+      if (aContains && !bContains) return -1;
+      if (!aContains && bContains) return 1;
+      
+      // Priority 5: SKU match (lowest priority)
+      const aSkuMatch = aSku.includes(query);
+      const bSkuMatch = bSku.includes(query);
+      if (aSkuMatch && !bSkuMatch) return -1;
+      if (!aSkuMatch && bSkuMatch) return 1;
+      
+      // Final: Alphabetical by name
+      return aName.localeCompare(bName);
+    });
 
   // Automatically show dropdown when user types
   useEffect(() => {
