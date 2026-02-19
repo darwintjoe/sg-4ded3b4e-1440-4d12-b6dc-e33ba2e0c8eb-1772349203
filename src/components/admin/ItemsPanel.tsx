@@ -573,18 +573,8 @@ export function ItemsPanel() {
 
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
-        {/* Row 1: Search + Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[100px] max-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-            <Input
-              placeholder={translate("common.search", language)}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm"
-            />
-          </div>
-
+        {/* Row 1: Filters + Import/Export */}
+        <div className="flex items-center gap-2">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
             <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
               <SelectValue />
@@ -607,10 +597,7 @@ export function ItemsPanel() {
               ))}
             </SelectContent>
           </Select>
-        </div>
 
-        {/* Row 2: Import/Export Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant="outline" 
             size="sm" 
@@ -618,7 +605,7 @@ export function ItemsPanel() {
             disabled={importing}
             className="gap-2 whitespace-nowrap text-sm"
           >
-            <Upload className="h-4 w-4" />
+            <ArrowDownToLine className="h-4 w-4" />
             <span>{translate("common.import", language)}</span>
           </Button>
 
@@ -629,7 +616,7 @@ export function ItemsPanel() {
             disabled={importing}
             className="gap-2 whitespace-nowrap text-sm"
           >
-            <Download className="h-4 w-4" />
+            <ArrowUpFromLine className="h-4 w-4" />
             <span>{translate("common.export", language)}</span>
           </Button>
 
@@ -640,6 +627,19 @@ export function ItemsPanel() {
             onChange={handleCSVImport}
             className="hidden"
           />
+        </div>
+
+        {/* Row 2: Full-width Search */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+            <Input
+              placeholder={translate("common.search", language)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 text-sm w-full"
+            />
+          </div>
         </div>
       </div>
 
