@@ -294,9 +294,9 @@ export function ItemsReport({ language }: ItemsReportProps) {
 
   return (
     <div className="space-y-4">
-      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
+      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 rounded-lg">
         <Card>
-          <CardContent className="p-2">
+          <CardContent className="p-0">
             <div className="relative">
               <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
                 <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
@@ -409,7 +409,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
         </Button>
       </div>
 
-      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
+      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 rounded-lg">
         <Card className="mt-4">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium flex items-center gap-2">
@@ -417,7 +417,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
               {t.reports.topItemsData} ({itemTopN} Items)
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-2">
+          <CardContent className="p-0">
             {topItemsData.length > 0 ? (
               <div className="overflow-x-auto -mx-2">
                 <div className="inline-block min-w-full align-middle">
