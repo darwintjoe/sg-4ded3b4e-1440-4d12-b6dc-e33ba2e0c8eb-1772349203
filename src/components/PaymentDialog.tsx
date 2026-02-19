@@ -439,7 +439,7 @@ export function PaymentDialog({
                 }
               }}
               onFocus={(e) => {
-                e.target.select();
+                setAmount("");
               }}
               className="text-3xl text-center font-bold h-16"
             />
