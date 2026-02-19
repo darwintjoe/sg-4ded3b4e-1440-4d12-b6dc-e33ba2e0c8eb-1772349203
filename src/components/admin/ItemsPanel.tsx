@@ -14,7 +14,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
