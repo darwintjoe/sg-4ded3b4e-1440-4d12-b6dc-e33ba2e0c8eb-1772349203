@@ -24,10 +24,16 @@ export function BusinessSettingsSection({
   const [grayscalePreview, setGrayscalePreview] = useState<string | null>(null);
 
   useEffect(() => {
+    // If logo is set (non-empty string), show it
     if (settings.receiptLogoBase64) {
-      convertToGrayscale(settings.receiptLogoBase64);
-    } else {
+      setGrayscalePreview(settings.receiptLogoBase64);
+    } 
+    // If logo is undefined (first load/not set), load default
+    // If logo is "" (empty string), it means user explicitly removed it, so do nothing
+    else if (settings.receiptLogoBase64 === undefined) {
       loadDefaultLogo();
+    } else {
+      setGrayscalePreview(null);
     }
   }, [settings.receiptLogoBase64]);
 
@@ -54,7 +60,7 @@ export function BusinessSettingsSection({
     }
   };
 
-  const processImage = (img: HTMLImage): string | null => {
+  const processImage = (img: HTMLImageElement): string | null => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
@@ -144,7 +150,8 @@ export function BusinessSettingsSection({
   };
 
   const handleRemoveLogo = () => {
-    onUpdate({ receiptLogoBase64: undefined });
+    // Set to empty string to indicate explicit removal
+    onUpdate({ receiptLogoBase64: "" });
     setGrayscalePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

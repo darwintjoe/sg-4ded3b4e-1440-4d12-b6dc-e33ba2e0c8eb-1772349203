@@ -407,8 +407,22 @@ class BluetoothPrinterService {
       // Initialize
       commands.push(this.cmdInit());
 
-      // Logo (if exists)
-      if (settings.businessLogo) {
+      // Logo (if exists and is not explicitly removed/empty)
+      if (settings.receiptLogoBase64 && settings.receiptLogoBase64.length > 0) {
+        try {
+          const logoBitmap = await this.imageToBitmap(settings.receiptLogoBase64);
+          if (logoBitmap.length > 0) {
+            commands.push(this.cmdAlign("center"));
+            commands.push(logoBitmap);
+            commands.push(this.cmdLineFeed(1));
+          }
+        } catch (error) {
+          console.warn("Failed to print logo, continuing without it:", error);
+          // Silent skip - continue printing receipt without logo
+        }
+      } else if (settings.businessLogo && !settings.receiptLogoBase64) {
+        // Fallback to businessLogo if receiptLogoBase64 is undefined (legacy support)
+        // But if receiptLogoBase64 is "" (empty string), it means explicitly removed, so don't print
         try {
           const logoBitmap = await this.imageToBitmap(settings.businessLogo);
           if (logoBitmap.length > 0) {
