@@ -2,10 +2,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Clock, CreditCard, DollarSign, Wallet } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X } from "lucide-react";
 import { Settings, Language } from "@/types";
 import { HelpTooltip } from "./HelpTooltip";
 import { translate } from "@/lib/translations";
+import { useRef, useState } from "react";
 
 interface POSSettingsSectionProps {
   settings: Settings;
@@ -14,6 +16,9 @@ interface POSSettingsSectionProps {
 }
 
 export function POSSettingsSection({ settings, onUpdate, language }: POSSettingsSectionProps) {
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingQR, setUploadingQR] = useState(false);
+
   const getSafeShifts = (s: Settings) => {
     return s.shifts || {
       shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
@@ -32,6 +37,53 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
     };
     
     onUpdate({ shifts: newShifts });
+  };
+
+  const getSafePaymentMethods = () => {
+    return settings.paymentMethods || {
+      cash: true,
+      qrisStatic: true,
+      qrisDynamic: false,
+      card: false,
+      voucher: false,
+      transfer: false
+    };
+  };
+
+  const updatePaymentMethod = (method: string, enabled: boolean) => {
+    const current = getSafePaymentMethods();
+    onUpdate({
+      paymentMethods: {
+        ...current,
+        [method]: enabled
+      }
+    });
+  };
+
+  const handleQRUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingQR(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        onUpdate({ qrisStaticImage: base64 });
+        setUploadingQR(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading QR code:", error);
+      setUploadingQR(false);
+    }
+  };
+
+  const removeQRCode = () => {
+    onUpdate({ qrisStaticImage: "" });
+    if (qrFileInputRef.current) {
+      qrFileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -148,68 +200,167 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
         </h3>
 
         <div className="space-y-2">
+          {/* Cash */}
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="text-sm">{translate("settings.pos.payment.cash", language)}</span>
+              <span className="text-sm">{translate("payment.cash", language)}</span>
             </div>
             <Switch
-              checked={settings.paymentMethods?.cash !== false}
-              onCheckedChange={(checked) => 
-                onUpdate({ paymentMethods: { ...settings.paymentMethods, cash: checked } })
-              }
+              checked={getSafePaymentMethods().cash !== false}
+              onCheckedChange={(checked) => updatePaymentMethod('cash', checked)}
             />
           </div>
 
-          <div className="flex items-center justify-between p-2 border rounded-lg">
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-blue-600" />
-              <span className="text-sm">{translate("settings.pos.payment.card", language)}</span>
+          {/* QRIS Static */}
+          <div className="border rounded-lg">
+            <div className="flex items-center justify-between p-2">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-blue-600" />
+                <span className="text-sm">{translate("payment.qrisStatic", language)}</span>
+              </div>
+              <Switch
+                checked={getSafePaymentMethods().qrisStatic !== false}
+                onCheckedChange={(checked) => updatePaymentMethod('qrisStatic', checked)}
+              />
             </div>
-            <Switch
-              checked={settings.paymentMethods?.card !== false}
-              onCheckedChange={(checked) => 
-                onUpdate({ paymentMethods: { ...settings.paymentMethods, card: checked } })
-              }
-            />
+            
+            {/* QRIS Static Configuration */}
+            {getSafePaymentMethods().qrisStatic !== false && (
+              <div className="px-2 pb-2 space-y-2 border-t pt-2">
+                <Label className="text-xs text-muted-foreground">
+                  {translate("settings.pos.qrisStaticImage", language)}
+                </Label>
+                
+                {settings.qrisStaticImage ? (
+                  <div className="relative inline-block">
+                    <img 
+                      src={settings.qrisStaticImage} 
+                      alt="QRIS Static QR Code" 
+                      className="w-32 h-32 border rounded"
+                    />
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={removeQRCode}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      ref={qrFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleQRUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => qrFileInputRef.current?.click()}
+                      disabled={uploadingQR}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {uploadingQR ? translate("common.loading", language) : translate("settings.pos.uploadQR", language)}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between p-2 border rounded-lg">
-            <div className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-purple-600" />
-              <span className="text-sm">{translate("settings.pos.payment.ewallet", language)}</span>
+          {/* QRIS Dynamic */}
+          <div className="border rounded-lg">
+            <div className="flex items-center justify-between p-2">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-4 w-4 text-purple-600" />
+                <span className="text-sm">{translate("payment.qrisDynamic", language)}</span>
+              </div>
+              <Switch
+                checked={getSafePaymentMethods().qrisDynamic === true}
+                onCheckedChange={(checked) => updatePaymentMethod('qrisDynamic', checked)}
+              />
             </div>
-            <Switch
-              checked={settings.paymentMethods?.ewallet !== false}
-              onCheckedChange={(checked) => 
-                onUpdate({ paymentMethods: { ...settings.paymentMethods, ewallet: checked } })
-              }
-            />
+            
+            {/* QRIS Dynamic Configuration */}
+            {getSafePaymentMethods().qrisDynamic === true && (
+              <div className="px-2 pb-2 space-y-2 border-t pt-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    {translate("settings.pos.qrisDynamicEndpoint", language)}
+                  </Label>
+                  <Input
+                    type="url"
+                    placeholder="https://api.payment-provider.com/qr/generate"
+                    value={settings.qrisDynamicEndpoint || ""}
+                    onChange={(e) => onUpdate({ qrisDynamicEndpoint: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    {translate("settings.pos.qrisDynamicApiKey", language)}
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="sk_live_..."
+                    value={settings.qrisDynamicApiKey || ""}
+                    onChange={(e) => onUpdate({ qrisDynamicApiKey: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    {translate("settings.pos.qrisDynamicMerchantId", language)}
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="MERCHANT_12345"
+                    value={settings.qrisDynamicMerchantId || ""}
+                    onChange={(e) => onUpdate({ qrisDynamicMerchantId: e.target.value })}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Card Payment */}
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-orange-600" />
-              <span className="text-sm">{translate("settings.pos.payment.qr", language)}</span>
+              <span className="text-sm">{translate("payment.card", language)}</span>
             </div>
             <Switch
-              checked={settings.paymentMethods?.qr !== false}
-              onCheckedChange={(checked) => 
-                onUpdate({ paymentMethods: { ...settings.paymentMethods, qr: checked } })
-              }
+              checked={getSafePaymentMethods().card === true}
+              onCheckedChange={(checked) => updatePaymentMethod('card', checked)}
             />
           </div>
 
+          {/* Voucher */}
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-gray-600" />
-              <span className="text-sm">{translate("settings.pos.payment.transfer", language)}</span>
+              <Ticket className="h-4 w-4 text-pink-600" />
+              <span className="text-sm">{translate("payment.voucher", language)}</span>
             </div>
             <Switch
-              checked={settings.paymentMethods?.transfer !== false}
-              onCheckedChange={(checked) => 
-                onUpdate({ paymentMethods: { ...settings.paymentMethods, transfer: checked } })
-              }
+              checked={getSafePaymentMethods().voucher === true}
+              onCheckedChange={(checked) => updatePaymentMethod('voucher', checked)}
+            />
+          </div>
+
+          {/* Bank Transfer */}
+          <div className="flex items-center justify-between p-2 border rounded-lg">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-teal-600" />
+              <span className="text-sm">{translate("payment.transfer", language)}</span>
+            </div>
+            <Switch
+              checked={getSafePaymentMethods().transfer === true}
+              onCheckedChange={(checked) => updatePaymentMethod('transfer', checked)}
             />
           </div>
         </div>
@@ -224,6 +375,12 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               {translate("settings.pos.priceOverride", language)}
               <HelpTooltip content={translate("settings.pos.priceOverrideHint", language)} />
             </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {settings.allowPriceOverride 
+                ? translate("settings.pos.priceOverrideEnabled", language)
+                : translate("settings.pos.priceOverrideDisabled", language)
+              }
+            </p>
           </div>
           <Switch
             checked={settings.allowPriceOverride}
@@ -264,6 +421,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                   onChange={(e) => onUpdate({ tax1Rate: Number(e.target.value) })}
                   className="w-20"
                 />
+                <span className="text-xs">%</span>
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxInclusive", language)}</Label>
                 <Switch
                   checked={settings.tax1Inclusive || false}
@@ -297,6 +455,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                   onChange={(e) => onUpdate({ tax2Rate: Number(e.target.value) })}
                   className="w-20"
                 />
+                <span className="text-xs">%</span>
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxInclusive", language)}</Label>
                 <Switch
                   checked={settings.tax2Inclusive || false}

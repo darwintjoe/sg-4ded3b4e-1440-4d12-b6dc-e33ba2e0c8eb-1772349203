@@ -4,7 +4,7 @@ export type UserRole = "admin" | "cashier" | "employee";
 
 export type Language = "en" | "id" | "zh";
 
-export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "voucher";
+export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "card" | "voucher" | "transfer";
 
 export interface Employee {
   id?: number;
@@ -250,11 +250,11 @@ export interface Settings {
   
   // Integrations
   googleDriveLinked: boolean;
-  googleAccountEmail?: string; // For verifying Google Drive account
+  googleAccountEmail?: string;
   
   // Features
-  allowPriceOverride: boolean; // Allow changing price during checkout
-  adminPIN?: string; // Admin PIN for sensitive actions
+  allowPriceOverride: boolean;
+  adminPIN?: string;
   bluetoothPrinterId?: string;
   bluetoothPrinterName?: string;
   
@@ -272,11 +272,18 @@ export interface Settings {
   // Payment Methods
   paymentMethods?: {
     cash?: boolean;
+    qrisStatic?: boolean;
+    qrisDynamic?: boolean;
     card?: boolean;
-    ewallet?: boolean;
-    qr?: boolean;
+    voucher?: boolean;
     transfer?: boolean;
   };
+  
+  // QRIS Configuration
+  qrisStaticImage?: string; // Base64 encoded QR code image
+  qrisDynamicEndpoint?: string; // API endpoint for generating dynamic QR
+  qrisDynamicApiKey?: string; // API key for authentication
+  qrisDynamicMerchantId?: string; // Merchant ID
 }
 
 export interface ShiftConfig {
