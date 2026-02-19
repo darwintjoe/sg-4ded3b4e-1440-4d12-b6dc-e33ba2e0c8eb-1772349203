@@ -221,16 +221,101 @@ class BluetoothPrinterService {
   }
 
   /**
-   * Convert logo image to ESC/POS bitmap (simplified - full implementation needs canvas)
+   * Convert logo image to ESC/POS bitmap for thermal printer
    */
   private async imageToBitmap(base64Image: string): Promise<Uint8Array> {
-    // This is a placeholder - full implementation would:
-    // 1. Load image to canvas
-    // 2. Convert to monochrome bitmap
-    // 3. Encode as ESC/POS bitmap commands
-    // For now, return empty array (skip logo printing)
-    console.warn("Logo printing not yet implemented");
-    return new Uint8Array([]);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        try {
+          // Create canvas
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+
+          // Set canvas size to image size
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Draw image
+          ctx.drawImage(img, 0, 0);
+          
+          // Get image data
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Convert to monochrome bitmap
+          const width = canvas.width;
+          const height = canvas.height;
+          const bytesPerLine = Math.ceil(width / 8);
+          
+          // ESC/POS bitmap command: ESC * m nL nH d1...dk
+          // m=33 (24-dot double-density)
+          const commands: number[] = [];
+          
+          // Process image in 24-pixel vertical strips
+          for (let y = 0; y < height; y += 24) {
+            // ESC * 33 nL nH
+            commands.push(ESC, 0x2a, 0x21);
+            commands.push(width & 0xff); // nL
+            commands.push((width >> 8) & 0xff); // nH
+            
+            // Process each column
+            for (let x = 0; x < width; x++) {
+              // 24 dots = 3 bytes
+              let byte1 = 0, byte2 = 0, byte3 = 0;
+              
+              for (let bit = 0; bit < 8; bit++) {
+                const py = y + bit;
+                if (py < height) {
+                  const idx = (py * width + x) * 4;
+                  const gray = data[idx]; // R channel (already grayscale)
+                  if (gray < 128) byte1 |= (1 << (7 - bit));
+                }
+              }
+              
+              for (let bit = 0; bit < 8; bit++) {
+                const py = y + 8 + bit;
+                if (py < height) {
+                  const idx = (py * width + x) * 4;
+                  const gray = data[idx];
+                  if (gray < 128) byte2 |= (1 << (7 - bit));
+                }
+              }
+              
+              for (let bit = 0; bit < 8; bit++) {
+                const py = y + 16 + bit;
+                if (py < height) {
+                  const idx = (py * width + x) * 4;
+                  const gray = data[idx];
+                  if (gray < 128) byte3 |= (1 << (7 - bit));
+                }
+              }
+              
+              commands.push(byte1, byte2, byte3);
+            }
+            
+            // Line feed after each strip
+            commands.push(0x0a);
+          }
+          
+          resolve(new Uint8Array(commands));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      img.onerror = () => {
+        reject(new Error("Failed to load logo image"));
+      };
+      
+      img.src = base64Image;
+    });
   }
 
   /**
@@ -324,11 +409,16 @@ class BluetoothPrinterService {
 
       // Logo (if exists)
       if (settings.businessLogo) {
-        const logoBitmap = await this.imageToBitmap(settings.businessLogo);
-        if (logoBitmap.length > 0) {
-          commands.push(this.cmdAlign("center"));
-          commands.push(logoBitmap);
-          commands.push(this.cmdLineFeed(1));
+        try {
+          const logoBitmap = await this.imageToBitmap(settings.businessLogo);
+          if (logoBitmap.length > 0) {
+            commands.push(this.cmdAlign("center"));
+            commands.push(logoBitmap);
+            commands.push(this.cmdLineFeed(1));
+          }
+        } catch (error) {
+          console.warn("Failed to print logo, continuing without it:", error);
+          // Silent skip - continue printing receipt without logo
         }
       }
 
