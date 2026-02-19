@@ -672,6 +672,7 @@ export const translations: Record<Language, Translations> = {
     "employees.pinLabel": "PIN码（4-6位）",
 
     // Items Panel
+    "items.title": "商品",
     "items.sku": "SKU",
     "items.name": "名称",
     "items.price": "价格",
