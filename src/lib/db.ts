@@ -625,7 +625,7 @@ export class Database {
       const defaultSettings: Settings = {
         key: "settings",
         mode: "retail",
-        tax1Enabled: true,
+        tax1Enabled: false,
         tax1Label: "PPN",
         tax1Rate: 10,
         tax1Inclusive: false,
@@ -650,11 +650,13 @@ export class Database {
         },
         paymentMethods: {
           cash: true,
-          card: true,
-          ewallet: true,
-          qr: true,
-          transfer: true
-        }
+          qrisStatic: true,
+          qrisDynamic: false,
+          card: false,
+          voucher: false,
+          transfer: false
+        },
+        // Integrations
       };
       await this.put("settings", defaultSettings);
       return defaultSettings;

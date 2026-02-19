@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2 } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
@@ -50,6 +50,12 @@ export function PaymentDialog({
   const [change, setChange] = useState(0);
   const [printing, setPrinting] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  
+  // QRIS Flow States
+  const [showQrisStaticModal, setShowQrisStaticModal] = useState(false);
+  const [showQrisDynamicModal, setShowQrisDynamicModal] = useState(false);
+  const [qrisLoading, setQrisLoading] = useState(false);
+  const [dynamicQrUrl, setDynamicQrUrl] = useState<string | null>(null);
 
   // Reset payment state when dialog closes
   useEffect(() => {
@@ -61,6 +67,10 @@ export function PaymentDialog({
       setCompleted(false);
       setChange(0);
       setLastTransaction(null);
+      setShowQrisStaticModal(false);
+      setShowQrisDynamicModal(false);
+      setQrisLoading(false);
+      setDynamicQrUrl(null);
     }
   }, [open]);
 
@@ -86,17 +96,61 @@ export function PaymentDialog({
     }
   }, [selectedMethod]);
 
-  const addPayment = () => {
+  const initiatePayment = async () => {
     const paymentAmount = parseFloat(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) return;
 
+    if (selectedMethod === "qris-static") {
+      setShowQrisStaticModal(true);
+    } else if (selectedMethod === "qris-dynamic") {
+      handleDynamicQris();
+    } else {
+      addPayment(paymentAmount);
+    }
+  };
+
+  const handleDynamicQris = async () => {
+    const paymentAmount = parseFloat(amount);
+    setQrisLoading(true);
+    setShowQrisDynamicModal(true);
+
+    try {
+      // Simulation of API call
+      // In production, use settings.qrisDynamicEndpoint, apiKey, merchantId
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      
+      // Mock QR Generation
+      setDynamicQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAY_${Date.now()}_${paymentAmount}`);
+      setQrisLoading(false);
+
+      // Simulate webhook confirmation after 3 seconds
+      setTimeout(() => {
+        addPayment(paymentAmount);
+        setShowQrisDynamicModal(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error("QRIS Dynamic Error:", error);
+      setQrisLoading(false);
+      alert("Failed to generate QR Code");
+      setShowQrisDynamicModal(false);
+    }
+  };
+
+  const confirmStaticQris = () => {
+    const paymentAmount = parseFloat(amount);
+    addPayment(paymentAmount);
+    setShowQrisStaticModal(false);
+  };
+
+  const addPayment = (paymentAmount: number) => {
     const newPayment: PaymentRecord = {
       method: selectedMethod,
       amount: paymentAmount,
       ...(selectedMethod.includes("qris") && qrisRef ? { qrisRef } : {})
     };
 
-    setPayments([...payments, newPayment]);
+    setPayments(prev => [...prev, newPayment]);
     setAmount("");
     setQrisRef("");
   };
@@ -203,12 +257,19 @@ export function PaymentDialog({
       : subtotal * (settings.tax2Rate / 100))
     : 0;
 
-  const paymentMethods: { method: PaymentMethod; label: string; icon: any }[] = [
+  const allPaymentMethods: { method: PaymentMethod; label: string; icon: any }[] = [
     { method: "cash", label: translate("payment.cash", language), icon: DollarSign },
     { method: "qris-static", label: translate("payment.qrisStatic", language), icon: QrCode },
     { method: "qris-dynamic", label: translate("payment.qrisDynamic", language), icon: QrCode },
-    { method: "voucher", label: translate("payment.voucher", language), icon: Ticket }
+    { method: "card", label: translate("payment.card", language), icon: CreditCard },
+    { method: "voucher", label: translate("payment.voucher", language), icon: Ticket },
+    { method: "transfer", label: translate("payment.transfer", language), icon: Wallet }
   ];
+
+  // Filter enabled payment methods
+  const enabledPaymentMethods = allPaymentMethods.filter(m => 
+    settings?.paymentMethods?.[m.method as keyof typeof settings.paymentMethods] !== false
+  );
 
   const isBluetoothConnected = bluetoothPrinter.isConnected();
 
@@ -224,8 +285,8 @@ export function PaymentDialog({
             <div className="w-full bg-white text-black p-4 text-xs font-mono border border-gray-200 shadow-sm my-4">
               {/* Header */}
               <div className="text-center mb-4 space-y-1">
-                {settings?.businessLogo && (
-                  <img src={settings.businessLogo} alt="Logo" className="h-12 mx-auto mb-2 grayscale" />
+                {settings?.receiptLogoBase64 && (
+                  <img src={settings.receiptLogoBase64} alt="Logo" className="h-12 mx-auto mb-2 grayscale" />
                 )}
                 <div className="font-bold text-base">{settings?.businessName}</div>
                 {settings?.businessAddress && (
@@ -350,147 +411,207 @@ export function PaymentDialog({
 
   // Payment Entry View
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">{translate("payment.title", language)}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">{translate("payment.title", language)}</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Amount Display */}
-          <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>{translate("payment.subtotal", language)}</span>
-              <span className="font-bold">Rp {subtotal.toLocaleString()}</span>
-            </div>
-            
-            {settings?.tax1Enabled && (
+          <div className="space-y-6">
+            {/* Amount Display */}
+            <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
-                <span>{settings.tax1Label} {settings.tax1Rate}%</span>
-                <span className="font-bold">Rp {tax1Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                <span>{translate("payment.subtotal", language)}</span>
+                <span className="font-bold">Rp {subtotal.toLocaleString()}</span>
               </div>
-            )}
-            
-            {settings?.tax2Enabled && (
-              <div className="flex justify-between text-sm">
-                <span>{settings.tax2Label} {settings.tax2Rate}%</span>
-                <span className="font-bold">Rp {tax2Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-              </div>
-            )}
+              
+              {settings?.tax1Enabled && (
+                <div className="flex justify-between text-sm">
+                  <span>{settings.tax1Label} {settings.tax1Rate}%</span>
+                  <span className="font-bold">Rp {tax1Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+              )}
+              
+              {settings?.tax2Enabled && (
+                <div className="flex justify-between text-sm">
+                  <span>{settings.tax2Label} {settings.tax2Rate}%</span>
+                  <span className="font-bold">Rp {tax2Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                </div>
+              )}
 
-            {settings?.tax1Inclusive && settings.tax1Enabled && (
-              <div className="flex items-start gap-1 text-xs text-slate-600 dark:text-slate-400 italic">
-                <span>ⓘ</span>
-                <span>Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%</span>
-              </div>
-            )}
+              {settings?.tax1Inclusive && settings.tax1Enabled && (
+                <div className="flex items-start gap-1 text-xs text-slate-600 dark:text-slate-400 italic">
+                  <span>ⓘ</span>
+                  <span>Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%</span>
+                </div>
+              )}
 
-            <div className="flex justify-between text-base font-bold border-t border-slate-300 dark:border-slate-600 pt-2">
-              <span>{translate("payment.amount", language)}</span>
-              <span>Rp {total.toLocaleString()}</span>
-            </div>
-            
-            {payments.length > 0 && (
-              <>
-                <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">
-                  <div className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">
-                    {translate("payment.paid", language)}
-                  </div>
-                  {payments.map((p, idx) => (
-                    <div key={idx} className="flex justify-between text-sm text-green-600 dark:text-green-400 pl-2">
-                      <span className="capitalize">{p.method.replace("-", " ")}</span>
-                      <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+              <div className="flex justify-between text-base font-bold border-t border-slate-300 dark:border-slate-600 pt-2">
+                <span>{translate("payment.amount", language)}</span>
+                <span>Rp {total.toLocaleString()}</span>
+              </div>
+              
+              {payments.length > 0 && (
+                <>
+                  <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">
+                    <div className="text-sm text-green-600 dark:text-green-400 font-semibold mb-1">
+                      {translate("payment.paid", language)}
                     </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-sm border-t border-slate-300 dark:border-slate-600 pt-2">
-                  <span>{translate("payment.remaining", language)}</span>
-                  <span className="font-bold">Rp {remaining.toLocaleString()}</span>
-                </div>
-                {change > 0 && (
-                  <div className="flex justify-between text-lg text-blue-600 dark:text-blue-400 pt-2 border-t">
-                    <span>{translate("payment.change", language)}</span>
-                    <span className="font-bold">Rp {change.toLocaleString()}</span>
+                    {payments.map((p, idx) => (
+                      <div key={idx} className="flex justify-between text-sm text-green-600 dark:text-green-400 pl-2">
+                        <span className="capitalize">{p.method.replace("-", " ")}</span>
+                        <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                  <div className="flex justify-between text-sm border-t border-slate-300 dark:border-slate-600 pt-2">
+                    <span>{translate("payment.remaining", language)}</span>
+                    <span className="font-bold">Rp {remaining.toLocaleString()}</span>
+                  </div>
+                  {change > 0 && (
+                    <div className="flex justify-between text-lg text-blue-600 dark:text-blue-400 pt-2 border-t">
+                      <span>{translate("payment.change", language)}</span>
+                      <span className="font-bold">Rp {change.toLocaleString()}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-          {/* Payment Methods */}
-          <div className="grid grid-cols-2 gap-2">
-            {paymentMethods.map(({ method, label, icon: Icon }) => (
-              <Button
-                key={method}
-                variant={selectedMethod === method ? "default" : "outline"}
-                onClick={() => setSelectedMethod(method)}
-                className="h-auto py-3 flex flex-col items-center gap-2"
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-xs">{label}</span>
-              </Button>
-            ))}
-          </div>
-
-          {/* Amount Input */}
-          <div className="space-y-2">
-            <Input
-              type="text"
-              inputMode="numeric"
-              placeholder="0"
-              value={amount ? parseFloat(amount).toLocaleString() : ""}
-              onChange={(e) => {
-                const value = e.target.value.replace(/,/g, "");
-                if (value === "" || !isNaN(parseFloat(value))) {
-                  setAmount(value);
-                }
-              }}
-              onFocus={(e) => {
-                setAmount("");
-              }}
-              className="text-3xl text-center font-bold h-16"
-            />
-            {selectedMethod.includes("qris") && (
-              <Input
-                type="text"
-                placeholder={translate("payment.qrisRef", language)}
-                value={qrisRef}
-                onChange={(e) => setQrisRef(e.target.value)}
-                className="text-sm"
-              />
-            )}
-            <Button onClick={addPayment} className="w-full" disabled={!amount}>
-              {translate("payment.add", language)}
-            </Button>
-          </div>
-
-          {/* Payment Records */}
-          {payments.length > 0 && (
-            <div className="space-y-2 max-h-32 overflow-auto">
-              {payments.map((p, idx) => (
-                <div key={idx} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-900 p-2 rounded">
-                  <span className="capitalize">{p.method.replace("-", " ")}</span>
-                  <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
-                </div>
+            {/* Payment Methods */}
+            <div className="grid grid-cols-2 gap-2">
+              {enabledPaymentMethods.map(({ method, label, icon: Icon }) => (
+                <Button
+                  key={method}
+                  variant={selectedMethod === method ? "default" : "outline"}
+                  onClick={() => setSelectedMethod(method)}
+                  className="h-auto py-3 flex flex-col items-center gap-2"
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-xs">{label}</span>
+                </Button>
               ))}
             </div>
-          )}
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} className="flex-1">
-              {translate("payment.cancel", language)}
-            </Button>
-            <Button
-              onClick={completeSale}
-              disabled={remaining > 0}
-              className="flex-1 bg-green-600 hover:bg-green-700"
-            >
-              {remaining > 0 ? `${translate("payment.remaining", language)}: Rp ${remaining.toLocaleString()}` : translate("payment.complete", language)}
-            </Button>
+            {/* Amount Input */}
+            <div className="space-y-2">
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder="0"
+                value={amount ? parseFloat(amount).toLocaleString() : ""}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/,/g, "");
+                  if (value === "" || !isNaN(parseFloat(value))) {
+                    setAmount(value);
+                  }
+                }}
+                onFocus={(e) => {
+                  setAmount("");
+                }}
+                className="text-3xl text-center font-bold h-16"
+              />
+              
+              <Button onClick={initiatePayment} className="w-full" disabled={!amount}>
+                {translate("payment.add", language)}
+              </Button>
+            </div>
+
+            {/* Payment Records */}
+            {payments.length > 0 && (
+              <div className="space-y-2 max-h-32 overflow-auto">
+                {payments.map((p, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-900 p-2 rounded">
+                    <span className="capitalize">{p.method.replace("-", " ")}</span>
+                    <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} className="flex-1">
+                {translate("payment.cancel", language)}
+              </Button>
+              <Button
+                onClick={completeSale}
+                disabled={remaining > 0}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {remaining > 0 ? `${translate("payment.remaining", language)}: Rp ${remaining.toLocaleString()}` : translate("payment.complete", language)}
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* QRIS Static Modal */}
+      <Dialog open={showQrisStaticModal} onOpenChange={setShowQrisStaticModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan QRIS</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-4">
+            {settings?.qrisStaticImage ? (
+              <img 
+                src={settings.qrisStaticImage} 
+                alt="Static QRIS" 
+                className="w-64 h-64 object-contain border rounded-lg"
+              />
+            ) : (
+              <div className="w-64 h-64 bg-slate-100 flex items-center justify-center rounded-lg border-2 border-dashed">
+                <span className="text-slate-500 text-center px-4">
+                  No QR Code Configured.<br/>Please set in Settings.
+                </span>
+              </div>
+            )}
+            <div className="text-center">
+              <p className="text-lg font-bold">Rp {parseFloat(amount || "0").toLocaleString()}</p>
+              <p className="text-sm text-slate-500">Show this QR code to customer</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQrisStaticModal(false)}>Cancel</Button>
+            <Button onClick={confirmStaticQris}>Confirm Payment Received</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* QRIS Dynamic Modal */}
+      <Dialog open={showQrisDynamicModal} onOpenChange={(open) => !qrisLoading && setShowQrisDynamicModal(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Dynamic QRIS</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-4 min-h-[300px] justify-center">
+            {qrisLoading ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <p>Generating QR Code...</p>
+              </div>
+            ) : dynamicQrUrl ? (
+              <>
+                <img 
+                  src={dynamicQrUrl} 
+                  alt="Dynamic QRIS" 
+                  className="w-64 h-64 object-contain border rounded-lg"
+                />
+                <div className="text-center animate-pulse">
+                  <p className="text-lg font-bold">Rp {parseFloat(amount || "0").toLocaleString()}</p>
+                  <p className="text-sm text-blue-600 font-medium">Waiting for payment...</p>
+                </div>
+              </>
+            ) : (
+              <div className="text-red-500">Failed to generate QR Code</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowQrisDynamicModal(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

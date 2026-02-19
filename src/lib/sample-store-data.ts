@@ -595,10 +595,11 @@ export function getDefaultSettings(): Settings {
     googleDriveLinked: false,
     paymentMethods: {
       cash: true,
-      card: true,
-      ewallet: true,
-      qr: true,
-      transfer: true,
+      qrisStatic: true,
+      qrisDynamic: false,
+      card: false,
+      voucher: false,
+      transfer: false
     },
     shifts: {
       shift1: { enabled: true, name: "Morning Shift", startTime: "07:00", endTime: "15:00" },
