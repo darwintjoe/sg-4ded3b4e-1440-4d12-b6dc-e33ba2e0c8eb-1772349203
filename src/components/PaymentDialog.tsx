@@ -266,10 +266,18 @@ export function PaymentDialog({
     { method: "transfer", label: translate("payment.transfer", language), icon: Wallet }
   ];
 
-  // Filter enabled payment methods
-  const enabledPaymentMethods = allPaymentMethods.filter(m => 
-    settings?.paymentMethods?.[m.method as keyof typeof settings.paymentMethods] !== false
-  );
+  // Filter enabled payment methods based on settings
+  const enabledPaymentMethods = allPaymentMethods.filter(m => {
+    const methodKey = m.method.replace('-', '') as keyof typeof settings.paymentMethods;
+    // Handle qris-static and qris-dynamic mapping
+    if (m.method === 'qris-static') {
+      return settings?.paymentMethods?.qrisStatic !== false;
+    }
+    if (m.method === 'qris-dynamic') {
+      return settings?.paymentMethods?.qrisDynamic === true;
+    }
+    return settings?.paymentMethods?.[methodKey as keyof typeof settings.paymentMethods] !== false;
+  });
 
   const isBluetoothConnected = bluetoothPrinter.isConnected();
 
