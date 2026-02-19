@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyItemSales, MonthlyItemSales } from "@/types";
 import { db } from "@/lib/db";
-import { Download, Table2, FileImage } from "lucide-react";
+import { Download, Table2, FileImage, Package } from "lucide-react";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -294,9 +294,9 @@ export function ItemsReport({ language }: ItemsReportProps) {
 
   return (
     <div className="space-y-4">
-      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 rounded-lg">
+      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
         <Card>
-          <CardContent className="p-0">
+          <CardContent className="p-2">
             <div className="relative">
               <div className="absolute top-1 right-1 z-10 flex flex-col gap-1">
                 <div className="flex gap-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded p-0.5 shadow-sm">
@@ -409,15 +409,15 @@ export function ItemsReport({ language }: ItemsReportProps) {
         </Button>
       </div>
 
-      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 rounded-lg">
-        <Card className="mt-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium flex items-center gap-2">
-              <Table2 className="h-3 w-3" />
-              {t.reports.topItemsData} ({itemTopN} Items)
+      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-lg">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              {translate("reports.items.table", language)} ({filteredData.length} Items)
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-2">
             {topItemsData.length > 0 ? (
               <div className="overflow-x-auto -mx-2">
                 <div className="inline-block min-w-full align-middle">
