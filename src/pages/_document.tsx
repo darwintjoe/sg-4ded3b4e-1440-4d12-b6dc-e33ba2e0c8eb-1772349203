@@ -30,12 +30,12 @@ export default function Document() {
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
+                window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(
-                    (registration) => {
+                    function(registration) {
                       console.log('SW registered:', registration);
                     },
-                    (error) => {
+                    function(error) {
                       console.log('SW registration failed:', error);
                     }
                   );
