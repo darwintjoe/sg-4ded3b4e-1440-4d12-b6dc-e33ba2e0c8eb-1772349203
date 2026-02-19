@@ -232,6 +232,7 @@ export const translations: Record<Language, Translations> = {
     "employees.statusHint": "Toggle to mark as resigned",
 
     // Items Panel
+    "items.title": "ITEMS",
     "items.sku": "SKU",
     "items.name": "Name",
     "items.price": "Price",
@@ -390,6 +391,30 @@ export const translations: Record<Language, Translations> = {
     "reports.export": "Ekspor Laporan",
     "reports.print": "Cetak",
 
+    // Reports - Sales
+    "reports.salesReport": "Laporan Penjualan",
+    "reports.dailySalesData": "Data Penjualan Harian",
+    "reports.monthlySalesData": "Data Penjualan Bulanan",
+    "reports.noData": "Tidak ada data untuk periode yang dipilih",
+    "reports.date": "Tanggal",
+    "reports.month": "Bulan",
+    "reports.year": "Tahun",
+    "reports.revenue": "Pendapatan",
+    "reports.receipts": "Struk",
+    "reports.total": "Total",
+    "reports.totalRevenue": "Total Pendapatan",
+    "reports.totalReceipts": "Total Struk",
+    "reports.avgTransaction": "Rata-rata Transaksi",
+    "reports.exportPDF": "Ekspor PDF",
+    "reports.exportImage": "Ekspor Gambar",
+    "reports.exporting": "Mengekspor...",
+
+    // Reports - Items
+    "reports.topItemsData": "Data Barang Terlaris",
+    "reports.topItemsByQuantity": "Barang Terlaris (Jumlah)",
+    "reports.topItemsByRevenue": "Barang Terlaris (Pendapatan)",
+    "reports.items.table": "Barang Terlaris",
+
     // Common
     "common.loading": "Memuat...",
     "common.error": "Kesalahan",
@@ -438,8 +463,8 @@ export const translations: Record<Language, Translations> = {
     "employees.name": "Nama",
     "employees.pin": "PIN",
     "employees.joined": "Bergabung",
-    "employees.noEmployeesFound": "Karyawan tidak ditemukan",
     "employees.noEmployees": "Belum ada karyawan",
+    "employees.noResults": "Karyawan tidak ditemukan",
     "employees.editEmployee": "Edit Karyawan",
     "employees.addEmployee": "Tambah Karyawan Baru",
     "employees.fullName": "Nama Lengkap",
@@ -597,7 +622,7 @@ export const translations: Record<Language, Translations> = {
     // Advanced Tab / Backup
     "settings.backup.title": "云备份",
     "settings.backup.safe": "数据安全",
-    "settings.backup.signInHint": "登录以启用自动“最后已知良好”备份。",
+    "settings.backup.signInHint": "登录以启用自动"最后已知良好"备份。",
     "settings.backup.connect": "连接 Google Drive",
     "settings.backup.disconnect": "断开连接",
     "settings.backup.lastBackup": "上次备份:",
@@ -647,6 +672,31 @@ export const translations: Record<Language, Translations> = {
     "reports.topItemsByRevenue": "热销商品（收入）",
     "reports.items.table": "热销商品",
 
+    // Common
+    "common.loading": "加载中...",
+    "common.error": "错误",
+    "common.success": "成功",
+    "common.cancel": "取消",
+    "common.confirm": "确认",
+    "common.save": "保存",
+    "common.delete": "删除",
+    "common.edit": "编辑",
+    "common.add": "添加",
+    "common.logout": "退出",
+    "common.ok": "确定",
+    "common.continueEditing": "继续编辑",
+    "common.discardChanges": "放弃更改",
+    "common.discard": "放弃",
+    "common.yes": "是",
+    "common.no": "否",
+    "common.search": "搜索...",
+    "common.import": "导入",
+    "common.export": "导出",
+    "common.all": "全部",
+    "common.active": "活跃",
+    "common.inactive": "不活跃",
+    "common.resigned": "已离职",
+
     // Scanner
     "scanner.title": "条形码扫描器",
     "scanner.instruction": "将相机指向条形码",
@@ -656,7 +706,7 @@ export const translations: Record<Language, Translations> = {
     "scanner.noCamera": "未检测到相机",
     "scanner.cameraError": "无法访问相机。请检查权限。",
     "scanner.error": "扫描器错误",
-    "scanner.itemNotFound": "条形码:",
+    "scanner.itemNotFound": "条形码未找到商品:",
     "scanner.itemAdded": "已添加到购物车",
 
     // Employees Panel
@@ -670,8 +720,8 @@ export const translations: Record<Language, Translations> = {
     "employees.name": "姓名",
     "employees.pin": "PIN码",
     "employees.joined": "入职日期",
-    "employees.noEmployeesFound": "未找到员工",
     "employees.noEmployees": "暂无员工",
+    "employees.noResults": "未找到员工",
     "employees.editEmployee": "编辑员工",
     "employees.addEmployee": "添加新员工",
     "employees.fullName": "全名",
