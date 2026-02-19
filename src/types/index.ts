@@ -242,8 +242,10 @@ export interface Settings {
   printerWidth: number;
   businessName: string;
   businessLogo?: string;
+  receiptLogoBase64?: string;
   businessAddress?: string;
   taxId?: string;
+  businessTaxId?: string;
   receiptFooter?: string;
   
   // Integrations
