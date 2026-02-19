@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Printer, Bluetooth, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Settings } from "@/types";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
+import { useApp } from "@/contexts/AppContext";
+import { translate } from "@/lib/translations";
 
 interface PrinterSettingsSectionProps {
   settings: Settings;
@@ -16,6 +18,7 @@ interface PrinterSettingsSectionProps {
 }
 
 export function PrinterSettingsSection({ settings, onUpdate }: PrinterSettingsSectionProps) {
+  const { language } = useApp();
   const [printerConnecting, setPrinterConnecting] = useState(false);
   const [printerConnected, setPrinterConnected] = useState(false);
   const [printerName, setPrinterName] = useState<string | null>(null);
@@ -88,12 +91,12 @@ export function PrinterSettingsSection({ settings, onUpdate }: PrinterSettingsSe
     <Card className="p-4">
       <h3 className="font-semibold mb-3 flex items-center gap-2">
         <Printer className="h-4 w-4" />
-        Receipt Printer
+        {translate("settings.printer.title", language)}
       </h3>
 
       {/* Paper Width */}
       <div className="mb-4">
-        <Label className="text-sm mb-2 block">Paper Width</Label>
+        <Label className="text-sm mb-2 block">{translate("settings.printer.paperWidth", language)}</Label>
         <RadioGroup
           value={settings.printerWidth.toString()}
           onValueChange={(value) => {
@@ -120,18 +123,18 @@ export function PrinterSettingsSection({ settings, onUpdate }: PrinterSettingsSe
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            Bluetooth printing requires Android Chrome
+            {translate("settings.printer.notSupported", language)}
           </AlertDescription>
         </Alert>
       ) : (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Bluetooth className="h-4 w-4" />
-            <span className="text-sm font-medium">Bluetooth Printer</span>
+            <span className="text-sm font-medium">{translate("settings.printer.bluetooth", language)}</span>
             {printerConnected && (
               <Badge variant="default" className="ml-auto text-xs">
                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                Connected
+                {translate("settings.printer.connected", language)}
               </Badge>
             )}
           </div>
@@ -140,17 +143,17 @@ export function PrinterSettingsSection({ settings, onUpdate }: PrinterSettingsSe
             <div className="flex items-center gap-2">
               <div className={`h-2 w-2 rounded-full ${printerConnected ? "bg-green-500" : "bg-gray-300"}`} />
               <span className="text-sm">
-                {printerConnected ? printerName : "Not Connected"}
+                {printerConnected ? printerName : translate("settings.printer.notConnected", language)}
               </span>
             </div>
             {printerConnected ? (
               <Button variant="outline" size="sm" onClick={handleDisconnectPrinter}>
-                Disconnect
+                {translate("settings.printer.disconnect", language)}
               </Button>
             ) : (
               <Button size="sm" onClick={handleConnectPrinter} disabled={printerConnecting}>
                 <Bluetooth className="h-3 w-3 mr-1" />
-                {printerConnecting ? "Connecting..." : "Connect"}
+                {printerConnecting ? translate("settings.printer.connecting", language) : translate("settings.printer.connect", language)}
               </Button>
             )}
           </div>
@@ -164,7 +167,7 @@ export function PrinterSettingsSection({ settings, onUpdate }: PrinterSettingsSe
               className="w-full"
             >
               <Printer className="h-3 w-3 mr-2" />
-              {testPrinting ? "Printing..." : "Test Print"}
+              {testPrinting ? translate("settings.printer.printing", language) : translate("settings.printer.testPrint", language)}
             </Button>
           )}
 

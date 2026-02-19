@@ -6,6 +6,7 @@ import { Clock, CreditCard, DollarSign, Wallet } from "lucide-react";
 import { Settings } from "@/types";
 import { useApp } from "@/contexts/AppContext";
 import { HelpTooltip } from "./HelpTooltip";
+import { translate } from "@/lib/translations";
 
 interface POSSettingsSectionProps {
   settings: Settings;
@@ -14,12 +15,6 @@ interface POSSettingsSectionProps {
 
 export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionProps) {
   const { language } = useApp();
-  const t = {
-    "settings.shiftManagement": language === "id" ? "Manajemen Shift" : "Shift Management",
-    "settings.paymentMethods": language === "id" ? "Metode Pembayaran" : "Payment Methods",
-    "settings.priceOverride": language === "id" ? "Ubah Harga" : "Price Override",
-    "settings.taxConfiguration": language === "id" ? "Konfigurasi Pajak" : "Tax Configuration",
-  };
 
   const getSafeShifts = (s: Settings) => {
     return s.shifts || {
@@ -47,14 +42,14 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
       <Card className="p-4">
         <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
           <Clock className="w-4 h-4" />
-          {t["settings.shiftManagement"]}
+          {translate("settings.shiftManagement", language)}
         </h3>
 
         <div className="space-y-4">
           {/* Shift 1 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Shift 1</Label>
+              <Label className="text-sm font-medium">{translate("settings.shift", language)} 1</Label>
               <Switch
                 checked={getSafeShifts(settings).shift1.enabled}
                 onCheckedChange={(checked) => updateShift('shift1', { enabled: checked })}
@@ -63,7 +58,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
             {getSafeShifts(settings).shift1.enabled && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Start</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftStart", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift1.startTime}
@@ -71,7 +66,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">End</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftEnd", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift1.endTime}
@@ -85,7 +80,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           {/* Shift 2 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Shift 2</Label>
+              <Label className="text-sm font-medium">{translate("settings.shift", language)} 2</Label>
               <Switch
                 checked={getSafeShifts(settings).shift2.enabled}
                 onCheckedChange={(checked) => updateShift('shift2', { enabled: checked })}
@@ -94,7 +89,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
             {getSafeShifts(settings).shift2.enabled && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Start</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftStart", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift2.startTime}
@@ -102,7 +97,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">End</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftEnd", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift2.endTime}
@@ -116,7 +111,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           {/* Shift 3 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Shift 3</Label>
+              <Label className="text-sm font-medium">{translate("settings.shift", language)} 3</Label>
               <Switch
                 checked={getSafeShifts(settings).shift3.enabled}
                 onCheckedChange={(checked) => updateShift('shift3', { enabled: checked })}
@@ -125,7 +120,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
             {getSafeShifts(settings).shift3.enabled && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Start</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftStart", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift3.startTime}
@@ -133,7 +128,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">End</Label>
+                  <Label className="text-xs text-muted-foreground">{translate("settings.shiftEnd", language)}</Label>
                   <Input
                     type="time"
                     value={getSafeShifts(settings).shift3.endTime}
@@ -150,15 +145,15 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
       <Card className="p-4">
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <CreditCard className="h-4 w-4" />
-          {t["settings.paymentMethods"]}
-          <HelpTooltip content="Enable payment options for checkout" />
+          {translate("settings.paymentMethods", language)}
+          <HelpTooltip content={translate("settings.paymentMethodsHint", language)} />
         </h3>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="text-sm">Cash</span>
+              <span className="text-sm">{translate("settings.payment.cash", language)}</span>
             </div>
             <Switch
               checked={settings.paymentMethods?.cash !== false}
@@ -171,7 +166,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-blue-600" />
-              <span className="text-sm">Card (Debit/Credit)</span>
+              <span className="text-sm">{translate("settings.payment.card", language)}</span>
             </div>
             <Switch
               checked={settings.paymentMethods?.card !== false}
@@ -184,7 +179,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <Wallet className="h-4 w-4 text-purple-600" />
-              <span className="text-sm">E-Wallet (GoPay, OVO, Dana)</span>
+              <span className="text-sm">{translate("settings.payment.ewallet", language)}</span>
             </div>
             <Switch
               checked={settings.paymentMethods?.ewallet !== false}
@@ -197,7 +192,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-orange-600" />
-              <span className="text-sm">QR Code (QRIS)</span>
+              <span className="text-sm">{translate("settings.payment.qr", language)}</span>
             </div>
             <Switch
               checked={settings.paymentMethods?.qr !== false}
@@ -210,7 +205,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           <div className="flex items-center justify-between p-2 border rounded-lg">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-gray-600" />
-              <span className="text-sm">Bank Transfer</span>
+              <span className="text-sm">{translate("settings.payment.transfer", language)}</span>
             </div>
             <Switch
               checked={settings.paymentMethods?.transfer !== false}
@@ -228,8 +223,8 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
           <div>
             <h3 className="font-semibold flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              {t["settings.priceOverride"]}
-              <HelpTooltip content="Allow cashiers to adjust item prices during checkout" />
+              {translate("settings.priceOverride", language)}
+              <HelpTooltip content={translate("settings.priceOverrideHint", language)} />
             </h3>
           </div>
           <Switch
@@ -243,7 +238,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
       <Card className="p-4">
         <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
           <DollarSign className="w-4 h-4" />
-          {t["settings.taxConfiguration"]}
+          {translate("settings.taxConfiguration", language)}
         </h3>
         
         <div className="space-y-4">
@@ -253,7 +248,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
               <Input
                 value={settings.tax1Label}
                 onChange={(e) => onUpdate({ tax1Label: e.target.value })}
-                placeholder="Tax 1 (Primary)"
+                placeholder={translate("settings.tax1Label", language)}
                 className="flex-1"
               />
               <Switch
@@ -264,14 +259,14 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
             
             {settings.tax1Enabled && (
               <div className="flex items-center gap-3 pl-4">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.taxRate", language)}</Label>
                 <Input
                   type="number"
                   value={settings.tax1Rate}
                   onChange={(e) => onUpdate({ tax1Rate: Number(e.target.value) })}
                   className="w-20"
                 />
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Tax Inclusive</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.taxInclusive", language)}</Label>
                 <Switch
                   checked={settings.tax1Inclusive || false}
                   onCheckedChange={(checked) => onUpdate({ tax1Inclusive: checked })}
@@ -286,7 +281,7 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
               <Input
                 value={settings.tax2Label}
                 onChange={(e) => onUpdate({ tax2Label: e.target.value })}
-                placeholder="Tax 2 (Secondary)"
+                placeholder={translate("settings.tax2Label", language)}
                 className="flex-1"
               />
               <Switch
@@ -297,14 +292,14 @@ export function POSSettingsSection({ settings, onUpdate }: POSSettingsSectionPro
             
             {settings.tax2Enabled && (
               <div className="flex items-center gap-3 pl-4">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Rate (%)</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.taxRate", language)}</Label>
                 <Input
                   type="number"
                   value={settings.tax2Rate}
                   onChange={(e) => onUpdate({ tax2Rate: Number(e.target.value) })}
                   className="w-20"
                 />
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">Tax Inclusive</Label>
+                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.taxInclusive", language)}</Label>
                 <Switch
                   checked={settings.tax2Inclusive || false}
                   onCheckedChange={(checked) => onUpdate({ tax2Inclusive: checked })}

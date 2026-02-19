@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
-import { Settings, Clock } from "lucide-react";
+import { Settings, Clock, Store } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import Image from "next/image";
@@ -123,14 +123,12 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
       {/* Main Content - Fixed position layout */}
       <div className="w-full max-w-sm flex flex-col items-center">
         {/* Logo */}
-        <div className="flex justify-center mb-3">
-          <Image 
-            src="/Copilot_20260129_181915.png" 
-            alt="SELL MORE" 
-            width={180}
-            height={45}
-            className="drop-shadow-2xl"
-            priority
+        <div className="mb-8">
+          <img 
+            src="/app_logo_with_text_small.png" 
+            alt="Sell More" 
+            className="w-48 drop-shadow-2xl"
+            style={{ mixBlendMode: 'screen' }}
           />
         </div>
 

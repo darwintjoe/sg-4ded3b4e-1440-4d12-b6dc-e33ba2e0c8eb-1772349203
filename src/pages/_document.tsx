@@ -7,33 +7,43 @@ export default function Document() {
     <Html lang="en">
       <Head>
         <SEOElements />
-        {/*
-          CRITICAL: DO NOT REMOVE THIS SCRIPT
-          The Softgen AI monitoring script is essential for core app functionality.
-          The application will not function without it.
-        */}
-        <script
-          src="https://cdn.softgen.ai/script.js"
-          async
-          data-softgen-monitoring="true"
-        />
+        
+        {/* Favicons and App Icons */}
+        <link rel="icon" type="image/png" href="/app_icon_logo_only_small.png" />
+        <link rel="apple-touch-icon" href="/app_icon_logo_only_small.png" />
+        
+        {/* PWA Manifest */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#1a1a1a" />
+        
+        {/* Mobile App Capable */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Sell More" />
       </Head>
-      <body
-        className={cn(
-          "min-h-screen w-full scroll-smooth bg-background text-foreground antialiased"
-        )}
-      >
+      <body className="antialiased">
         <Main />
         <NextScript />
-
-        {/* Visual Editor Script */}
-        {process.env.NODE_ENV === "development" && (
-          <script
-            src="https://cdn.softgen.dev/visual-editor.min.js"
-            async
-            data-softgen-visual-editor="true"
-          />
-        )}
+        
+        {/* PWA Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js').then(
+                    (registration) => {
+                      console.log('SW registered:', registration);
+                    },
+                    (error) => {
+                      console.log('SW registration failed:', error);
+                    }
+                  );
+                });
+              }
+            `
+          }}
+        />
       </body>
     </Html>
   );
