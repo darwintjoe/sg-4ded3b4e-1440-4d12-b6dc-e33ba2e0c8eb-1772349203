@@ -26,8 +26,62 @@ export function BusinessSettingsSection({
   useEffect(() => {
     if (settings.receiptLogoBase64) {
       convertToGrayscale(settings.receiptLogoBase64);
+    } else {
+      loadDefaultLogo();
     }
   }, [settings.receiptLogoBase64]);
+
+  const loadDefaultLogo = async () => {
+    try {
+      const response = await fetch("/logowtext.png");
+      const blob = await response.blob();
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const processed = processImage(img);
+          if (processed) {
+            onUpdate({ receiptLogoBase64: processed });
+          }
+        };
+        img.src = e.target?.result as string;
+      };
+      
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error("Failed to load default logo:", error);
+    }
+  };
+
+  const processImage = (img: HTMLImage): string | null => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const targetWidth = 512;
+    const scale = targetWidth / img.width;
+    canvas.width = targetWidth;
+    canvas.height = img.height * scale;
+
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      const level = Math.floor(gray / 16);
+      const grayscale16 = level * 16;
+      
+      data[i] = grayscale16;
+      data[i + 1] = grayscale16;
+      data[i + 2] = grayscale16;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL("image/png");
+  };
 
   const convertToGrayscale = (base64Image: string) => {
     const img = new Image();
@@ -45,7 +99,6 @@ export function BusinessSettingsSection({
 
       for (let i = 0; i < data.length; i += 4) {
         const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        
         const level = Math.floor(gray / 16);
         const grayscale16 = level * 16;
         
@@ -75,22 +128,14 @@ export function BusinessSettingsSection({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          setIsProcessing(false);
-          return;
+        const processed = processImage(img);
+        if (processed) {
+          onUpdate({ receiptLogoBase64: processed });
         }
-
-        const targetWidth = 512;
-        const scale = targetWidth / img.width;
-        canvas.width = targetWidth;
-        canvas.height = img.height * scale;
-
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const base64 = canvas.toDataURL("image/png");
-        onUpdate({ receiptLogoBase64: base64 });
+        setIsProcessing(false);
+      };
+      img.onerror = () => {
+        alert("Failed to load image");
         setIsProcessing(false);
       };
       img.src = event.target?.result as string;
@@ -126,7 +171,7 @@ export function BusinessSettingsSection({
             <div className="relative inline-block">
               <img
                 src={grayscalePreview}
-                alt="Receipt Logo Preview"
+                alt="Receipt Logo Preview (16-level grayscale)"
                 className="max-w-[200px] border rounded-lg p-2 bg-white"
               />
               <Button
