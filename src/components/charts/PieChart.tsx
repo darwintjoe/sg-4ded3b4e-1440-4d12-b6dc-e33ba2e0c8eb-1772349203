@@ -29,13 +29,14 @@ export function PieChart({ data }: PieChartProps) {
           formatter={(value: number) => value.toLocaleString()}
           contentStyle={{ 
             fontSize: "10px", 
-            backgroundColor: "white", 
+            backgroundColor: "rgba(255, 255, 255, 0.95)", 
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)", 
-            border: "none",
-            borderRadius: "4px"
+            border: "1px solid rgba(0,0,0,0.05)",
+            borderRadius: "4px",
+            padding: "8px 12px"
           }}
           labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
-          wrapperStyle={{ outline: "none", border: "none" }}
+          wrapperStyle={{ outline: "none", border: "none", boxShadow: "none" }}
           cursor={false}
         />
       </RechartsPie>
