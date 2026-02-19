@@ -51,8 +51,9 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "10px", backgroundColor: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
+          contentStyle={{ fontSize: "10px", backgroundColor: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", border: "none" }}
           labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          wrapperStyle={{ outline: "none" }}
           cursor={false}
         />
         <Bar dataKey="value">

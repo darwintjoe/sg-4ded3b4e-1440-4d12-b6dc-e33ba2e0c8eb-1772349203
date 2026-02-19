@@ -48,8 +48,9 @@ export function LineChart({ data }: LineChartProps) {
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "10px" }}
+          contentStyle={{ fontSize: "10px", backgroundColor: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", border: "none" }}
           labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          wrapperStyle={{ outline: "none" }}
         />
         <Legend 
           wrapperStyle={{ fontSize: "9px", paddingTop: "8px" }}
