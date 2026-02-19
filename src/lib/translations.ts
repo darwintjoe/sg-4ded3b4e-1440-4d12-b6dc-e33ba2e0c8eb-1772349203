@@ -134,6 +134,30 @@ export const translations: Record<Language, Translations> = {
     "reports.export": "Export Report",
     "reports.print": "Print",
 
+    // Reports - Sales
+    "reports.salesReport": "Sales Report",
+    "reports.dailySalesData": "Daily Sales Data",
+    "reports.monthlySalesData": "Monthly Sales Data",
+    "reports.noData": "No data available for the selected period",
+    "reports.date": "Date",
+    "reports.month": "Month",
+    "reports.year": "Year",
+    "reports.revenue": "Revenue",
+    "reports.receipts": "Receipts",
+    "reports.total": "Total",
+    "reports.totalRevenue": "Total Revenue",
+    "reports.totalReceipts": "Total Receipts",
+    "reports.avgTransaction": "Avg Transaction",
+    "reports.exportPDF": "Export PDF",
+    "reports.exportImage": "Export Image",
+    "reports.exporting": "Exporting...",
+
+    // Reports - Items
+    "reports.topItemsData": "Top Items Data",
+    "reports.topItemsByQuantity": "Top Items by Quantity",
+    "reports.topItemsByRevenue": "Top Items by Revenue",
+    "reports.items.table": "Top Items",
+
     // Common
     "common.loading": "Loading...",
     "common.error": "Error",
@@ -440,6 +464,7 @@ export const translations: Record<Language, Translations> = {
     "employees.pinLabel": "PIN (4-6 angka)",
 
     // Items Panel
+    "items.title": "BARANG",
     "items.sku": "SKU",
     "items.name": "Nama",
     "items.price": "Harga",
@@ -598,31 +623,30 @@ export const translations: Record<Language, Translations> = {
     "reports.export": "导出报表",
     "reports.print": "打印",
 
-    // Common
-    "common.loading": "加载中...",
-    "common.error": "错误",
-    "common.success": "成功",
-    "common.cancel": "取消",
-    "common.confirm": "确认",
-    "common.save": "保存",
-    "common.delete": "删除",
-    "common.edit": "编辑",
-    "common.add": "添加",
-    "common.logout": "退出",
-    "common.ok": "确定",
-    "common.continueEditing": "继续编辑",
-    "common.discardChanges": "放弃更改",
-    "common.discard": "放弃",
-    "common.yes": "是",
-    "common.no": "否",
-    "common.search": "搜索...",
-    "common.import": "导入",
-    "common.export": "导出",
-    "common.all": "全部",
-    "common.active": "活跃",
-    "common.inactive": "非活跃",
-    "common.resigned": "已辞职",
-    
+    // Reports - Sales
+    "reports.salesReport": "销售报表",
+    "reports.dailySalesData": "每日销售数据",
+    "reports.monthlySalesData": "每月销售数据",
+    "reports.noData": "所选期间无可用数据",
+    "reports.date": "日期",
+    "reports.month": "月份",
+    "reports.year": "年份",
+    "reports.revenue": "收入",
+    "reports.receipts": "收据",
+    "reports.total": "总计",
+    "reports.totalRevenue": "总收入",
+    "reports.totalReceipts": "总收据",
+    "reports.avgTransaction": "平均交易",
+    "reports.exportPDF": "导出PDF",
+    "reports.exportImage": "导出图片",
+    "reports.exporting": "导出中...",
+
+    // Reports - Items
+    "reports.topItemsData": "热销商品数据",
+    "reports.topItemsByQuantity": "热销商品（数量）",
+    "reports.topItemsByRevenue": "热销商品（收入）",
+    "reports.items.table": "热销商品",
+
     // Scanner
     "scanner.title": "条形码扫描器",
     "scanner.instruction": "将相机指向条形码",
