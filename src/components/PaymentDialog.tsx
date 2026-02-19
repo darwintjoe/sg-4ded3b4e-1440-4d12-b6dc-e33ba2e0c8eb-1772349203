@@ -428,11 +428,20 @@ export function PaymentDialog({
           {/* Amount Input */}
           <div className="space-y-2">
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
               placeholder="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="text-xl text-center"
+              value={amount ? parseFloat(amount).toLocaleString() : ""}
+              onChange={(e) => {
+                const value = e.target.value.replace(/,/g, "");
+                if (value === "" || !isNaN(parseFloat(value))) {
+                  setAmount(value);
+                }
+              }}
+              onFocus={(e) => {
+                e.target.select();
+              }}
+              className="text-3xl text-center font-bold h-16"
             />
             {selectedMethod.includes("qris") && (
               <Input
