@@ -606,6 +606,7 @@ export function ItemsPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <ArrowDownToLine className="h-4 w-4" />
+            <span className="hidden sm:inline">{translate("common.import", language)}</span>
           </Button>
 
           <Button 
@@ -616,6 +617,7 @@ export function ItemsPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <ArrowUpFromLine className="h-4 w-4" />
+            <span className="hidden sm:inline">{translate("common.export", language)}</span>
           </Button>
 
           <input

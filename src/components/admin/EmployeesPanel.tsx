@@ -415,7 +415,7 @@ export function EmployeesPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <ArrowDownToLine className="h-4 w-4" />
-            <span>{translate("common.import", language)}</span>
+            <span className="hidden sm:inline">{translate("common.import", language)}</span>
           </Button>
 
           <Button 
@@ -425,7 +425,7 @@ export function EmployeesPanel() {
             className="gap-2 whitespace-nowrap text-sm"
           >
             <ArrowUpFromLine className="h-4 w-4" />
-            <span>{translate("common.export", language)}</span>
+            <span className="hidden sm:inline">{translate("common.export", language)}</span>
           </Button>
 
           <input
