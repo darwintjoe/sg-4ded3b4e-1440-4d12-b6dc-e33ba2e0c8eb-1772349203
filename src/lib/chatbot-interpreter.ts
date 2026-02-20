@@ -16,6 +16,12 @@ export interface QueryResult {
 export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
     switch (query.intent) {
+      case "help":
+        return getHelpResponse();
+      case "polite_response":
+        return getPoliteResponse();
+      case "out_of_context":
+        return getOutOfContextResponse();
       case "revenue":
         return await getRevenue(query);
       case "top_items":
@@ -106,6 +112,21 @@ async function getRevenue(query: ParsedQuery): Promise<QueryResult> {
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
 
+  if (totalRevenue === 0 && transactionCount === 0) {
+    return {
+      success: true,
+      chartType: "card",
+      data: { value: 0, label: "Total Revenue", transactions: 0 },
+      responseText: `${generatePrefix(query)}\n\n` +
+        `I couldn't find any transactions for this period. 📭\n\n` +
+        `**Possible reasons:**\n` +
+        `• No sales were recorded ${timeLabel.toLowerCase()}\n` +
+        `• Data might not be synced yet\n` +
+        `• Try a different date range\n\n` +
+        `Would you like to check a different time period?`
+    };
+  }
+
   return {
     success: true,
     chartType: "card",
@@ -173,6 +194,21 @@ async function getTopItems(query: ParsedQuery): Promise<QueryResult> {
   // Sort by quantity and take top N
   itemSales.sort((a, b) => b.quantity - a.quantity);
   const topItems = itemSales.slice(0, limit);
+
+  if (topItems.length === 0) {
+    return {
+      success: true,
+      chartType: "card",
+      data: { value: 0, label: "No Items Found" },
+      responseText: `${generatePrefix(query)}\n\n` +
+        `I couldn't find any item sales for this period. 📭\n\n` +
+        `**Possible reasons:**\n` +
+        `• No items were sold ${getTimeLabel(query.timeRange).toLowerCase()}\n` +
+        `• Data might not be synced yet\n` +
+        `• Try a different date range\n\n` +
+        `Want to check another time period?`
+    };
+  }
 
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
@@ -747,7 +783,12 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
   let responseText = `${generatePrefix(query)}\n\n`;
   
   if (transactions.length === 0) {
-    responseText += "No transactions found.\n";
+    responseText += "I couldn't find any transactions in the database. 📭\n\n";
+    responseText += "**This might mean:**\n";
+    responseText += "• No sales have been recorded yet\n";
+    responseText += "• The database is empty\n";
+    responseText += "• Try making a test sale first\n\n";
+    responseText += "Would you like to see something else?";
   } else {
     transactions.forEach((txn, index) => {
       const itemCount = txn.items.length;
