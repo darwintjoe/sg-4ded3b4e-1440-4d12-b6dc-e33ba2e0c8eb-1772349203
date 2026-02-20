@@ -13,6 +13,7 @@ export type QueryIntent =
   | "revenue"
   | "transactions"
   | "transaction_history"
+  | "transaction_detail"
   | "top_items"
   | "item_performance"
   | "category_analysis"
@@ -43,6 +44,7 @@ export interface QueryFilters {
   paymentMethod?: string;
   minAmount?: number;
   maxAmount?: number;
+  receiptNumber?: number;
 }
 
 const HELP_KEYWORDS = ["help", "what can you do", "commands", "examples", "guide"];
@@ -59,6 +61,7 @@ const OUT_OF_CONTEXT_KEYWORDS = {
 const REVENUE_KEYWORDS = ["revenue", "sales", "income", "earnings", "total sales", "how much"];
 const TRANSACTION_KEYWORDS = ["transaction", "transactions", "sales count", "how many sales"];
 const TRANSACTION_HISTORY_KEYWORDS = ["show", "list", "display", "recent", "latest", "sales", "sale"];
+const TRANSACTION_DETAIL_KEYWORDS = ["detail", "details", "breakdown", "drill down", "expand", "full"];
 const TOP_ITEMS_KEYWORDS = ["top", "best", "most sold", "popular", "highest"];
 const ITEM_KEYWORDS = ["item", "product", "sold"];
 const CATEGORY_KEYWORDS = ["category", "categories"];
@@ -111,6 +114,16 @@ export function parseQuery(input: string): ParsedQuery {
   const timeRange = extractTimeRange(lowerInput);
   const limit = extractLimit(lowerInput);
   const entity = extractEntity(lowerInput);
+
+  // Transaction detail: "show details of #2881" or "detail receipt 2881"
+  const receiptNumber = extractReceiptNumber(lowerInput);
+  if (fuzzyMatchKeywords(lowerInput, TRANSACTION_DETAIL_KEYWORDS) && receiptNumber) {
+    return {
+      intent: "transaction_detail",
+      timeRange,
+      filters: { receiptNumber }
+    };
+  }
 
   if (fuzzyMatchKeywords(lowerInput, COMPARISON_KEYWORDS)) {
     return {
@@ -279,6 +292,25 @@ function extractEntity(input: string): string | undefined {
   const namedMatch = input.match(/(?:item|employee|category|product) (?:named |called )?([a-zA-Z0-9\s]+?)(?:\s|$)/i);
   if (namedMatch) {
     return namedMatch[1].trim();
+  }
+
+  return undefined;
+}
+
+function extractReceiptNumber(input: string): number | undefined {
+  // Match patterns like: #2881, receipt 2881, receipt #2881, transaction 2881
+  const patterns = [
+    /#(\d+)/,                           // #2881
+    /receipt\s*#?(\d+)/i,               // receipt 2881, receipt #2881
+    /transaction\s*#?(\d+)/i,           // transaction 2881
+    /(?:detail|details)\s+(?:of\s+)?#?(\d+)/i  // detail of 2881, details 2881
+  ];
+
+  for (const pattern of patterns) {
+    const match = input.match(pattern);
+    if (match) {
+      return parseInt(match[1]);
+    }
   }
 
   return undefined;

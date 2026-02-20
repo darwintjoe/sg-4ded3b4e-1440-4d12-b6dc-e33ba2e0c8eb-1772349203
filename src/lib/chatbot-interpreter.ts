@@ -52,6 +52,8 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
         return await getTransactionCount(query);
       case "transaction_history":
         return await getTransactionHistory(query);
+      case "transaction_detail":
+        return await getTransactionDetail(query);
       default:
         return {
           success: false,
@@ -851,6 +853,95 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
       payment: txn.payments.map(p => formatPaymentMethod(p.method)).join(", "),
       cashier: txn.cashierName
     })),
+    responseText
+  };
+}
+
+/**
+ * Get transaction detail (drill-down view of specific receipt)
+ */
+async function getTransactionDetail(query: ParsedQuery): Promise<QueryResult> {
+  const receiptNumber = query.filters?.receiptNumber;
+  
+  if (!receiptNumber) {
+    return {
+      success: false,
+      error: "Please specify a receipt number (e.g., '#2881' or 'receipt 2881')"
+    };
+  }
+
+  // Get all transactions and find the specific one
+  const allTransactions = await db.getAll<Transaction>("transactions");
+  const transaction = allTransactions.find(t => t.id === receiptNumber);
+
+  if (!transaction) {
+    return {
+      success: false,
+      error: `Receipt #${receiptNumber} not found. Please check the receipt number and try again.`,
+      responseText: `🔍 I couldn't find receipt **#${receiptNumber}**.\n\n` +
+        `**Tips:**\n` +
+        `• Check the receipt number is correct\n` +
+        `• Try "show last 10 transactions" to see recent receipts\n` +
+        `• Receipt numbers are shown in the transaction list\n\n` +
+        `Would you like to see recent transactions instead?`
+    };
+  }
+
+  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  };
+  const formatDate = (businessDate: string) => {
+    const date = new Date(businessDate + "T00:00:00");
+    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  let responseText = `📋 **Transaction Details - Receipt #${transaction.id}**\n\n`;
+  responseText += `**Date:** ${formatDate(transaction.businessDate)} at ${formatTime(transaction.timestamp)}\n`;
+  responseText += `**Cashier:** ${transaction.cashierName}\n\n`;
+
+  // Items breakdown
+  responseText += `**Items:**\n`;
+  transaction.items.forEach((item, index) => {
+    const itemTotal = item.price * item.quantity;
+    responseText += `${index + 1}. **${item.name}** (${item.quantity}x @ ${formatCurrency(item.price)})\n`;
+    responseText += `   Subtotal: ${formatCurrency(itemTotal)}\n`;
+  });
+
+  // Calculate totals
+  const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discount = transaction.discount || 0;
+  const tax = transaction.tax || 0;
+
+  responseText += `\n**Summary:**\n`;
+  responseText += `Subtotal: ${formatCurrency(subtotal)}\n`;
+  if (discount > 0) {
+    responseText += `Discount: -${formatCurrency(discount)}\n`;
+  }
+  if (tax > 0) {
+    responseText += `Tax: ${formatCurrency(tax)}\n`;
+  }
+  responseText += `**Total: ${formatCurrency(transaction.total)}**\n\n`;
+
+  // Payment breakdown
+  responseText += `**Payment:**\n`;
+  transaction.payments.forEach((payment, index) => {
+    responseText += `${index + 1}. ${formatPaymentMethod(payment.method)}: ${formatCurrency(payment.amount)}\n`;
+  });
+
+  responseText += `\n${getEndingQuestion()}`;
+
+  return {
+    success: true,
+    chartType: "card",
+    data: {
+      receiptNumber: transaction.id,
+      itemCount: transaction.items.length,
+      total: transaction.total,
+      date: transaction.businessDate,
+      cashier: transaction.cashierName
+    },
     responseText
   };
 }
