@@ -259,7 +259,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       <TabsContent 
         value="ask" 
-        className="flex flex-col h-[calc(100vh-220px)] min-h-[500px] data-[state=inactive]:hidden"
+        className="flex flex-col h-[calc(100vh-200px)] min-h-[500px] mt-4"
       >
         {/* Chat Messages Container - Takes remaining space */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
