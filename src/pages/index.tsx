@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { LoginScreen } from "@/components/LoginScreen";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
@@ -14,6 +14,12 @@ type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 export default function Home() {
   const { currentUser, adminUser, isInitializing, loadingStatus } = useApp(); // Destructure loadingStatus
   const [screen, setScreen] = useState<Screen>("login");
+
+  // Auto-reset screen when admin logs out
+  // If adminUser becomes null and we're on adminLogin/adminDashboard, go back to appropriate screen
+  if (!adminUser && (screen === "adminLogin" || screen === "adminDashboard")) {
+    setScreen(currentUser ? "pos" : "login");
+  }
 
   // Show loading screen while initializing
   if (isInitializing) {
