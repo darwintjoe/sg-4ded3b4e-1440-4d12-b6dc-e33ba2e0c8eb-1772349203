@@ -38,6 +38,8 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       case "transactions":
       case "transaction_count":
         return await getTransactionCount(query);
+      case "transaction_history":
+        return await getTransactionHistory(query);
       default:
         return {
           success: false,
@@ -678,6 +680,87 @@ async function getTransactionCount(query: ParsedQuery): Promise<QueryResult> {
       `**Total Transactions:** ${totalTransactions}\n` +
       `**Total Revenue:** ${formatCurrency(totalRevenue)}\n` +
       `**Average Value:** ${formatCurrency(avgTransactionValue)}`
+  };
+}
+
+/**
+ * Get transaction history (list of recent transactions)
+ */
+async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
+  const limit = query.limit || 10;
+  
+  // Get all transactions
+  const allTransactions = await db.getAll<Transaction>("transactions");
+  
+  // Sort by timestamp descending (most recent first)
+  allTransactions.sort((a, b) => b.timestamp - a.timestamp);
+  
+  // Get today's date
+  const today = new Date().toISOString().split("T")[0];
+  
+  // Try to get transactions from today first
+  let recentTransactions = allTransactions.filter(t => t.businessDate === today);
+  
+  // If today has no transactions, get from yesterday
+  if (recentTransactions.length === 0) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayDate = yesterday.toISOString().split("T")[0];
+    recentTransactions = allTransactions.filter(t => t.businessDate === yesterdayDate);
+  }
+  
+  // If still no transactions, get the most recent regardless of date
+  if (recentTransactions.length === 0) {
+    recentTransactions = allTransactions;
+  }
+  
+  // Take only the requested number
+  const transactions = recentTransactions.slice(0, limit);
+  
+  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  };
+  const formatDate = (businessDate: string) => {
+    const date = new Date(businessDate + "T00:00:00");
+    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  let responseText = `🧾 **Last ${transactions.length} Transactions**\n\n`;
+  
+  if (transactions.length === 0) {
+    responseText += "No transactions found.\n";
+  } else {
+    transactions.forEach((txn, index) => {
+      const itemCount = txn.items.length;
+      const itemSummary = itemCount === 1 
+        ? `${txn.items[0].name} (${txn.items[0].quantity}x)`
+        : `${itemCount} items`;
+      
+      responseText += `**${index + 1}. ${formatDate(txn.businessDate)} at ${formatTime(txn.timestamp)}**\n`;
+      responseText += `   Receipt: #${txn.receiptNumber}\n`;
+      responseText += `   Items: ${itemSummary}\n`;
+      responseText += `   Total: ${formatCurrency(txn.total)}\n`;
+      responseText += `   Payment: ${formatPaymentMethod(txn.paymentMethod)}\n`;
+      responseText += `   Cashier: ${txn.cashierName}\n\n`;
+    });
+  }
+
+  return {
+    success: true,
+    chartType: "table",
+    data: transactions.map((txn, index) => ({
+      no: index + 1,
+      receipt: txn.receiptNumber,
+      date: txn.businessDate,
+      time: formatTime(txn.timestamp),
+      items: txn.items.length,
+      total: txn.total,
+      payment: formatPaymentMethod(txn.paymentMethod),
+      cashier: txn.cashierName
+    })),
+    responseText
   };
 }
 

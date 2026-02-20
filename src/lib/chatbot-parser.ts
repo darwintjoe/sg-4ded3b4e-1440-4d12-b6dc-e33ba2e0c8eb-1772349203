@@ -12,6 +12,7 @@ export type QueryIntent =
   | "help"
   | "revenue"
   | "transactions"
+  | "transaction_history"
   | "top_items"
   | "item_performance"
   | "category_analysis"
@@ -46,6 +47,7 @@ const HELP_KEYWORDS = ["help", "what can you do", "commands", "examples", "guide
 
 const REVENUE_KEYWORDS = ["revenue", "sales", "income", "earnings", "total sales", "how much"];
 const TRANSACTION_KEYWORDS = ["transaction", "transactions", "sales count", "how many sales"];
+const TRANSACTION_HISTORY_KEYWORDS = ["show", "list", "display", "recent", "latest"];
 const TOP_ITEMS_KEYWORDS = ["top", "best", "most sold", "popular", "highest"];
 const ITEM_KEYWORDS = ["item", "product", "sold"];
 const CATEGORY_KEYWORDS = ["category", "categories"];
@@ -92,6 +94,15 @@ export function parseQuery(input: string): ParsedQuery {
     return {
       intent: "peak_hours",
       timeRange,
+    };
+  }
+
+  if (matchesKeywords(lowerInput, TRANSACTION_HISTORY_KEYWORDS) && 
+      matchesKeywords(lowerInput, TRANSACTION_KEYWORDS)) {
+    return {
+      intent: "transaction_history",
+      timeRange,
+      limit: extractLimit(lowerInput) || 10,
     };
   }
 
