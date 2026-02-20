@@ -12,7 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { db } from "@/lib/db";
 import { Employee, UserRole } from "@/types";
 import { useLongPress } from "@/hooks/use-long-press";
-import { Plus, Search, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Plus, Search, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/contexts/AppContext";
 import { translate } from "@/lib/translations";
@@ -384,57 +384,69 @@ export function EmployeesPanel() {
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
         {/* Row 1: Status + Role + Import + Export */}
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
-              <SelectItem value="resigned">{translate("employees.resigned", language)}</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="flex items-center gap-1 flex-shrink min-w-0">
+              <Button 
+                variant={statusFilter === "active" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("active")}
+                className="flex-shrink min-w-[70px] px-2"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="truncate">{translate("common.active", language)}</span>
+              </Button>
+              <Button 
+                variant={statusFilter === "resigned" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("resigned")}
+                className="flex-shrink min-w-[80px] px-2"
+              >
+                <XCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="truncate">{translate("common.inactive", language)}</span>
+              </Button>
+              <Button 
+                variant={statusFilter === "all" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("all")}
+                className="flex-shrink min-w-[60px] px-2"
+              >
+                <span className="truncate">{translate("common.all", language)}</span>
+              </Button>
+            </div>
 
-          <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
-            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("employees.allRoles", language)}</SelectItem>
-              <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
-              <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
-              <SelectItem value="employee">{translate("employees.employee", language)}</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val as "all" | UserRole)}>
+              <SelectTrigger className="w-[120px] flex-shrink-0">
+                <SelectValue placeholder={translate("pos.role", language)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+                <SelectItem value="cashier">{translate("pos.cashier", language)}</SelectItem>
+                <SelectItem value="manager">{translate("pos.manager", language)}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-          >
-            <ArrowDownToLine className="h-4 w-4" />
-            <span className="hidden md:inline">{translate("common.import", language)}</span>
-          </Button>
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCSVExport}
-            className="gap-2"
-          >
-            <ArrowUpFromLine className="h-4 w-4" />
-            <span className="hidden md:inline">{translate("common.export", language)}</span>
-          </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleCSVImport}
-            className="hidden"
-          />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              className="min-w-[90px]"
+            >
+              <ArrowDownToLine className="h-4 w-4 mr-1.5" />
+              <span>{translate("common.import", language)}</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCSVExport}
+              className="min-w-[90px]"
+            >
+              <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
+              <span>{translate("common.export", language)}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Row 2: Full-width Search */}

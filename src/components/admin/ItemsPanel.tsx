@@ -14,7 +14,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
@@ -574,57 +574,70 @@ export function ItemsPanel() {
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
         {/* Row 1: Filters + Import/Export */}
-        <div className="flex items-center gap-2">
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
-              <SelectItem value="inactive">{translate("common.inactive", language)}</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[140px] flex-shrink-0">
+                <SelectValue placeholder={translate("pos.category", language)} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="flex items-center gap-1 flex-shrink min-w-0">
+              <Button 
+                variant={statusFilter === "active" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("active")}
+                className="flex-shrink min-w-[70px] px-2"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="truncate">{translate("common.active", language)}</span>
+              </Button>
+              <Button 
+                variant={statusFilter === "inactive" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("inactive")}
+                className="flex-shrink min-w-[80px] px-2"
+              >
+                <XCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+                <span className="truncate">{translate("common.inactive", language)}</span>
+              </Button>
+              <Button 
+                variant={statusFilter === "all" ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setStatusFilter("all")}
+                className="flex-shrink min-w-[60px] px-2"
+              >
+                <span className="truncate">{translate("common.all", language)}</span>
+              </Button>
+            </div>
+          </div>
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
-          >
-            <ArrowDownToLine className="h-4 w-4" />
-            <span className="hidden md:inline">{translate("common.import", language)}</span>
-          </Button>
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCSVExport}
-            className="gap-2"
-          >
-            <ArrowUpFromLine className="h-4 w-4" />
-            <span className="hidden md:inline">{translate("common.export", language)}</span>
-          </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="*/*"
-            onChange={handleCSVImport}
-            className="hidden"
-          />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              className="min-w-[90px]"
+            >
+              <ArrowDownToLine className="h-4 w-4 mr-1.5" />
+              <span>{translate("common.import", language)}</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCSVExport}
+              className="min-w-[90px]"
+            >
+              <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
+              <span>{translate("common.export", language)}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Row 2: Full-width Search */}
