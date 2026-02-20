@@ -24,6 +24,8 @@ export type QueryIntent =
   | "trend_analysis"
   | "transaction_count"
   | "comparison"
+  | "polite_response"
+  | "out_of_context"
   | "unknown";
 
 export type TimeRange = {
@@ -44,6 +46,15 @@ export interface QueryFilters {
 }
 
 const HELP_KEYWORDS = ["help", "what can you do", "commands", "examples", "guide"];
+
+const POLITE_KEYWORDS = ["thank you", "thanks", "thx", "appreciate", "appreciated", "good job", "great job", "well done", "awesome", "excellent", "perfect", "nice", "cool", "helpful"];
+
+const OUT_OF_CONTEXT_KEYWORDS = {
+  weather: ["weather", "temperature", "forecast", "rain", "sunny"],
+  personal: ["how are you", "who are you", "your name", "what's your name"],
+  general: ["joke", "story", "recipe", "news", "time", "date today", "day today"],
+  unrelated: ["movie", "music", "game", "sport", "football", "basketball"]
+};
 
 const REVENUE_KEYWORDS = ["revenue", "sales", "income", "earnings", "total sales", "how much"];
 const TRANSACTION_KEYWORDS = ["transaction", "transactions", "sales count", "how many sales"];
@@ -73,6 +84,26 @@ export function parseQuery(input: string): ParsedQuery {
   if (fuzzyMatchKeywords(lowerInput, HELP_KEYWORDS)) {
     return {
       intent: "help",
+      timeRange: { type: "today" },
+    };
+  }
+
+  // Check for polite responses
+  if (fuzzyMatchKeywords(lowerInput, POLITE_KEYWORDS)) {
+    return {
+      intent: "polite_response",
+      timeRange: { type: "today" },
+    };
+  }
+
+  // Check for out-of-context queries
+  const isOutOfContext = Object.values(OUT_OF_CONTEXT_KEYWORDS).some(keywords =>
+    fuzzyMatchKeywords(lowerInput, keywords)
+  );
+  
+  if (isOutOfContext) {
+    return {
+      intent: "out_of_context",
       timeRange: { type: "today" },
     };
   }
