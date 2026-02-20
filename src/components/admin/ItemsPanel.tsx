@@ -602,22 +602,20 @@ export function ItemsPanel() {
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
-            disabled={importing}
-            className="gap-2 whitespace-nowrap text-sm"
+            className="gap-2"
           >
             <ArrowDownToLine className="h-4 w-4" />
-            <span className="hidden sm:inline">{translate("common.import", language)}</span>
+            <span className="hidden md:inline">{translate("common.import", language)}</span>
           </Button>
 
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleCSVExport}
-            disabled={importing}
-            className="gap-2 whitespace-nowrap text-sm"
+            className="gap-2"
           >
             <ArrowUpFromLine className="h-4 w-4" />
-            <span className="hidden sm:inline">{translate("common.export", language)}</span>
+            <span className="hidden md:inline">{translate("common.export", language)}</span>
           </Button>
 
           <input
