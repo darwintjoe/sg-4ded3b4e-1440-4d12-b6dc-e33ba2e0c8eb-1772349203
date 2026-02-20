@@ -181,9 +181,9 @@ export function EmployeesPanel() {
     setSelectedEmployee(employee);
     setFormData({
       name: employee.name,
-      email: employee.email,
-      phone: employee.phone,
-      role: employee.role,
+      email: employee.email || "",
+      phone: employee.phone || "",
+      role: (employee.role === "employee" ? "cashier" : employee.role) as "admin" | "cashier",
       pin: employee.pin
     });
     setIsEditDialogOpen(true);
