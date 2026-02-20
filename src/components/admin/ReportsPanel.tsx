@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowUpFromLine, Printer, Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, MoreVertical, FileDown, Image, FileSpreadsheet, Printer } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -212,37 +212,40 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
   return (
     <Tabs defaultValue="sales" className="w-full">
-      <div className="flex flex-col gap-4">
-        {/* Row 1: Tabs + Export + Print */}
-        <div className="flex items-center justify-between gap-4">
-          <TabsList className="flex-1">
-            <TabsTrigger value="sales" className="flex-1">Sales</TabsTrigger>
-            <TabsTrigger value="items" className="flex-1">Items</TabsTrigger>
-            <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
-            <TabsTrigger value="ask" className="flex-1">Ask Me</TabsTrigger>
-          </TabsList>
+      {/* Single Row: Tabs + 3-Dots Menu */}
+      <div className="flex items-center gap-4">
+        <TabsList className="flex-1">
+          <TabsTrigger value="sales" className="flex-1">Sales</TabsTrigger>
+          <TabsTrigger value="items" className="flex-1">Items</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
+          <TabsTrigger value="ask" className="flex-1">Ask Me</TabsTrigger>
+        </TabsList>
 
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ArrowUpFromLine className="h-4 w-4" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Export as PDF</DropdownMenuItem>
-                <DropdownMenuItem>Export as Image</DropdownMenuItem>
-                <DropdownMenuItem>Export as CSV</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button variant="outline" size="sm" className="gap-2">
-              <Printer className="h-4 w-4" />
-              Print
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-9 w-9">
+              <MoreVertical className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>
+              <FileDown className="h-4 w-4 mr-2" />
+              Export PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Image className="h-4 w-4 mr-2" />
+              Export as Image
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <TabsContent value="sales" className="mt-4 h-[calc(100vh-200px)] overflow-y-auto">
