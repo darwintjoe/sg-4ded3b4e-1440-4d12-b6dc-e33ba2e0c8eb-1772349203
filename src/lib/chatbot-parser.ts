@@ -26,7 +26,7 @@ export type QueryIntent =
   | "unknown";
 
 export type TimeRange = {
-  type: "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom" | "last_n_days";
+  type: "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom" | "last_n_days" | "all_time";
   days?: number;
   startDate?: Date;
   endDate?: Date;
@@ -63,6 +63,7 @@ const TIME_LAST_WEEK = ["last week"];
 const TIME_THIS_MONTH = ["this month", "month"];
 const TIME_LAST_MONTH = ["last month"];
 const TIME_LAST_N_DAYS = /last (\d+) days?/i;
+const TIME_ALL_TIME = ["all time", "all the time", "ever", "total", "overall", "since beginning", "since start", "entire history"];
 
 export function parseQuery(input: string): ParsedQuery {
   const lowerInput = input.toLowerCase().trim();
@@ -175,6 +176,10 @@ function matchesKeywords(input: string, keywords: string[]): boolean {
 }
 
 function extractTimeRange(input: string): TimeRange {
+  if (matchesKeywords(input, TIME_ALL_TIME)) {
+    return { type: "all_time" };
+  }
+  
   if (matchesKeywords(input, TIME_TODAY)) {
     return { type: "today" };
   }

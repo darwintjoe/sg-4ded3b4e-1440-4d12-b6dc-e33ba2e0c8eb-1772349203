@@ -59,13 +59,32 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
 async function getRevenue(query: ParsedQuery): Promise<QueryResult> {
   const { startDate, endDate } = getDateRange(query.timeRange);
   const useMonthly = shouldUseMonthly(startDate);
+  const isAllTime = isAllTimeQuery(query.timeRange);
 
   let totalRevenue = 0;
   let transactionCount = 0;
 
-  if (useMonthly) {
+  if (isAllTime) {
+    // Combine all monthly summaries + recent daily data
     const monthlySales = await db.getAll<any>("monthlySalesSummary");
-    const yearMonth = startDate.substring(0, 7); // YYYY-MM
+    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
+    
+    // Get all monthly data
+    totalRevenue = monthlySales.reduce((sum, m) => sum + m.totalRevenue, 0);
+    transactionCount = monthlySales.reduce((sum, m) => sum + m.totalReceipts, 0);
+    
+    // Add recent daily data that might not be in monthly summaries yet
+    const today = new Date();
+    const sixtyDaysAgo = new Date(today);
+    sixtyDaysAgo.setDate(today.getDate() - 60);
+    const recentCutoff = sixtyDaysAgo.toISOString().split("T")[0];
+    
+    const recentDaily = dailyPayments.filter(p => p.businessDate >= recentCutoff);
+    totalRevenue += recentDaily.reduce((sum, p) => sum + p.totalAmount, 0);
+    transactionCount += recentDaily.reduce((sum, p) => sum + p.transactionCount, 0);
+  } else if (useMonthly) {
+    const monthlySales = await db.getAll<any>("monthlySalesSummary");
+    const yearMonth = startDate.substring(0, 7);
     const monthData = monthlySales.find(m => m.yearMonth === yearMonth);
     
     if (monthData) {
@@ -673,6 +692,10 @@ function getDateRange(timeRange: TimeRange): { startDate: string; endDate: strin
 
   // Use the type property of TimeRange
   switch (timeRange.type) {
+    case "all_time":
+      // Query all data from the beginning (use earliest possible date)
+      startDate = "2000-01-01"; // Far enough back to capture all data
+      break;
     case "today":
       startDate = endDate;
       break;
@@ -733,11 +756,18 @@ function shouldUseMonthly(startDate: string): boolean {
 }
 
 /**
+ * Helper: For all_time queries, we need to combine both monthly and daily data
+ */
+function isAllTimeQuery(timeRange: TimeRange): boolean {
+  return timeRange.type === "all_time";
+}
+
+/**
  * Helper: Get time label for display
  */
 function getTimeLabel(timeRange: TimeRange): string {
-  // Use the type property of TimeRange
   const labels: Record<string, string> = {
+    all_time: "All Time",
     today: "Today",
     yesterday: "Yesterday",
     this_week: "This Week",
