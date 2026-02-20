@@ -147,3 +147,29 @@ export function getHelpResponse(): string {
 
   return response;
 }
+
+export function getPoliteResponseText(): string {
+  const responses = [
+    "You're welcome! Happy to help you with your business data. 😊",
+    "My pleasure! Let me know if you need any other reports. 🚀",
+    "Glad I could help! Feel free to ask more questions about your sales. 📊",
+    "Anytime! I'm here to help you analyze your performance. 💼",
+    "You're welcome! Is there anything else you'd like to check? ✨",
+    "Happy to serve! Your business success is my priority. 🌟",
+    "No problem at all! I'm ready for your next question. 🤖",
+    "Thanks! I do my best to provide accurate insights. 📈"
+  ];
+  return responses[Math.floor(Math.random() * responses.length)];
+}
+
+export function getOutOfContextResponseText(): string {
+  const responses = [
+    "I'm focused on your business data! Try asking about sales, top items, or employee performance. 📊",
+    "I can't help with that, but I can tell you all about your revenue and transactions! 💰",
+    "I'm your POS assistant, specialized in sales reports. Ask me about your top selling items! 📦",
+    "That's outside my expertise. I recommend asking about your daily sales or inventory trends instead. 📉",
+    "I didn't quite get that. I can help with sales reports, inventory, and business analytics. Type **HELP** for examples. ❓",
+    "I'm a bit of a workaholic - I only know about your business stats! Try asking 'revenue today'. 🤖"
+  ];
+  return responses[Math.floor(Math.random() * responses.length)];
+}

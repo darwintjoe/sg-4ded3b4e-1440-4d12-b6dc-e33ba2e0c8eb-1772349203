@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { ParsedQuery, TimeRange } from "@/lib/chatbot-parser";
 import { Transaction, DailyItemSales, DailyPaymentSales, MonthlyItemSales, Item, Employee, Attendance } from "@/types";
+import { getHelpResponse as getHelpText, getPoliteResponseText, getOutOfContextResponseText } from "./chatbot-help";
 
 export interface QueryResult {
   success: boolean;
@@ -17,7 +18,12 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
     switch (query.intent) {
       case "help":
-        return getHelpResponse();
+        return {
+          success: true,
+          chartType: "card",
+          data: { value: 0, label: "Help" },
+          responseText: getHelpText()
+        };
       case "polite_response":
         return getPoliteResponse();
       case "out_of_context":
@@ -59,6 +65,30 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       error: error instanceof Error ? error.message : "Unknown error"
     };
   }
+}
+
+/**
+ * Helper: Generate polite response
+ */
+function getPoliteResponse(): QueryResult {
+  return {
+    success: true,
+    chartType: "card",
+    data: { value: 0, label: "Assistant" },
+    responseText: getPoliteResponseText()
+  };
+}
+
+/**
+ * Helper: Generate out of context response
+ */
+function getOutOfContextResponse(): QueryResult {
+  return {
+    success: true,
+    chartType: "card",
+    data: { value: 0, label: "System" },
+    responseText: getOutOfContextResponseText()
+  };
 }
 
 /**
