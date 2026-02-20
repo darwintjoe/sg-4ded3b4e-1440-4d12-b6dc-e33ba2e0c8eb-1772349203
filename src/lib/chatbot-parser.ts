@@ -47,7 +47,7 @@ const HELP_KEYWORDS = ["help", "what can you do", "commands", "examples", "guide
 
 const REVENUE_KEYWORDS = ["revenue", "sales", "income", "earnings", "total sales", "how much"];
 const TRANSACTION_KEYWORDS = ["transaction", "transactions", "sales count", "how many sales"];
-const TRANSACTION_HISTORY_KEYWORDS = ["show", "list", "display", "recent", "latest"];
+const TRANSACTION_HISTORY_KEYWORDS = ["show", "list", "display", "recent", "latest", "sales", "sale"];
 const TOP_ITEMS_KEYWORDS = ["top", "best", "most sold", "popular", "highest"];
 const ITEM_KEYWORDS = ["item", "product", "sold"];
 const CATEGORY_KEYWORDS = ["category", "categories"];
@@ -97,8 +97,12 @@ export function parseQuery(input: string): ParsedQuery {
     };
   }
 
-  if (matchesKeywords(lowerInput, TRANSACTION_HISTORY_KEYWORDS) && 
-      matchesKeywords(lowerInput, TRANSACTION_KEYWORDS)) {
+  // Transaction history: "show last 10 transactions" or "show last 10 sales"
+  const hasListContext = matchesKeywords(lowerInput, ["show", "list", "display", "recent", "latest"]);
+  const hasTransactionOrSales = matchesKeywords(lowerInput, ["transaction", "transactions", "sale", "sales"]);
+  const hasLastX = /last (\d+)/.test(lowerInput);
+  
+  if ((hasListContext && hasTransactionOrSales) || (hasLastX && hasTransactionOrSales)) {
     return {
       intent: "transaction_history",
       timeRange,
