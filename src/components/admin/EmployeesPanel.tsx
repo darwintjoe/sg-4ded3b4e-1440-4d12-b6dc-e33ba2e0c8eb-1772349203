@@ -263,8 +263,9 @@ export function EmployeesPanel() {
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
           <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
-            <SelectTrigger className="w-auto min-w-[100px] flex-shrink">
+            <SelectTrigger className="w-[110px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -274,8 +275,9 @@ export function EmployeesPanel() {
             </SelectContent>
           </Select>
 
+          {/* Role Filter */}
           <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val as any)}>
-            <SelectTrigger className="w-auto min-w-[100px] flex-shrink">
+            <SelectTrigger className="w-[130px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -285,23 +287,25 @@ export function EmployeesPanel() {
             </SelectContent>
           </Select>
 
+          {/* Import Button */}
           <Button 
             variant="outline" 
-            size="sm"
+            size="default"
             onClick={() => fileInputRef.current?.click()}
-            className="min-w-[90px]"
+            className="w-auto px-3 whitespace-nowrap"
           >
-            <ArrowDownToLine className="h-4 w-4 mr-1.5" />
+            <ArrowDownToLine className="h-4 w-4 mr-2" />
             <span>{translate("common.import", language)}</span>
           </Button>
 
+          {/* Export Button */}
           <Button 
             variant="outline" 
-            size="sm"
+            size="default"
             onClick={handleCSVExport}
-            className="min-w-[90px]"
+            className="w-auto px-3 whitespace-nowrap"
           >
-            <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
+            <ArrowUpFromLine className="h-4 w-4 mr-2" />
             <span>{translate("common.export", language)}</span>
           </Button>
         </div>

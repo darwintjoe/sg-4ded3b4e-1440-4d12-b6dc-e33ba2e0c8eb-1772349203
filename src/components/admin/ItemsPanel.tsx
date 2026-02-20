@@ -252,8 +252,21 @@ export function ItemsPanel() {
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter - Fixed width */}
+          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+            <SelectTrigger className="w-[110px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
+              <SelectItem value="inactive">{translate("common.inactive", language)}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Category Filter - Dynamic width */}
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-auto min-w-[120px] flex-shrink">
+            <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -264,34 +277,25 @@ export function ItemsPanel() {
             </SelectContent>
           </Select>
 
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
-            <SelectTrigger className="w-auto min-w-[100px] flex-shrink">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
-              <SelectItem value="inactive">{translate("common.inactive", language)}</SelectItem>
-            </SelectContent>
-          </Select>
-
+          {/* Import Button - Auto width */}
           <Button 
             variant="outline" 
-            size="sm"
+            size="default"
             onClick={() => fileInputRef.current?.click()}
-            className="min-w-[90px]"
+            className="w-auto px-3 whitespace-nowrap"
           >
-            <ArrowDownToLine className="h-4 w-4 mr-1.5" />
+            <ArrowDownToLine className="h-4 w-4 mr-2" />
             <span>{translate("common.import", language)}</span>
           </Button>
 
+          {/* Export Button - Auto width */}
           <Button 
             variant="outline" 
-            size="sm"
+            size="default"
             onClick={handleCSVExport}
-            className="min-w-[90px]"
+            className="w-auto px-3 whitespace-nowrap"
           >
-            <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
+            <ArrowUpFromLine className="h-4 w-4 mr-2" />
             <span>{translate("common.export", language)}</span>
           </Button>
         </div>
