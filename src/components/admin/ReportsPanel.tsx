@@ -258,7 +258,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       </TabsContent>
 
       <TabsContent 
-        value="ask-me" 
+        value="ask" 
         className="flex flex-col h-[calc(100vh-220px)] min-h-[500px] data-[state=inactive]:hidden"
       >
         {/* Chat Messages Area - Takes all available space */}
