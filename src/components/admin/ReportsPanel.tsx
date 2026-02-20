@@ -64,8 +64,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
     for (let i = 0; i < lines.length; i++) {
       accumulated += (i > 0 ? "\n" : "") + lines[i];
       setStreamingText(accumulated);
-      // Slower delay: 200-400ms per line (more readable)
-      await delay(200 + Math.random() * 200);
+      // Slower delay: 100-200ms per line (more readable)
+      await delay(100 + Math.random() * 100);
     }
 
     // Complete streaming
@@ -261,8 +261,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
         value="ask" 
         className="flex flex-col h-[calc(100vh-220px)] min-h-[500px] data-[state=inactive]:hidden"
       >
-        {/* Chat Messages Area - Takes all available space */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 scroll-smooth">
+        {/* Chat Messages Container - Takes remaining space */}
+        <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {messages.length === 0 ? (
             /* Welcome Screen - Centered */
             <div className="flex flex-col items-center justify-center h-full text-center p-8">
