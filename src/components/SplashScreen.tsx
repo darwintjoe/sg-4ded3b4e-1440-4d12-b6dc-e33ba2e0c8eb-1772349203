@@ -63,7 +63,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     >
       <video
         ref={videoRef}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain max-w-[50%]"
         playsInline
         muted
         preload="auto"
