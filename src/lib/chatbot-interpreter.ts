@@ -739,10 +739,11 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
         : `${itemCount} items`;
       
       responseText += `**${index + 1}. ${formatDate(txn.businessDate)} at ${formatTime(txn.timestamp)}**\n`;
-      responseText += `   Receipt: #${txn.receiptNumber}\n`;
+      responseText += `   Receipt: #${txn.id}\n`;
       responseText += `   Items: ${itemSummary}\n`;
       responseText += `   Total: ${formatCurrency(txn.total)}\n`;
-      responseText += `   Payment: ${formatPaymentMethod(txn.paymentMethod)}\n`;
+      const paymentMethods = txn.payments.map(p => formatPaymentMethod(p.method)).join(", ");
+      responseText += `   Payment: ${paymentMethods}\n`;
       responseText += `   Cashier: ${txn.cashierName}\n\n`;
     });
   }
@@ -752,12 +753,12 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
     chartType: "table",
     data: transactions.map((txn, index) => ({
       no: index + 1,
-      receipt: txn.receiptNumber,
+      receipt: txn.id,
       date: txn.businessDate,
       time: formatTime(txn.timestamp),
       items: txn.items.length,
       total: txn.total,
-      payment: formatPaymentMethod(txn.paymentMethod),
+      payment: txn.payments.map(p => formatPaymentMethod(p.method)).join(", "),
       cashier: txn.cashierName
     })),
     responseText
