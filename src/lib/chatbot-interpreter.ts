@@ -706,16 +706,6 @@ function getDateRange(timeRange: TimeRange): { startDate: string; endDate: strin
       startDate = lastMonth.toISOString().split("T")[0];
       const lastMonthEndDate = lastMonthEnd.toISOString().split("T")[0];
       return { startDate, endDate: lastMonthEndDate };
-    case "last_30_days":
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-      startDate = thirtyDaysAgo.toISOString().split("T")[0];
-      break;
-    case "last_60_days":
-      const sixtyDaysAgo = new Date(today);
-      sixtyDaysAgo.setDate(today.getDate() - 60);
-      startDate = sixtyDaysAgo.toISOString().split("T")[0];
-      break;
     case "last_n_days":
       if (timeRange.days) {
         const nDaysAgo = new Date(today);
@@ -753,9 +743,7 @@ function getTimeLabel(timeRange: TimeRange): string {
     this_week: "This Week",
     last_week: "Last Week",
     this_month: "This Month",
-    last_month: "Last Month",
-    last_30_days: "Last 30 Days",
-    last_60_days: "Last 60 Days"
+    last_month: "Last Month"
   };
 
   if (timeRange.type === "last_n_days" && timeRange.days) {
