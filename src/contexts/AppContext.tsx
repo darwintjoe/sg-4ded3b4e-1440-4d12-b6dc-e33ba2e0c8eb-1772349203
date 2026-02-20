@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance, Item, UserRole } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -16,20 +16,6 @@ interface AppContextType {
   setLanguage: (lang: Language) => void;
   settings: Settings;
   updateSettings: (settings: Settings) => Promise<void>;
-  
-  // Data Management
-  items: Item[];
-  categories: string[];
-  employees: Employee[];
-  addItem: (item: Omit<Item, "id">) => Promise<void>;
-  updateItem: (item: Item) => Promise<void>;
-  deleteItem: (id: number) => Promise<void>;
-  importItemsFromCSV: (file: File) => Promise<void>;
-  addEmployee: (employee: Omit<Employee, "id" | "createdAt">) => Promise<void>;
-  updateEmployee: (employee: Employee) => Promise<void>;
-  deleteEmployee: (id: number) => Promise<void>;
-  importEmployeesFromCSV: (file: File) => Promise<void>;
-
   currentUser: Employee | null;
   adminUser: Employee | null;
   login: (pin: string) => Promise<boolean>;
@@ -61,9 +47,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<POSMode>("retail");
   const [language, setLanguageState] = useState<Language>("en");
   const [settings, setSettingsState] = useState<Settings | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [adminUser, setAdminUser] = useState<Employee | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -187,10 +170,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLanguageState(loadedSettings.language as Language);
       console.log("✅ Settings loaded");
 
-      // Load Items and Employees
-      await refreshData();
-      console.log("✅ Data loaded");
-
       // Check for active cashier session
       const activeSession = await db.getById<CashierSession>("cashierSession", 1);
       if (activeSession && activeSession.shiftActive) {
@@ -219,135 +198,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsInitializing(false);
       throw error;
     }
-  };
-
-  const refreshData = async () => {
-    try {
-      const allItems = await db.getAll<Item>("items");
-      setItems(allItems);
-      
-      // Extract unique categories
-      const uniqueCats = Array.from(new Set(allItems.map(i => i.category))).sort();
-      setCategories(uniqueCats);
-
-      const allEmployees = await db.getAll<Employee>("employees");
-      setEmployees(allEmployees);
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-    }
-  };
-
-  // Item Management
-  const addItem = async (item: Omit<Item, "id">) => {
-    await db.add("items", item);
-    await refreshData();
-  };
-
-  const updateItem = async (item: Item) => {
-    await db.put("items", item);
-    await refreshData();
-  };
-
-  const deleteItem = async (id: number) => {
-    await db.delete("items", id);
-    await refreshData();
-  };
-
-  const importItemsFromCSV = async (file: File) => {
-    return new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const text = e.target?.result as string;
-          const lines = text.split("\n");
-          // Skip header
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            // Simple CSV parser (handles quotes poorly, but sufficient for simple data)
-            // Format: SKU,Name,Category,Price,Stock,ImageURL,Active
-            const parts = line.split(",").map(p => p.replace(/^"|"$/g, "").trim());
-            
-            if (parts.length >= 5) {
-              const newItem: Omit<Item, "id"> = {
-                sku: parts[0],
-                name: parts[1],
-                category: parts[2],
-                price: parseFloat(parts[3]) || 0,
-                stock: parseInt(parts[4]) || 0,
-                imageUrl: parts[5] || undefined,
-                isActive: parts[6]?.toLowerCase() === "yes" || parts[6]?.toLowerCase() === "true"
-              };
-              await db.add("items", newItem);
-            }
-          }
-          await refreshData();
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(file);
-    });
-  };
-
-  // Employee Management
-  const addEmployee = async (employee: Omit<Employee, "id" | "createdAt">) => {
-    const newEmp = {
-      ...employee,
-      createdAt: Date.now(),
-      isActive: true
-    };
-    await db.add("employees", newEmp);
-    await refreshData();
-  };
-
-  const updateEmployee = async (employee: Employee) => {
-    await db.put("employees", employee);
-    await refreshData();
-  };
-
-  const deleteEmployee = async (id: number) => {
-    await db.delete("employees", id);
-    await refreshData();
-  };
-
-  const importEmployeesFromCSV = async (file: File) => {
-    // Basic implementation for CSV import
-    return new Promise<void>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const text = e.target?.result as string;
-          const lines = text.split("\n");
-          for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            const parts = line.split(",").map(p => p.replace(/^"|"$/g, "").trim());
-            if (parts.length >= 4) {
-              await db.add("employees", {
-                name: parts[0],
-                email: parts[1],
-                phone: parts[2],
-                role: (parts[3] as UserRole) || "cashier",
-                pin: parts[4] || "0000",
-                status: "active",
-                createdAt: Date.now(),
-                isActive: true
-              });
-            }
-          }
-          await refreshData();
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(file);
-    });
   };
 
   // Smart shift detection based on clock-in time proximity
@@ -1095,19 +945,6 @@ PAYMENT BREAKDOWN:
         setLanguage,
         settings: settings!,
         updateSettings,
-        // Data Management
-        items,
-        categories,
-        employees,
-        addItem,
-        updateItem,
-        deleteItem,
-        importItemsFromCSV,
-        addEmployee,
-        updateEmployee,
-        deleteEmployee,
-        importEmployeesFromCSV,
-        
         currentUser,
         adminUser,
         login,
@@ -1146,5 +983,3 @@ export function useApp() {
   }
   return context;
 }
-
-export const useAppContext = useApp;

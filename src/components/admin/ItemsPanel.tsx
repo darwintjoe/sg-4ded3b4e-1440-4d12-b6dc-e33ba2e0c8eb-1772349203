@@ -1,260 +1,582 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, ArrowUpFromLine, ArrowDownToLine, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { useAppContext } from "@/contexts/AppContext";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { useApp } from "@/contexts/AppContext";
+import { useLongPress } from "@/hooks/use-long-press";
+import { db } from "@/lib/db";
 import { Item } from "@/types";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
-import { toast } from "@/hooks/use-toast";
+
+type SortField = "sku" | "name" | "price";
+type SortDirection = "asc" | "desc" | null;
+type StatusFilter = "all" | "active" | "inactive";
+
+const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void }) => {
+  const longPressHandlers = useLongPress({
+    onLongPress: () => onEdit(item),
+    onClick: () => {},
+    delay: 500,
+  });
+
+  return (
+    <TableRow
+      {...longPressHandlers}
+      className={cn(
+        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation",
+        item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
+      )}
+    >
+      <TableCell className="text-sm w-[30%] truncate">{item.sku || "-"}</TableCell>
+      <TableCell className="text-sm w-[50%] truncate">{item.name}</TableCell>
+      <TableCell className="text-right text-sm w-[20%] whitespace-nowrap">
+        {item.price.toLocaleString("id-ID")}
+      </TableCell>
+    </TableRow>
+  );
+};
 
 export function ItemsPanel() {
-  const {
-    items,
-    categories,
-    addItem,
-    updateItem,
-    deleteItem,
-    importItemsFromCSV,
-    language
-  } = useAppContext();
-
+  const { language } = useApp();
+  const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [formData, setFormData] = useState({
-    sku: "",
-    name: "",
-    category: "",
-    price: "",
-    stock: "",
-    imageUrl: ""
-  });
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [validationError, setValidationError] = useState("");
+  const [canDelete, setCanDelete] = useState(false);
+  const [categorySheetOpen, setCategorySheetOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [priceDisplay, setPriceDisplay] = useState("");
+  const [originalItem, setOriginalItem] = useState<Item | null>(null);
+  
+  // Import Progress State
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+
+  // Scanner State
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = 
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || 
-      (statusFilter === "active" ? item.isActive : !item.isActive);
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
-    
-    return matchesSearch && matchesStatus && matchesCategory;
-  });
+  const capitalizeWords = (str: string) => {
+    return str
+      .split(' ')
+      .map(word => {
+        if (word.length === 0) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1);
+      })
+      .join(' ');
+  };
 
-  const handleAddItem = () => {
-    if (!formData.sku || !formData.name || !formData.category || !formData.price) {
-      toast({
-        title: translate("common.error", language),
-        description: translate("items.fillRequired", language),
-        variant: "destructive"
-      });
+  const formatPrice = (value: number | string): string => {
+    const numValue = typeof value === 'string' ? value.replace(/[^\d]/g, '') : value.toString();
+    if (!numValue || numValue === '0') return '';
+    return parseInt(numValue).toLocaleString('id-ID');
+  };
+
+  const parsePrice = (value: string): number => {
+    const cleaned = value.replace(/[^\d]/g, '');
+    return parseInt(cleaned) || 0;
+  };
+
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  useEffect(() => {
+    const uniqueCategories = Array.from(new Set(items.map(item => item.category).filter(Boolean)));
+    setCategories(uniqueCategories);
+  }, [items]);
+
+  useEffect(() => {
+    if (editingItem) {
+      setPriceDisplay(formatPrice(editingItem.price));
+    }
+  }, [editingItem?.id]);
+
+  const loadItems = async () => {
+    const allItems = await db.getAll<Item>("items");
+    setItems(allItems);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else if (sortDirection === "desc") {
+        setSortDirection(null);
+        setSortField("name");
+      }
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const validateUniqueness = async (item: Item): Promise<string | null> => {
+    const allItems = await db.getAll<Item>("items");
+    
+    if (item.sku) {
+      const duplicateSku = allItems.find(
+        (i) => i.sku?.toLowerCase() === item.sku?.toLowerCase() && i.id !== item.id
+      );
+      if (duplicateSku) {
+        return `SKU "${item.sku}" already exists`;
+      }
+    }
+
+    const duplicateName = allItems.find(
+      (i) => i.name.toLowerCase() === item.name.toLowerCase() && i.id !== item.id
+    );
+    if (duplicateName) {
+      return `Item name "${item.name}" already exists`;
+    }
+
+    return null;
+  };
+
+  const checkItemCanDelete = async (itemId: number): Promise<boolean> => {
+    const transactions = await db.getAll("transactions");
+    const usedInTransactions = transactions.some((txn: any) =>
+      txn.items?.some((cartItem: any) => cartItem.itemId === itemId)
+    );
+    return !usedInTransactions;
+  };
+
+  const handleSaveItem = async () => {
+    if (!editingItem) return;
+
+    if (!editingItem.name.trim()) {
+      setValidationError("Item name is required");
       return;
     }
 
-    const newItem: Omit<Item, "id"> = {
-      sku: formData.sku,
-      name: formData.name,
-      category: formData.category,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock) || 0,
-      imageUrl: formData.imageUrl || undefined,
+    if (editingItem.price <= 0) {
+      setValidationError("Selling price must be greater than 0");
+      return;
+    }
+
+    const uniqueError = await validateUniqueness(editingItem);
+    if (uniqueError) {
+      setValidationError(uniqueError);
+      return;
+    }
+
+    const itemToSave = {
+      ...editingItem,
+      isActive: editingItem.isActive ?? true
+    };
+
+    if (itemToSave.id) {
+      await db.put("items", itemToSave);
+    } else {
+      await db.add("items", { ...itemToSave, id: Date.now() });
+    }
+
+    await loadItems();
+    setHasUnsavedChanges(false);
+    setValidationError("");
+    setIsDialogOpen(false);
+    setEditingItem(null);
+    setOriginalItem(null);
+    setPriceDisplay("");
+  };
+
+  const handleDeleteItem = async () => {
+    if (!editingItem?.id || !canDelete) return;
+
+    if (confirm(`Permanently delete "${editingItem.name}"? This cannot be undone.`)) {
+      await db.delete("items", editingItem.id);
+      await loadItems();
+      setIsDialogOpen(false);
+      setEditingItem(null);
+      setOriginalItem(null);
+      setPriceDisplay("");
+    }
+  };
+
+  const handleNewItem = () => {
+    const newItem = {
+      name: "",
+      sku: "",
+      price: 0,
+      category: "General",
+      variants: [],
+      modifiers: [],
       isActive: true
     };
-
-    addItem(newItem);
-    setIsAddDialogOpen(false);
-    resetForm();
-    toast({
-      title: translate("common.success", language),
-      description: translate("items.itemAdded", language)
-    });
+    setEditingItem(newItem);
+    setOriginalItem({ ...newItem });
+    setPriceDisplay("");
+    setHasUnsavedChanges(false);
+    setValidationError("");
+    setCanDelete(true);
+    setIsDialogOpen(true);
   };
 
-  const handleEditItem = () => {
-    if (!selectedItem) return;
-
-    if (!formData.sku || !formData.name || !formData.category || !formData.price) {
-      toast({
-        title: translate("common.error", language),
-        description: translate("items.fillRequired", language),
-        variant: "destructive"
-      });
-      return;
+  const handleEditItem = async (item: Item) => {
+    setEditingItem({ ...item });
+    setOriginalItem({ ...item });
+    setPriceDisplay(formatPrice(item.price));
+    setHasUnsavedChanges(false);
+    setValidationError("");
+    
+    if (item.id) {
+      const deletable = await checkItemCanDelete(item.id);
+      setCanDelete(deletable);
+    } else {
+      setCanDelete(true);
     }
+    
+    setIsDialogOpen(true);
+  };
 
-    const updatedItem: Item = {
-      ...selectedItem,
-      sku: formData.sku,
-      name: formData.name,
-      category: formData.category,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock) || 0,
-      imageUrl: formData.imageUrl || undefined
+  const hasActualChanges = (): boolean => {
+    if (!editingItem || !originalItem) return false;
+    
+    const normalize = (val: any) => {
+      if (val === "" || val === null || val === undefined) return "";
+      if (typeof val === "string") return val.trim();
+      return val;
     };
 
-    updateItem(updatedItem);
-    setIsEditDialogOpen(false);
-    setSelectedItem(null);
-    resetForm();
-    toast({
-      title: translate("common.success", language),
-      description: translate("items.itemUpdated", language)
-    });
+    return (
+      normalize(editingItem.name) !== normalize(originalItem.name) ||
+      normalize(editingItem.sku) !== normalize(originalItem.sku) ||
+      editingItem.price !== originalItem.price ||
+      normalize(editingItem.category) !== normalize(originalItem.category) ||
+      editingItem.isActive !== originalItem.isActive
+    );
   };
 
-  const handleDeleteItem = () => {
-    if (!selectedItem) return;
-    deleteItem(selectedItem.id);
-    setIsDeleteDialogOpen(false);
-    setSelectedItem(null);
-    toast({
-      title: translate("common.success", language),
-      description: translate("items.itemDeleted", language)
-    });
+  const handleCloseDialog = () => {
+    if (hasActualChanges()) {
+      if (confirm("You have unsaved changes. Discard them?")) {
+        setIsDialogOpen(false);
+        setEditingItem(null);
+        setOriginalItem(null);
+        setHasUnsavedChanges(false);
+        setValidationError("");
+        setPriceDisplay("");
+      }
+    } else {
+      setIsDialogOpen(false);
+      setEditingItem(null);
+      setOriginalItem(null);
+      setValidationError("");
+      setPriceDisplay("");
+    }
   };
 
-  const handleToggleActive = (item: Item) => {
-    updateItem({ ...item, isActive: !item.isActive });
-    toast({
-      title: translate("common.success", language),
-      description: item.isActive 
-        ? translate("items.itemDeactivated", language)
-        : translate("items.itemActivated", language)
-    });
+  const handleFieldChange = (field: keyof Item, value: any) => {
+    if (!editingItem) return;
+    
+    if (field === "name" && typeof value === "string") {
+      value = capitalizeWords(value);
+    }
+    
+    setEditingItem({ ...editingItem, [field]: value });
+    setHasUnsavedChanges(true);
   };
 
-  const openEditDialog = (item: Item) => {
-    setSelectedItem(item);
-    setFormData({
-      sku: item.sku,
-      name: item.name,
-      category: item.category,
-      price: item.price.toString(),
-      stock: item.stock.toString(),
-      imageUrl: item.imageUrl || ""
-    });
-    setIsEditDialogOpen(true);
+  const handlePriceChange = (value: string) => {
+    const formatted = formatPrice(value);
+    setPriceDisplay(formatted);
+    const numericValue = parsePrice(value);
+    handleFieldChange("price", numericValue);
   };
 
-  const openDeleteDialog = (item: Item) => {
-    setSelectedItem(item);
-    setIsDeleteDialogOpen(true);
+  const handleCategorySelect = (category: string) => {
+    const capitalized = capitalizeWords(category);
+    handleFieldChange("category", capitalized);
+    setCategorySheetOpen(false);
+    setCategorySearch("");
+    
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   };
 
-  const resetForm = () => {
-    setFormData({
-      sku: "",
-      name: "",
-      category: "",
-      price: "",
-      stock: "",
-      imageUrl: ""
-    });
-  };
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setImporting(true);
+    setImportProgress(0);
+
     try {
-      await importItemsFromCSV(file);
-      toast({
-        title: translate("common.success", language),
-        description: translate("items.importSuccess", language)
-      });
-    } catch (error) {
-      toast({
-        title: translate("common.error", language),
-        description: translate("items.importError", language),
-        variant: "destructive"
-      });
-    }
+      const text = await file.text();
+      const lines = text.split("\n").filter(l => l.trim());
+      
+      if (lines.length < 2) {
+        alert("CSV file is empty or has no data rows");
+        setImporting(false);
+        return;
+      }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+
+      const findColumn = (headers: string[], patterns: string[]): number => {
+        return headers.findIndex(h => 
+          patterns.some(p => h.includes(p.toLowerCase()))
+        );
+      };
+
+      const columnMap = {
+        sku: findColumn(headers, ["sku", "code", "barcode", "item code"]),
+        name: findColumn(headers, ["name", "product", "item"]),
+        price: findColumn(headers, ["price", "cost", "amount"]),
+        category: findColumn(headers, ["category", "type", "group"])
+      };
+
+      let imported = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+      const totalRows = lines.length - 1;
+      // Calculate delay: At least 1.5s total duration, or 50ms per item max
+      // If very few items, sleep longer per item to make it visible
+      const delayPerItem = Math.max(10, Math.min(100, 1500 / Math.max(1, totalRows)));
+
+      for (let i = 1; i < lines.length; i++) {
+        try {
+          const values = lines[i].split(",").map(v => v.trim());
+          
+          const sku = columnMap.sku !== -1 ? values[columnMap.sku] : "";
+          const name = columnMap.name !== -1 ? values[columnMap.name] : "";
+          const priceStr = columnMap.price !== -1 ? values[columnMap.price] : "0";
+          const category = columnMap.category !== -1 ? values[columnMap.category] : "";
+
+          if (!name || name.length === 0) {
+            errors.push(`Row ${i}: Missing product name`);
+            skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
+            continue;
+          }
+
+          const price = parseFloat(priceStr);
+          if (isNaN(price) || price <= 0) {
+            errors.push(`Row ${i}: Invalid price "${priceStr}"`);
+            skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
+            continue;
+          }
+
+          let finalCategory = category;
+          if (!finalCategory && sku) {
+            if (sku.startsWith("B")) finalCategory = "Beverages";
+            else if (sku.startsWith("S")) finalCategory = "Snacks";
+            else finalCategory = "General";
+          } else if (!finalCategory) {
+            finalCategory = "General";
+          }
+
+          const newItem: Item = {
+            sku: sku || "",
+            name: name,
+            price: price,
+            category: finalCategory,
+            variants: [],
+            modifiers: [],
+            isActive: true
+          };
+
+          const uniqueError = await validateUniqueness(newItem);
+          if (uniqueError) {
+            errors.push(`Row ${i}: ${uniqueError}`);
+            skipped++;
+            setImportProgress(Math.round((i / totalRows) * 100));
+            await sleep(delayPerItem);
+            continue;
+          }
+
+          await db.add("items", { ...newItem, id: Date.now() + imported });
+          imported++;
+          
+          setImportProgress(Math.round((i / totalRows) * 100));
+          await sleep(delayPerItem);
+
+        } catch (rowError: any) {
+          errors.push(`Row ${i}: ${rowError.message}`);
+          skipped++;
+          setImportProgress(Math.round((i / totalRows) * 100));
+          await sleep(delayPerItem);
+        }
+      }
+
+      setImportProgress(100);
+      await sleep(500); // Pause at 100% for satisfaction
+      await loadItems();
+      
+      // Keep showing 100% for a moment before closing
+      setImporting(false);
+
+      let message = `Import complete!\nImported: ${imported}\nSkipped: ${skipped}`;
+      if (errors.length > 0 && errors.length <= 10) {
+        message += "\n\nErrors:\n" + errors.slice(0, 10).join("\n");
+      } else if (errors.length > 10) {
+        message += `\n\n${errors.length} errors occurred. Check console for details.`;
+        console.error("Import errors:", errors);
+      }
+
+      alert(message);
+      event.target.value = "";
+
+    } catch (error: any) {
+      console.error("CSV Import failed:", error);
+      setImporting(false);
+      alert(`Import failed: ${error.message}`);
+      event.target.value = "";
     }
   };
 
-  const handleCSVExport = () => {
-    const headers = ["SKU", "Name", "Category", "Price", "Stock", "Image URL", "Active"];
-    const rows = items.map(item => [
-      item.sku,
-      item.name,
-      item.category,
-      item.price.toString(),
-      item.stock.toString(),
-      item.imageUrl || "",
-      item.isActive ? "Yes" : "No"
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
+  const handleCSVExport = async () => {
+    const allItems = await db.getAll<Item>("items");
+    const headers = ["SKU", "Name", "Price", "Category"];
+    const rows = allItems.map(item => [item.sku || "", item.name, item.price, item.category]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `items_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "items.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    toast({
-      title: translate("common.success", language),
-      description: translate("items.exportSuccess", language)
-    });
   };
+
+  const lookupProductBySKU = async (sku: string) => {
+    if (!sku) return;
+
+    try {
+      // Use our API route to bypass CORS
+      const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
+      const data = await response.json();
+
+      if (data.success && data.productName) {
+        setEditingItem(prev => {
+          if (!prev) return null;
+          // Don't overwrite if user has already entered a name
+          if (prev.name && prev.name.trim() !== "") return prev;
+          
+          return {
+            ...prev,
+            name: data.productName
+          };
+        });
+      }
+    } catch (error) {
+      // Silent failure - offline, not found, or API error
+      console.debug('Product lookup failed (expected behavior):', error);
+    }
+  };
+
+  const handleBarcodeScan = async (barcode: string) => {
+    setScannerOpen(false);
+    
+    if (!editingItem) return;
+    
+    // Set SKU immediately
+    handleFieldChange("sku", barcode);
+    
+    // Trigger lookup
+    await lookupProductBySKU(barcode);
+  };
+
+  const filteredItems = items
+    .filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      let matchesStatus = true;
+      if (statusFilter === "active") matchesStatus = item.isActive !== false;
+      if (statusFilter === "inactive") matchesStatus = item.isActive === false;
+      
+      const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+      
+      return matchesSearch && matchesStatus && matchesCategory;
+    })
+    .sort((a, b) => {
+      if (!sortDirection) return 0;
+
+      let aVal: any = a[sortField];
+      let bVal: any = b[sortField];
+
+      if (sortField === "sku") {
+        aVal = (a.sku || "").toLowerCase();
+        bVal = (b.sku || "").toLowerCase();
+      } else if (sortField === "name") {
+        aVal = a.name.toLowerCase();
+        bVal = b.name.toLowerCase();
+      } else if (sortField === "price") {
+        aVal = a.price;
+        bVal = b.price;
+      }
+
+      if (sortDirection === "asc") {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+  const filteredCategories = categories.filter(cat =>
+    cat.toLowerCase().includes(categorySearch.toLowerCase())
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Status Filter - Fixed width */}
-          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
-            <SelectTrigger className="w-[110px]">
+    <div className="flex flex-col h-full">
+      {/* Importing Progress Overlay */}
+      {importing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+              <div className="space-y-1">
+                <h3 className="text-xl font-semibold">Importing Items...</h3>
+                <p className="text-sm text-slate-500">Processing your CSV file</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Progress value={importProgress} className="h-3 w-full" />
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Processing...</span>
+                <span className="font-medium text-blue-600">{importProgress}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed Filters Section - Max 2 Rows */}
+      <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
+        {/* Row 1: Filters + Import/Export */}
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -264,319 +586,336 @@ export function ItemsPanel() {
             </SelectContent>
           </Select>
 
-          {/* Category Filter - Dynamic width */}
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{translate("common.allCategories", language)}</SelectItem>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
               {categories.map(cat => (
                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
-          {/* Import Button - Auto width */}
           <Button 
             variant="outline" 
-            size="default"
+            size="sm" 
             onClick={() => fileInputRef.current?.click()}
-            className="w-auto px-3 whitespace-nowrap"
+            disabled={importing}
+            className="gap-2 whitespace-nowrap text-sm"
           >
-            <ArrowDownToLine className="h-4 w-4 mr-2" />
-            <span>{translate("common.import", language)}</span>
+            <ArrowDownToLine className="h-4 w-4" />
           </Button>
 
-          {/* Export Button - Auto width */}
           <Button 
             variant="outline" 
-            size="default"
+            size="sm" 
             onClick={handleCSVExport}
-            className="w-auto px-3 whitespace-nowrap"
+            disabled={importing}
+            className="gap-2 whitespace-nowrap text-sm"
           >
-            <ArrowUpFromLine className="h-4 w-4 mr-2" />
-            <span>{translate("common.export", language)}</span>
+            <ArrowUpFromLine className="h-4 w-4" />
           </Button>
-        </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={translate("common.searchPlaceholder", language)}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="*/*"
+            onChange={handleCSVImport}
+            className="hidden"
           />
         </div>
+
+        {/* Row 2: Full-width Search */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+            <Input
+              placeholder={translate("common.search", language)}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 text-sm w-full"
+            />
+          </div>
+        </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={handleCSVImport}
-      />
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{translate("items.sku", language)}</TableHead>
-              <TableHead>{translate("items.name", language)}</TableHead>
-              <TableHead>{translate("items.category", language)}</TableHead>
-              <TableHead>{translate("items.price", language)}</TableHead>
-              <TableHead>{translate("items.stock", language)}</TableHead>
-              <TableHead>{translate("common.status", language)}</TableHead>
-              <TableHead className="text-right">{translate("common.actions", language)}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredItems.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  {translate("items.noItems", language)}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      {item.imageUrl && (
-                        <img 
-                          src={item.imageUrl} 
-                          alt={item.name}
-                          className="w-10 h-10 object-cover rounded"
-                        />
-                      )}
-                      <span>{item.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.category}</TableCell>
-                  <TableCell>{item.price.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={item.stock > 10 ? "default" : item.stock > 0 ? "secondary" : "destructive"}>
-                      {item.stock}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleToggleActive(item)}
+      {/* Scrollable Table Section */}
+      <div className="flex-1 overflow-hidden relative">
+        <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <Card className="m-3 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50 dark:bg-slate-900">
+                <TableRow>
+                  <TableHead className="w-[30%]">
+                    <button
+                      onClick={() => handleSort("sku")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
                     >
-                      <Badge variant={item.isActive ? "default" : "secondary"}>
-                        {item.isActive ? translate("common.active", language) : translate("common.inactive", language)}
-                      </Badge>
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openEditDialog(item)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openDeleteDialog(item)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                      {translate("items.sku", language)}
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[50%]">
+                    <button
+                      onClick={() => handleSort("name")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
+                    >
+                      {translate("items.name", language)}
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="w-[20%] text-right">
+                    <button
+                      onClick={() => handleSort("price")}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
+                    >
+                      {translate("items.price", language)}
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
+                      {searchQuery ? translate("items.noResults", language) : translate("items.noItems", language)}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredItems.map((item) => (
+                    <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+
+        {/* Floating Add Button */}
+        <button
+          onClick={handleNewItem}
+          className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-20 transition-transform hover:scale-110"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
       </div>
 
-      <Button 
-        className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg"
-        onClick={() => {
-          resetForm();
-          setIsAddDialogOpen(true);
-        }}
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
-
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{translate("items.addItem", language)}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="sku">{translate("items.sku", language)} *</Label>
-              <Input
-                id="sku"
-                value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="name">{translate("items.name", language)} *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="category">{translate("items.category", language)} *</Label>
-              <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
-                <SelectTrigger id="category">
-                  <SelectValue placeholder={translate("items.selectCategory", language)} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="price">{translate("items.price", language)} *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="stock">{translate("items.stock", language)}</Label>
-              <Input
-                id="stock"
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="imageUrl">{translate("items.imageUrl", language)}</Label>
-              <Input
-                id="imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              {translate("common.cancel", language)}
-            </Button>
-            <Button onClick={handleAddItem}>
-              {translate("common.add", language)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{translate("items.editItem", language)}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit-sku">{translate("items.sku", language)} *</Label>
-              <Input
-                id="edit-sku"
-                value={formData.sku}
-                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-name">{translate("items.name", language)} *</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-category">{translate("items.category", language)} *</Label>
-              <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
-                <SelectTrigger id="edit-category">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="edit-price">{translate("items.price", language)} *</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-stock">{translate("items.stock", language)}</Label>
-              <Input
-                id="edit-stock"
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit-imageUrl">{translate("items.imageUrl", language)}</Label>
-              <Input
-                id="edit-imageUrl"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              {translate("common.cancel", language)}
-            </Button>
-            <Button onClick={handleEditItem}>
-              {translate("common.save", language)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{translate("items.deleteConfirm", language)}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {translate("items.deleteWarning", language)}
-              {selectedItem && (
-                <div className="mt-2 font-semibold">
-                  {selectedItem.name} ({selectedItem.sku})
+      {/* Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleCloseDialog();
+        }
+      }}>
+        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
+          {editingItem && (
+            <>
+              {/* Fixed Header */}
+              <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
+                <div className="flex items-center justify-between">
+                  <Button 
+                    variant="ghost" 
+                    onClick={handleCloseDialog}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
+                  >
+                    {translate("common.cancel", language)}
+                  </Button>
+                  <h2 className="text-lg font-semibold">
+                    {editingItem?.id ? translate("items.editItem", language) : translate("items.addItem", language)}
+                  </h2>
+                  <Button 
+                    onClick={handleSaveItem}
+                    disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
+                    className="bg-blue-600 hover:bg-blue-700 -mr-3"
+                  >
+                    {translate("common.save", language)}
+                  </Button>
                 </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{translate("common.cancel", language)}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteItem} className="bg-destructive text-destructive-foreground">
-              {translate("common.delete", language)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              </div>
+
+              {/* Scrollable Content */}
+              <div 
+                className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" 
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <div className="space-y-4 pb-8">
+                  {validationError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{validationError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* SKU Field - Now First */}
+                  <div className="space-y-2">
+                    <Label>{translate("items.skuLabel", language)}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        value={editingItem?.sku || ""}
+                        onChange={(e) =>
+                          setEditingItem({ ...editingItem!, sku: e.target.value })
+                        }
+                        onBlur={async (e) => {
+                          // Trigger lookup when user tabs away from SKU field
+                          const sku = e.target.value?.trim();
+                          if (sku && (!editingItem?.name || editingItem.name === "")) {
+                            await lookupProductBySKU(sku);
+                          }
+                        }}
+                        placeholder="COFFEE-001"
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        onClick={() => setScannerOpen(true)}
+                        className="shrink-0"
+                      >
+                        <ScanBarcode className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Item Name Field - Now Second */}
+                  <div className="space-y-2">
+                    <Label>
+                      {translate("items.itemName", language)} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={editingItem?.name || ""}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem!, name: e.target.value })
+                      }
+                      placeholder="Coffee Latte"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{translate("items.sellingPrice", language)} <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      value={priceDisplay}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      placeholder="25,000"
+                      className="placeholder:text-slate-400/60"
+                    />
+                  </div>
+
+                  {/* Category */}
+                  <div className="space-y-2">
+                    <Label>{translate("items.category", language)}</Label>
+                    <Dialog open={categorySheetOpen} onOpenChange={setCategorySheetOpen}>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-between"
+                        onClick={() => setCategorySheetOpen(true)}
+                      >
+                        {editingItem.category || translate("items.selectCategory", language)}
+                        <ArrowUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                      <DialogContent className="max-w-md max-h-[50vh] flex flex-col p-0">
+                        <div className="px-6 pt-6 pb-4 flex-shrink-0">
+                          <h3 className="text-lg font-semibold">{translate("items.selectCategory", language)}</h3>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-6 pb-2">
+                          <Command className="rounded-lg border">
+                            <CommandInput 
+                              placeholder={translate("common.search", language)}
+                              value={categorySearch}
+                              onValueChange={setCategorySearch}
+                              className="placeholder:text-slate-400/60"
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                <div className="py-6 text-center text-sm text-slate-500">
+                                  {translate("items.noCategoryFound", language)}
+                                </div>
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {filteredCategories.map((cat) => (
+                                  <CommandItem
+                                    key={cat}
+                                    value={cat}
+                                    onSelect={() => handleCategorySelect(cat)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        editingItem.category === cat ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {cat}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </div>
+                        {categorySearch && filteredCategories.length === 0 && (
+                          <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
+                            <Button
+                              onClick={() => handleCategorySelect(categorySearch)}
+                              className="w-full"
+                              size="lg"
+                            >
+                              {translate("items.createCategory", language)} "{capitalizeWords(categorySearch)}"
+                            </Button>
+                          </div>
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                    <p className="text-xs text-slate-500/60">
+                      {translate("items.tapSelectCategory", language)}
+                    </p>
+                  </div>
+
+                  {editingItem.id && (
+                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm">{translate("items.activeStatus", language)}</p>
+                        <p className="text-xs text-slate-500/60">
+                          {translate("items.activeHelp", language)}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={editingItem.isActive !== false}
+                        onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
+                      />
+                    </div>
+                  )}
+
+                  {editingItem.id && canDelete && (
+                    <div className="pt-4">
+                      <Button
+                        onClick={handleDeleteItem}
+                        variant="destructive"
+                        className="w-full"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        {translate("items.deleteItem", language)}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Barcode Scanner */}
+      {scannerOpen && (
+        <BarcodeScanner
+          isOpen={true}
+          onScan={handleBarcodeScan}
+          onClose={() => setScannerOpen(false)}
+          language={language}
+        />
+      )}
     </div>
   );
 }
