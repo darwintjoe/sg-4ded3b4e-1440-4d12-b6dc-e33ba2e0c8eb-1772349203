@@ -904,21 +904,29 @@ async function getTransactionDetail(query: ParsedQuery): Promise<QueryResult> {
   // Items breakdown
   responseText += `**Items:**\n`;
   transaction.items.forEach((item, index) => {
-    const itemTotal = item.price * item.quantity;
-    responseText += `${index + 1}. **${item.name}** (${item.quantity}x @ ${formatCurrency(item.price)})\n`;
+    // Use totalPrice directly as it accounts for quantity and potential modifiers
+    const itemTotal = item.totalPrice; 
+    // Use basePrice for unit price display
+    responseText += `${index + 1}. **${item.name}** (${item.quantity}x @ ${formatCurrency(item.basePrice)})\n`;
     responseText += `   Subtotal: ${formatCurrency(itemTotal)}\n`;
   });
 
   // Calculate totals
-  const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const discount = transaction.discount || 0;
+  const subtotal = transaction.subtotal;
   const tax = transaction.tax || 0;
 
   responseText += `\n**Summary:**\n`;
   responseText += `Subtotal: ${formatCurrency(subtotal)}\n`;
-  if (discount > 0) {
-    responseText += `Discount: -${formatCurrency(discount)}\n`;
+  
+  // Calculate discount if there's a difference between subtotal+tax and total
+  // (Assuming logic: Total = Subtotal + Tax - Discount)
+  const expectedTotal = subtotal + tax;
+  const potentialDiscount = expectedTotal - transaction.total;
+  
+  if (potentialDiscount > 0) {
+    responseText += `Discount: -${formatCurrency(potentialDiscount)}\n`;
   }
+  
   if (tax > 0) {
     responseText += `Tax: ${formatCurrency(tax)}\n`;
   }
