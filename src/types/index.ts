@@ -11,6 +11,9 @@ export interface Employee {
   name: string;
   pin: string;
   role: UserRole;
+  email?: string;
+  phone?: string;
+  status?: "active" | "resigned";
   joinDate?: number;
   createdAt: number;
   isActive?: boolean;
@@ -45,6 +48,7 @@ export interface Item {
   category: string;
   price: number;
   stock?: number;
+  imageUrl?: string;
   variants?: ItemVariant[];
   modifiers?: ItemModifier[];
   isActive?: boolean;

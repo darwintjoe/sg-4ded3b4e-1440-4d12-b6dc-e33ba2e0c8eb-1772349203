@@ -1,258 +1,207 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
+import { Search, Plus, ArrowUpFromLine, ArrowDownToLine, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { db } from "@/lib/db";
-import { Employee, UserRole } from "@/types";
-import { useLongPress } from "@/hooks/use-long-press";
-import { Plus, Search, AlertCircle, ArrowUpDown, Check, ChevronsUpDown, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useApp } from "@/contexts/AppContext";
+import { Badge } from "@/components/ui/badge";
+import { useAppContext } from "@/contexts/AppContext";
+import { Employee } from "@/types";
 import { translate } from "@/lib/translations";
-
-type SortField = "name" | "pin" | "joinDate";
-type SortDirection = "asc" | "desc";
-
-const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Employee) => void }) => {
-  const longPressHandlers = useLongPress({
-    onLongPress: () => onEdit(employee),
-    onClick: () => {},
-    delay: 500,
-  });
-
-  const formatDate = (timestamp?: number) => {
-    if (!timestamp) return "-";
-    const date = new Date(timestamp);
-    return date.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "2-digit"
-    });
-  };
-
-  return (
-    <TableRow
-      {...longPressHandlers}
-      className={cn(
-        "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors select-none touch-manipulation",
-        employee.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
-      )}
-    >
-      <TableCell className="text-sm w-[50%] truncate">{employee.name}</TableCell>
-      <TableCell className="text-sm w-[25%]">{employee.pin}</TableCell>
-      <TableCell className="text-right text-sm w-[25%] whitespace-nowrap">
-        {formatDate(employee.joinDate)}
-      </TableCell>
-    </TableRow>
-  );
-};
+import { toast } from "@/hooks/use-toast";
 
 export function EmployeesPanel() {
-  const { language } = useApp();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const {
+    employees,
+    addEmployee,
+    updateEmployee,
+    deleteEmployee,
+    importEmployeesFromCSV,
+    language
+  } = useAppContext();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resigned">("active");
-  const [roleFilter, setRoleFilter] = useState<"all" | UserRole>("all");
-  
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [sortField, setSortField] = useState<SortField>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [validationError, setValidationError] = useState("");
-  const [originalEmployee, setOriginalEmployee] = useState<Employee | null>(null);
-  const [roleSheetOpen, setRoleSheetOpen] = useState(false);
-  const [roleSearch, setRoleSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "cashier" | "admin">("all");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "cashier" as "cashier" | "admin",
+    pin: ""
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pinInputRef = useRef<HTMLInputElement>(null);
 
-  const hasActualChanges = (): boolean => {
-    if (!editingEmployee || !originalEmployee) return false;
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch = 
+      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || emp.status === statusFilter;
+    const matchesRole = roleFilter === "all" || emp.role === roleFilter;
     
-    const normalize = (val: any) => {
-      if (val === "" || val === null || val === undefined) return "";
-      if (typeof val === "string") return val.trim();
-      return val;
+    return matchesSearch && matchesStatus && matchesRole;
+  });
+
+  const handleAddEmployee = () => {
+    if (!formData.name || !formData.email || !formData.pin) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("employees.fillRequired", language),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.pin.length !== 4 || !/^\d+$/.test(formData.pin)) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("employees.invalidPin", language),
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newEmployee: Omit<Employee, "id" | "createdAt"> = {
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      pin: formData.pin,
+      status: "active"
     };
 
-    return (
-      normalize(editingEmployee.name) !== normalize(originalEmployee.name) ||
-      normalize(editingEmployee.pin) !== normalize(originalEmployee.pin) ||
-      normalize(editingEmployee.role) !== normalize(originalEmployee.role) ||
-      editingEmployee.joinDate !== originalEmployee.joinDate ||
-      editingEmployee.isActive !== originalEmployee.isActive
-    );
-  };
-
-  const capitalizeWords = (str: string) => {
-    return str
-      .split(' ')
-      .map(word => {
-        if (word.length === 0) return word;
-        return word.charAt(0).toUpperCase() + word.slice(1);
-      })
-      .join(' ');
-  };
-
-  const getAllRoles = (): string[] => {
-    const rolesSet = new Set<string>(["admin", "cashier", "employee"]);
-    employees.forEach(emp => {
-      if (emp.role) rolesSet.add(emp.role.toLowerCase());
+    addEmployee(newEmployee);
+    setIsAddDialogOpen(false);
+    resetForm();
+    toast({
+      title: translate("common.success", language),
+      description: translate("employees.employeeAdded", language)
     });
-    return Array.from(rolesSet).sort();
   };
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
+  const handleEditEmployee = () => {
+    if (!selectedEmployee) return;
 
-  const loadEmployees = async () => {
-    const allEmployees = await db.getAll<Employee>("employees");
-    setEmployees(allEmployees);
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  const validateUniqueness = async (employee: Employee): Promise<string | null> => {
-    const allEmployees = await db.getAll<Employee>("employees");
-    
-    const duplicatePin = allEmployees.find(
-      (e) => 
-        e.pin === employee.pin && 
-        e.id !== employee.id &&
-        e.isActive !== false
-    );
-    if (duplicatePin) {
-      return `PIN "${employee.pin}" is already in use by an active employee`;
-    }
-
-    const duplicateName = allEmployees.find(
-      (e) => e.name.toLowerCase() === employee.name.toLowerCase() && e.id !== employee.id
-    );
-    if (duplicateName) {
-      return `Employee name "${employee.name}" already exists`;
-    }
-
-    return null;
-  };
-
-  const handleSaveEmployee = async () => {
-    if (!editingEmployee) return;
-
-    if (!editingEmployee.name.trim()) {
-      setValidationError("Employee name is required");
+    if (!formData.name || !formData.email || !formData.pin) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("employees.fillRequired", language),
+        variant: "destructive"
+      });
       return;
     }
 
-    if (!editingEmployee.pin || editingEmployee.pin.length < 4 || editingEmployee.pin.length > 6) {
-      setValidationError("PIN must be 4-6 digits");
-      setTimeout(() => pinInputRef.current?.focus(), 100);
+    if (formData.pin.length !== 4 || !/^\d+$/.test(formData.pin)) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("employees.invalidPin", language),
+        variant: "destructive"
+      });
       return;
     }
 
-    const uniqueError = await validateUniqueness(editingEmployee);
-    if (uniqueError) {
-      setValidationError(uniqueError);
-      setTimeout(() => pinInputRef.current?.focus(), 100);
-      return;
-    }
-
-    const employeeToSave = {
-      ...editingEmployee,
-      joinDate: editingEmployee.joinDate || Date.now(),
-      createdAt: editingEmployee.createdAt || Date.now(),
-      isActive: editingEmployee.isActive !== false
+    const updatedEmployee: Employee = {
+      ...selectedEmployee,
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      pin: formData.pin
     };
 
-    if (employeeToSave.id) {
-      await db.put("employees", employeeToSave);
-    } else {
-      await db.add("employees", { ...employeeToSave, id: Date.now() });
-    }
-
-    await loadEmployees();
-    setHasUnsavedChanges(false);
-    setValidationError("");
-    setIsDialogOpen(false);
-    setEditingEmployee(null);
+    updateEmployee(updatedEmployee);
+    setIsEditDialogOpen(false);
+    setSelectedEmployee(null);
+    resetForm();
+    toast({
+      title: translate("common.success", language),
+      description: translate("employees.employeeUpdated", language)
+    });
   };
 
-  const handleNewEmployee = () => {
-    const newEmployee: Employee = {
+  const handleDeleteEmployee = () => {
+    if (!selectedEmployee) return;
+    deleteEmployee(selectedEmployee.id);
+    setIsDeleteDialogOpen(false);
+    setSelectedEmployee(null);
+    toast({
+      title: translate("common.success", language),
+      description: translate("employees.employeeDeleted", language)
+    });
+  };
+
+  const handleToggleStatus = (employee: Employee) => {
+    const newStatus = employee.status === "active" ? "resigned" : "active";
+    updateEmployee({ ...employee, status: newStatus });
+    toast({
+      title: translate("common.success", language),
+      description: newStatus === "active" 
+        ? translate("employees.employeeActivated", language)
+        : translate("employees.employeeDeactivated", language)
+    });
+  };
+
+  const openEditDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setFormData({
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      role: employee.role,
+      pin: employee.pin
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openDeleteDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
       name: "",
-      pin: "",
-      role: "employee",
-      joinDate: Date.now(),
-      createdAt: Date.now(),
-      isActive: true
-    };
-    setEditingEmployee(newEmployee);
-    setOriginalEmployee({ ...newEmployee });
-    setHasUnsavedChanges(false);
-    setValidationError("");
-    setIsDialogOpen(true);
-  };
-
-  const handleEditEmployee = (employee: Employee) => {
-    setEditingEmployee({ ...employee });
-    setOriginalEmployee({ ...employee });
-    setHasUnsavedChanges(false);
-    setValidationError("");
-    setIsDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    if (hasActualChanges()) {
-      if (confirm("You have unsaved changes. Discard them?")) {
-        setIsDialogOpen(false);
-        setEditingEmployee(null);
-        setOriginalEmployee(null);
-        setHasUnsavedChanges(false);
-        setValidationError("");
-      }
-    } else {
-      setIsDialogOpen(false);
-      setEditingEmployee(null);
-      setOriginalEmployee(null);
-      setValidationError("");
-    }
-  };
-
-  const handleFieldChange = (field: keyof Employee, value: any) => {
-    if (!editingEmployee) return;
-    
-    if (field === "name" && typeof value === "string") {
-      value = capitalizeWords(value);
-    }
-    
-    setEditingEmployee({ ...editingEmployee, [field]: value });
-    setHasUnsavedChanges(true);
-  };
-
-  const handleRoleSelect = (role: string) => {
-    const capitalized = capitalizeWords(role);
-    handleFieldChange("role", capitalized);
-    setRoleSheetOpen(false);
-    setRoleSearch("");
-    
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
+      email: "",
+      phone: "",
+      role: "cashier",
+      pin: ""
+    });
   };
 
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,445 +209,349 @@ export function EmployeesPanel() {
     if (!file) return;
 
     try {
-      const text = await file.text();
-      const lines = text.split("\n").filter(l => l.trim());
-      
-      if (lines.length < 2) {
-        alert("CSV file is empty or has no data");
-        return;
-      }
+      await importEmployeesFromCSV(file);
+      toast({
+        title: translate("common.success", language),
+        description: translate("employees.importSuccess", language)
+      });
+    } catch (error) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("employees.importError", language),
+        variant: "destructive"
+      });
+    }
 
-      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-      
-      let imported = 0;
-      let skipped = 0;
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",").map(v => v.trim());
-        const row: any = {};
-        
-        headers.forEach((h, idx) => {
-          if (h.includes("name")) row.name = values[idx];
-          if (h.includes("pin")) row.pin = values[idx];
-          if (h.includes("role")) row.role = values[idx];
-          if (h.includes("date") || h.includes("join")) row.joinDate = values[idx];
-        });
-
-        if (row.name && row.pin) {
-          let joinDate = Date.now();
-          if (row.joinDate) {
-            const parsed = new Date(row.joinDate);
-            if (!isNaN(parsed.getTime())) joinDate = parsed.getTime();
-          }
-
-          const newEmployee: Employee = {
-            name: row.name,
-            pin: row.pin,
-            role: (row.role as UserRole) || "employee",
-            joinDate,
-            createdAt: Date.now(),
-            isActive: true
-          };
-
-          const error = await validateUniqueness(newEmployee);
-          if (!error) {
-            await db.add("employees", { ...newEmployee, id: Date.now() + i });
-            imported++;
-          } else {
-            skipped++;
-          }
-        }
-      }
-
-      await loadEmployees();
-      alert(`Import complete!\nImported: ${imported}\nSkipped (duplicates/invalid): ${skipped}`);
-      event.target.value = "";
-    } catch (err: any) {
-      alert("Import failed: " + err.message);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
-  const handleCSVExport = async () => {
-    const allEmployees = await db.getAll<Employee>("employees");
-    const headers = ["Name", "PIN", "Role", "Join Date"];
-    const rows = allEmployees.map(emp => [
+  const handleCSVExport = () => {
+    const headers = ["Name", "Email", "Phone", "Role", "PIN", "Status"];
+    const rows = employees.map(emp => [
       emp.name,
-      emp.pin,
+      emp.email,
+      emp.phone,
       emp.role,
-      emp.joinDate ? new Date(emp.joinDate).toLocaleDateString("en-GB") : ""
+      emp.pin,
+      emp.status
     ]);
-    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "employees.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `employees_${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
+
+    toast({
+      title: translate("common.success", language),
+      description: translate("employees.exportSuccess", language)
+    });
   };
 
-  const filteredEmployees = employees
-    .filter((employee) => {
-      const matchesSearch = 
-        employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.pin.includes(searchQuery);
-
-      let matchesStatus = true;
-      if (statusFilter === "active") matchesStatus = employee.isActive !== false;
-      if (statusFilter === "resigned") matchesStatus = employee.isActive === false;
-
-      const matchesRole = roleFilter === "all" || employee.role === roleFilter;
-
-      return matchesSearch && matchesStatus && matchesRole;
-    })
-    .sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-
-      if (sortField === "name") {
-        aVal = a.name.toLowerCase();
-        bVal = b.name.toLowerCase();
-      } else if (sortField === "pin") {
-        aVal = a.pin;
-        bVal = b.pin;
-      } else if (sortField === "joinDate") {
-        aVal = a.joinDate || 0;
-        bVal = b.joinDate || 0;
-      }
-
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-
-  const filteredRoles = getAllRoles().filter(role =>
-    role.toLowerCase().includes(roleSearch.toLowerCase())
-  );
-
   return (
-    <div className="flex flex-col h-full">
-      {/* Fixed Filters Section - Max 2 Rows */}
-      <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
-        {/* Row 1: Status + Role + Import + Export */}
+    <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="flex items-center gap-1 flex-shrink min-w-0">
-              <Button 
-                variant={statusFilter === "active" ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setStatusFilter("active")}
-                className="flex-shrink min-w-[70px] px-2"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1 flex-shrink-0" />
-                <span className="truncate">{translate("common.active", language)}</span>
-              </Button>
-              <Button 
-                variant={statusFilter === "resigned" ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setStatusFilter("resigned")}
-                className="flex-shrink min-w-[80px] px-2"
-              >
-                <XCircle className="h-4 w-4 mr-1 flex-shrink-0" />
-                <span className="truncate">{translate("common.inactive", language)}</span>
-              </Button>
-              <Button 
-                variant={statusFilter === "all" ? "default" : "outline"} 
-                size="sm" 
-                onClick={() => setStatusFilter("all")}
-                className="flex-shrink min-w-[60px] px-2"
-              >
-                <span className="truncate">{translate("common.all", language)}</span>
-              </Button>
-            </div>
+          <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val as any)}>
+            <SelectTrigger className="w-auto min-w-[100px] flex-shrink">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
+              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
+              <SelectItem value="resigned">{translate("common.inactive", language)}</SelectItem>
+            </SelectContent>
+          </Select>
 
-            <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val as "all" | UserRole)}>
-              <SelectTrigger className="w-[120px] flex-shrink-0">
-                <SelectValue placeholder={translate("pos.role", language)} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-                <SelectItem value="cashier">{translate("pos.cashier", language)}</SelectItem>
-                <SelectItem value="manager">{translate("pos.manager", language)}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val as any)}>
+            <SelectTrigger className="w-auto min-w-[100px] flex-shrink">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{translate("employees.allRoles", language)}</SelectItem>
+              <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
+              <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => fileInputRef.current?.click()}
-              className="min-w-[90px]"
-            >
-              <ArrowDownToLine className="h-4 w-4 mr-1.5" />
-              <span>{translate("common.import", language)}</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleCSVExport}
-              className="min-w-[90px]"
-            >
-              <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
-              <span>{translate("common.export", language)}</span>
-            </Button>
-          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="min-w-[90px]"
+          >
+            <ArrowDownToLine className="h-4 w-4 mr-1.5" />
+            <span>{translate("common.import", language)}</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleCSVExport}
+            className="min-w-[90px]"
+          >
+            <ArrowUpFromLine className="h-4 w-4 mr-1.5" />
+            <span>{translate("common.export", language)}</span>
+          </Button>
         </div>
 
-        {/* Row 2: Full-width Search */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-            <Input
-              placeholder={translate("common.search", language)}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm w-full"
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={translate("common.searchPlaceholder", language)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
         </div>
       </div>
 
-      {/* Scrollable Table Section */}
-      <div className="flex-1 overflow-hidden relative">
-        <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <Card className="m-3 overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-50 dark:bg-slate-900">
-                <TableRow>
-                  <TableHead className="w-[50%]">
-                    <button onClick={() => handleSort("name")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
-                      {translate("employees.name", language)} <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[25%]">
-                    <button onClick={() => handleSort("pin")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600">
-                      {translate("employees.pin", language)} <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[25%] text-right">
-                    <button onClick={() => handleSort("joinDate")} className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto">
-                      {translate("employees.joined", language)} <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEmployees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                      {searchQuery ? translate("employees.noEmployeesFound", language) : translate("employees.noEmployees", language)}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredEmployees.map((employee) => (
-                    <EmployeeRow key={employee.id} employee={employee} onEdit={handleEditEmployee} />
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleCSVImport}
+      />
 
-        {/* Floating Add Button */}
-        <button
-          onClick={handleNewEmployee}
-          className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-20 transition-transform hover:scale-110"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
-      </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleCloseDialog();
-        }
-      }}>
-        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
-          {editingEmployee && (
-            <>
-              {/* Fixed Header */}
-              <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
-                <div className="flex items-center justify-between">
-                  <Button 
-                    variant="ghost" 
-                    onClick={handleCloseDialog}
-                    className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
-                  >
-                    {translate("common.cancel", language)}
-                  </Button>
-                  <h2 className="text-lg font-semibold">
-                    {editingEmployee?.id ? translate("employees.editEmployee", language) : translate("employees.addEmployee", language)}
-                  </h2>
-                  <Button 
-                    onClick={handleSaveEmployee}
-                    disabled={!editingEmployee || !editingEmployee.name || !editingEmployee.pin}
-                    className="bg-blue-600 hover:bg-blue-700 -mr-3"
-                  >
-                    {translate("common.save", language)}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Scrollable Content */}
-              <div 
-                className="flex-1 overflow-y-auto overscroll-contain px-6 py-4" 
-                style={{ WebkitOverflowScrolling: 'touch' }}
-              >
-                <div className="space-y-4 pb-8">
-                  {validationError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{validationError}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                    <Label>{translate("employees.fullName", language)} <span className="text-red-500">*</span></Label>
-                    <Input
-                      value={editingEmployee.name}
-                      onChange={(e) => handleFieldChange("name", e.target.value)}
-                      placeholder="John Doe"
-                      className="placeholder:text-slate-400/60"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{translate("employees.pin", language)} (4-6 digits) <span className="text-red-500">*</span></Label>
-                    <Input
-                      ref={pinInputRef}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={editingEmployee.pin}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        handleFieldChange("pin", value);
-                      }}
-                      placeholder="1234"
-                      className="placeholder:text-slate-400/60"
-                      disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
-                    />
-                    <p className="text-xs text-slate-500/60">
-                      {translate("employees.uniquePin", language)}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{translate("employees.role", language)} <span className="text-red-500">*</span></Label>
-                    <Dialog open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{translate("employees.name", language)}</TableHead>
+              <TableHead>{translate("employees.email", language)}</TableHead>
+              <TableHead>{translate("employees.phone", language)}</TableHead>
+              <TableHead>{translate("employees.role", language)}</TableHead>
+              <TableHead>{translate("common.status", language)}</TableHead>
+              <TableHead className="text-right">{translate("common.actions", language)}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredEmployees.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  {translate("employees.noEmployees", language)}
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell className="font-medium">{employee.name}</TableCell>
+                  <TableCell>{employee.email}</TableCell>
+                  <TableCell>{employee.phone}</TableCell>
+                  <TableCell>
+                    <Badge variant={employee.role === "admin" ? "default" : "secondary"}>
+                      {translate(`employees.${employee.role}`, language)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleStatus(employee)}
+                    >
+                      <Badge variant={employee.status === "active" ? "default" : "secondary"}>
+                        {employee.status === "active" ? translate("common.active", language) : translate("common.inactive", language)}
+                      </Badge>
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
                       <Button
-                        variant="outline"
-                        className="w-full justify-between"
-                        onClick={() => setRoleSheetOpen(true)}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(employee)}
                       >
-                        <span className="capitalize">
-                          {editingEmployee.role || translate("employees.selectRole", language)}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
-                      <DialogContent className="max-w-md max-h-[50vh] flex flex-col p-0">
-                        <div className="px-6 pt-6 pb-4 flex-shrink-0">
-                          <h3 className="text-lg font-semibold">{translate("employees.selectOrAddRole", language)}</h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto px-6 pb-2">
-                          <Command className="rounded-lg border">
-                            <CommandInput 
-                              placeholder={translate("employees.searchRole", language)}
-                              value={roleSearch}
-                              onValueChange={setRoleSearch}
-                              className="placeholder:text-slate-400/60"
-                            />
-                            <CommandList>
-                              <CommandEmpty>
-                                <div className="py-6 text-center text-sm text-slate-500">
-                                  {translate("employees.noRoleFound", language)}
-                                </div>
-                              </CommandEmpty>
-                              <CommandGroup>
-                                {filteredRoles.map((role) => (
-                                  <CommandItem
-                                    key={role}
-                                    value={role}
-                                    onSelect={() => handleRoleSelect(role)}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        editingEmployee.role?.toLowerCase() === role ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <span className="capitalize">{role}</span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </div>
-                        {roleSearch && filteredRoles.length === 0 && (
-                          <div className="flex-shrink-0 p-6 pt-4 border-t bg-background">
-                            <Button
-                              onClick={() => handleRoleSelect(roleSearch)}
-                              className="w-full"
-                              size="lg"
-                            >
-                              {translate("employees.createRole", language).replace("{role}", capitalizeWords(roleSearch))}
-                            </Button>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                    <p className="text-xs text-slate-500/60">{translate("employees.roleHint", language)}</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{translate("employees.joinDate", language)}</Label>
-                    <Input
-                      type="date"
-                      value={
-                        editingEmployee.joinDate
-                          ? new Date(editingEmployee.joinDate).toISOString().split("T")[0]
-                          : ""
-                      }
-                      onChange={(e) => {
-                        const timestamp = new Date(e.target.value).getTime();
-                        handleFieldChange("joinDate", timestamp);
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50 dark:bg-slate-900">
-                    <div className="space-y-1">
-                      <Label>{translate("employees.status", language)}</Label>
-                      <p className="text-xs text-slate-500/60">
-                        {translate("employees.statusHint", language)}
-                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDeleteDialog(employee)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="employee-status" className={cn(
-                        "text-sm font-medium",
-                        editingEmployee.isActive === false ? "text-slate-500" : "text-green-600"
-                      )}>
-                        {editingEmployee.isActive === false ? translate("employees.resigned", language) : translate("common.active", language)}
-                      </Label>
-                      <Switch
-                        id="employee-status"
-                        checked={editingEmployee.isActive !== false}
-                        onCheckedChange={(checked) => handleFieldChange("isActive", checked)}
-                        disabled={editingEmployee.pin === "0000" || editingEmployee.pin === "1111"}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Button 
+        className="fixed bottom-20 right-6 h-14 w-14 rounded-full shadow-lg"
+        onClick={() => {
+          resetForm();
+          setIsAddDialogOpen(true);
+        }}
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{translate("employees.addEmployee", language)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">{translate("employees.name", language)} *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">{translate("employees.email", language)} *</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">{translate("employees.phone", language)}</Label>
+              <Input
+                id="phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">{translate("employees.role", language)} *</Label>
+              <Select value={formData.role} onValueChange={(val) => setFormData({ ...formData, role: val as any })}>
+                <SelectTrigger id="role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
+                  <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="pin">{translate("employees.pin", language)} * (4 digits)</Label>
+              <Input
+                id="pin"
+                type="password"
+                maxLength={4}
+                value={formData.pin}
+                onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              {translate("common.cancel", language)}
+            </Button>
+            <Button onClick={handleAddEmployee}>
+              {translate("common.add", language)}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{translate("employees.editEmployee", language)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">{translate("employees.name", language)} *</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-email">{translate("employees.email", language)} *</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-phone">{translate("employees.phone", language)}</Label>
+              <Input
+                id="edit-phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-role">{translate("employees.role", language)} *</Label>
+              <Select value={formData.role} onValueChange={(val) => setFormData({ ...formData, role: val as any })}>
+                <SelectTrigger id="edit-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
+                  <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-pin">{translate("employees.pin", language)} * (4 digits)</Label>
+              <Input
+                id="edit-pin"
+                type="password"
+                maxLength={4}
+                value={formData.pin}
+                onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, "") })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              {translate("common.cancel", language)}
+            </Button>
+            <Button onClick={handleEditEmployee}>
+              {translate("common.save", language)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("employees.deleteConfirm", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate("employees.deleteWarning", language)}
+              {selectedEmployee && (
+                <div className="mt-2 font-semibold">
+                  {selectedEmployee.name} ({selectedEmployee.email})
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{translate("common.cancel", language)}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEmployee} className="bg-destructive text-destructive-foreground">
+              {translate("common.delete", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

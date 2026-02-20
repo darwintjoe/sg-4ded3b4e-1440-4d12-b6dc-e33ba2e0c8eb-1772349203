@@ -983,3 +983,5 @@ export function useApp() {
   }
   return context;
 }
+
+export const useAppContext = useApp;
