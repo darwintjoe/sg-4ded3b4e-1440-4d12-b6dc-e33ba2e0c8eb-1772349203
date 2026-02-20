@@ -37,7 +37,7 @@ export function AdminDashboard() {
           {activeTab === "settings" && <SettingsPanel />}
           {activeTab === "items" && <ItemsPanel />}
           {activeTab === "employees" && <EmployeesPanel />}
-          {activeTab === "reports" && <ReportsPanel />}
+          {activeTab === "reports" && <ReportsPanel language={language} />}
         </div>
       </div>
 

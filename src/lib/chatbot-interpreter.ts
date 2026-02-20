@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ParsedQuery } from "@/lib/chatbot-parser";
+import { ParsedQuery, TimeRange } from "@/lib/chatbot-parser";
 import { Transaction, DailyItemSales, DailyPaymentSales, MonthlyItemSales, Item, Employee, Attendance } from "@/types";
 
 export interface QueryResult {
@@ -32,8 +32,10 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
         return await getAttendance(query);
       case "peak_hours":
         return await getPeakHours(query);
+      case "trends":
       case "trend_analysis":
         return await getTrendAnalysis(query);
+      case "transactions":
       case "transaction_count":
         return await getTransactionCount(query);
       default:
@@ -452,8 +454,9 @@ async function getAttendance(query: ParsedQuery): Promise<QueryResult> {
   const { startDate, endDate } = getDateRange(query.timeRange);
   
   const attendance = await db.getAll<Attendance>("attendance");
+  // Attendance stores businessDate as string YYYY-MM-DD
   const filtered = attendance.filter(
-    a => a.date >= startDate && a.date <= endDate
+    a => a.businessDate >= startDate && a.businessDate <= endDate
   );
 
   const employeeMap = new Map<number, { name: string; hours: number; days: number }>();
@@ -662,13 +665,14 @@ async function getTransactionCount(query: ParsedQuery): Promise<QueryResult> {
 /**
  * Helper: Get date range based on time range
  */
-function getDateRange(timeRange: string): { startDate: string; endDate: string } {
+function getDateRange(timeRange: TimeRange): { startDate: string; endDate: string } {
   const today = new Date();
   const endDate = today.toISOString().split("T")[0];
   
   let startDate = endDate;
 
-  switch (timeRange) {
+  // Use the type property of TimeRange
+  switch (timeRange.type) {
     case "today":
       startDate = endDate;
       break;
@@ -676,8 +680,10 @@ function getDateRange(timeRange: string): { startDate: string; endDate: string }
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       startDate = yesterday.toISOString().split("T")[0];
-      endDate = startDate;
-      break;
+      // endDate should be yesterday too for "yesterday" query
+      const yesterdayEnd = new Date(today);
+      yesterdayEnd.setDate(today.getDate() - 1);
+      return { startDate, endDate: yesterdayEnd.toISOString().split("T")[0] };
     case "this_week":
       const weekStart = new Date(today);
       weekStart.setDate(today.getDate() - today.getDay());
@@ -689,8 +695,8 @@ function getDateRange(timeRange: string): { startDate: string; endDate: string }
       const lastWeekStart = new Date(lastWeekEnd);
       lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
       startDate = lastWeekStart.toISOString().split("T")[0];
-      endDate = lastWeekEnd.toISOString().split("T")[0];
-      break;
+      const lastWeekEndDate = lastWeekEnd.toISOString().split("T")[0];
+      return { startDate, endDate: lastWeekEndDate };
     case "this_month":
       startDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-01`;
       break;
@@ -698,8 +704,8 @@ function getDateRange(timeRange: string): { startDate: string; endDate: string }
       const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
       const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
       startDate = lastMonth.toISOString().split("T")[0];
-      endDate = lastMonthEnd.toISOString().split("T")[0];
-      break;
+      const lastMonthEndDate = lastMonthEnd.toISOString().split("T")[0];
+      return { startDate, endDate: lastMonthEndDate };
     case "last_30_days":
       const thirtyDaysAgo = new Date(today);
       thirtyDaysAgo.setDate(today.getDate() - 30);
@@ -709,6 +715,13 @@ function getDateRange(timeRange: string): { startDate: string; endDate: string }
       const sixtyDaysAgo = new Date(today);
       sixtyDaysAgo.setDate(today.getDate() - 60);
       startDate = sixtyDaysAgo.toISOString().split("T")[0];
+      break;
+    case "last_n_days":
+      if (timeRange.days) {
+        const nDaysAgo = new Date(today);
+        nDaysAgo.setDate(today.getDate() - timeRange.days);
+        startDate = nDaysAgo.toISOString().split("T")[0];
+      }
       break;
     default:
       startDate = endDate;
@@ -732,7 +745,8 @@ function shouldUseMonthly(startDate: string): boolean {
 /**
  * Helper: Get time label for display
  */
-function getTimeLabel(timeRange: string): string {
+function getTimeLabel(timeRange: TimeRange): string {
+  // Use the type property of TimeRange
   const labels: Record<string, string> = {
     today: "Today",
     yesterday: "Yesterday",
@@ -744,7 +758,11 @@ function getTimeLabel(timeRange: string): string {
     last_60_days: "Last 60 Days"
   };
 
-  return labels[timeRange] || timeRange;
+  if (timeRange.type === "last_n_days" && timeRange.days) {
+    return `Last ${timeRange.days} Days`;
+  }
+
+  return labels[timeRange.type] || "Custom Range";
 }
 
 /**

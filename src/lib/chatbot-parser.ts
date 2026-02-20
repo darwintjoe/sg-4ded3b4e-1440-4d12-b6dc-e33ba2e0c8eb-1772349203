@@ -20,6 +20,8 @@ export type QueryIntent =
   | "attendance"
   | "peak_hours"
   | "trends"
+  | "trend_analysis"
+  | "transaction_count"
   | "comparison"
   | "unknown";
 

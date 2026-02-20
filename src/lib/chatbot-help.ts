@@ -119,7 +119,7 @@ export function getQuickExamples(): string[] {
   ];
 }
 
-export function formatHelpResponse(): string {
+export function getHelpResponse(): string {
   const categories = getHelpContent();
   let response = "# 🤖 AI Assistant - Available Commands\n\n";
   response += "I can help you analyze your business data. Here are some things you can ask:\n\n";
