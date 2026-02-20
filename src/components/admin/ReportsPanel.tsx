@@ -245,15 +245,15 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
         </div>
       </div>
 
-      <TabsContent value="sales" className="mt-4">
+      <TabsContent value="sales" className="mt-4 overflow-y-auto">
         <SalesReport language={language} />
       </TabsContent>
 
-      <TabsContent value="items" className="mt-4">
+      <TabsContent value="items" className="mt-4 overflow-y-auto">
         <ItemsReport language={language} />
       </TabsContent>
 
-      <TabsContent value="attendance" className="mt-4">
+      <TabsContent value="attendance" className="mt-4 overflow-y-auto">
         <AttendanceReport language={language} />
       </TabsContent>
 
