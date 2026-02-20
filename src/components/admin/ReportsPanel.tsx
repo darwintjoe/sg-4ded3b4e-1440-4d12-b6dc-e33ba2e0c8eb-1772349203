@@ -27,6 +27,41 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+
+  // Helper: Add artificial delay
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Helper: Stream text line by line
+  const streamResponse = async (text: string, data?: any, chartType?: QueryResult["chartType"]) => {
+    setIsStreaming(true);
+    setStreamingText("");
+
+    // Simulate thinking time (500-1500ms)
+    await delay(500 + Math.random() * 1000);
+
+    const lines = text.split("\n");
+    let accumulatedText = "";
+
+    for (let i = 0; i < lines.length; i++) {
+      accumulatedText += (i > 0 ? "\n" : "") + lines[i];
+      setStreamingText(accumulatedText);
+      
+      // Delay between lines (50-100ms)
+      await delay(50 + Math.random() * 50);
+    }
+
+    // After streaming complete, add to permanent messages
+    setIsStreaming(false);
+    setStreamingText("");
+    setMessages(prev => [...prev, {
+      role: "assistant",
+      content: text,
+      data,
+      chartType
+    }]);
+  };
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isProcessing) return;
@@ -42,7 +77,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       // Check for HELP command
       if (userMessage.toLowerCase().match(/^(help|what can you do|commands|guide|show commands|what commands)$/)) {
         const helpResponse = getHelpResponse();
-        setMessages(prev => [...prev, { role: "assistant", content: helpResponse }]);
+        await streamResponse(helpResponse);
         setIsProcessing(false);
         return;
       }
@@ -54,24 +89,21 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       const result = await executeQuery(parsedQuery);
 
       if (result.success) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: result.responseText || "Query executed successfully",
-          data: result.data,
-          chartType: result.chartType
-        }]);
+        await streamResponse(
+          result.responseText || "Query executed successfully",
+          result.data,
+          result.chartType
+        );
       } else {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: `❌ **Error:** ${result.error}\n\nTry asking a different question or type **HELP** for examples.`
-        }]);
+        await streamResponse(
+          `❌ **Error:** ${result.error}\n\nTry asking a different question or type **HELP** for examples.`
+        );
       }
     } catch (error) {
       console.error("Chat error:", error);
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: "❌ **Error:** Something went wrong processing your query. Please try again or type **HELP** for examples."
-      }]);
+      await streamResponse(
+        "❌ **Error:** Something went wrong processing your query. Please try again or type **HELP** for examples."
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -195,7 +227,36 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
               /* Chat Messages */
               <div className="space-y-4 pt-4">
                 {messages.map((message, index) => renderMessage(message, index))}
-                {isProcessing && (
+                
+                {/* Show streaming message */}
+                {isStreaming && streamingText && (
+                  <div className="text-left animate-in fade-in duration-300">
+                    <div className="inline-block bg-muted p-4 rounded-2xl max-w-[80%]">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        {streamingText.split("\n").map((line, i) => {
+                          if (line.startsWith("# ")) {
+                            return <h1 key={i} className="text-lg font-bold mt-2 mb-1 animate-in fade-in duration-200">{line.substring(2)}</h1>;
+                          } else if (line.startsWith("## ")) {
+                            return <h2 key={i} className="text-base font-bold mt-2 mb-1 animate-in fade-in duration-200">{line.substring(3)}</h2>;
+                          } else if (line.startsWith("### ")) {
+                            return <h3 key={i} className="text-sm font-bold mt-1 mb-1 animate-in fade-in duration-200">{line.substring(4)}</h3>;
+                          } else if (line.startsWith("**") && line.endsWith("**")) {
+                            return <p key={i} className="font-bold my-1 animate-in fade-in duration-200">{line.slice(2, -2)}</p>;
+                          } else if (line.startsWith("- ")) {
+                            return <li key={i} className="ml-4 animate-in fade-in duration-200">{line.substring(2)}</li>;
+                          } else if (line.trim() === "") {
+                            return <br key={i} />;
+                          } else {
+                            return <p key={i} className="my-1 animate-in fade-in duration-200">{line}</p>;
+                          }
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show thinking indicator when processing but not streaming yet */}
+                {isProcessing && !isStreaming && (
                   <div className="text-left">
                     <div className="inline-block bg-muted p-4 rounded-2xl">
                       <div className="flex items-center gap-2">
