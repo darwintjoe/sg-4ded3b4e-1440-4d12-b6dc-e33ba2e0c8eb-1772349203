@@ -114,10 +114,11 @@ async function getRevenue(query: ParsedQuery): Promise<QueryResult> {
       label: "Total Revenue",
       transactions: transactionCount
     },
-    responseText: `💰 **Revenue ${timeLabel}**\n\n` +
+    responseText: `${generatePrefix(query)}\n\n` +
       `**Total:** ${formatCurrency(totalRevenue)}\n` +
       `**Transactions:** ${transactionCount}\n` +
-      `**Average per transaction:** ${formatCurrency(transactionCount > 0 ? totalRevenue / transactionCount : 0)}`
+      `**Average per transaction:** ${formatCurrency(transactionCount > 0 ? totalRevenue / transactionCount : 0)}\n\n` +
+      `${getEndingQuestion()}`
   };
 }
 
@@ -176,12 +177,14 @@ async function getTopItems(query: ParsedQuery): Promise<QueryResult> {
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
 
-  let responseText = `📦 **Top ${limit} Items ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   topItems.forEach((item, index) => {
     responseText += `**${index + 1}. ${item.itemName}** (${item.sku})\n`;
     responseText += `   Sold: ${item.quantity} units | Revenue: ${formatCurrency(item.revenue)}\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -261,11 +264,12 @@ async function getItemPerformance(query: ParsedQuery): Promise<QueryResult> {
       revenue: totalRevenue,
       transactions: transactionCount
     },
-    responseText: `📊 **${item.name} Performance ${timeLabel}**\n\n` +
+    responseText: `${generatePrefix(query)}\n\n` +
       `**Units Sold:** ${totalQuantity}\n` +
       `**Revenue:** ${formatCurrency(totalRevenue)}\n` +
       `**Transactions:** ${transactionCount}\n` +
-      `**Average Price:** ${formatCurrency(avgPrice)}`
+      `**Average Price:** ${formatCurrency(avgPrice)}\n\n` +
+      `${getEndingQuestion()}`
   };
 }
 
@@ -324,12 +328,14 @@ async function getCategoryAnalysis(query: ParsedQuery): Promise<QueryResult> {
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
 
-  let responseText = `🏷️ **Category Analysis ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   categoryData.forEach((cat, index) => {
     responseText += `**${index + 1}. ${cat.category}**\n`;
     responseText += `   Units: ${cat.quantity} | Revenue: ${formatCurrency(cat.revenue)}\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -390,7 +396,7 @@ async function getPaymentMethods(query: ParsedQuery): Promise<QueryResult> {
   const timeLabel = getTimeLabel(query.timeRange);
   const totalAmount = paymentData.reduce((sum, p) => sum + p.amount, 0);
 
-  let responseText = `💳 **Payment Methods ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   paymentData.forEach((payment, index) => {
     const percentage = totalAmount > 0 ? ((payment.amount / totalAmount) * 100).toFixed(1) : "0";
@@ -398,6 +404,8 @@ async function getPaymentMethods(query: ParsedQuery): Promise<QueryResult> {
     responseText += `   Amount: ${formatCurrency(payment.amount)} (${percentage}%)\n`;
     responseText += `   Transactions: ${payment.count}\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -448,7 +456,7 @@ async function getEmployeePerformance(query: ParsedQuery): Promise<QueryResult> 
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
 
-  let responseText = `👥 **Employee Performance ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   employeeData.forEach((emp, index) => {
     responseText += `**${index + 1}. ${emp.name}**\n`;
@@ -456,6 +464,8 @@ async function getEmployeePerformance(query: ParsedQuery): Promise<QueryResult> 
     responseText += `   Transactions: ${emp.transactions}\n`;
     responseText += `   Avg/Transaction: ${formatCurrency(emp.avgTransaction)}\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -508,7 +518,7 @@ async function getAttendance(query: ParsedQuery): Promise<QueryResult> {
 
   const timeLabel = getTimeLabel(query.timeRange);
 
-  let responseText = `⏰ **Attendance Summary ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   attendanceData.forEach((att, index) => {
     responseText += `**${index + 1}. ${att.name}**\n`;
@@ -516,6 +526,8 @@ async function getAttendance(query: ParsedQuery): Promise<QueryResult> {
     responseText += `   Days Worked: ${att.daysWorked}\n`;
     responseText += `   Avg Hours/Day: ${att.avgHours.toFixed(1)}h\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -560,13 +572,15 @@ async function getPeakHours(query: ParsedQuery): Promise<QueryResult> {
   const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
   const timeLabel = getTimeLabel(query.timeRange);
 
-  let responseText = `🕐 **Peak Hours ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   hourData.slice(0, 10).forEach((hour, index) => {
     responseText += `**${index + 1}. ${hour.hour}**\n`;
     responseText += `   Transactions: ${hour.transactions}\n`;
     responseText += `   Revenue: ${formatCurrency(hour.revenue)}\n\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -614,7 +628,7 @@ async function getTrendAnalysis(query: ParsedQuery): Promise<QueryResult> {
   const totalRevenue = trendData.reduce((sum, d) => sum + d.revenue, 0);
   const avgDailyRevenue = trendData.length > 0 ? totalRevenue / trendData.length : 0;
 
-  let responseText = `📈 **Sales Trend ${timeLabel}**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   responseText += `**Total Revenue:** ${formatCurrency(totalRevenue)}\n`;
   responseText += `**Days:** ${trendData.length}\n`;
   responseText += `**Avg Daily Revenue:** ${formatCurrency(avgDailyRevenue)}\n\n`;
@@ -623,6 +637,8 @@ async function getTrendAnalysis(query: ParsedQuery): Promise<QueryResult> {
   trendData.slice(-7).forEach(day => {
     responseText += `${day.date}: ${formatCurrency(day.revenue)} (${day.transactions} txn)\n`;
   });
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -676,10 +692,11 @@ async function getTransactionCount(query: ParsedQuery): Promise<QueryResult> {
       revenue: totalRevenue,
       avgValue: avgTransactionValue
     },
-    responseText: `🔢 **Transactions ${timeLabel}**\n\n` +
+    responseText: `${generatePrefix(query)}\n\n` +
       `**Total Transactions:** ${totalTransactions}\n` +
       `**Total Revenue:** ${formatCurrency(totalRevenue)}\n` +
-      `**Average Value:** ${formatCurrency(avgTransactionValue)}`
+      `**Average Value:** ${formatCurrency(avgTransactionValue)}\n\n` +
+      `${getEndingQuestion()}`
   };
 }
 
@@ -727,7 +744,7 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
     return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  let responseText = `🧾 **Last ${transactions.length} Transactions**\n\n`;
+  let responseText = `${generatePrefix(query)}\n\n`;
   
   if (transactions.length === 0) {
     responseText += "No transactions found.\n";
@@ -747,6 +764,8 @@ async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
       responseText += `   Cashier: ${txn.cashierName}\n\n`;
     });
   }
+
+  responseText += `\n${getEndingQuestion()}`;
 
   return {
     success: true,
@@ -881,4 +900,61 @@ function formatPaymentMethod(method: string): string {
   };
 
   return formats[method] || method;
+}
+
+/**
+ * Helper: Generate smart prefix based on query
+ */
+function generatePrefix(query: ParsedQuery): string {
+  const timeLabel = getTimeLabel(query.timeRange).toLowerCase();
+  
+  switch (query.intent) {
+    case "revenue":
+      return `💰 Here's your **revenue ${timeLabel}**`;
+    case "top_items":
+      const limit = query.limit || 10;
+      return `📦 Here are your **top ${limit} items ${timeLabel}**`;
+    case "item_performance":
+      return `📊 Here's the **performance for ${query.entity}** ${timeLabel}`;
+    case "category_analysis":
+      return `🏷️ Here's your **category breakdown ${timeLabel}**`;
+    case "payment_methods":
+      return `💳 Here's your **payment method breakdown ${timeLabel}**`;
+    case "employee_performance":
+      return `👥 Here's your **employee performance ${timeLabel}**`;
+    case "attendance":
+      return `⏰ Here's your **attendance summary ${timeLabel}**`;
+    case "peak_hours":
+      return `🕐 Here are your **peak hours ${timeLabel}**`;
+    case "trends":
+    case "trend_analysis":
+      return `📈 Here's your **sales trend ${timeLabel}**`;
+    case "transaction_count":
+      return `🔢 Here's your **transaction count ${timeLabel}**`;
+    case "transaction_history":
+      const historyLimit = query.limit || 10;
+      return `🧾 Here are your **last ${historyLimit} transactions**`;
+    default:
+      return `📊 Here's what I found`;
+  }
+}
+
+/**
+ * Helper: Get random ending question
+ */
+function getEndingQuestion(): string {
+  const endings = [
+    "Is this what you were looking for?",
+    "Anything else you'd like to know?",
+    "Would you like to see more details?",
+    "Can I help you with anything else?",
+    "Need any other reports?",
+    "Want to explore something else?",
+    "Is there anything else I can show you?",
+    "Would you like me to break down any of these numbers?",
+    "Shall I pull up another report?",
+    "Any other insights you need?"
+  ];
+  
+  return endings[Math.floor(Math.random() * endings.length)];
 }
