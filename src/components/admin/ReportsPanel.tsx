@@ -1,73 +1,86 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { SalesReport } from "./reports/SalesReport";
-import { ItemsReport } from "./reports/ItemsReport";
-import { AttendanceReport } from "./reports/AttendanceReport";
-import { MoreVertical, FileDown, Image, FileText, Printer, Send } from "lucide-react";
-import { useState } from "react";
-import { useApp } from "@/contexts/AppContext";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ArrowUpFromLine, Printer, Send } from "lucide-react";
+import { SalesReport } from "@/components/admin/reports/SalesReport";
+import { ItemsReport } from "@/components/admin/reports/ItemsReport";
+import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
 import { parseQuery } from "@/lib/chatbot-parser";
-import { formatHelpResponse, getQuickExamples } from "@/lib/chatbot-help";
+import { getHelpResponse, getQuickExamples } from "@/lib/chatbot-help";
+import { executeQuery, QueryResult } from "@/lib/chatbot-interpreter";
+import { Language } from "@/types";
 
-interface ChatMessage {
+interface Message {
   role: "user" | "assistant";
   content: string;
+  data?: any;
+  chartType?: QueryResult["chartType"];
 }
 
-export function ReportsPanel() {
-  const { language } = useApp();
-  const [activeTab, setActiveTab] = useState("sales");
+interface ReportsPanelProps {
+  language: Language;
+}
+
+export function ReportsPanel({ language }: ReportsPanelProps) {
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleExportPDF = () => {
-    console.log("Exporting as PDF");
-  };
+  const quickExamples = getQuickExamples();
 
-  const handleExportImage = () => {
-    console.log("Exporting as Image");
-  };
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isProcessing) return;
 
-  const handleExportCSV = () => {
-    console.log("Exporting as CSV");
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      content: chatInput.trim(),
-    };
-
-    setChatMessages([...chatMessages, userMessage]);
+    const userMessage = chatInput.trim();
     setChatInput("");
+    setIsProcessing(true);
 
-    setTimeout(() => {
-      const parsedQuery = parseQuery(userMessage.content);
-      let assistantResponse = "";
+    // Add user message
+    setMessages(prev => [...prev, { role: "user", content: userMessage }]);
 
-      if (parsedQuery.intent === "help") {
-        assistantResponse = formatHelpResponse();
-      } else if (parsedQuery.intent === "unknown") {
-        assistantResponse = "I'm not sure I understand that query. Type **HELP** to see what I can do!\n\nHere are some quick examples:\n\n" + 
-          getQuickExamples().map(ex => `• ${ex}`).join("\n");
-      } else {
-        assistantResponse = `🔍 Query detected: **${parsedQuery.intent.replace("_", " ")}**\n\nTime range: ${parsedQuery.timeRange.type}\n\n_Full implementation coming soon..._\n\nFor now, try:\n• **HELP** - See all available commands\n• Use the tabs above for detailed reports`;
+    try {
+      // Check for HELP command
+      if (userMessage.toLowerCase().match(/^(help|what can you do|commands|guide|show commands|what commands)$/)) {
+        const helpResponse = getHelpResponse();
+        setMessages(prev => [...prev, { role: "assistant", content: helpResponse }]);
+        setIsProcessing(false);
+        return;
       }
 
-      const assistantMessage: ChatMessage = {
+      // Parse query
+      const parsedQuery = parseQuery(userMessage);
+      
+      // Execute query
+      const result = await executeQuery(parsedQuery);
+
+      if (result.success) {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: result.responseText || "Query executed successfully",
+          data: result.data,
+          chartType: result.chartType
+        }]);
+      } else {
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: `❌ **Error:** ${result.error}\n\nTry asking a different question or type **HELP** for examples.`
+        }]);
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      setMessages(prev => [...prev, {
         role: "assistant",
-        content: assistantResponse,
-      };
-      setChatMessages((prev) => [...prev, assistantMessage]);
-    }, 300);
+        content: "❌ **Error:** Something went wrong processing your query. Please try again or type **HELP** for examples."
+      }]);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleQuickExample = (example: string) => {
+    setChatInput(example);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -77,141 +90,157 @@ export function ReportsPanel() {
     }
   };
 
-  return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-      <div className="flex items-center justify-between">
-        <TabsList>
-          <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="items">Items</TabsTrigger>
-          <TabsTrigger value="attendance">Attendance</TabsTrigger>
-          <TabsTrigger value="ask-me">Ask Me</TabsTrigger>
-        </TabsList>
+  const renderMessage = (message: Message, index: number) => {
+    return (
+      <div key={index} className={`mb-4 ${message.role === "user" ? "text-right" : "text-left"}`}>
+        <div
+          className={`inline-block max-w-[80%] p-3 rounded-lg ${
+            message.role === "user"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted"
+          }`}
+        >
+          {message.role === "assistant" && (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              {message.content.split("\n").map((line, i) => {
+                if (line.startsWith("# ")) {
+                  return <h1 key={i} className="text-lg font-bold mt-2 mb-1">{line.substring(2)}</h1>;
+                } else if (line.startsWith("## ")) {
+                  return <h2 key={i} className="text-base font-bold mt-2 mb-1">{line.substring(3)}</h2>;
+                } else if (line.startsWith("### ")) {
+                  return <h3 key={i} className="text-sm font-bold mt-1 mb-1">{line.substring(4)}</h3>;
+                } else if (line.startsWith("**") && line.endsWith("**")) {
+                  return <p key={i} className="font-bold my-1">{line.slice(2, -2)}</p>;
+                } else if (line.startsWith("- ")) {
+                  return <li key={i} className="ml-4">{line.substring(2)}</li>;
+                } else if (line.trim() === "") {
+                  return <br key={i} />;
+                } else {
+                  return <p key={i} className="my-1">{line}</p>;
+                }
+              })}
+            </div>
+          )}
+          {message.role === "user" && <p>{message.content}</p>}
+        </div>
+      </div>
+    );
+  };
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleExportPDF}>
-              <FileDown className="mr-2 h-4 w-4" />
-              Export as PDF
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExportImage}>
-              <Image className="mr-2 h-4 w-4" />
-              Export as Image
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExportCSV}>
-              <FileText className="mr-2 h-4 w-4" />
-              Export as CSV
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
+  return (
+    <Tabs defaultValue="sales" className="w-full">
+      <div className="flex flex-col gap-4">
+        {/* Row 1: Tabs + Export + Print */}
+        <div className="flex items-center justify-between gap-4">
+          <TabsList className="flex-1">
+            <TabsTrigger value="sales" className="flex-1">Sales</TabsTrigger>
+            <TabsTrigger value="items" className="flex-1">Items</TabsTrigger>
+            <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
+            <TabsTrigger value="ask" className="flex-1">Ask Me</TabsTrigger>
+          </TabsList>
+
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ArrowUpFromLine className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem>Export as PDF</DropdownMenuItem>
+                <DropdownMenuItem>Export as Image</DropdownMenuItem>
+                <DropdownMenuItem>Export as CSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="outline" size="sm" className="gap-2">
+              <Printer className="h-4 w-4" />
               Print
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <TabsContent value="sales" className="space-y-4">
+      <TabsContent value="sales" className="mt-4">
         <SalesReport language={language} />
       </TabsContent>
 
-      <TabsContent value="items" className="space-y-4">
+      <TabsContent value="items" className="mt-4">
         <ItemsReport language={language} />
       </TabsContent>
 
-      <TabsContent value="attendance" className="space-y-4">
+      <TabsContent value="attendance" className="mt-4">
         <AttendanceReport language={language} />
       </TabsContent>
 
-      <TabsContent value="ask-me" className="h-[calc(100vh-12rem)]">
-        <div className="flex flex-col h-full">
-          {chatMessages.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="text-center space-y-6 max-w-2xl px-4">
-                <h2 className="text-4xl font-semibold text-foreground">
-                  How can I help you today?
-                </h2>
-                <p className="text-muted-foreground text-lg">
-                  Ask for any specific report, or type <strong>HELP</strong> for examples
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-8">
-                  {getQuickExamples().map((example, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setChatInput(example);
-                        setTimeout(() => handleSendMessage(), 100);
-                      }}
-                      className="text-left p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors"
-                    >
-                      <p className="text-sm text-foreground">{example}</p>
-                    </button>
-                  ))}
+      <TabsContent value="ask" className="mt-4">
+        <div className="space-y-4">
+          {/* Chat Messages */}
+          <div className="border rounded-lg p-4 min-h-[400px] max-h-[500px] overflow-y-auto bg-background">
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">👋 Ask me anything about your reports!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    I can help you analyze sales, items, attendance, and more.
+                  </p>
                 </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4 px-2">
-              {chatMessages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    }`}
-                  >
-                    <div className="text-sm whitespace-pre-wrap prose prose-sm dark:prose-invert max-w-none">
-                      {message.content.split('\n').map((line, i) => {
-                        if (line.startsWith('# ')) {
-                          return <h1 key={i} className="text-lg font-bold mt-2 mb-2">{line.substring(2)}</h1>;
-                        }
-                        if (line.startsWith('## ')) {
-                          return <h2 key={i} className="text-base font-semibold mt-3 mb-1">{line.substring(3)}</h2>;
-                        }
-                        if (line.startsWith('• ')) {
-                          return <li key={i} className="ml-4">{line.substring(2)}</li>;
-                        }
-                        if (line.startsWith('---')) {
-                          return <hr key={i} className="my-3 border-t border-border" />;
-                        }
-                        if (line.match(/^\*\*(.+)\*\*$/)) {
-                          return <p key={i} className="font-semibold mt-2">{line.replace(/\*\*/g, '')}</p>;
-                        }
-                        return line ? <p key={i}>{line}</p> : <br key={i} />;
-                      })}
-                    </div>
+
+                <div className="space-y-2 w-full max-w-2xl">
+                  <p className="text-xs text-muted-foreground font-medium">Quick Examples:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {quickExamples.map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="justify-start text-left h-auto py-2 px-3"
+                        onClick={() => handleQuickExample(example)}
+                      >
+                        <span className="text-xs">{example}</span>
+                      </Button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          <div className="sticky bottom-0 pt-4">
-            <div className="relative max-w-4xl mx-auto">
-              <Textarea
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Message AI Assistant..."
-                className="min-h-[56px] max-h-[200px] pr-12 resize-none rounded-3xl bg-muted border-muted-foreground/20"
-                rows={1}
-              />
-              <Button
-                onClick={handleSendMessage}
-                size="icon"
-                disabled={!chatInput.trim()}
-                className="absolute right-2 bottom-2 h-10 w-10 rounded-full"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+                <p className="text-xs text-muted-foreground">
+                  Type <strong>HELP</strong> to see all available queries
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((message, index) => renderMessage(message, index))}
+                {isProcessing && (
+                  <div className="text-left">
+                    <div className="inline-block bg-muted p-3 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Thinking...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="flex gap-2">
+            <Textarea
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask about your reports... (e.g., 'What was revenue today?')"
+              className="min-h-[44px] max-h-[120px] resize-none"
+              rows={1}
+              disabled={isProcessing}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!chatInput.trim() || isProcessing}
+              size="icon"
+              className="h-[44px] w-[44px] shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </TabsContent>
