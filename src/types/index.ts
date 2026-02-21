@@ -279,6 +279,9 @@ export interface Settings {
     transfer?: boolean;
   };
   
+  // Display Settings
+  alwaysOnDisplay?: boolean;
+  
   // QRIS Configuration
   qrisStaticImage?: string; // Base64 encoded QR code image
   qrisDynamicEndpoint?: string; // API endpoint for generating dynamic QR

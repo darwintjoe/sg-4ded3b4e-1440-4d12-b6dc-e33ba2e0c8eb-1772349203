@@ -44,8 +44,46 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const router = useRouter();
+
+  // Screen Wake Lock for Always On Display
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if (settings?.alwaysOnDisplay && "wakeLock" in navigator) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request("screen");
+          console.log("Screen wake lock acquired");
+          
+          wakeLockRef.current.addEventListener("release", () => {
+            console.log("Screen wake lock released");
+          });
+        } catch (err) {
+          console.error("Failed to acquire wake lock:", err);
+        }
+      }
+    };
+
+    requestWakeLock();
+
+    // Re-acquire wake lock on visibility change
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && settings?.alwaysOnDisplay) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [settings?.alwaysOnDisplay]);
 
   useEffect(() => {
     loadItems();
