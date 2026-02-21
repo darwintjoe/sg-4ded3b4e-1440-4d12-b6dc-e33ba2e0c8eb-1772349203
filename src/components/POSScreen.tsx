@@ -12,7 +12,7 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
-import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound } from "@/lib/utils";
@@ -40,6 +40,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [logoutBlockReason, setLogoutBlockReason] = useState("");
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -66,11 +67,19 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   };
 
   const loadItems = async () => {
+    setIsLoading(true);
     try {
       const allItems = await db.getItems();
       setItems(allItems.filter(item => item.isActive !== false));
     } catch (error) {
       console.error("Error loading items:", error);
+      toast({
+        title: translate("common.error", language),
+        description: translate("pos.loadItemsError", language),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -416,7 +425,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             <Input
               ref={searchInputRef}
               type="text"
-              placeholder=""
+              placeholder={translate("pos.searchPlaceholder", language)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-10"
@@ -501,46 +510,55 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               <p className="text-slate-500 dark:text-slate-400 text-sm">
                 {translate("pos.empty", language)}
               </p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs">
+                {translate("pos.searchHint", language)}
+              </p>
             </div>
           ) : (
-            cart.map((item, idx) => (
-              <div
-                key={idx}
-                onTouchStart={(e) => handleLongPressStart(item, idx, e.touches[0].clientX, e.touches[0].clientY)}
-                onTouchMove={(e) => handleLongPressMove(e.touches[0].clientX, e.touches[0].clientY)}
-                onTouchEnd={handleLongPressEnd}
-                onMouseDown={(e) => handleLongPressStart(item, idx, e.clientX, e.clientY)}
-                onMouseMove={(e) => handleLongPressMove(e.clientX, e.clientY)}
-                onMouseUp={handleLongPressEnd}
-                onMouseLeave={handleLongPressEnd}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1 cursor-pointer active:bg-slate-50 dark:active:bg-slate-750 transition-colors"
-              >
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{item.name}</p>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs px-1.5 py-0">
-                        {item.quantity}x
-                      </Badge>
-                      <span>@ Rp {item.basePrice.toLocaleString("id-ID")}</span>
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mb-1">
+                <HelpCircle className="h-3 w-3" />
+                {translate("pos.tapToEditHint", language)}
+              </p>
+              {cart.map((item, idx) => (
+                <div
+                  key={idx}
+                  onTouchStart={(e) => handleLongPressStart(item, idx, e.touches[0].clientX, e.touches[0].clientY)}
+                  onTouchMove={(e) => handleLongPressMove(e.touches[0].clientX, e.touches[0].clientY)}
+                  onTouchEnd={handleLongPressEnd}
+                  onMouseDown={(e) => handleLongPressStart(item, idx, e.clientX, e.clientY)}
+                  onMouseMove={(e) => handleLongPressMove(e.clientX, e.clientY)}
+                  onMouseUp={handleLongPressEnd}
+                  onMouseLeave={handleLongPressEnd}
+                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 space-y-1 cursor-pointer active:bg-slate-50 dark:active:bg-slate-750 transition-colors"
+                >
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{item.name}</p>
+                      <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          {item.quantity}x
+                        </Badge>
+                        <span>@ Rp {item.basePrice.toLocaleString("id-ID")}</span>
+                      </div>
+                      {item.variant && (
+                        <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                          {item.variant}
+                        </div>
+                      )}
+                      {item.modifiers && item.modifiers.length > 0 && (
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                          + {item.modifiers.join(", ")}
+                        </div>
+                      )}
                     </div>
-                    {item.variant && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                        {item.variant}
-                      </div>
-                    )}
-                    {item.modifiers && item.modifiers.length > 0 && (
-                      <div className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-                        + {item.modifiers.join(", ")}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0 text-right min-w-[100px]">
-                    <p className="font-bold text-base">Rp {item.totalPrice.toLocaleString("id-ID")}</p>
+                    <div className="flex-shrink-0 text-right min-w-[100px]">
+                      <p className="font-bold text-base">Rp {item.totalPrice.toLocaleString("id-ID")}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       </div>

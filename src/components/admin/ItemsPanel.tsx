@@ -39,8 +39,8 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
       )}
     >
       <TableCell className="text-sm w-[30%] truncate">{item.sku || "-"}</TableCell>
-      <TableCell className="text-sm w-[50%] truncate">{item.name}</TableCell>
-      <TableCell className="text-right text-sm w-[20%] whitespace-nowrap">
+      <TableCell className="text-sm w-[45%] truncate">{item.name}</TableCell>
+      <TableCell className="text-right text-sm w-[25%] whitespace-nowrap">
         {item.price.toLocaleString("id-ID")}
       </TableCell>
     </TableRow>
@@ -657,7 +657,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[50%]">
+                  <TableHead className="w-[45%]">
                     <button
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
@@ -666,7 +666,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[20%] text-right">
+                  <TableHead className="w-[25%] text-right">
                     <button
                       onClick={() => handleSort("price")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
