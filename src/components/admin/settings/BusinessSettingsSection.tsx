@@ -22,11 +22,13 @@ export function BusinessSettingsSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [grayscalePreview, setGrayscalePreview] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     // If logo is set (non-empty string), show it
     if (settings.receiptLogoBase64) {
       setGrayscalePreview(settings.receiptLogoBase64);
+      setIsInitializing(false);
     } 
     // If logo is undefined (first load/not set), load default
     // If logo is "" (empty string), it means user explicitly removed it, so do nothing
@@ -34,6 +36,7 @@ export function BusinessSettingsSection({
       loadDefaultLogo();
     } else {
       setGrayscalePreview(null);
+      setIsInitializing(false);
     }
   }, [settings.receiptLogoBase64]);
 
@@ -50,6 +53,7 @@ export function BusinessSettingsSection({
           if (processed) {
             onUpdate({ receiptLogoBase64: processed });
           }
+          setIsInitializing(false);
         };
         img.src = e.target?.result as string;
       };
@@ -57,6 +61,7 @@ export function BusinessSettingsSection({
       reader.readAsDataURL(blob);
     } catch (error) {
       console.error("Failed to load default logo:", error);
+      setIsInitializing(false);
     }
   };
 
