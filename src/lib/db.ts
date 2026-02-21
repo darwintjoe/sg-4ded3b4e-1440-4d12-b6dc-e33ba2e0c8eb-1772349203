@@ -820,7 +820,6 @@ export class Database {
     });
   }
 
-  // Helper to get sales for a specific period
   async getSales(startDate?: Date, endDate?: Date): Promise<Transaction[]> {
     const allSales = await this.getAll<Transaction>("transactions");
     if (!startDate || !endDate) return allSales;
@@ -831,13 +830,11 @@ export class Database {
     });
   }
 
-  // Helper to get attendance for a specific period
   async getAttendance(startDate?: Date, endDate?: Date): Promise<Attendance[]> {
     const allAttendance = await this.getAll<Attendance>("attendance");
     if (!startDate || !endDate) return allAttendance;
     
     return allAttendance.filter(a => {
-      // Parse businessDate (YYYY-MM-DD format) to Date object
       const date = new Date(a.businessDate);
       return date >= startDate && date <= endDate;
     });
