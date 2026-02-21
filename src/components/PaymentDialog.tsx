@@ -208,8 +208,9 @@ export function PaymentDialog({
       clearCart();
       
       // Success feedback
+      const isTraining = mode === "cafe" || mode === "retail" ? false : true;
       toast({
-        title: mode === "training" ? "Practice sale completed" : "Sale completed",
+        title: isTraining ? "Practice sale completed" : "Sale completed",
         description: `Transaction saved successfully`,
       });
       

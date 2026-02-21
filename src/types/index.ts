@@ -281,6 +281,7 @@ export interface Settings {
   
   // Display Settings
   alwaysOnDisplay?: boolean;
+  theme?: "light" | "dark" | "system";
   
   // QRIS Configuration
   qrisStaticImage?: string; // Base64 encoded QR code image
