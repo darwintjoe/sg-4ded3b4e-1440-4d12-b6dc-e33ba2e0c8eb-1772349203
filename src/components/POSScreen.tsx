@@ -50,28 +50,22 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   const router = useRouter();
 
-  // Screen Wake Lock for Always On Display
+  // Screen Wake Lock - Always enabled for POS use
   useEffect(() => {
     const requestWakeLock = async () => {
-      if (settings?.alwaysOnDisplay && "wakeLock" in navigator) {
+      if ("wakeLock" in navigator) {
         try {
           wakeLockRef.current = await navigator.wakeLock.request("screen");
-          console.log("Screen wake lock acquired");
-          
-          wakeLockRef.current.addEventListener("release", () => {
-            console.log("Screen wake lock released");
-          });
         } catch (err) {
-          console.error("Failed to acquire wake lock:", err);
+          // Silent fail - not all browsers support wake lock
         }
       }
     };
 
     requestWakeLock();
 
-    // Re-acquire wake lock on visibility change
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && settings?.alwaysOnDisplay) {
+      if (document.visibilityState === "visible") {
         requestWakeLock();
       }
     };
@@ -85,12 +79,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [settings?.alwaysOnDisplay]);
+  }, []);
 
-  // Sync theme from settings on mount
-  if (settings?.theme && settings.theme !== theme) {
-    setTheme(settings.theme);
-  }
+  // Apply theme from settings when settings load or change
+  useEffect(() => {
+    if (settings?.theme && settings.theme !== theme) {
+      setTheme(settings.theme);
+    }
+  }, [settings?.theme, setTheme, theme]);
 
   useEffect(() => {
     loadItems();
