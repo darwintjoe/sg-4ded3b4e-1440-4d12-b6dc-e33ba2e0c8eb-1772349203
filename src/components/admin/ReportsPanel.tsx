@@ -261,13 +261,13 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       <TabsContent 
         value="ask" 
-        className="mt-4 h-[calc(100vh-150px)] overflow-hidden flex flex-col"
+        className="mt-4 h-[calc(100vh-150px)] overflow-y-auto"
       >
-        {/* Chat Messages Container - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 min-h-0">
+        {/* Chat Messages Container - Simple scroll like ItemsPanel */}
+        <div className="p-4">
           {messages.length === 0 ? (
             /* Welcome Screen - Centered */
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-8">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
                 <Sparkles className="w-8 h-8 text-primary" />
               </div>
@@ -344,8 +344,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           )}
         </div>
 
-        {/* Chat Input - Simple bottom layout (like ItemsPanel) */}
-        <div className="p-3 border-t bg-background">
+        {/* Chat Input - Fixed at bottom of scroll area */}
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t p-3">
           <div className="relative max-w-3xl mx-auto flex gap-2 items-end bg-muted/60 rounded-2xl p-1.5 pr-2 shadow-sm border border-border/50">
             <Textarea
               value={chatInput}
