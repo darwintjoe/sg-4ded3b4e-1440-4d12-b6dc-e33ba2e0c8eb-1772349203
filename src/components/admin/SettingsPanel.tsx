@@ -717,7 +717,6 @@ export function SettingsPanel() {
       description: translate("settings.security.pinChanged", language),
     });
 
-    // Reset form
     setCurrentPin("");
     setNewPin("");
     setConfirmPin("");
@@ -989,8 +988,8 @@ export function SettingsPanel() {
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <TabsContent value="store" className="space-y-4 p-4 mt-0">
+        <div className="flex-1 overflow-hidden">
+          <TabsContent value="store" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
             <BusinessSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1003,7 +1002,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="pos" className="space-y-4 p-4 mt-0">
+          <TabsContent value="pos" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1011,9 +1010,8 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="backup" className="space-y-4 p-4 mt-0">
+          <TabsContent value="backup" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
             <div className="space-y-6">
-              {/* Change Admin PIN - Inline Form */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1065,7 +1063,6 @@ export function SettingsPanel() {
                 </CardContent>
               </Card>
 
-              {/* Google Drive Backup */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 justify-between">
@@ -1097,7 +1094,7 @@ export function SettingsPanel() {
             </div>
           </TabsContent>
 
-          <TabsContent value="database" className="space-y-4 p-4 mt-0">
+          <TabsContent value="database" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
             <DatabaseManagementSection 
               language={language}
               onFactoryReset={handleFactoryReset}
