@@ -225,7 +225,15 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.emergency": "Emergency Functions",
     "settings.backup.revert": "Revert Restore",
     "settings.backup.advancedHint": "PIN required for security",
-    
+
+    // POS Settings - Theme
+    "settings.pos.theme": "Theme",
+    "settings.pos.light": "Light",
+    "settings.pos.dark": "Dark",
+    "settings.pos.system": "System",
+    "settings.pos.alwaysOn": "Always On Display",
+    "settings.pos.alwaysOnHint": "Keep screen awake during POS use",
+
     "settings.security.title": "Security & Access",
     "settings.security.changeAdminPin": "Change Admin PIN",
     "settings.security.currentPin": "Current PIN",
@@ -468,7 +476,15 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.emergency": "Fungsi Darurat",
     "settings.backup.revert": "Kembalikan Restore",
     "settings.backup.advancedHint": "PIN diperlukan untuk keamanan",
-    
+
+    // POS Settings - Theme
+    "settings.pos.theme": "Tema",
+    "settings.pos.light": "Terang",
+    "settings.pos.dark": "Gelap",
+    "settings.pos.system": "Sistem",
+    "settings.pos.alwaysOn": "Tampilkan Selalu",
+    "settings.pos.alwaysOnHint": "Tetapkan layar aktif selama penggunaan POS",
+
     "settings.security.title": "Keamanan & Akses",
     "settings.security.changeAdminPin": "Ubah PIN Admin",
     "settings.security.currentPin": "PIN Saat Ini",

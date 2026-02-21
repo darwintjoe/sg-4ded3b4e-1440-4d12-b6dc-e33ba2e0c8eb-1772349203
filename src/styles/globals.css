@@ -126,6 +126,10 @@
   background-color: rgba(255, 255, 255, 0.95) !important;
 }
 
+.dark .recharts-default-tooltip {
+  background-color: rgba(30, 30, 30, 0.95) !important;
+}
+
 /* Disable pull-to-refresh and overscroll effects */
 html,
 body {
