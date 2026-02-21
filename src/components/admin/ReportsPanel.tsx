@@ -348,16 +348,16 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
         {/* Chat Input - Keyboard aware, sticky at bottom */}
         <div 
-          className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-300"
-          style={{ paddingBottom: 'max(1rem, env(keyboard-inset-height, 0px))' }}
+          className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-3 transition-all duration-300"
+          style={{ paddingBottom: 'max(0.75rem, env(keyboard-inset-height, env(safe-area-inset-bottom, 0px)))' }}
         >
-          <div className="relative max-w-4xl mx-auto flex gap-2 items-end">
+          <div className="relative max-w-3xl mx-auto flex gap-2 items-end bg-muted/60 rounded-2xl p-1.5 pr-2 shadow-sm border border-border/50">
             <Textarea
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything about your data..."
-              className="min-h-[44px] max-h-[120px] resize-none rounded-2xl text-base py-3 px-4 flex-1 shadow-sm focus-visible:ring-1 bg-muted/50 border-0"
+              className="min-h-[40px] max-h-[120px] resize-none rounded-xl text-base py-2.5 px-3 flex-1 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none placeholder:text-muted-foreground/70"
               rows={1}
               disabled={isProcessing}
             />
@@ -365,12 +365,12 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
               onClick={handleSendMessage}
               disabled={!chatInput.trim() || isProcessing}
               size="icon"
-              className="h-9 w-9 rounded-full shrink-0 bg-primary hover:bg-primary/90"
+              className="h-8 w-8 rounded-full shrink-0 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="h-4 w-4 text-primary-foreground" />
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">
+          <p className="text-[10px] text-muted-foreground/70 text-center mt-2">
             AI can make mistakes. Please double check the data.
           </p>
         </div>
