@@ -138,9 +138,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.lowItems": "Low Performing Items",
 
     // Settings
-    "settings.tabs.storeInfo": "Store Info",
-    "settings.tabs.salesSetup": "Sales Setup",
-    "settings.tabs.backupSafety": "Backup & Safety",
+    "settings.tabs.store": "Store",
+    "settings.tabs.pos": "POS",
+    "settings.tabs.backup": "Backup",
     "settings.tabs.database": "Database",
     
     "settings.business.title": "Business Information",
@@ -363,9 +363,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.lowItems": "Produk Kurang Laku",
 
     // Settings
-    "settings.tabs.storeInfo": "Info Toko",
-    "settings.tabs.salesSetup": "Setup Penjualan",
-    "settings.tabs.backupSafety": "Backup & Keamanan",
+    "settings.tabs.store": "Toko",
+    "settings.tabs.pos": "POS",
+    "settings.tabs.backup": "Cadangan",
     "settings.tabs.database": "Database",
     
     "settings.business.title": "Informasi Bisnis",
@@ -588,9 +588,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.lowItems": "滞销商品",
 
     // Settings
-    "settings.tabs.storeInfo": "店铺信息",
-    "settings.tabs.salesSetup": "销售设置",
-    "settings.tabs.backupSafety": "备份与安全",
+    "settings.tabs.store": "商店",
+    "settings.tabs.pos": "POS",
+    "settings.tabs.backup": "备份",
     "settings.tabs.database": "数据库",
     
     "settings.business.title": "商家信息",

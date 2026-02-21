@@ -969,23 +969,19 @@ export function SettingsPanel() {
       />
       
       <div className="sticky top-0 z-10 bg-background border-b">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-4 rounded-none h-12">
-            <TabsTrigger value="storeInfo" className="gap-2 text-xs sm:text-sm">
-              <Store className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.storeInfo", language)}</span>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="store">
+              {translate("settings.tabs.store", language)}
             </TabsTrigger>
-            <TabsTrigger value="salesSetup" className="gap-2 text-xs sm:text-sm">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.salesSetup", language)}</span>
+            <TabsTrigger value="pos">
+              {translate("settings.tabs.pos", language)}
             </TabsTrigger>
-            <TabsTrigger value="backupSafety" className="gap-2 text-xs sm:text-sm">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.backupSafety", language)}</span>
+            <TabsTrigger value="backup">
+              {translate("settings.tabs.backup", language)}
             </TabsTrigger>
-            <TabsTrigger value="database" className="gap-2 text-xs sm:text-sm">
-              <SettingsIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.database", language)}</span>
+            <TabsTrigger value="database">
+              {translate("settings.tabs.database", language)}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -993,7 +989,7 @@ export function SettingsPanel() {
 
       <div className="flex-1 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsContent value="storeInfo" className="space-y-4 p-4 mt-0">
+          <TabsContent value="store" className="space-y-4 p-4 mt-0">
             <BusinessSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1006,7 +1002,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="salesSetup" className="space-y-4 p-4 mt-0">
+          <TabsContent value="pos" className="space-y-4 p-4 mt-0">
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1014,7 +1010,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="backupSafety" className="space-y-4 p-4 mt-0">
+          <TabsContent value="backup" className="space-y-4 p-4 mt-0">
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Lock className="h-4 w-4" />
