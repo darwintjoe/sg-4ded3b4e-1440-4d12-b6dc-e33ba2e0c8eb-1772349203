@@ -18,6 +18,7 @@ import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
@@ -67,6 +68,7 @@ export function ItemsPanel() {
   const [priceDisplay, setPriceDisplay] = useState("");
   const [originalItem, setOriginalItem] = useState<Item | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Import Progress State
   const [importing, setImporting] = useState(false);
@@ -217,6 +219,23 @@ export function ItemsPanel() {
       setOriginalItem(null);
       setPriceDisplay("");
     }
+  };
+
+  const handleDeleteClick = () => {
+    if (!canDelete) return;
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!editingItem?.id) return;
+    
+    await db.delete("items", editingItem.id);
+    await loadItems();
+    setDeleteDialogOpen(false);
+    setIsDialogOpen(false);
+    setEditingItem(null);
+    setOriginalItem(null);
+    setPriceDisplay("");
   };
 
   const handleNewItem = () => {
@@ -900,7 +919,7 @@ export function ItemsPanel() {
                   {editingItem.id && canDelete && (
                     <div className="pt-4">
                       <Button
-                        onClick={handleDeleteItem}
+                        onClick={handleDeleteClick}
                         variant="destructive"
                         className="w-full"
                       >
@@ -915,6 +934,24 @@ export function ItemsPanel() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete "{editingItem?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this item. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Barcode Scanner */}
       {scannerOpen && (
