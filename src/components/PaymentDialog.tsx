@@ -42,6 +42,7 @@ export function PaymentDialog({
   settings
 }: PaymentDialogProps) {
   const { language, cart, clearCart, currentUser, mode, currentShift } = useApp();
+  const { toast } = useToast();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState("");
@@ -206,11 +207,21 @@ export function PaymentDialog({
       setCompleted(true);
       clearCart();
       
+      // Success feedback
+      toast({
+        title: mode === "training" ? "Practice sale completed" : "Sale completed",
+        description: `Transaction saved successfully`,
+      });
+      
       // Play success sound
       playSuccessSound();
     } catch (error) {
       console.error("Error saving transaction:", error);
-      alert("Failed to save transaction. Please try again or contact support.");
+      toast({
+        title: "Could not save sale",
+        description: "Please try again or contact support",
+        variant: "destructive"
+      });
     }
   };
 
