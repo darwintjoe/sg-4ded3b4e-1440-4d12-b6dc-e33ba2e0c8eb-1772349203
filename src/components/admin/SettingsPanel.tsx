@@ -1022,12 +1022,12 @@ export function SettingsPanel() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Lock className="h-5 w-5" />
-                    {t("settings.changeAdminPIN", language)}
+                    {translate("settings.changeAdminPIN", language)}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="currentPin">{t("settings.currentPIN", language)}</Label>
+                    <Label htmlFor="currentPin">{translate("settings.currentPIN", language)}</Label>
                     <Input
                       id="currentPin"
                       type="password"
@@ -1038,7 +1038,7 @@ export function SettingsPanel() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="newPin">{t("settings.newPIN", language)}</Label>
+                    <Label htmlFor="newPin">{translate("settings.newPIN", language)}</Label>
                     <Input
                       id="newPin"
                       type="password"
@@ -1049,7 +1049,7 @@ export function SettingsPanel() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirmPin">{t("settings.confirmPIN", language)}</Label>
+                    <Label htmlFor="confirmPin">{translate("settings.confirmPIN", language)}</Label>
                     <Input
                       id="confirmPin"
                       type="password"
@@ -1060,123 +1060,67 @@ export function SettingsPanel() {
                     />
                   </div>
                   <Button 
-                    onClick={handleChangePIN} 
+                    onClick={handleChangeAdminPin} 
                     className="w-full"
                     disabled={!currentPin || !newPin || !confirmPin || newPin.length !== 4}
                   >
-                    {t("settings.changePIN", language)}
+                    {translate("settings.changePIN", language)}
                   </Button>
                 </CardContent>
               </Card>
 
               {/* Google Drive Backup */}
-              <Card className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 font-bold">
-                    <Cloud className="h-4 w-4" />
-                    {translate("settings.dataBackup", language)}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 justify-between">
+                    <div className="flex items-center gap-2">
+                      <Cloud className="h-4 w-4" />
+                      {translate("settings.dataBackup", language)}
+                    </div>
+                    {isSignedIn && (
+                      <Badge variant="secondary" className="bg-green-500/10 text-green-700 dark:text-green-400">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        {translate("settings.protected", language)}
+                      </Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 font-bold">
+                      <Cloud className="h-4 w-4" />
+                      {translate("settings.dataBackup", language)}
+                    </div>
                   </div>
-                  {isGoogleAuthorized && (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-700 dark:text-green-400">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {translate("settings.protected", language)}
-                    </Badge>
-                  )}
-                </div>
-                <Alert className="mb-4">
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    {translate("settings.backup.signInHint", language)}
-                  </AlertDescription>
-                </Alert>
-                <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
-                  <Cloud className="h-3 w-3 mr-2" />
-                  {translate("settings.backup.connect", language)}
-                </Button>
+                  <Alert className="mb-4">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      {translate("settings.backup.signInHint", language)}
+                    </AlertDescription>
+                  </Alert>
+                  <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
+                    <Cloud className="h-3 w-3 mr-2" />
+                    {translate("settings.backup.connect", language)}
+                  </Button>
+                </CardContent>
               </Card>
             </div>
           </TabsContent>
 
           <TabsContent value="database" className="space-y-4 p-4 mt-0">
-            <div className="space-y-6">
-              {/* Change Admin PIN - Inline Form */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lock className="h-5 w-5" />
-                    {t("settings.changeAdminPIN", language)}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPin">{t("settings.currentPIN", language)}</Label>
-                    <Input
-                      id="currentPin"
-                      type="password"
-                      maxLength={4}
-                      placeholder="****"
-                      value={currentPin}
-                      onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="newPin">{t("settings.newPIN", language)}</Label>
-                    <Input
-                      id="newPin"
-                      type="password"
-                      maxLength={4}
-                      placeholder="****"
-                      value={newPin}
-                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPin">{t("settings.confirmPIN", language)}</Label>
-                    <Input
-                      id="confirmPin"
-                      type="password"
-                      maxLength={4}
-                      placeholder="****"
-                      value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
-                    />
-                  </div>
-                  <Button 
-                    onClick={handleChangePIN} 
-                    className="w-full"
-                    disabled={!currentPin || !newPin || !confirmPin || newPin.length !== 4}
-                  >
-                    {t("settings.changePIN", language)}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Google Drive Backup */}
-              <Card className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 font-bold">
-                    <Cloud className="h-4 w-4" />
-                    {translate("settings.dataBackup", language)}
-                  </div>
-                  {isGoogleAuthorized && (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-700 dark:text-green-400">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      {translate("settings.protected", language)}
-                    </Badge>
-                  )}
-                </div>
-                <Alert className="mb-4">
-                  <Info className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    {translate("settings.backup.signInHint", language)}
-                  </AlertDescription>
-                </Alert>
-                <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
-                  <Cloud className="h-3 w-3 mr-2" />
-                  {translate("settings.backup.connect", language)}
-                </Button>
-              </Card>
-            </div>
+             <DatabaseManagementSection 
+               language={language}
+               onFactoryReset={handleFactoryReset}
+               onInjectSampleData={handleInjectSampleData}
+               onClearTransactions={handleClearTransactions}
+               onInitiateRestore={initiateRestore}
+               restoreState={restoreState}
+               backupProcessing={backupProcessing}
+               handleBackupNow={handleBackupNow}
+               isSignedIn={isSignedIn}
+               backupStatus={backupStatus}
+               startPreviewProcess={startPreviewProcess}
+             />
           </TabsContent>
         </Tabs>
       </div>
@@ -1196,90 +1140,6 @@ export function SettingsPanel() {
         }}
         onConfirm={handleConfirmRestore}
       />
-
-      {pinChangeDialog.open && (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <Card className="w-full max-w-md shadow-2xl border-2 border-primary/20">
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 text-primary">
-                <Lock className="h-6 w-6" />
-                <h2 className="text-xl font-bold">{translate("settings.security.changeAdminPin", language)}</h2>
-              </div>
-
-              {pinChangeDialog.error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{pinChangeDialog.error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-1 block">
-                    {translate("settings.security.currentPin", language)}
-                  </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pinChangeDialog.currentPin}
-                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, currentPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="****"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">
-                    {translate("settings.security.newPin", language)}
-                  </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pinChangeDialog.newPin}
-                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, newPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="****"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-1 block">
-                    {translate("settings.security.confirmPin", language)}
-                  </label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pinChangeDialog.confirmPin}
-                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, confirmPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
-                    className="w-full px-3 py-2 border rounded-md"
-                    placeholder="****"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setPinChangeDialog({ open: false, currentPin: "", newPin: "", confirmPin: "" })}
-                  className="flex-1"
-                >
-                  {translate("common.cancel", language)}
-                </Button>
-                <Button 
-                  onClick={handleChangeAdminPin}
-                  className="flex-1"
-                  disabled={!pinChangeDialog.currentPin || !pinChangeDialog.newPin || !pinChangeDialog.confirmPin}
-                >
-                  {translate("common.save", language)}
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
