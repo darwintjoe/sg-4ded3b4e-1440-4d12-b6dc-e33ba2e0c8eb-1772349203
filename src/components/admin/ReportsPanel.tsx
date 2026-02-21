@@ -261,7 +261,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       <TabsContent 
         value="ask" 
-        className="mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col"
+        className="mt-4 h-[calc(100vh-150px)] overflow-hidden flex flex-col"
       >
         {/* Chat Messages Container - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
