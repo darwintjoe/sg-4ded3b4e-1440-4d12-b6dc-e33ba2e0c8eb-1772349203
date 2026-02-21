@@ -46,24 +46,29 @@ export function parseQuery(input: string): ParsedQuery {
 }
 
 function extractIntent(input: string): QueryIntent {
-  // 1. Transaction Detail (Receipt #)
-  if (input.includes("receipt") || input.includes("transaction") || input.match(/#\d+/)) {
-    if (input.match(/#\d+/) || input.includes("detail")) return "transaction_detail";
-    if (input.includes("history") || input.includes("last")) return "transaction_history";
+  // 1. Latest/Last Transaction queries
+  if (/\b(latest|last|recent|final)\s+(transaction|sale|receipt)s?\b/i.test(input)) {
+    return "transaction_history";
   }
 
-  // 2. Comparison
+  // 2. Transaction Detail (Receipt #)
+  if (input.includes("receipt") || input.includes("transaction") || input.match(/#\d+/)) {
+    if (input.match(/#\d+/) || input.includes("detail")) return "transaction_detail";
+    if (input.includes("history")) return "transaction_history";
+  }
+
+  // 3. Comparison
   if (input.includes("compare") || input.includes("vs") || input.includes("versus") || input.includes("difference")) {
     return "compare";
   }
 
-  // 3. Help / Greeting
+  // 4. Help / Greeting
   if (input.match(/^(help|hi|hello|hey|greetings)/)) {
     if (input.match(/^(hi|hello|hey|greetings)/)) return "polite_response";
     return "help";
   }
 
-  // 4. Specific Analysis
+  // 5. Specific Analysis
   if (input.includes("revenue") || input.includes("sales") || input.includes("income") || input.includes("money")) {
     if (input.includes("employee") || input.includes("staff") || input.includes("cashier")) return "employee_sales";
     if (input.includes("trend")) return "trends";
