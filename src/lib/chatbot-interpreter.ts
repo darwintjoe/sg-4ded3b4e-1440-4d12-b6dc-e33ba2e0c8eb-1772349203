@@ -382,6 +382,15 @@ async function handleAttendance(query: ParsedQuery): Promise<QueryResult> {
 async function handleTrends(query: ParsedQuery): Promise<QueryResult> {
   // Simple daily trend
   const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
+  
+  if (sales.length === 0) {
+    return {
+      type: "text",
+      text: `No sales data found for ${formatTimeRange(query.timeRange)}.`,
+      timeRange: query.timeRange
+    };
+  }
+
   const daily = new Map<string, number>();
 
   sales.forEach(t => {
@@ -393,10 +402,31 @@ async function handleTrends(query: ParsedQuery): Promise<QueryResult> {
     .map(([date, value]) => ({ date, value }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // Calculate totals and averages
+  const totalRevenue = sales.reduce((sum, t) => sum + t.total, 0);
+  const avgDailyRevenue = totalRevenue / data.length;
+  const totalTransactions = sales.length;
+
+  // Find best and worst days
+  const sortedByRevenue = [...data].sort((a, b) => b.value - a.value);
+  const bestDay = sortedByRevenue[0];
+  const worstDay = sortedByRevenue[sortedByRevenue.length - 1];
+
+  let text = `**Sales Trend (${formatTimeRange(query.timeRange)})**\n\n`;
+  text += `📊 **Summary:**\n`;
+  text += `• Total Revenue: ${formatCurrency(totalRevenue)}\n`;
+  text += `• Total Transactions: ${totalTransactions}\n`;
+  text += `• Days with Sales: ${data.length}\n`;
+  text += `• Average Daily Revenue: ${formatCurrency(avgDailyRevenue)}\n\n`;
+  
+  text += `📈 **Best Day:** ${format(new Date(bestDay.date), "MMM d, yyyy")} - ${formatCurrency(bestDay.value)}\n`;
+  text += `📉 **Slowest Day:** ${format(new Date(worstDay.date), "MMM d, yyyy")} - ${formatCurrency(worstDay.value)}`;
+
   return {
     type: "text",
-    text: `Sales Trend (${formatTimeRange(query.timeRange)})`,
-    data
+    text,
+    data,
+    timeRange: query.timeRange
   };
 }
 
