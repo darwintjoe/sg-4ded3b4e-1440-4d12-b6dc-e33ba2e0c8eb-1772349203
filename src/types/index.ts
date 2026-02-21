@@ -296,3 +296,51 @@ export interface ShiftConfig {
 export interface Translations {
   [key: string]: string;
 }
+
+// Chatbot Types
+export type QueryIntent = 
+  | "revenue" 
+  | "transactions" 
+  | "top_items" 
+  | "item_performance"
+  | "category_analysis"
+  | "payment_methods"
+  | "employee_sales"
+  | "attendance"
+  | "trends"
+  | "peak_hours"
+  | "compare"
+  | "transaction_detail"
+  | "transaction_history"
+  | "help"
+  | "unknown"
+  | "out_of_context"
+  | "polite_response";
+
+export type ComparisonType = "day_over_day" | "week_over_week" | "month_over_month" | "period_comparison";
+
+export interface TimeRange {
+  type: "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "last_n_days" | "custom" | "all_time";
+  days?: number;
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export interface ParsedQuery {
+  intent: QueryIntent;
+  timeRange: TimeRange;
+  compareTimeRange?: TimeRange;
+  comparison?: ComparisonType;
+  entity?: string;
+  limit?: number;
+  filters?: Record<string, any>;
+}
+
+export interface QueryResult {
+  type: "text" | "data" | "chart" | "mixed" | "error";
+  text: string;
+  data?: any;
+  chartType?: "bar" | "line" | "pie" | "heatmap";
+  timeRange?: TimeRange;
+  error?: string;
+}
