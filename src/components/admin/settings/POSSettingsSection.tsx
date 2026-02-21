@@ -3,11 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X, Receipt } from "lucide-react";
+import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X, Receipt, Moon, Sun, Monitor, Power } from "lucide-react";
 import { Settings, Language } from "@/types";
 import { HelpTooltip } from "./HelpTooltip";
 import { translate } from "@/lib/translations";
 import { useRef, useState } from "react";
+import { useTheme } from "next-themes";
 
 interface POSSettingsSectionProps {
   settings: Settings;
@@ -18,6 +19,7 @@ interface POSSettingsSectionProps {
 export function POSSettingsSection({ settings, onUpdate, language }: POSSettingsSectionProps) {
   const qrFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingQR, setUploadingQR] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const getSafeShifts = (s: Settings) => {
     return s.shifts || {
@@ -88,6 +90,58 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
 
   return (
     <div className="space-y-4">
+      {/* Theme Selection */}
+      <Card className="p-4">
+        <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+          <Sun className="w-4 h-4" />
+          {translate("settings.pos.theme", language)}
+        </h3>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <Button
+            variant={theme === "light" ? "default" : "outline"}
+            onClick={() => setTheme("light")}
+            className="flex flex-col items-center gap-1 h-auto py-3"
+          >
+            <Sun className="h-4 w-4" />
+            <span className="text-xs">{translate("settings.pos.light", language)}</span>
+          </Button>
+          <Button
+            variant={theme === "dark" ? "default" : "outline"}
+            onClick={() => setTheme("dark")}
+            className="flex flex-col items-center gap-1 h-auto py-3"
+          >
+            <Moon className="h-4 w-4" />
+            <span className="text-xs">{translate("settings.pos.dark", language)}</span>
+          </Button>
+          <Button
+            variant={theme === "system" ? "default" : "outline"}
+            onClick={() => setTheme("system")}
+            className="flex flex-col items-center gap-1 h-auto py-3"
+          >
+            <Monitor className="h-4 w-4" />
+            <span className="text-xs">{translate("settings.pos.system", language)}</span>
+          </Button>
+        </div>
+      </Card>
+
+      {/* Always On Display */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Power className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <span className="font-medium">{translate("settings.pos.alwaysOn", language)}</span>
+              <p className="text-xs text-muted-foreground">{translate("settings.pos.alwaysOnHint", language)}</p>
+            </div>
+          </div>
+          <Switch
+            checked={settings.alwaysOnDisplay || false}
+            onCheckedChange={(checked) => onUpdate({ alwaysOnDisplay: checked })}
+          />
+        </div>
+      </Card>
+
       {/* Shift Management */}
       <Card className="p-4">
         <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
