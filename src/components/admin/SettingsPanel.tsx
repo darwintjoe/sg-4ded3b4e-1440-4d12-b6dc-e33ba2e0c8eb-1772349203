@@ -989,7 +989,7 @@ export function SettingsPanel() {
         </div>
 
         <div className="flex-1 overflow-hidden">
-          <TabsContent value="store" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
+          <TabsContent value="store" className="h-[calc(100vh-280px)] overflow-y-auto space-y-4 p-4 mt-0">
             <BusinessSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1002,7 +1002,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="pos" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
+          <TabsContent value="pos" className="h-[calc(100vh-280px)] overflow-y-auto space-y-4 p-4 mt-0">
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1010,7 +1010,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="backup" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
+          <TabsContent value="backup" className="h-[calc(100vh-280px)] overflow-y-auto space-y-4 p-4 mt-0">
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1094,7 +1094,7 @@ export function SettingsPanel() {
             </div>
           </TabsContent>
 
-          <TabsContent value="database" className="h-full overflow-y-auto space-y-4 p-4 mt-0">
+          <TabsContent value="database" className="h-[calc(100vh-280px)] overflow-y-auto space-y-4 p-4 mt-0">
             <DatabaseManagementSection 
               language={language}
               onFactoryReset={handleFactoryReset}
