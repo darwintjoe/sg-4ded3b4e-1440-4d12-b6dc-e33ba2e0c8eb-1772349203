@@ -962,9 +962,7 @@ export function SettingsPanel() {
 
   // NORMAL RENDER
   return (
-    <div className="h-full flex flex-col relative">
-      {renderRestoreUI()}
-      
+    <div className="h-full flex flex-col">
       <ProgressDialog 
         isOpen={progressDialog.isOpen}
         title={progressDialog.title}
@@ -973,8 +971,8 @@ export function SettingsPanel() {
         total={progressDialog.total}
       />
       
-      <div className="sticky top-0 z-10 bg-background border-b">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="store" className="flex-1 flex flex-col">
+        <div className="sticky top-0 z-10 bg-background border-b">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="store">
               {translate("settings.tabs.store", language)}
@@ -989,11 +987,9 @@ export function SettingsPanel() {
               {translate("settings.tabs.database", language)}
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-      </div>
+        </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex-1 overflow-y-auto">
           <TabsContent value="store" className="space-y-4 p-4 mt-0">
             <BusinessSettingsSection 
               settings={settings} 
@@ -1031,7 +1027,7 @@ export function SettingsPanel() {
                     <Input
                       id="currentPin"
                       type="password"
-                      maxLength={4}
+                      maxLength={6}
                       placeholder="****"
                       value={currentPin}
                       onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
@@ -1042,7 +1038,7 @@ export function SettingsPanel() {
                     <Input
                       id="newPin"
                       type="password"
-                      maxLength={4}
+                      maxLength={6}
                       placeholder="****"
                       value={newPin}
                       onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
@@ -1053,7 +1049,7 @@ export function SettingsPanel() {
                     <Input
                       id="confirmPin"
                       type="password"
-                      maxLength={4}
+                      maxLength={6}
                       placeholder="****"
                       value={confirmPin}
                       onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
@@ -1062,7 +1058,7 @@ export function SettingsPanel() {
                   <Button 
                     onClick={handleChangeAdminPin} 
                     className="w-full"
-                    disabled={!currentPin || !newPin || !confirmPin || newPin.length !== 4}
+                    disabled={!currentPin || !newPin || !confirmPin || newPin.length < 4}
                   >
                     {translate("settings.changePIN", language)}
                   </Button>
@@ -1086,12 +1082,6 @@ export function SettingsPanel() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 font-bold">
-                      <Cloud className="h-4 w-4" />
-                      {translate("settings.dataBackup", language)}
-                    </div>
-                  </div>
                   <Alert className="mb-4">
                     <Info className="h-4 w-4" />
                     <AlertDescription className="text-xs">
@@ -1108,28 +1098,30 @@ export function SettingsPanel() {
           </TabsContent>
 
           <TabsContent value="database" className="space-y-4 p-4 mt-0">
-             <DatabaseManagementSection 
-               language={language}
-               onFactoryReset={handleFactoryReset}
-               onInjectSampleData={handleInjectSampleData}
-               onClearTransactions={handleClearTransactions}
-               onInitiateRestore={initiateRestore}
-               restoreState={restoreState}
-               backupProcessing={backupProcessing}
-               handleBackupNow={handleBackupNow}
-               isSignedIn={isSignedIn}
-               backupStatus={backupStatus}
-               startPreviewProcess={startPreviewProcess}
-             />
+            <DatabaseManagementSection 
+              language={language}
+              onFactoryReset={handleFactoryReset}
+              onInjectSampleData={handleInjectSampleData}
+              onClearTransactions={handleClearTransactions}
+              onInitiateRestore={initiateRestore}
+              restoreState={restoreState}
+              backupProcessing={backupProcessing}
+              handleBackupNow={handleBackupNow}
+              isSignedIn={isSignedIn}
+              backupStatus={backupStatus}
+              startPreviewProcess={startPreviewProcess}
+            />
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
 
       {saving && (
         <div className="absolute top-2 right-2 text-xs text-muted-foreground bg-background/80 backdrop-blur px-2 py-1 rounded">
           Saving...
         </div>
       )}
+      
+      {renderRestoreUI()}
       
       <RestorePreviewDialog
         open={previewDialog.open}
