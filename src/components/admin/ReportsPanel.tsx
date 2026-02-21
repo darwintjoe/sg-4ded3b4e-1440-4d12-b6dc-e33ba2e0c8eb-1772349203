@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowUpFromLine, Printer, Send, Sparkles } from "lucide-react";
+import { ArrowUpFromLine, Printer, ArrowUp, Sparkles } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -346,15 +346,18 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           )}
         </div>
 
-        {/* Chat Input - Sticky at bottom */}
-        <div className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4">
-          <div className="relative max-w-4xl mx-auto flex gap-2">
+        {/* Chat Input - Keyboard aware, sticky at bottom */}
+        <div 
+          className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-all duration-300"
+          style={{ paddingBottom: 'max(1rem, env(keyboard-inset-height, 0px))' }}
+        >
+          <div className="relative max-w-4xl mx-auto flex gap-2 items-end">
             <Textarea
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything about your data..."
-              className="min-h-[50px] max-h-[150px] resize-none rounded-xl text-base py-3 px-4 flex-1 shadow-sm focus-visible:ring-1"
+              className="min-h-[44px] max-h-[120px] resize-none rounded-2xl text-base py-3 px-4 flex-1 shadow-sm focus-visible:ring-1 bg-muted/50 border-0"
               rows={1}
               disabled={isProcessing}
             />
@@ -362,9 +365,9 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
               onClick={handleSendMessage}
               disabled={!chatInput.trim() || isProcessing}
               size="icon"
-              className="h-[50px] w-[50px] rounded-xl shrink-0"
+              className="h-9 w-9 rounded-full shrink-0 bg-primary hover:bg-primary/90"
             >
-              <Send className="h-5 w-5" />
+              <ArrowUp className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground text-center mt-2">
