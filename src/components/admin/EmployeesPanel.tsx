@@ -401,7 +401,7 @@ export function EmployeesPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{translate("employees.allRoles", language)}</SelectItem>
+              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
               <SelectItem value="admin">{translate("employees.admin", language)}</SelectItem>
               <SelectItem value="cashier">{translate("employees.cashier", language)}</SelectItem>
               <SelectItem value="employee">{translate("employees.employee", language)}</SelectItem>
