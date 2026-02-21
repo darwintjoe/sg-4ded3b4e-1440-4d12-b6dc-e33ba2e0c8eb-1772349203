@@ -247,21 +247,21 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
         </div>
       </div>
 
-      <TabsContent value="sales" className="mt-4 h-[calc(100vh-200px)] overflow-y-auto">
+      <TabsContent value="sales" className="mt-4 h-[calc(100vh-120px)] overflow-y-auto">
         <SalesReport language={language} />
       </TabsContent>
 
-      <TabsContent value="items" className="mt-4 h-[calc(100vh-200px)] overflow-y-auto">
+      <TabsContent value="items" className="mt-4 h-[calc(100vh-120px)] overflow-y-auto">
         <ItemsReport language={language} />
       </TabsContent>
 
-      <TabsContent value="attendance" className="mt-4 h-[calc(100vh-200px)] overflow-y-auto">
+      <TabsContent value="attendance" className="mt-4 h-[calc(100vh-120px)] overflow-y-auto">
         <AttendanceReport language={language} />
       </TabsContent>
 
       <TabsContent 
         value="ask" 
-        className="flex flex-col h-[calc(100vh-200px)] min-h-[500px] mt-4"
+        className="flex flex-col h-[calc(100vh-120px)] min-h-[500px] mt-4"
       >
         {/* Chat Messages Container - Takes remaining space */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
