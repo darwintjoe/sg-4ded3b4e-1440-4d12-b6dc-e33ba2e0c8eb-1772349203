@@ -606,6 +606,8 @@ export function getDefaultSettings(): Settings {
       shift2: { enabled: true, name: "Afternoon Shift", startTime: "15:00", endTime: "23:00" },
       shift3: { enabled: false, name: "Night Shift", startTime: "23:00", endTime: "07:00" },
     },
+    // Display settings
+    alwaysOnDisplay: false,
   };
 }
 
