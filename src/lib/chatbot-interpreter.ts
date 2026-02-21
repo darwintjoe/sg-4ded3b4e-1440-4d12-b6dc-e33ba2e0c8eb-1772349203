@@ -25,6 +25,182 @@ import {
   endOfMonth
 } from "date-fns";
 
+// --- Missing Helpers Definition ---
+
+// Levenshtein distance for typo tolerance (needed for predictIntent in this file too)
+function levenshteinDistance(str1: string, str2: string): number {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return matrix[len1][len2];
+}
+
+function fuzzyMatch(input: string, target: string): boolean {
+  if (input === target) return true;
+  if (input.includes(target) || target.includes(input)) return true;
+  
+  const distance = levenshteinDistance(input, target);
+  const maxDistance = Math.max(2, Math.floor(target.length * 0.3));
+  return distance <= maxDistance;
+}
+
+// Helper to get sales with support for date range
+async function getSales(timeRange: TimeRange): Promise<Transaction[]> {
+  if (timeRange.type === "all_time") {
+    // If all time, we might want to limit to reasonable history or fetch all
+    // For now, let's fetch a wide range or use a method that returns all if db supports it
+    // Assuming db.getSales() without args returns all or we pass a wide range
+    // Let's assume we pass a very old start date
+    return await db.getSales(new Date(2000, 0, 1), new Date());
+  }
+  
+  if (timeRange.startDate && timeRange.endDate) {
+    return await db.getSales(timeRange.startDate, timeRange.endDate);
+  }
+  
+  // Fallback to today
+  const now = new Date();
+  return await db.getSales(startOfDay(now), endOfDay(now));
+}
+
+// Helper to aggregate item sales
+function aggregateItemSales(sales: Transaction[]): Map<string, { name: string; quantity: number; revenue: number }> {
+  const itemMap = new Map<string, { name: string; quantity: number; revenue: number }>();
+
+  sales.forEach(t => {
+    t.items.forEach(item => {
+      const existing = itemMap.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
+      itemMap.set(item.name, {
+        name: item.name,
+        quantity: existing.quantity + item.quantity,
+        revenue: existing.revenue + item.totalPrice
+      });
+    });
+  });
+  
+  return itemMap;
+}
+
+// --- End Helpers ---
+
+// Helper to generate smart answer prefixes
+function generateAnswerPrefix(query: ParsedQuery): string {
+  const { intent, limit, timeRange, entity } = query;
+  
+  // Format time range
+  const timeStr = formatTimeRange(timeRange);
+  const dateRange = (timeRange.startDate && timeRange.endDate)
+    ? ` (${format(timeRange.startDate, 'MMM d')} - ${format(timeRange.endDate, 'MMM d')})`
+    : "";
+
+  switch (intent) {
+    case "top_items":
+      return `**${limit || 5} Best Selling Item${(limit || 5) > 1 ? "s" : ""} ${timeStr}${dateRange}:**\n\n`;
+    
+    case "bottom_items":
+      return `**${limit || 5} Slowest Moving Item${(limit || 5) > 1 ? "s" : ""} ${timeStr}${dateRange}:**\n\n`;
+    
+    case "revenue":
+      return `**Total Revenue ${timeStr}${dateRange}:**\n\n`;
+    
+    case "transaction_history":
+      return `**${limit || 5} Latest Transaction${(limit || 5) > 1 ? "s" : ""}${dateRange ? dateRange : " (All Time)"}:**\n\n`;
+    
+    case "item_performance":
+      return entity 
+        ? `**"${entity}" Performance ${timeStr}${dateRange}:**\n\n`
+        : `**Item Performance ${timeStr}${dateRange}:**\n\n`;
+    
+    case "employee_performance":
+      return `**Employee Performance ${timeStr}${dateRange}:**\n\n`;
+    
+    case "attendance":
+      return `**Attendance Records ${timeStr}${dateRange}:**\n\n`;
+    
+    case "trends":
+      return `**Sales Trends ${timeStr}${dateRange}:**\n\n`;
+    
+    case "peak_hours":
+      return `**Peak Hours Analysis ${timeStr}${dateRange}:**\n\n`;
+    
+    case "payment_method":
+      return `**Payment Method Breakdown ${timeStr}${dateRange}:**\n\n`;
+    
+    case "comparison":
+      return `**Comparison ${timeStr}:**\n\n`;
+    
+    default:
+      return "";
+  }
+}
+
+// Polite out-of-context responses (varied)
+function getOutOfContextResponse(): string {
+  const responses = [
+    "I'm not trained to answer that, my apology. I can only help with business data like sales, inventory, and reports.",
+    
+    "I appreciate the question, but I'm specifically designed for business analytics. Try asking about revenue, top items, or employee performance!",
+    
+    "That's outside my expertise, sorry! I focus on helping with sales data, transactions, and business reports. What would you like to know about your store?",
+    
+    "I'm not able to help with that, my apologies. I specialize in business insights like sales trends, inventory, and performance metrics.",
+    
+    "Unfortunately, I'm not trained for that type of question. I'm here to help analyze your sales, items, and business performance. What can I help you with?"
+  ];
+  
+  const randomIndex = Math.floor(Math.random() * responses.length);
+  return responses[randomIndex];
+}
+
+// Predict intent for unclear queries
+function predictIntent(input: string): string[] {
+  const suggestions: string[] = [];
+  const words = input.toLowerCase().split(/\s+/);
+  
+  // Check for partial matches with common intents
+  const keywords: Record<string, string[]> = {
+    "revenue": ["revenue", "sales", "income", "money", "profit"],
+    "top items": ["top", "best", "item", "product", "selling"],
+    "transactions": ["transaction", "sale", "receipt", "order"],
+    "employees": ["employee", "staff", "cashier", "worker"],
+    "attendance": ["attendance", "shift", "work", "present"],
+    "trends": ["trend", "growth", "pattern"],
+    "payment method": ["payment", "cash", "card"]
+  };
+  
+  for (const [intent, intentKeywords] of Object.entries(keywords)) {
+    const matchCount = words.filter(word => 
+      intentKeywords.some(kw => fuzzyMatch(word, kw))
+    ).length;
+    
+    if (matchCount > 0) {
+      suggestions.push(intent);
+    }
+  }
+  
+  return suggestions.slice(0, 3); // Max 3 suggestions
+}
+
 export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
     switch (query.intent) {
@@ -41,7 +217,7 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       case "out_of_context":
         return {
           type: "text",
-          text: "I can only help you with your business data, sales, and inventory. Try asking about revenue, top items, or employee performance.",
+          text: getOutOfContextResponse(),
           timeRange: query.timeRange
         };
 
@@ -51,7 +227,7 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       case "transaction_history":
         return await handleTransactionHistory(query);
 
-      case "compare":
+      case "comparison":
         return await handleComparison(query);
 
       case "revenue":
@@ -72,10 +248,10 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       case "category_analysis":
         return await handleCategoryAnalysis(query);
 
-      case "payment_methods":
+      case "payment_method":
         return await handlePaymentMethods(query);
 
-      case "employee_sales":
+      case "employee_performance":
         return await handleEmployeeSales(query);
 
       case "attendance":
@@ -88,12 +264,27 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
         return await handlePeakHours(query);
 
       case "unknown":
-      default:
-        return {
-          type: "text",
-          text: "I'm not sure I understand that. Try asking 'What were the sales today?' or 'Top items this month'.",
-          timeRange: query.timeRange
-        };
+      default: {
+        // Check if this is truly out of context or just unclear
+        const suggestions = predictIntent(query.originalInput || "");
+        
+        if (suggestions.length > 0) {
+          // Unclear intent - provide suggestions
+          const suggestionText = suggestions.map(s => `"${s}"`).join(", ");
+          return {
+            type: "text",
+            text: `I'm not quite sure what you're asking. Did you mean: ${suggestionText}?\n\nTry being more specific, like:\n• "Top 10 items this month"\n• "Revenue yesterday"\n• "Latest transactions"`,
+            data: null
+          };
+        } else {
+          // Completely out of context
+          return {
+            type: "text",
+            text: getOutOfContextResponse(),
+            data: null
+          };
+        }
+      }
     }
   } catch (error) {
     console.error("Interpreter Error:", error);
@@ -161,29 +352,34 @@ async function handleTransactionDetail(query: ParsedQuery): Promise<QueryResult>
 }
 
 async function handleTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
-  const limit = query.limit || 5;
-  const sales = query.timeRange.type === "all_time" 
-    ? await db.getSales()
-    : await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
-  
-  // Sort descending by time
-  const recentSales = sales.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+  const sales = await getSales(query.timeRange);
+  const recentSales = sales
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, query.limit || 5);
 
   if (recentSales.length === 0) {
-    return { 
-      type: "text", 
-      text: `No transactions found for ${formatTimeRange(query.timeRange)}.` 
+    return {
+      type: "text",
+      text: `No transactions found${query.timeRange ? ` for ${formatTimeRange(query.timeRange)}` : ""}.`,
+      data: null,
+      timeRange: query.timeRange
     };
   }
 
-  const rows = recentSales.map(t => 
-    `#${t.id}: ${formatCurrency(t.total)} - ${format(new Date(t.timestamp), "MMM d, HH:mm")}`
-  ).join("\n");
+  const prefix = generateAnswerPrefix(query);
+  const list = recentSales
+    .map((sale, i) => {
+      const date = new Date(sale.timestamp).toLocaleString("id-ID");
+      const itemCount = sale.items.length;
+      return `${i + 1}. **Receipt #${sale.id}** - ${date}\n   ${itemCount} item${itemCount !== 1 ? "s" : ""}, Total: Rp ${sale.total.toLocaleString("id-ID")}`;
+    })
+    .join("\n\n");
 
   return {
     type: "text",
-    text: `Here are the last ${recentSales.length} transactions:\n\n${rows}`,
-    data: recentSales
+    text: `${prefix}${list}`,
+    data: recentSales,
+    timeRange: query.timeRange
   };
 }
 
@@ -220,14 +416,17 @@ async function handleComparison(query: ParsedQuery): Promise<QueryResult> {
 }
 
 async function handleRevenue(query: ParsedQuery): Promise<QueryResult> {
-  const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
-  const total = sales.reduce((sum, t) => sum + t.total, 0);
+  const sales = await getSales(query.timeRange);
+  const total = sales.reduce((sum, sale) => sum + sale.total, 0);
   const count = sales.length;
-  
+
+  const prefix = generateAnswerPrefix(query);
+  const text = `${prefix}Total revenue is **Rp ${total.toLocaleString("id-ID")}** across ${count} transaction${count !== 1 ? "s" : ""}.`;
+
   return {
     type: "text",
-    text: `Total revenue for **${formatTimeRange(query.timeRange)}** is **${formatCurrency(total)}** across ${count} transactions.`,
-    data: { value: total, count },
+    text,
+    data: { total, count, sales },
     timeRange: query.timeRange
   };
 }
@@ -245,63 +444,58 @@ async function handleTransactionCount(query: ParsedQuery): Promise<QueryResult> 
 }
 
 async function handleTopItems(query: ParsedQuery): Promise<QueryResult> {
-  const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
-  const itemMap = new Map<string, { name: string; quantity: number; revenue: number }>();
-
-  sales.forEach(t => {
-    t.items.forEach(item => {
-      const existing = itemMap.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
-      existing.quantity += item.quantity;
-      existing.revenue += item.totalPrice;
-      itemMap.set(item.name, existing);
-    });
-  });
-
+  const sales = await getSales(query.timeRange);
+  const itemMap = aggregateItemSales(sales);
   const items = Array.from(itemMap.values())
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, query.limit || 5);
 
   if (items.length === 0) {
-    return { type: "text", text: `No items sold during ${formatTimeRange(query.timeRange)}.` };
+    return {
+      type: "text",
+      text: `No items sold during ${formatTimeRange(query.timeRange)}.`,
+      data: null,
+      timeRange: query.timeRange
+    };
   }
 
-  const list = items.map((i, idx) => `${idx + 1}. **${i.name}**: ${i.quantity} sold (${formatCurrency(i.revenue)})`).join("\n");
+  const prefix = generateAnswerPrefix(query);
+  const list = items
+    .map((item, i) => `${i + 1}. **${item.name}**: ${item.quantity} sold (Rp ${item.revenue.toLocaleString("id-ID")})`)
+    .join("\n");
 
   return {
     type: "text",
-    text: `**Top Items (${formatTimeRange(query.timeRange)}):**\n\n${list}`,
+    text: `${prefix}${list}`,
     data: items,
     timeRange: query.timeRange
   };
 }
 
 async function handleBottomItems(query: ParsedQuery): Promise<QueryResult> {
-  const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
-  const itemMap = new Map<string, { name: string; quantity: number; revenue: number }>();
-
-  sales.forEach(t => {
-    t.items.forEach(item => {
-      const existing = itemMap.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
-      existing.quantity += item.quantity;
-      existing.revenue += item.totalPrice;
-      itemMap.set(item.name, existing);
-    });
-  });
-
-  // Sort ascending (lowest first) instead of descending
+  const sales = await getSales(query.timeRange);
+  const itemMap = aggregateItemSales(sales);
   const items = Array.from(itemMap.values())
     .sort((a, b) => a.quantity - b.quantity)
     .slice(0, query.limit || 5);
 
   if (items.length === 0) {
-    return { type: "text", text: `No items sold during ${formatTimeRange(query.timeRange)}.` };
+    return {
+      type: "text",
+      text: `No items sold during ${formatTimeRange(query.timeRange)}.`,
+      data: null,
+      timeRange: query.timeRange
+    };
   }
 
-  const list = items.map((i, idx) => `${idx + 1}. **${i.name}**: ${i.quantity} sold (${formatCurrency(i.revenue)})`).join("\n");
+  const prefix = generateAnswerPrefix(query);
+  const list = items
+    .map((item, i) => `${i + 1}. **${item.name}**: ${item.quantity} sold (Rp ${item.revenue.toLocaleString("id-ID")})`)
+    .join("\n");
 
   return {
     type: "text",
-    text: `**Slowest Moving Items (${formatTimeRange(query.timeRange)}):**\n\n${list}`,
+    text: `${prefix}${list}`,
     data: items,
     timeRange: query.timeRange
   };

@@ -23,6 +23,67 @@ import {
   differenceInDays
 } from "date-fns";
 
+// Levenshtein distance for typo tolerance
+function levenshteinDistance(str1: string, str2: string): number {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= len1; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= len2; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      const cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
+    }
+  }
+
+  return matrix[len1][len2];
+}
+
+// Fuzzy match with typo tolerance (max 2 character difference)
+function fuzzyMatch(input: string, target: string): boolean {
+  if (input === target) return true;
+  if (input.includes(target) || target.includes(input)) return true;
+  
+  const distance = levenshteinDistance(input, target);
+  const maxDistance = Math.max(2, Math.floor(target.length * 0.3)); // 30% tolerance
+  return distance <= maxDistance;
+}
+
+// Check if input contains keyword (with typo tolerance)
+function containsKeyword(input: string, keywords: string[]): boolean {
+  const words = input.split(/\s+/);
+  
+  for (const word of words) {
+    for (const keyword of keywords) {
+      if (fuzzyMatch(word, keyword)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+const STOPWORDS = new Set([
+  "how many", "sold", "sales", "revenue", "income", "profit", 
+  "compare", "vs", "versus", "trend", "performance", "analysis",
+  "today", "yesterday", "week", "month", "year",
+  "top", "best", "worst", "show", "me", "what", "is", "are", "the",
+  "item", "product", "of", "and", "before", "after", "previous", "last"
+]);
+
 export function parseQuery(input: string): ParsedQuery {
   const normalizedInput = input.toLowerCase().trim();
   
@@ -36,6 +97,7 @@ export function parseQuery(input: string): ParsedQuery {
 
   return {
     intent,
+    originalInput: input,
     timeRange,
     compareTimeRange,
     comparison: extractComparisonType(normalizedInput),
@@ -46,65 +108,104 @@ export function parseQuery(input: string): ParsedQuery {
 }
 
 function extractIntent(input: string): QueryIntent {
-  // 1. Latest/Last Transaction queries
-  if (/\b(latest|last|recent|final)\s+(transaction|sale|receipt)s?\b/i.test(input)) {
-    return "transaction_history";
+  // 1. Latest/Last Transaction queries (highest priority)
+  if (containsKeyword(input, ["latest", "last", "recent", "final"])) {
+    if (containsKeyword(input, ["transaction", "sale", "receipt", "purchase"])) {
+      return "transaction_history";
+    }
   }
 
-  // 2. Transaction Detail (Receipt #)
-  if (input.includes("receipt") || input.includes("transaction") || input.match(/#\d+/)) {
-    if (input.match(/#\d+/) || input.includes("detail")) return "transaction_detail";
-    if (input.includes("history")) return "transaction_history";
+  // 2. Detail/Details drill-down
+  if (containsKeyword(input, ["detail", "details", "breakdown", "specific"])) {
+    if (containsKeyword(input, ["transaction", "receipt", "sale"])) return "transaction_detail";
+    if (containsKeyword(input, ["item", "product"])) return "item_performance";
+    if (containsKeyword(input, ["employee", "staff"])) return "employee_performance";
+    // Default to asking for clarification
   }
 
-  // 3. Comparison
-  if (input.includes("compare") || input.includes("vs") || input.includes("versus") || input.includes("difference")) {
-    return "compare";
+  // 3. Transaction Detail (Receipt #XXX)
+  if (/receipt\s*#?\d+|transaction\s*#?\d+/i.test(input)) {
+    return "transaction_detail";
   }
 
-  // 4. Help / Greeting
-  if (input.match(/^(help|hi|hello|hey|greetings)/)) {
-    if (input.match(/^(hi|hello|hey|greetings)/)) return "polite_response";
-    return "help";
+  // 4. Transaction History
+  if (containsKeyword(input, ["transaction", "receipt", "sale"])) {
+    if (containsKeyword(input, ["history", "list", "show", "all"])) {
+      return "transaction_history";
+    }
   }
 
-  // 5. Specific Analysis
-  if (input.includes("revenue") || input.includes("sales") || input.includes("income") || input.includes("money")) {
-    if (input.includes("employee") || input.includes("staff") || input.includes("cashier")) return "employee_sales";
-    if (input.includes("trend")) return "trends";
-    if (input.includes("peak") || input.includes("hour") || input.includes("time")) return "peak_hours";
-    return "revenue";
+  // 5. Comparison
+  if (containsKeyword(input, ["compare", "versus", "difference", "between"])) {
+    return "comparison";
   }
 
-  if (input.includes("item") || input.includes("product") || input.includes("selling") || input.includes("sold")) {
-    if (input.includes("top") || input.includes("best")) return "top_items";
-    if (input.includes("slowest") || input.includes("worst") || input.includes("bottom") || input.includes("least")) return "bottom_items";
-    if (input.includes("how many")) return "item_performance"; // "How many coffees sold?"
-    return "top_items"; // Default to top items if vague
+  // 6. Item Analysis
+  if (containsKeyword(input, ["item", "product", "selling", "stock", "inventory"])) {
+    // Slowest/worst items
+    if (containsKeyword(input, ["slowest", "worst", "bottom", "least", "lowest"])) {
+      return "bottom_items";
+    }
+    // Top/best items
+    if (containsKeyword(input, ["top", "best", "most", "popular", "highest"])) {
+      return "top_items";
+    }
+    // Specific item performance
+    if (containsKeyword(input, ["how many", "sold", "performance"])) {
+      return "item_performance";
+    }
+    // Category analysis
+    if (containsKeyword(input, ["category", "group", "type"])) {
+      return "category_analysis";
+    }
+    return "top_items"; // Default to top items
   }
 
-  if (input.includes("category") || input.includes("group")) {
-    return "category_analysis";
+  // 7. Employee/Staff Analysis
+  if (containsKeyword(input, ["employee", "staff", "cashier", "worker", "seller"])) {
+    return "employee_performance";
   }
 
-  if (input.includes("payment") || input.includes("method") || input.includes("cash") || input.includes("card")) {
-    return "payment_methods";
-  }
-
-  if (input.includes("employee") || input.includes("staff") || input.includes("cashier") || input.includes("who sold")) {
-    return "employee_sales";
-  }
-
-  if (input.includes("attendance") || input.includes("shift") || input.includes("work") || input.includes("present")) {
+  // 8. Attendance
+  if (containsKeyword(input, ["attendance", "shift", "work", "present", "absent", "schedule"])) {
     return "attendance";
   }
 
-  // Fallback for generic "how many"
-  if (input.includes("how many") && input.includes("transaction")) {
+  // 9. Payment Method
+  if (containsKeyword(input, ["payment", "method", "cash", "card", "digital", "wallet"])) {
+    return "payment_method";
+  }
+
+  // 10. Specific Analysis Types
+  if (containsKeyword(input, ["trend", "growth", "pattern", "change"])) {
+    return "trends";
+  }
+  if (containsKeyword(input, ["peak", "hour", "time", "busiest", "busy"])) {
+    return "peak_hours";
+  }
+
+  // 11. Revenue/Sales (lower priority to avoid catching everything)
+  if (containsKeyword(input, ["revenue", "sales", "income", "money", "profit", "earning"])) {
+    return "revenue";
+  }
+
+  // 12. Transaction count
+  if (containsKeyword(input, ["transaction", "sale", "order", "purchase"])) {
     return "transactions";
   }
 
-  return "unknown";
+  // 13. Polite/Help
+  if (containsKeyword(input, ["help"]) && input.split(/\s+/).length === 1) {
+    return "help";
+  }
+  if (containsKeyword(input, ["hello", "greetings"])) {
+    return "polite_response";
+  }
+  if (containsKeyword(input, ["thank", "thanks"])) {
+    return "polite_response";
+  }
+
+  return "help"; // Default fallback
 }
 
 function extractTimeRange(input: string): TimeRange {

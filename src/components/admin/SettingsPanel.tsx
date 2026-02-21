@@ -72,7 +72,7 @@ export function SettingsPanel() {
     pin?: string;
   }>({ phase: "idle" });
 
-  const [activeTab, setActiveTab] = useState<string>("business");
+  const [activeTab, setActiveTab] = useState<string>("storeInfo");
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ 
     available: false, 
     hoursRemaining: null 
@@ -94,6 +94,19 @@ export function SettingsPanel() {
     open: boolean;
     backupData: any | null;
   }>({ open: false, backupData: null });
+
+  const [pinChangeDialog, setPinChangeDialog] = useState<{
+    open: boolean;
+    currentPin: string;
+    newPin: string;
+    confirmPin: string;
+    error?: string;
+  }>({
+    open: false,
+    currentPin: "",
+    newPin: "",
+    confirmPin: "",
+  });
 
   useEffect(() => {
     setSettings(currentSettings);
@@ -666,6 +679,45 @@ export function SettingsPanel() {
     }
   };
 
+  const handleChangeAdminPin = async () => {
+    const { currentPin, newPin, confirmPin } = pinChangeDialog;
+    
+    if (!currentPin || !newPin || !confirmPin) {
+      setPinChangeDialog(prev => ({ ...prev, error: translate("error.required", language) }));
+      return;
+    }
+
+    if (newPin !== confirmPin) {
+      setPinChangeDialog(prev => ({ ...prev, error: translate("settings.security.pinMismatch", language) }));
+      return;
+    }
+
+    if (newPin.length < 4 || newPin.length > 6) {
+      setPinChangeDialog(prev => ({ ...prev, error: "PIN must be 4-6 digits" }));
+      return;
+    }
+
+    const isValid = await loginAdmin(currentPin);
+    if (!isValid) {
+      setPinChangeDialog(prev => ({ ...prev, error: translate("settings.security.pinInvalid", language) }));
+      return;
+    }
+
+    updateAndSave({ adminPIN: newPin });
+    
+    toast({
+      title: translate("common.success", language),
+      description: translate("settings.security.pinChanged", language),
+    });
+
+    setPinChangeDialog({
+      open: false,
+      currentPin: "",
+      newPin: "",
+      confirmPin: "",
+    });
+  };
+
   // RENDER RESTORE UI
   const renderRestoreUI = () => {
     if (restoreState.phase === "idle") return null;
@@ -919,21 +971,21 @@ export function SettingsPanel() {
       <div className="sticky top-0 z-10 bg-background border-b">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full grid grid-cols-4 rounded-none h-12">
-            <TabsTrigger value="business" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="storeInfo" className="gap-2 text-xs sm:text-sm">
               <Store className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.business", language)}</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.storeInfo", language)}</span>
             </TabsTrigger>
-            <TabsTrigger value="pos" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="salesSetup" className="gap-2 text-xs sm:text-sm">
               <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.pos", language)}</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.salesSetup", language)}</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="backupSafety" className="gap-2 text-xs sm:text-sm">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.security", language)}</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.backupSafety", language)}</span>
             </TabsTrigger>
-            <TabsTrigger value="advanced" className="gap-2 text-xs sm:text-sm">
+            <TabsTrigger value="database" className="gap-2 text-xs sm:text-sm">
               <SettingsIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">{translate("settings.tabs.advanced", language)}</span>
+              <span className="hidden sm:inline">{translate("settings.tabs.database", language)}</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -941,7 +993,7 @@ export function SettingsPanel() {
 
       <div className="flex-1 overflow-y-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsContent value="business" className="space-y-4 p-4 mt-0">
+          <TabsContent value="storeInfo" className="space-y-4 p-4 mt-0">
             <BusinessSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -954,7 +1006,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="pos" className="space-y-4 p-4 mt-0">
+          <TabsContent value="salesSetup" className="space-y-4 p-4 mt-0">
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -962,7 +1014,23 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="security" className="space-y-4 p-4 mt-0">
+          <TabsContent value="backupSafety" className="space-y-4 p-4 mt-0">
+            <Card className="p-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                {translate("settings.security.changeAdminPin", language)}
+              </h3>
+              <Button 
+                onClick={() => setPinChangeDialog({ open: true, currentPin: "", newPin: "", confirmPin: "" })}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <Lock className="h-3 w-3 mr-2" />
+                {translate("settings.security.changeAdminPin", language)}
+              </Button>
+            </Card>
+
             <Card className="p-4">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4" />
@@ -987,16 +1055,6 @@ export function SettingsPanel() {
                 <div>✓ {translate("settings.security.fullControl", language)}</div>
               </div>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="advanced" className="space-y-4 p-4 mt-0">
-            <DatabaseManagementSection
-              onInjectSampleData={handleInjectSampleData}
-              onClearTransactions={handleClearTransactions}
-              onFactoryReset={handleFactoryReset}
-              isProcessing={progressDialog.isOpen}
-              language={language}
-            />
 
             <Separator className="my-6" />
 
@@ -1065,10 +1123,10 @@ export function SettingsPanel() {
                     {translate("settings.backup.backupNow", language)}
                   </Button>
                   
-                  <div className="pt-6 border-t mt-4">
+                  <div className="pt-4 border-t">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-1">
-                        <Lock className="h-3 w-3" /> {translate("settings.backup.emergency", language)}
+                        <Info className="h-3 w-3" /> {translate("settings.backup.emergency", language)}
                       </h4>
                     </div>
                     
@@ -1094,16 +1152,6 @@ export function SettingsPanel() {
                         {translate("settings.backup.upload", language)}
                       </Button>
                       
-                      <Button
-                        onClick={initiateRestore}
-                        variant="destructive"
-                        size="sm"
-                        className="w-full bg-red-100 text-red-900 hover:bg-red-200 border-red-200"
-                      >
-                        <Download className="h-3 w-3 mr-2" />
-                        {translate("settings.backup.restore", language)}
-                      </Button>
-                      
                       {revertStatus.available && (
                         <Button
                           onClick={handleRevert}
@@ -1124,6 +1172,42 @@ export function SettingsPanel() {
               )}
             </Card>
           </TabsContent>
+
+          <TabsContent value="database" className="space-y-4 p-4 mt-0">
+            <Card className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  {translate("settings.database.restore", language)}
+                </h3>
+              </div>
+              
+              <Alert className="mb-4">
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  {translate("settings.database.restoreHint", language)}
+                </AlertDescription>
+              </Alert>
+
+              <Button
+                onClick={initiateRestore}
+                variant="destructive"
+                size="sm"
+                className="w-full bg-red-100 text-red-900 hover:bg-red-200 border-red-200"
+              >
+                <Download className="h-3 w-3 mr-2" />
+                {translate("settings.backup.restore", language)}
+              </Button>
+            </Card>
+
+            <DatabaseManagementSection
+              onInjectSampleData={handleInjectSampleData}
+              onClearTransactions={handleClearTransactions}
+              onFactoryReset={handleFactoryReset}
+              isProcessing={progressDialog.isOpen}
+              language={language}
+            />
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1142,6 +1226,90 @@ export function SettingsPanel() {
         }}
         onConfirm={handleConfirmRestore}
       />
+
+      {pinChangeDialog.open && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center p-4">
+          <Card className="w-full max-w-md shadow-2xl border-2 border-primary/20">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 text-primary">
+                <Lock className="h-6 w-6" />
+                <h2 className="text-xl font-bold">{translate("settings.security.changeAdminPin", language)}</h2>
+              </div>
+
+              {pinChangeDialog.error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{pinChangeDialog.error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    {translate("settings.security.currentPin", language)}
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={pinChangeDialog.currentPin}
+                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, currentPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="****"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    {translate("settings.security.newPin", language)}
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={pinChangeDialog.newPin}
+                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, newPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="****"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-1 block">
+                    {translate("settings.security.confirmPin", language)}
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={pinChangeDialog.confirmPin}
+                    onChange={(e) => setPinChangeDialog(prev => ({ ...prev, confirmPin: e.target.value.replace(/\D/g, ""), error: undefined }))}
+                    className="w-full px-3 py-2 border rounded-md"
+                    placeholder="****"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setPinChangeDialog({ open: false, currentPin: "", newPin: "", confirmPin: "" })}
+                  className="flex-1"
+                >
+                  {translate("common.cancel", language)}
+                </Button>
+                <Button 
+                  onClick={handleChangeAdminPin}
+                  className="flex-1"
+                  disabled={!pinChangeDialog.currentPin || !pinChangeDialog.newPin || !pinChangeDialog.confirmPin}
+                >
+                  {translate("common.save", language)}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

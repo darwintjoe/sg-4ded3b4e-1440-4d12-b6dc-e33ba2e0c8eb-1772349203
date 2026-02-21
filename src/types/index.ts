@@ -301,22 +301,22 @@ export interface Translations {
 export type QueryIntent = 
   | "revenue" 
   | "transactions" 
+  | "transaction_history"
+  | "transaction_detail"
   | "top_items" 
   | "bottom_items"
   | "item_performance"
   | "category_analysis"
-  | "payment_methods"
-  | "employee_sales"
+  | "employee_performance"
   | "attendance"
+  | "payment_method"
   | "trends"
   | "peak_hours"
-  | "compare"
-  | "transaction_detail"
-  | "transaction_history"
+  | "comparison"
+  | "polite_response"
   | "help"
-  | "unknown"
   | "out_of_context"
-  | "polite_response";
+  | "unknown";
 
 export type ComparisonType = "day_over_day" | "week_over_week" | "month_over_month" | "period_comparison";
 
@@ -329,6 +329,7 @@ export interface TimeRange {
 
 export interface ParsedQuery {
   intent: QueryIntent;
+  originalInput?: string;
   timeRange: TimeRange;
   compareTimeRange?: TimeRange;
   comparison?: ComparisonType;
