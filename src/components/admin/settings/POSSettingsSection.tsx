@@ -62,6 +62,11 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
     });
   };
 
+  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    onUpdate({ theme: newTheme });
+  };
+
   const handleQRUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -88,6 +93,11 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
     }
   };
 
+  // Sync theme from settings on mount
+  if (settings.theme && settings.theme !== theme) {
+    setTheme(settings.theme);
+  }
+
   return (
     <div className="space-y-4">
       {/* Theme Selection */}
@@ -100,7 +110,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
         <div className="grid grid-cols-3 gap-2">
           <Button
             variant={theme === "light" ? "default" : "outline"}
-            onClick={() => setTheme("light")}
+            onClick={() => handleThemeChange("light")}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <Sun className="h-4 w-4" />
@@ -108,7 +118,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
           </Button>
           <Button
             variant={theme === "dark" ? "default" : "outline"}
-            onClick={() => setTheme("dark")}
+            onClick={() => handleThemeChange("dark")}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <Moon className="h-4 w-4" />
@@ -116,7 +126,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
           </Button>
           <Button
             variant={theme === "system" ? "default" : "outline"}
-            onClick={() => setTheme("system")}
+            onClick={() => handleThemeChange("system")}
             className="flex flex-col items-center gap-1 h-auto py-3"
           >
             <Monitor className="h-4 w-4" />
