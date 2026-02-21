@@ -125,3 +125,29 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
   background-color: rgba(255, 255, 255, 0.95) !important;
 }
+
+/* Disable pull-to-refresh and overscroll effects */
+html,
+body {
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
+}
+
+/* For iOS Safari specifically */
+@supports (-webkit-touch-callout: none) {
+  html,
+  body {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  #__next,
+  main {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
