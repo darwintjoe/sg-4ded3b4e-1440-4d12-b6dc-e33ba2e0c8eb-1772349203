@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ interface POSScreenProps {
 
 export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POSScreenProps) {
   const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings } = useApp();
+  const { theme, setTheme } = useTheme();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
