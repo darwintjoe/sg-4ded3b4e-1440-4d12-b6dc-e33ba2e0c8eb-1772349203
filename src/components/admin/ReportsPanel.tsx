@@ -9,8 +9,8 @@ import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
 import { parseQuery } from "@/lib/chatbot-parser";
 import { getHelpResponse } from "@/lib/chatbot-help";
-import { executeQuery } from "@/lib/chatbot-interpreter";
-import { Language, QueryResult } from "@/types";
+import { executeQuery, QueryResult } from "@/lib/chatbot-interpreter";
+import { Language } from "@/types";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { LineChart } from "@/components/charts/LineChart";
@@ -36,29 +36,11 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom of chat
+  // Auto-scroll to bottom when messages change or during streaming
   useEffect(() => {
-    if (scrollRef.current) {
-      const scrollContainer = scrollRef.current;
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-      
-      // Only auto-scroll if user is already near the bottom (within 100px)
-      // or if it's the very first message
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 150;
-      
-      if (isNearBottom) {
-        // Use requestAnimationFrame to ensure DOM has updated
-        requestAnimationFrame(() => {
-          scrollContainer.scrollTo({
-            top: scrollContainer.scrollHeight,
-            behavior: "smooth"
-          });
-        });
-      }
-    }
-  }, [messages, streamingText, isProcessing]);
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingText]);
 
   // Helper: Add artificial delay
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -331,7 +313,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                   <div className="max-w-[85%] rounded-2xl p-4 bg-muted/50 border mr-12 shadow-sm">
                     <div className="space-y-3">
                       {streamingText.split("\n").map((line, i) => (
-                        <p key={i} className="leading-relaxed whitespace-pre-wrap">
+                        <p key={i} className="leading-relaxed animate-in fade-in slide-in-from-bottom-2 duration-300 whitespace-pre-wrap">
                           {line}
                         </p>
                       ))}
