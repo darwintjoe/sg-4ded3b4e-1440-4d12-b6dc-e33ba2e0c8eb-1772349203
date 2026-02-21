@@ -608,6 +608,7 @@ export function getDefaultSettings(): Settings {
     },
     // Display settings
     alwaysOnDisplay: false,
+    theme: "system" as const,
   };
 }
 

@@ -85,6 +85,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     };
   }, [settings?.alwaysOnDisplay]);
 
+  // Sync theme from settings on mount
+  if (settings?.theme && settings.theme !== theme) {
+    setTheme(settings.theme);
+  }
+
   useEffect(() => {
     loadItems();
     loadCurrentShift();
