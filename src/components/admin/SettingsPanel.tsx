@@ -989,20 +989,22 @@ export function SettingsPanel() {
         </div>
 
         <div className="flex flex-col">
-          <TabsContent value="store" className="flex-1 overflow-y-auto space-y-4 p-4 mt-0 data-[state=inactive]:hidden">
-            <BusinessSettingsSection 
-              settings={settings} 
-              onUpdate={updateAndSave}
-              language={language}
-            />
-            <PrinterSettingsSection 
-              settings={settings} 
-              onUpdate={updateAndSave}
-              language={language}
-            />
-          </TabsContent>
+          <div>
+            <TabsContent value="store" className="h-[calc(100vh-200px)] overflow-y-auto space-y-4 p-4 mt-0">
+              <BusinessSettingsSection 
+                settings={settings} 
+                onUpdate={updateAndSave}
+                language={language}
+              />
+              <PrinterSettingsSection 
+                settings={settings} 
+                onUpdate={updateAndSave}
+                language={language}
+              />
+            </TabsContent>
+          </div>
 
-          <TabsContent value="pos" className="flex-1 overflow-y-auto space-y-4 p-4 mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="pos" className="h-[calc(100vh-200px)] overflow-y-auto space-y-4 p-4 mt-0">
             <POSSettingsSection 
               settings={settings} 
               onUpdate={updateAndSave}
@@ -1010,7 +1012,7 @@ export function SettingsPanel() {
             />
           </TabsContent>
 
-          <TabsContent value="backup" className="flex-1 overflow-y-auto space-y-4 p-4 mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="backup" className="h-[calc(100vh-200px)] overflow-y-auto space-y-4 p-4 mt-0">
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -1094,7 +1096,7 @@ export function SettingsPanel() {
             </div>
           </TabsContent>
 
-          <TabsContent value="database" className="flex-1 overflow-y-auto space-y-4 p-4 mt-0 data-[state=inactive]:hidden">
+          <TabsContent value="database" className="h-[calc(100vh-200px)] overflow-y-auto space-y-4 p-4 mt-0">
             <DatabaseManagementSection 
               language={language}
               onFactoryReset={handleFactoryReset}
