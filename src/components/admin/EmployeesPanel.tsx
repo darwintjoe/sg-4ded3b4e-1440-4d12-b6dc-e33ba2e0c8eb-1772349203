@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -339,41 +339,43 @@ export function EmployeesPanel() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredEmployees = employees
-    .filter((employee) => {
-      const matchesSearch = 
-        employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee.pin.includes(searchQuery);
+  const filteredEmployees = useMemo(() => {
+    return employees
+      .filter((employee) => {
+        const matchesSearch = 
+          employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          employee.pin.includes(searchQuery);
 
-      let matchesStatus = true;
-      if (statusFilter === "active") matchesStatus = employee.isActive !== false;
-      if (statusFilter === "resigned") matchesStatus = employee.isActive === false;
+        let matchesStatus = true;
+        if (statusFilter === "active") matchesStatus = employee.isActive !== false;
+        if (statusFilter === "resigned") matchesStatus = employee.isActive === false;
 
-      const matchesRole = roleFilter === "all" || employee.role === roleFilter;
+        const matchesRole = roleFilter === "all" || employee.role === roleFilter;
 
-      return matchesSearch && matchesStatus && matchesRole;
-    })
-    .sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
+        return matchesSearch && matchesStatus && matchesRole;
+      })
+      .sort((a, b) => {
+        let aVal: any = a[sortField];
+        let bVal: any = b[sortField];
 
-      if (sortField === "name") {
-        aVal = a.name.toLowerCase();
-        bVal = b.name.toLowerCase();
-      } else if (sortField === "pin") {
-        aVal = a.pin;
-        bVal = b.pin;
-      } else if (sortField === "joinDate") {
-        aVal = a.joinDate || 0;
-        bVal = b.joinDate || 0;
-      }
+        if (sortField === "name") {
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+        } else if (sortField === "pin") {
+          aVal = a.pin;
+          bVal = b.pin;
+        } else if (sortField === "joinDate") {
+          aVal = a.joinDate || 0;
+          bVal = b.joinDate || 0;
+        }
 
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
+        if (sortDirection === "asc") {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+  }, [employees, searchQuery, statusFilter, roleFilter, sortField, sortDirection]);
 
   const filteredRoles = getAllRoles().filter(role =>
     role.toLowerCase().includes(roleSearch.toLowerCase())
