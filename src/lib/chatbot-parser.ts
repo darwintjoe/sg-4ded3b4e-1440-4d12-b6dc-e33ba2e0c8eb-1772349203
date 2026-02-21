@@ -1,42 +1,9 @@
-export interface ParsedQuery {
-  intent: QueryIntent;
-  timeRange: TimeRange;
-  entity?: string;
-  metric?: string;
-  limit?: number;
-  comparison?: ComparisonType;
-  filters?: QueryFilters;
-}
-
-export type QueryIntent =
-  | "help"
-  | "revenue"
-  | "transactions"
-  | "transaction_history"
-  | "transaction_detail"
-  | "top_items"
-  | "item_performance"
-  | "category_analysis"
-  | "payment_methods"
-  | "employee_performance"
-  | "attendance"
-  | "peak_hours"
-  | "trends"
-  | "trend_analysis"
-  | "transaction_count"
-  | "comparison"
-  | "polite_response"
-  | "out_of_context"
-  | "unknown";
-
-export type TimeRange = {
-  type: "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom" | "last_n_days" | "all_time";
-  days?: number;
-  startDate?: Date;
-  endDate?: Date;
-};
-
-export type ComparisonType = "day_over_day" | "week_over_week" | "month_over_month" | "period_comparison";
+import { 
+  ParsedQuery, 
+  QueryIntent, 
+  TimeRange, 
+  ComparisonType
+} from "@/types";
 
 export interface QueryFilters {
   category?: string;
@@ -127,8 +94,9 @@ export function parseQuery(input: string): ParsedQuery {
 
   if (fuzzyMatchKeywords(lowerInput, COMPARISON_KEYWORDS)) {
     return {
-      intent: "comparison",
+      intent: "compare",
       timeRange,
+      compareTimeRange: extractSecondTimeRange(lowerInput),
       comparison: extractComparisonType(lowerInput),
       entity,
     };
@@ -164,7 +132,7 @@ export function parseQuery(input: string): ParsedQuery {
 
   if (fuzzyMatchKeywords(lowerInput, EMPLOYEE_KEYWORDS)) {
     return {
-      intent: "employee_performance",
+      intent: "employee_sales",
       timeRange,
       entity,
       limit,
@@ -235,6 +203,33 @@ function matchesKeywords(input: string, keywords: string[]): boolean {
 }
 
 function extractTimeRange(input: string): TimeRange {
+  const now = new Date();
+  
+  // Month names - check these FIRST before relative terms
+  const monthNames = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+  
+  for (let i = 0; i < monthNames.length; i++) {
+    if (input.includes(monthNames[i])) {
+      const year = now.getFullYear();
+      
+      // Check for "last January" etc.
+      const isLast = input.includes("last " + monthNames[i]);
+      const targetYear = isLast ? year - 1 : year;
+      
+      const startDate = new Date(targetYear, i, 1);
+      const endDate = new Date(targetYear, i + 1, 0, 23, 59, 59);
+      
+      return {
+        type: "custom",
+        startDate,
+        endDate
+      };
+    }
+  }
+
   if (fuzzyMatchKeywords(input, TIME_ALL_TIME)) {
     return { type: "all_time" };
   }
@@ -257,6 +252,28 @@ function extractTimeRange(input: string): TimeRange {
   if (fuzzyMatchKeywords(input, TIME_LAST_MONTH)) {
     return { type: "last_month" };
   }
+  
+  // Check for "this year"
+  if (input.includes("this year")) {
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    return { 
+      type: "custom", 
+      startDate: start, 
+      endDate: end 
+    };
+  }
+
+  // Check for "last year"
+  if (input.includes("last year")) {
+    const start = new Date(now.getFullYear() - 1, 0, 1);
+    const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+    return { 
+      type: "custom", 
+      startDate: start, 
+      endDate: end 
+    };
+  }
 
   const lastNDaysMatch = input.match(TIME_LAST_N_DAYS);
   if (lastNDaysMatch) {
@@ -267,6 +284,27 @@ function extractTimeRange(input: string): TimeRange {
   }
 
   return { type: "today" };
+}
+
+function extractSecondTimeRange(input: string): TimeRange | undefined {
+  // Simple extraction for comparison: looks for a second time reference
+  // This is a simplified version - improved logic would need to split the string
+  // and parse both parts independently
+  
+  const parts = input.split(/vs|versus|compare|and|with/);
+  if (parts.length > 1) {
+    // Try to parse the second part
+    const secondPart = parts[1].trim();
+    const range = extractTimeRange(secondPart);
+    
+    // If the second part defaults to today (meaning no date found), return undefined
+    // unless the user explicitly asked for "today" in the second part
+    if (range.type === "today" && !secondPart.includes("today") && !secondPart.includes("now")) {
+      return undefined;
+    }
+    return range;
+  }
+  return undefined;
 }
 
 function extractLimit(input: string): number | undefined {
