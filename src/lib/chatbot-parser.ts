@@ -91,26 +91,6 @@ export function parseQuery(input: string): ParsedQuery {
     };
   }
 
-  // Check for polite responses
-  if (fuzzyMatchKeywords(lowerInput, POLITE_KEYWORDS)) {
-    return {
-      intent: "polite_response",
-      timeRange: { type: "today" },
-    };
-  }
-
-  // Check for out-of-context queries
-  const isOutOfContext = Object.values(OUT_OF_CONTEXT_KEYWORDS).some(keywords =>
-    fuzzyMatchKeywords(lowerInput, keywords)
-  );
-  
-  if (isOutOfContext) {
-    return {
-      intent: "out_of_context",
-      timeRange: { type: "today" },
-    };
-  }
-
   const timeRange = extractTimeRange(lowerInput);
   const limit = extractLimit(lowerInput);
   const entity = extractEntity(lowerInput);
@@ -224,6 +204,26 @@ export function parseQuery(input: string): ParsedQuery {
     };
   }
 
+  // Check for polite responses AFTER all specific intents
+  if (fuzzyMatchKeywords(lowerInput, POLITE_KEYWORDS)) {
+    return {
+      intent: "polite_response",
+      timeRange: { type: "today" },
+    };
+  }
+
+  // Check for out-of-context queries AFTER all specific intents
+  const isOutOfContext = Object.values(OUT_OF_CONTEXT_KEYWORDS).some(keywords =>
+    fuzzyMatchKeywords(lowerInput, keywords)
+  );
+  
+  if (isOutOfContext) {
+    return {
+      intent: "out_of_context",
+      timeRange: { type: "today" },
+    };
+  }
+
   return {
     intent: "unknown",
     timeRange: { type: "today" },
@@ -235,10 +235,7 @@ function matchesKeywords(input: string, keywords: string[]): boolean {
 }
 
 function extractTimeRange(input: string): TimeRange {
-  if (fuzzyMatchKeywords(input, TIME_ALL_TIME)) {
-    return { type: "all_time" };
-  }
-  
+  // Check specific time ranges BEFORE "all time" to prioritize explicit mentions
   if (fuzzyMatchKeywords(input, TIME_TODAY)) {
     return { type: "today" };
   }
@@ -264,6 +261,11 @@ function extractTimeRange(input: string): TimeRange {
       type: "last_n_days",
       days: parseInt(lastNDaysMatch[1]),
     };
+  }
+
+  // Check "all time" LAST since it's the most general
+  if (fuzzyMatchKeywords(input, TIME_ALL_TIME)) {
+    return { type: "all_time" };
   }
 
   return { type: "today" };
@@ -385,6 +387,7 @@ function normalizeWord(word: string): string {
 
 /**
  * Check if two words are similar enough (handles typos and variations)
+ * Stricter matching for very short words to prevent false positives
  */
 function isSimilarWord(word1: string, word2: string, maxDistance: number = 2): boolean {
   const norm1 = normalizeWord(word1);
@@ -393,9 +396,19 @@ function isSimilarWord(word1: string, word2: string, maxDistance: number = 2): b
   // Exact match after normalization
   if (norm1 === norm2) return true;
   
-  // Length-based threshold for typo tolerance
+  // Stricter threshold for very short words (2-3 chars)
   const minLength = Math.min(norm1.length, norm2.length);
-  const threshold = minLength <= 4 ? 1 : maxDistance;
+  let threshold: number;
+  
+  if (minLength <= 2) {
+    threshold = 0; // No fuzzy matching for 1-2 char words (exact match only)
+  } else if (minLength === 3) {
+    threshold = 1; // Allow 1 edit for 3-char words
+  } else if (minLength <= 5) {
+    threshold = 1; // Allow 1 edit for 4-5 char words
+  } else {
+    threshold = maxDistance; // Allow 2 edits for longer words
+  }
   
   // Calculate edit distance
   const distance = levenshteinDistance(norm1, norm2);

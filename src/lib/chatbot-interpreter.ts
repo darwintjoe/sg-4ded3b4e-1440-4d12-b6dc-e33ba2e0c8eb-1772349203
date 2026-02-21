@@ -16,9 +16,6 @@ export interface QueryResult {
  */
 export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
-    // Ensure database is initialized before executing queries
-    await db.init();
-
     switch (query.intent) {
       case "help":
         return {
