@@ -104,6 +104,14 @@ function extractIntent(input: string): QueryIntent {
 function extractTimeRange(input: string): TimeRange {
   const now = new Date();
 
+  // Special case: "last transaction" without time keywords = all time
+  if (input.includes("last") && input.includes("transaction") && 
+      !input.includes("today") && !input.includes("yesterday") && 
+      !input.includes("week") && !input.includes("month") && 
+      !input.includes("year")) {
+    return { type: "all_time" };
+  }
+
   // 1. Specific Months
   const months = [
     "january", "february", "march", "april", "may", "june", 
@@ -112,7 +120,6 @@ function extractTimeRange(input: string): TimeRange {
   
   for (let i = 0; i < months.length; i++) {
     if (input.includes(months[i])) {
-      // Determine year (current year, unless month is in future relative to now, then last year)
       let year = now.getFullYear();
       if (i > now.getMonth()) {
         year -= 1;

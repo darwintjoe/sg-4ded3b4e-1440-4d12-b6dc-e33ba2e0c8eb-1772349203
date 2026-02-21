@@ -135,7 +135,9 @@ async function handleTransactionDetail(query: ParsedQuery): Promise<QueryResult>
 
 async function handleTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
   const limit = query.limit || 5;
-  const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
+  const sales = query.timeRange.type === "all_time" 
+    ? await db.getSales()
+    : await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
   
   // Sort descending by time
   const recentSales = sales.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
