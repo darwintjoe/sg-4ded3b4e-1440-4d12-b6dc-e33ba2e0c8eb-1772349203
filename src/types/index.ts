@@ -48,6 +48,7 @@ export interface Item {
   variants?: ItemVariant[];
   modifiers?: ItemModifier[];
   isActive?: boolean;
+  lowStockThreshold?: number;
 }
 
 export interface ItemVariant {
@@ -295,4 +296,59 @@ export interface ShiftConfig {
 
 export interface Translations {
   [key: string]: string;
+}
+
+export type TimeRangeType =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "this_month"
+  | "last_month"
+  | "last_n_days"
+  | "all_time";
+
+export interface TimeRange {
+  type: TimeRangeType;
+  days?: number;
+}
+
+export interface QueryResult {
+  success: boolean;
+  message: string;
+  data?: any;
+  responseText?: string;
+  chartType?: "pie" | "bar" | "line" | "card" | "table" | "heatmap" | "stacked_bar" | "horizontal_bar";
+  error?: string;
+}
+
+export type QueryIntent =
+  | "revenue"
+  | "transactions"
+  | "top_items"
+  | "low_stock"
+  | "employee_sales"
+  | "attendance"
+  | "payment_methods"
+  | "compare"
+  | "help"
+  | "polite_response"
+  | "out_of_context"
+  | "transaction_detail"
+  | "peak_hours"
+  | "transaction_history"
+  | "employee_performance"
+  | "category_analysis"
+  | "item_performance"
+  | "trends"
+  | "unknown";
+
+export type ComparisonType = "revenue" | "transactions" | "top_items" | "payment_methods" | "employee_sales";
+
+export interface ParsedQuery {
+  intent: QueryIntent;
+  timeRange: TimeRange;
+  compareTimeRange?: TimeRange; // Optional second time range for comparisons
+  entity?: string;
+  limit?: number;
 }

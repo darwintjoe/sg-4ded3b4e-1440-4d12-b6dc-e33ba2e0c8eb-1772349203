@@ -1,1130 +1,581 @@
-import { db } from "@/lib/db";
-import { ParsedQuery, TimeRange } from "@/lib/chatbot-parser";
-import { Transaction, DailyItemSales, DailyPaymentSales, MonthlyItemSales, Item, Employee, Attendance } from "@/types";
-import { getHelpResponse as getHelpText, getPoliteResponseText, getOutOfContextResponseText } from "./chatbot-help";
+import { db } from "./db";
+import type { ParsedQuery, QueryResult, TimeRange, Transaction, CartItem } from "@/types";
 
-export interface QueryResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-  chartType?: "bar" | "line" | "pie" | "table" | "card" | "heatmap";
-  responseText?: string;
+function getDateRange(timeRange: TimeRange): { start: Date; end: Date } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (timeRange.type) {
+    case "today":
+      return {
+        start: today,
+        end: new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1),
+      };
+
+    case "yesterday": {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        start: yesterday,
+        end: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000 - 1),
+      };
+    }
+
+    case "this_week": {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      return {
+        start: startOfWeek,
+        end: now,
+      };
+    }
+
+    case "last_week": {
+      const startOfLastWeek = new Date(today);
+      startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
+      const endOfLastWeek = new Date(startOfLastWeek);
+      endOfLastWeek.setDate(startOfLastWeek.getDate() + 6);
+      endOfLastWeek.setHours(23, 59, 59, 999);
+      return {
+        start: startOfLastWeek,
+        end: endOfLastWeek,
+      };
+    }
+
+    case "this_month": {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {
+        start: startOfMonth,
+        end: now,
+      };
+    }
+
+    case "last_month": {
+      const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      endOfLastMonth.setHours(23, 59, 59, 999);
+      return {
+        start: startOfLastMonth,
+        end: endOfLastMonth,
+      };
+    }
+
+    case "last_n_days": {
+      const days = timeRange.days || 7;
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - days);
+      return {
+        start: startDate,
+        end: now,
+      };
+    }
+
+    case "all_time":
+    default:
+      return {
+        start: new Date(0),
+        end: now,
+      };
+  }
 }
 
-/**
- * Execute parsed query against database
- */
+function formatTimeRangeLabel(timeRange: TimeRange): string {
+  switch (timeRange.type) {
+    case "today":
+      return "Today";
+    case "yesterday":
+      return "Yesterday";
+    case "this_week":
+      return "This Week";
+    case "last_week":
+      return "Last Week";
+    case "this_month":
+      return "This Month";
+    case "last_month":
+      return "Last Month";
+    case "last_n_days":
+      return `Last ${timeRange.days} Days`;
+    case "all_time":
+      return "All Time";
+    default:
+      return "Unknown Period";
+  }
+}
+
+function formatCurrency(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}
+
+function formatPercentChange(change: number): string {
+  const sign = change > 0 ? "+" : "";
+  const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
+  return `${arrow} ${sign}${change.toFixed(1)}%`;
+}
+
+// Helper to extract payment method from transaction
+function getPaymentMethod(transaction: Transaction): string {
+  if (transaction.payments && transaction.payments.length > 0) {
+    return transaction.payments[0].method;
+  }
+  return "Unknown";
+}
+
+async function handleCompareIntent(query: ParsedQuery): Promise<QueryResult> {
+  if (!query.compareTimeRange) {
+    return {
+      success: false,
+      message: "❌ **Error:** Comparison requires two time periods",
+    };
+  }
+
+  const primaryRange = getDateRange(query.timeRange);
+  const compareRange = getDateRange(query.compareTimeRange);
+  const primaryLabel = formatTimeRangeLabel(query.timeRange);
+  const compareLabel = formatTimeRangeLabel(query.compareTimeRange);
+  
+  // Use entity as sub-intent, defaulting to revenue if not specified or unknown
+  const subIntent = (query.entity || "revenue") as string;
+
+  try {
+    switch (subIntent) {
+      case "transactions": {
+        const [primarySales, compareSales] = await Promise.all([
+          db.getSales(primaryRange.start, primaryRange.end),
+          db.getSales(compareRange.start, compareRange.end),
+        ]);
+
+        const primaryCount = primarySales.length;
+        const compareCount = compareSales.length;
+        const difference = primaryCount - compareCount;
+        const percentChange = compareCount > 0 ? ((difference / compareCount) * 100) : 0;
+
+        return {
+          success: true,
+          message: `📊 **Transaction Count Comparison**\n\n**${primaryLabel}:** ${primaryCount} transactions\n**${compareLabel}:** ${compareCount} transactions\n\n**Difference:** ${difference > 0 ? "+" : ""}${difference} transactions ${formatPercentChange(percentChange)}`,
+          responseText: `Comparing ${primaryLabel} vs ${compareLabel}, transaction count changed by ${difference} (${percentChange.toFixed(1)}%).`
+        };
+      }
+
+      case "top_items": {
+        const [primarySales, compareSales] = await Promise.all([
+          db.getSales(primaryRange.start, primaryRange.end),
+          db.getSales(compareRange.start, compareRange.end),
+        ]);
+
+        const primaryItemSales = new Map<number, { name: string; quantity: number; revenue: number }>();
+        const compareItemSales = new Map<number, { name: string; quantity: number; revenue: number }>();
+
+        primarySales.forEach(sale => {
+          sale.items.forEach(item => {
+            const existing = primaryItemSales.get(item.itemId) || { name: item.name, quantity: 0, revenue: 0 };
+            primaryItemSales.set(item.itemId, {
+              name: item.name,
+              quantity: existing.quantity + item.quantity,
+              revenue: existing.revenue + (item.basePrice * item.quantity),
+            });
+          });
+        });
+
+        compareSales.forEach(sale => {
+          sale.items.forEach(item => {
+            const existing = compareItemSales.get(item.itemId) || { name: item.name, quantity: 0, revenue: 0 };
+            compareItemSales.set(item.itemId, {
+              name: item.name,
+              quantity: existing.quantity + item.quantity,
+              revenue: existing.revenue + (item.basePrice * item.quantity),
+            });
+          });
+        });
+
+        const primaryTop = Array.from(primaryItemSales.values())
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, 5);
+
+        const compareTop = Array.from(compareItemSales.values())
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, 5);
+
+        let message = `📊 **Top Selling Items Comparison**\n\n**${primaryLabel}:**\n`;
+        primaryTop.forEach((item, i) => {
+          message += `${i + 1}. ${item.name} - ${item.quantity} units (${formatCurrency(item.revenue)})\n`;
+        });
+
+        message += `\n**${compareLabel}:**\n`;
+        compareTop.forEach((item, i) => {
+          message += `${i + 1}. ${item.name} - ${item.quantity} units (${formatCurrency(item.revenue)})\n`;
+        });
+
+        return { 
+          success: true, 
+          message,
+          responseText: `Here is the comparison of top items between ${primaryLabel} and ${compareLabel}.`
+        };
+      }
+
+      case "payment_methods": {
+        const [primarySales, compareSales] = await Promise.all([
+          db.getSales(primaryRange.start, primaryRange.end),
+          db.getSales(compareRange.start, compareRange.end),
+        ]);
+
+        const primaryPayments = new Map<string, number>();
+        const comparePayments = new Map<string, number>();
+
+        primarySales.forEach(sale => {
+          const method = getPaymentMethod(sale);
+          const current = primaryPayments.get(method) || 0;
+          primaryPayments.set(method, current + sale.total);
+        });
+
+        compareSales.forEach(sale => {
+          const method = getPaymentMethod(sale);
+          const current = comparePayments.get(method) || 0;
+          comparePayments.set(method, current + sale.total);
+        });
+
+        let message = `📊 **Payment Methods Comparison**\n\n**${primaryLabel}:**\n`;
+        Array.from(primaryPayments.entries())
+          .sort((a, b) => b[1] - a[1])
+          .forEach(([method, amount]) => {
+            message += `${method}: ${formatCurrency(amount)}\n`;
+          });
+
+        message += `\n**${compareLabel}:**\n`;
+        Array.from(comparePayments.entries())
+          .sort((a, b) => b[1] - a[1])
+          .forEach(([method, amount]) => {
+            message += `${method}: ${formatCurrency(amount)}\n`;
+          });
+
+        return { 
+          success: true, 
+          message,
+          responseText: `Here is the payment method breakdown for ${primaryLabel} vs ${compareLabel}.`
+        };
+      }
+
+      case "employee_sales": {
+        const [primarySales, compareSales] = await Promise.all([
+          db.getSales(primaryRange.start, primaryRange.end),
+          db.getSales(compareRange.start, compareRange.end),
+        ]);
+
+        const primaryEmpSales = new Map<number, { name: string; total: number; count: number }>();
+        const compareEmpSales = new Map<number, { name: string; total: number; count: number }>();
+
+        primarySales.forEach(sale => {
+          const existing = primaryEmpSales.get(sale.cashierId) || { name: sale.cashierName || "Unknown", total: 0, count: 0 };
+          primaryEmpSales.set(sale.cashierId, {
+            name: existing.name,
+            total: existing.total + sale.total,
+            count: existing.count + 1,
+          });
+        });
+
+        compareSales.forEach(sale => {
+          const existing = compareEmpSales.get(sale.cashierId) || { name: sale.cashierName || "Unknown", total: 0, count: 0 };
+          compareEmpSales.set(sale.cashierId, {
+            name: existing.name,
+            total: existing.total + sale.total,
+            count: existing.count + 1,
+          });
+        });
+
+        let message = `📊 **Employee Sales Comparison**\n\n**${primaryLabel}:**\n`;
+        Array.from(primaryEmpSales.values())
+          .sort((a, b) => b.total - a.total)
+          .forEach(emp => {
+            message += `${emp.name}: ${formatCurrency(emp.total)} (${emp.count} sales)\n`;
+          });
+
+        message += `\n**${compareLabel}:**\n`;
+        Array.from(compareEmpSales.values())
+          .sort((a, b) => b.total - a.total)
+          .forEach(emp => {
+            message += `${emp.name}: ${formatCurrency(emp.total)} (${emp.count} sales)\n`;
+          });
+
+        return { 
+          success: true, 
+          message,
+          responseText: `Employee performance comparison between ${primaryLabel} and ${compareLabel}.`
+        };
+      }
+
+      case "revenue":
+      default: {
+        const [primarySales, compareSales] = await Promise.all([
+          db.getSales(primaryRange.start, primaryRange.end),
+          db.getSales(compareRange.start, compareRange.end),
+        ]);
+
+        const primaryRevenue = primarySales.reduce((sum, sale) => sum + sale.total, 0);
+        const compareRevenue = compareSales.reduce((sum, sale) => sum + sale.total, 0);
+        const difference = primaryRevenue - compareRevenue;
+        const percentChange = compareRevenue > 0 ? ((difference / compareRevenue) * 100) : 0;
+
+        return {
+          success: true,
+          message: `📊 **Revenue Comparison**\n\n**${primaryLabel}:** ${formatCurrency(primaryRevenue)}\n**${compareLabel}:** ${formatCurrency(compareRevenue)}\n\n**Difference:** ${difference > 0 ? "+" : ""}${formatCurrency(difference)} ${formatPercentChange(percentChange)}`,
+          responseText: `Revenue changed by ${formatCurrency(Math.abs(difference))} (${percentChange.toFixed(1)}%) between ${primaryLabel} and ${compareLabel}.`
+        };
+      }
+    }
+  } catch (error) {
+    console.error("Comparison query error:", error);
+    return {
+      success: false,
+      message: "❌ **Error:** Failed to execute comparison query",
+      error: String(error)
+    };
+  }
+}
+
 export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
     switch (query.intent) {
-      case "help":
+      case "compare":
+        return await handleCompareIntent(query);
+
+      case "revenue": {
+        const dateRange = getDateRange(query.timeRange);
+        const sales = await db.getSales(dateRange.start, dateRange.end);
+        const total = sales.reduce((sum, sale) => sum + sale.total, 0);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+
         return {
           success: true,
-          chartType: "card",
-          data: { value: 0, label: "Help" },
-          responseText: getHelpText()
+          message: `💰 **Total Revenue (${timeLabel}):** ${formatCurrency(total)}\n\nBased on ${sales.length} transactions`,
+          responseText: `The total revenue for ${timeLabel} is ${formatCurrency(total)}.`
         };
-      case "polite_response":
-        return getPoliteResponse();
-      case "out_of_context":
-        return getOutOfContextResponse();
-      case "revenue":
-        return await getRevenue(query);
-      case "top_items":
-        return await getTopItems(query);
-      case "item_performance":
-        return await getItemPerformance(query);
-      case "category_analysis":
-        return await getCategoryAnalysis(query);
-      case "payment_methods":
-        return await getPaymentMethods(query);
-      case "employee_performance":
-        return await getEmployeePerformance(query);
-      case "attendance":
-        return await getAttendance(query);
-      case "peak_hours":
-        return await getPeakHours(query);
-      case "trends":
-      case "trend_analysis":
-        return await getTrendAnalysis(query);
-      case "transactions":
-      case "transaction_count":
-        return await getTransactionCount(query);
-      case "transaction_history":
-        return await getTransactionHistory(query);
-      case "transaction_detail":
-        return await getTransactionDetail(query);
+      }
+
+      case "transactions": {
+        const dateRange = getDateRange(query.timeRange);
+        const sales = await db.getSales(dateRange.start, dateRange.end);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+
+        return {
+          success: true,
+          message: `📊 **Transactions (${timeLabel}):** ${sales.length}\n\nTotal Revenue: ${formatCurrency(sales.reduce((sum, s) => sum + s.total, 0))}`,
+          responseText: `There were ${sales.length} transactions during ${timeLabel}.`
+        };
+      }
+
+      case "top_items": {
+        const dateRange = getDateRange(query.timeRange);
+        const sales = await db.getSales(dateRange.start, dateRange.end);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+        const itemSales = new Map<number, { name: string; quantity: number; revenue: number }>();
+
+        sales.forEach((sale) => {
+          sale.items.forEach((item) => {
+            const existing = itemSales.get(item.itemId) || {
+              name: item.name,
+              quantity: 0,
+              revenue: 0,
+            };
+            itemSales.set(item.itemId, {
+              name: item.name,
+              quantity: existing.quantity + item.quantity,
+              revenue: existing.revenue + item.basePrice * item.quantity,
+            });
+          });
+        });
+
+        const topItems = Array.from(itemSales.values())
+          .sort((a, b) => b.quantity - a.quantity)
+          .slice(0, query.limit || 5);
+
+        if (topItems.length === 0) {
+          return {
+            success: true,
+            message: `📦 **Top Selling Items (${timeLabel}):**\n\nNo sales data available for this period.`,
+            responseText: `I couldn't find any sales data for ${timeLabel}.`
+          };
+        }
+
+        let message = `📦 **Top Selling Items (${timeLabel}):**\n\n`;
+        topItems.forEach((item, index) => {
+          message += `${index + 1}. **${item.name}** - ${item.quantity} units sold (${formatCurrency(item.revenue)})\n`;
+        });
+
+        return {
+          success: true,
+          message,
+          responseText: `Here are the top selling items for ${timeLabel}.`
+        };
+      }
+
+      case "low_stock": {
+        const items = await db.getItems();
+        const lowStockItems = items
+          .filter((item) => item.stock !== undefined && item.stock <= (item.lowStockThreshold || 10))
+          .sort((a, b) => (a.stock || 0) - (b.stock || 0))
+          .slice(0, query.limit || 10);
+
+        if (lowStockItems.length === 0) {
+          return {
+            success: true,
+            message: "✅ **Low Stock Items:** All items are well-stocked!",
+            responseText: "All items are well-stocked."
+          };
+        }
+
+        let message = "⚠️ **Low Stock Items:**\n\n";
+        lowStockItems.forEach((item, index) => {
+          message += `${index + 1}. **${item.name}** - ${item.stock} units remaining\n`;
+        });
+
+        return {
+          success: true,
+          message,
+          responseText: "Here are the items running low on stock."
+        };
+      }
+
+      case "employee_sales": {
+        const dateRange = getDateRange(query.timeRange);
+        const sales = await db.getSales(dateRange.start, dateRange.end);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+        const employeeSales = new Map<number, { name: string; total: number; count: number }>();
+
+        sales.forEach((sale) => {
+          const existing = employeeSales.get(sale.cashierId) || {
+            name: sale.cashierName || "Unknown",
+            total: 0,
+            count: 0,
+          };
+          employeeSales.set(sale.cashierId, {
+            name: existing.name,
+            total: existing.total + sale.total,
+            count: existing.count + 1,
+          });
+        });
+
+        const topEmployees = Array.from(employeeSales.values())
+          .sort((a, b) => b.total - a.total)
+          .slice(0, query.limit || 5);
+
+        if (topEmployees.length === 0) {
+          return {
+            success: true,
+            message: `👥 **Employee Sales (${timeLabel}):**\n\nNo sales data available for this period.`,
+            responseText: `No employee sales data found for ${timeLabel}.`
+          };
+        }
+
+        let message = `👥 **Employee Sales (${timeLabel}):**\n\n`;
+        topEmployees.forEach((emp, index) => {
+          message += `${index + 1}. **${emp.name}** - ${formatCurrency(emp.total)} (${emp.count} transactions)\n`;
+        });
+
+        return {
+          success: true,
+          message,
+          responseText: `Here is the employee sales performance for ${timeLabel}.`
+        };
+      }
+
+      case "attendance": {
+        const dateRange = getDateRange(query.timeRange);
+        const attendance = await db.getAttendance(dateRange.start, dateRange.end);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+
+        if (attendance.length === 0) {
+          return {
+            success: true,
+            message: `📅 **Attendance (${timeLabel}):**\n\nNo attendance records for this period.`,
+            responseText: `No attendance records found for ${timeLabel}.`
+          };
+        }
+
+        let message = `📅 **Attendance (${timeLabel}):**\n\n`;
+        attendance.forEach((record) => {
+          const clockIn = new Date(record.clockIn).toLocaleTimeString();
+          const clockOut = record.clockOut ? new Date(record.clockOut).toLocaleTimeString() : "Still working";
+          message += `**${record.employeeName}** - In: ${clockIn}, Out: ${clockOut}\n`;
+        });
+
+        return {
+          success: true,
+          message,
+          responseText: `Here is the attendance report for ${timeLabel}.`
+        };
+      }
+
+      case "payment_methods": {
+        const dateRange = getDateRange(query.timeRange);
+        const sales = await db.getSales(dateRange.start, dateRange.end);
+        const timeLabel = formatTimeRangeLabel(query.timeRange);
+        const paymentMethods = new Map<string, number>();
+
+        sales.forEach((sale) => {
+          const method = getPaymentMethod(sale);
+          const current = paymentMethods.get(method) || 0;
+          paymentMethods.set(method, current + sale.total);
+        });
+
+        if (paymentMethods.size === 0) {
+          return {
+            success: true,
+            message: `💳 **Payment Methods (${timeLabel}):**\n\nNo payment data available for this period.`,
+            responseText: `No payment data found for ${timeLabel}.`
+          };
+        }
+
+        let message = `💳 **Payment Methods (${timeLabel}):**\n\n`;
+        const sortedPayments = Array.from(paymentMethods.entries()).sort((a, b) => b[1] - a[1]);
+
+        sortedPayments.forEach(([method, total]) => {
+          const percentage = (total / sales.reduce((sum, s) => sum + s.total, 0)) * 100;
+          message += `**${method}:** ${formatCurrency(total)} (${percentage.toFixed(1)}%)\n`;
+        });
+
+        return {
+          success: true,
+          message,
+          responseText: `Here is the payment method breakdown for ${timeLabel}.`
+        };
+      }
+
+      case "help": {
+        return {
+          success: true,
+          message: `🤖 **AI Assistant Help**\n\n**Revenue & Sales:**\n- "What's the total revenue today?"\n- "Show me sales for last week"\n- "How much did we make this month?"\n\n**Comparisons:**\n- "Compare revenue this week vs last week"\n- "Compare best selling items January with December"\n- "Sales this month vs last month"\n\n**Items & Inventory:**\n- "Best selling items today"\n- "Top 10 items this month"\n- "Show me low stock items"\n\n**Employees:**\n- "Employee sales today"\n- "Who sold the most this week?"\n- "Show attendance for today"\n\n**Payments:**\n- "Payment breakdown for today"\n- "How do people pay this month?"\n\n**Time Periods:** today, yesterday, this week, last week, this month, last month, last 7 days, all time`,
+          responseText: "Here is what I can do for you."
+        };
+      }
+
+      case "polite_response": {
+        return {
+          success: true,
+          message: "😊 You're welcome! Let me know if you need anything else!",
+          responseText: "You're welcome!"
+        };
+      }
+
+      case "out_of_context": {
+        return {
+          success: true,
+          message: "🤔 I'm specialized in analyzing your sales data. Try asking about revenue, items, employees, or type 'help' for examples!",
+          responseText: "I can only help with sales and business data."
+        };
+      }
+
       default:
         return {
           success: false,
-          error: "Intent not recognized"
+          message: "❌ **Error:** Intent not recognized. Type 'help' to see what I can do!",
+          responseText: "I didn't understand that. Try asking for 'help'."
         };
     }
   } catch (error) {
     console.error("Query execution error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error"
+      message: "❌ **Error:** Failed to execute query. Please try again.",
+      error: String(error)
     };
   }
-}
-
-/**
- * Helper: Generate polite response
- */
-function getPoliteResponse(): QueryResult {
-  return {
-    success: true,
-    chartType: "card",
-    data: { value: 0, label: "Assistant" },
-    responseText: getPoliteResponseText()
-  };
-}
-
-/**
- * Helper: Generate out of context response
- */
-function getOutOfContextResponse(): QueryResult {
-  return {
-    success: true,
-    chartType: "card",
-    data: { value: 0, label: "System" },
-    responseText: getOutOfContextResponseText()
-  };
-}
-
-/**
- * Get revenue data
- */
-async function getRevenue(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-  const isAllTime = isAllTimeQuery(query.timeRange);
-
-  let totalRevenue = 0;
-  let transactionCount = 0;
-
-  if (isAllTime) {
-    // Combine all monthly summaries + recent daily data
-    const monthlySales = await db.getAll<any>("monthlySalesSummary");
-    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-    
-    // Get all monthly data
-    totalRevenue = monthlySales.reduce((sum, m) => sum + m.totalRevenue, 0);
-    transactionCount = monthlySales.reduce((sum, m) => sum + m.totalReceipts, 0);
-    
-    // Add recent daily data that might not be in monthly summaries yet
-    const today = new Date();
-    const sixtyDaysAgo = new Date(today);
-    sixtyDaysAgo.setDate(today.getDate() - 60);
-    const recentCutoff = sixtyDaysAgo.toISOString().split("T")[0];
-    
-    const recentDaily = dailyPayments.filter(p => p.businessDate >= recentCutoff);
-    totalRevenue += recentDaily.reduce((sum, p) => sum + p.totalAmount, 0);
-    transactionCount += recentDaily.reduce((sum, p) => sum + p.transactionCount, 0);
-  } else if (useMonthly) {
-    const monthlySales = await db.getAll<any>("monthlySalesSummary");
-    const yearMonth = startDate.substring(0, 7);
-    const monthData = monthlySales.find(m => m.yearMonth === yearMonth);
-    
-    if (monthData) {
-      totalRevenue = monthData.totalRevenue;
-      transactionCount = monthData.totalReceipts;
-    }
-  } else {
-    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-    const filtered = dailyPayments.filter(
-      p => p.businessDate >= startDate && p.businessDate <= endDate
-    );
-
-    totalRevenue = filtered.reduce((sum, p) => sum + p.totalAmount, 0);
-    transactionCount = filtered.reduce((sum, p) => sum + p.transactionCount, 0);
-  }
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  if (totalRevenue === 0 && transactionCount === 0) {
-    return {
-      success: true,
-      chartType: "card",
-      data: { value: 0, label: "Total Revenue", transactions: 0 },
-      responseText: `${generatePrefix(query)}\n\n` +
-        `I couldn't find any transactions for this period. 📭\n\n` +
-        `**Possible reasons:**\n` +
-        `• No sales were recorded ${timeLabel.toLowerCase()}\n` +
-        `• Data might not be synced yet\n` +
-        `• Try a different date range\n\n` +
-        `Would you like to check a different time period?`
-    };
-  }
-
-  return {
-    success: true,
-    chartType: "card",
-    data: {
-      value: totalRevenue,
-      label: "Total Revenue",
-      transactions: transactionCount
-    },
-    responseText: `${generatePrefix(query)}\n\n` +
-      `**Total:** ${formatCurrency(totalRevenue)}\n` +
-      `**Transactions:** ${transactionCount}\n` +
-      `**Average per transaction:** ${formatCurrency(transactionCount > 0 ? totalRevenue / transactionCount : 0)}\n\n` +
-      `${getEndingQuestion()}`
-  };
-}
-
-/**
- * Get top selling items
- */
-async function getTopItems(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-  const limit = query.limit || 10;
-
-  let itemSales: Array<{ itemId: number; itemName: string; sku: string; quantity: number; revenue: number }> = [];
-
-  if (useMonthly) {
-    const yearMonth = startDate.substring(0, 7);
-    const monthlySales = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-    const filtered = monthlySales.filter(m => m.yearMonth === yearMonth);
-    
-    itemSales = filtered.map(m => ({
-      itemId: m.itemId,
-      itemName: m.itemName,
-      sku: m.sku,
-      quantity: m.totalQuantity,
-      revenue: m.totalRevenue
-    }));
-  } else {
-    const dailySales = await db.getAll<DailyItemSales>("dailyItemSales");
-    const filtered = dailySales.filter(
-      s => s.businessDate >= startDate && s.businessDate <= endDate
-    );
-
-    const aggregated = new Map<number, { itemName: string; sku: string; quantity: number; revenue: number }>();
-    
-    filtered.forEach(sale => {
-      const existing = aggregated.get(sale.itemId) || { 
-        itemName: sale.itemName, 
-        sku: sale.sku, 
-        quantity: 0, 
-        revenue: 0 
-      };
-      existing.quantity += sale.totalQuantity;
-      existing.revenue += sale.totalRevenue;
-      aggregated.set(sale.itemId, existing);
-    });
-
-    itemSales = Array.from(aggregated.entries()).map(([itemId, data]) => ({
-      itemId,
-      ...data
-    }));
-  }
-
-  // Sort by quantity and take top N
-  itemSales.sort((a, b) => b.quantity - a.quantity);
-  const topItems = itemSales.slice(0, limit);
-
-  if (topItems.length === 0) {
-    return {
-      success: true,
-      chartType: "card",
-      data: { value: 0, label: "No Items Found" },
-      responseText: `${generatePrefix(query)}\n\n` +
-        `I couldn't find any item sales for this period. 📭\n\n` +
-        `**Possible reasons:**\n` +
-        `• No items were sold ${getTimeLabel(query.timeRange).toLowerCase()}\n` +
-        `• Data might not be synced yet\n` +
-        `• Try a different date range\n\n` +
-        `Want to check another time period?`
-    };
-  }
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  topItems.forEach((item, index) => {
-    responseText += `**${index + 1}. ${item.itemName}** (${item.sku})\n`;
-    responseText += `   Sold: ${item.quantity} units | Revenue: ${formatCurrency(item.revenue)}\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "bar",
-    data: topItems.map(item => ({
-      name: item.itemName,
-      value: item.quantity,
-      revenue: item.revenue
-    })),
-    responseText
-  };
-}
-
-/**
- * Get specific item performance
- */
-async function getItemPerformance(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-  
-  if (!query.entity) {
-    return {
-      success: false,
-      error: "Please specify an item name"
-    };
-  }
-
-  // Find item by name (case-insensitive search)
-  const items = await db.getAll<Item>("items");
-  const item = items.find(i => 
-    i.name.toLowerCase().includes(query.entity!.toLowerCase()) ||
-    i.sku.toLowerCase().includes(query.entity!.toLowerCase())
-  );
-
-  if (!item || !item.id) {
-    return {
-      success: false,
-      error: `Item "${query.entity}" not found`
-    };
-  }
-
-  let totalQuantity = 0;
-  let totalRevenue = 0;
-  let transactionCount = 0;
-
-  if (useMonthly) {
-    const yearMonth = startDate.substring(0, 7);
-    const monthlySales = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-    const itemData = monthlySales.find(m => m.yearMonth === yearMonth && m.itemId === item.id);
-    
-    if (itemData) {
-      totalQuantity = itemData.totalQuantity;
-      totalRevenue = itemData.totalRevenue;
-      transactionCount = itemData.transactionCount;
-    }
-  } else {
-    const dailySales = await db.getAll<DailyItemSales>("dailyItemSales");
-    const filtered = dailySales.filter(
-      s => s.itemId === item.id && s.businessDate >= startDate && s.businessDate <= endDate
-    );
-
-    totalQuantity = filtered.reduce((sum, s) => sum + s.totalQuantity, 0);
-    totalRevenue = filtered.reduce((sum, s) => sum + s.totalRevenue, 0);
-    transactionCount = filtered.reduce((sum, s) => sum + s.transactionCount, 0);
-  }
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-  const avgPrice = totalQuantity > 0 ? totalRevenue / totalQuantity : 0;
-
-  return {
-    success: true,
-    chartType: "card",
-    data: {
-      itemName: item.name,
-      quantity: totalQuantity,
-      revenue: totalRevenue,
-      transactions: transactionCount
-    },
-    responseText: `${generatePrefix(query)}\n\n` +
-      `**Units Sold:** ${totalQuantity}\n` +
-      `**Revenue:** ${formatCurrency(totalRevenue)}\n` +
-      `**Transactions:** ${transactionCount}\n` +
-      `**Average Price:** ${formatCurrency(avgPrice)}\n\n` +
-      `${getEndingQuestion()}`
-  };
-}
-
-/**
- * Get category analysis
- */
-async function getCategoryAnalysis(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-
-  // Get all items to map categories
-  const items = await db.getAll<Item>("items");
-  const categoryMap = new Map<string, { quantity: number; revenue: number }>();
-
-  if (useMonthly) {
-    const yearMonth = startDate.substring(0, 7);
-    const monthlySales = await db.getAll<MonthlyItemSales>("monthlyItemSales");
-    const filtered = monthlySales.filter(m => m.yearMonth === yearMonth);
-    
-    filtered.forEach(sale => {
-      const item = items.find(i => i.id === sale.itemId);
-      if (item) {
-        const category = item.category || "Uncategorized";
-        const existing = categoryMap.get(category) || { quantity: 0, revenue: 0 };
-        existing.quantity += sale.totalQuantity;
-        existing.revenue += sale.totalRevenue;
-        categoryMap.set(category, existing);
-      }
-    });
-  } else {
-    const dailySales = await db.getAll<DailyItemSales>("dailyItemSales");
-    const filtered = dailySales.filter(
-      s => s.businessDate >= startDate && s.businessDate <= endDate
-    );
-
-    filtered.forEach(sale => {
-      const item = items.find(i => i.id === sale.itemId);
-      if (item) {
-        const category = item.category || "Uncategorized";
-        const existing = categoryMap.get(category) || { quantity: 0, revenue: 0 };
-        existing.quantity += sale.totalQuantity;
-        existing.revenue += sale.totalRevenue;
-        categoryMap.set(category, existing);
-      }
-    });
-  }
-
-  const categoryData = Array.from(categoryMap.entries())
-    .map(([category, data]) => ({
-      category,
-      quantity: data.quantity,
-      revenue: data.revenue
-    }))
-    .sort((a, b) => b.revenue - a.revenue);
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  categoryData.forEach((cat, index) => {
-    responseText += `**${index + 1}. ${cat.category}**\n`;
-    responseText += `   Units: ${cat.quantity} | Revenue: ${formatCurrency(cat.revenue)}\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "pie",
-    data: categoryData.map(cat => ({
-      name: cat.category,
-      value: cat.revenue
-    })),
-    responseText
-  };
-}
-
-/**
- * Get payment methods breakdown
- */
-async function getPaymentMethods(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-
-  const paymentBreakdown = new Map<string, { amount: number; count: number }>();
-
-  if (useMonthly) {
-    const yearMonth = startDate.substring(0, 7);
-    const monthlyPayments = await db.getAll<any>("monthlyPaymentSales");
-    const filtered = monthlyPayments.filter(m => m.yearMonth === yearMonth);
-    
-    filtered.forEach(payment => {
-      const method = formatPaymentMethod(payment.method);
-      const existing = paymentBreakdown.get(method) || { amount: 0, count: 0 };
-      existing.amount += payment.totalAmount;
-      existing.count += payment.transactionCount;
-      paymentBreakdown.set(method, existing);
-    });
-  } else {
-    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-    const filtered = dailyPayments.filter(
-      p => p.businessDate >= startDate && p.businessDate <= endDate
-    );
-
-    filtered.forEach(payment => {
-      const method = formatPaymentMethod(payment.method);
-      const existing = paymentBreakdown.get(method) || { amount: 0, count: 0 };
-      existing.amount += payment.totalAmount;
-      existing.count += payment.transactionCount;
-      paymentBreakdown.set(method, existing);
-    });
-  }
-
-  const paymentData = Array.from(paymentBreakdown.entries())
-    .map(([method, data]) => ({
-      method,
-      amount: data.amount,
-      count: data.count
-    }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-  const totalAmount = paymentData.reduce((sum, p) => sum + p.amount, 0);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  paymentData.forEach((payment, index) => {
-    const percentage = totalAmount > 0 ? ((payment.amount / totalAmount) * 100).toFixed(1) : "0";
-    responseText += `**${index + 1}. ${payment.method}**\n`;
-    responseText += `   Amount: ${formatCurrency(payment.amount)} (${percentage}%)\n`;
-    responseText += `   Transactions: ${payment.count}\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "pie",
-    data: paymentData.map(p => ({
-      name: p.method,
-      value: p.amount
-    })),
-    responseText
-  };
-}
-
-/**
- * Get employee performance
- */
-async function getEmployeePerformance(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  
-  // Get transactions and aggregate by cashier
-  const transactions = await db.getAll<Transaction>("transactions");
-  const filtered = transactions.filter(
-    t => t.businessDate >= startDate && t.businessDate <= endDate
-  );
-
-  const employeeMap = new Map<number, { name: string; revenue: number; count: number }>();
-
-  filtered.forEach(transaction => {
-    const existing = employeeMap.get(transaction.cashierId) || { 
-      name: transaction.cashierName, 
-      revenue: 0, 
-      count: 0 
-    };
-    existing.revenue += transaction.total;
-    existing.count += 1;
-    employeeMap.set(transaction.cashierId, existing);
-  });
-
-  const employeeData = Array.from(employeeMap.entries())
-    .map(([id, data]) => ({
-      id,
-      name: data.name,
-      revenue: data.revenue,
-      transactions: data.count,
-      avgTransaction: data.count > 0 ? data.revenue / data.count : 0
-    }))
-    .sort((a, b) => b.revenue - a.revenue);
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  employeeData.forEach((emp, index) => {
-    responseText += `**${index + 1}. ${emp.name}**\n`;
-    responseText += `   Revenue: ${formatCurrency(emp.revenue)}\n`;
-    responseText += `   Transactions: ${emp.transactions}\n`;
-    responseText += `   Avg/Transaction: ${formatCurrency(emp.avgTransaction)}\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "bar",
-    data: employeeData.map(emp => ({
-      name: emp.name,
-      value: emp.revenue
-    })),
-    responseText
-  };
-}
-
-/**
- * Get attendance data
- */
-async function getAttendance(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  
-  const attendance = await db.getAll<Attendance>("attendance");
-  // Attendance stores businessDate as string YYYY-MM-DD
-  const filtered = attendance.filter(
-    a => a.businessDate >= startDate && a.businessDate <= endDate
-  );
-
-  const employeeMap = new Map<number, { name: string; hours: number; days: number }>();
-
-  filtered.forEach(record => {
-    if (record.clockOut) {
-      const hours = (record.clockOut - record.clockIn) / (1000 * 60 * 60);
-      const existing = employeeMap.get(record.employeeId) || { 
-        name: record.employeeName, 
-        hours: 0, 
-        days: 0 
-      };
-      existing.hours += hours;
-      existing.days += 1;
-      employeeMap.set(record.employeeId, existing);
-    }
-  });
-
-  const attendanceData = Array.from(employeeMap.entries())
-    .map(([id, data]) => ({
-      id,
-      name: data.name,
-      totalHours: data.hours,
-      daysWorked: data.days,
-      avgHours: data.days > 0 ? data.hours / data.days : 0
-    }))
-    .sort((a, b) => b.totalHours - a.totalHours);
-
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  attendanceData.forEach((att, index) => {
-    responseText += `**${index + 1}. ${att.name}**\n`;
-    responseText += `   Total Hours: ${att.totalHours.toFixed(1)}h\n`;
-    responseText += `   Days Worked: ${att.daysWorked}\n`;
-    responseText += `   Avg Hours/Day: ${att.avgHours.toFixed(1)}h\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "bar",
-    data: attendanceData.map(att => ({
-      name: att.name,
-      value: att.totalHours
-    })),
-    responseText
-  };
-}
-
-/**
- * Get peak hours analysis
- */
-async function getPeakHours(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  
-  const transactions = await db.getAll<Transaction>("transactions");
-  const filtered = transactions.filter(
-    t => t.businessDate >= startDate && t.businessDate <= endDate
-  );
-
-  const hourMap = new Map<number, { revenue: number; count: number }>();
-
-  filtered.forEach(transaction => {
-    const hour = new Date(transaction.timestamp).getHours();
-    const existing = hourMap.get(hour) || { revenue: 0, count: 0 };
-    existing.revenue += transaction.total;
-    existing.count += 1;
-    hourMap.set(hour, existing);
-  });
-
-  const hourData = Array.from(hourMap.entries())
-    .map(([hour, data]) => ({
-      hour: `${hour.toString().padStart(2, "0")}:00`,
-      revenue: data.revenue,
-      transactions: data.count
-    }))
-    .sort((a, b) => b.transactions - a.transactions);
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  hourData.slice(0, 10).forEach((hour, index) => {
-    responseText += `**${index + 1}. ${hour.hour}**\n`;
-    responseText += `   Transactions: ${hour.transactions}\n`;
-    responseText += `   Revenue: ${formatCurrency(hour.revenue)}\n\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "bar",
-    data: hourData.map(h => ({
-      name: h.hour,
-      value: h.transactions
-    })),
-    responseText
-  };
-}
-
-/**
- * Get trend analysis
- */
-async function getTrendAnalysis(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  
-  const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-  const filtered = dailyPayments.filter(
-    p => p.businessDate >= startDate && p.businessDate <= endDate
-  );
-
-  // Aggregate by date
-  const dateMap = new Map<string, { revenue: number; count: number }>();
-
-  filtered.forEach(payment => {
-    const existing = dateMap.get(payment.businessDate) || { revenue: 0, count: 0 };
-    existing.revenue += payment.totalAmount;
-    existing.count += payment.transactionCount;
-    dateMap.set(payment.businessDate, existing);
-  });
-
-  const trendData = Array.from(dateMap.entries())
-    .map(([date, data]) => ({
-      date,
-      revenue: data.revenue,
-      transactions: data.count
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-
-  const totalRevenue = trendData.reduce((sum, d) => sum + d.revenue, 0);
-  const avgDailyRevenue = trendData.length > 0 ? totalRevenue / trendData.length : 0;
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  responseText += `**Total Revenue:** ${formatCurrency(totalRevenue)}\n`;
-  responseText += `**Days:** ${trendData.length}\n`;
-  responseText += `**Avg Daily Revenue:** ${formatCurrency(avgDailyRevenue)}\n\n`;
-  responseText += `**Daily Breakdown:**\n`;
-  
-  trendData.slice(-7).forEach(day => {
-    responseText += `${day.date}: ${formatCurrency(day.revenue)} (${day.transactions} txn)\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "line",
-    data: trendData.map(d => ({
-      name: d.date,
-      value: d.revenue
-    })),
-    responseText
-  };
-}
-
-/**
- * Get transaction count
- */
-async function getTransactionCount(query: ParsedQuery): Promise<QueryResult> {
-  const { startDate, endDate } = getDateRange(query.timeRange);
-  const useMonthly = shouldUseMonthly(startDate);
-
-  let totalTransactions = 0;
-  let totalRevenue = 0;
-
-  if (useMonthly) {
-    const monthlySales = await db.getAll<any>("monthlySalesSummary");
-    const yearMonth = startDate.substring(0, 7);
-    const monthData = monthlySales.find(m => m.yearMonth === yearMonth);
-    
-    if (monthData) {
-      totalTransactions = monthData.totalReceipts;
-      totalRevenue = monthData.totalRevenue;
-    }
-  } else {
-    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-    const filtered = dailyPayments.filter(
-      p => p.businessDate >= startDate && p.businessDate <= endDate
-    );
-
-    totalTransactions = filtered.reduce((sum, p) => sum + p.transactionCount, 0);
-    totalRevenue = filtered.reduce((sum, p) => sum + p.totalAmount, 0);
-  }
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const timeLabel = getTimeLabel(query.timeRange);
-  const avgTransactionValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-
-  return {
-    success: true,
-    chartType: "card",
-    data: {
-      count: totalTransactions,
-      revenue: totalRevenue,
-      avgValue: avgTransactionValue
-    },
-    responseText: `${generatePrefix(query)}\n\n` +
-      `**Total Transactions:** ${totalTransactions}\n` +
-      `**Total Revenue:** ${formatCurrency(totalRevenue)}\n` +
-      `**Average Value:** ${formatCurrency(avgTransactionValue)}\n\n` +
-      `${getEndingQuestion()}`
-  };
-}
-
-/**
- * Get transaction history (list of recent transactions)
- */
-async function getTransactionHistory(query: ParsedQuery): Promise<QueryResult> {
-  const limit = query.limit || 10;
-  
-  // Get all transactions
-  const allTransactions = await db.getAll<Transaction>("transactions");
-  
-  // Sort by timestamp descending (most recent first)
-  allTransactions.sort((a, b) => b.timestamp - a.timestamp);
-  
-  // Get today's date
-  const today = new Date().toISOString().split("T")[0];
-  
-  // Try to get transactions from today first
-  let recentTransactions = allTransactions.filter(t => t.businessDate === today);
-  
-  // If today has no transactions, get from yesterday
-  if (recentTransactions.length === 0) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayDate = yesterday.toISOString().split("T")[0];
-    recentTransactions = allTransactions.filter(t => t.businessDate === yesterdayDate);
-  }
-  
-  // If still no transactions, get the most recent regardless of date
-  if (recentTransactions.length === 0) {
-    recentTransactions = allTransactions;
-  }
-  
-  // Take only the requested number
-  const transactions = recentTransactions.slice(0, limit);
-  
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-  };
-  const formatDate = (businessDate: string) => {
-    const date = new Date(businessDate + "T00:00:00");
-    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-  };
-
-  let responseText = `${generatePrefix(query)}\n\n`;
-  
-  if (transactions.length === 0) {
-    responseText += "I couldn't find any transactions in the database. 📭\n\n";
-    responseText += "**This might mean:**\n";
-    responseText += "• No sales have been recorded yet\n";
-    responseText += "• The database is empty\n";
-    responseText += "• Try making a test sale first\n\n";
-    responseText += "Would you like to see something else?";
-  } else {
-    transactions.forEach((txn, index) => {
-      const itemCount = txn.items.length;
-      const itemSummary = itemCount === 1 
-        ? `${txn.items[0].name} (${txn.items[0].quantity}x)`
-        : `${itemCount} items`;
-      
-      responseText += `**${index + 1}. ${formatDate(txn.businessDate)} at ${formatTime(txn.timestamp)}**\n`;
-      responseText += `   Receipt: #${txn.id}\n`;
-      responseText += `   Items: ${itemSummary}\n`;
-      responseText += `   Total: ${formatCurrency(txn.total)}\n`;
-      const paymentMethods = txn.payments.map(p => formatPaymentMethod(p.method)).join(", ");
-      responseText += `   Payment: ${paymentMethods}\n`;
-      responseText += `   Cashier: ${txn.cashierName}\n\n`;
-    });
-  }
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "table",
-    data: transactions.map((txn, index) => ({
-      no: index + 1,
-      receipt: txn.id,
-      date: txn.businessDate,
-      time: formatTime(txn.timestamp),
-      items: txn.items.length,
-      total: txn.total,
-      payment: txn.payments.map(p => formatPaymentMethod(p.method)).join(", "),
-      cashier: txn.cashierName
-    })),
-    responseText
-  };
-}
-
-/**
- * Get transaction detail (drill-down view of specific receipt)
- */
-async function getTransactionDetail(query: ParsedQuery): Promise<QueryResult> {
-  const receiptNumber = query.filters?.receiptNumber;
-  
-  if (!receiptNumber) {
-    return {
-      success: false,
-      error: "Please specify a receipt number (e.g., '#2881' or 'receipt 2881')"
-    };
-  }
-
-  // Get all transactions and find the specific one
-  const allTransactions = await db.getAll<Transaction>("transactions");
-  const transaction = allTransactions.find(t => t.id === receiptNumber);
-
-  if (!transaction) {
-    return {
-      success: false,
-      error: `Receipt #${receiptNumber} not found. Please check the receipt number and try again.`,
-      responseText: `🔍 I couldn't find receipt **#${receiptNumber}**.\n\n` +
-        `**Tips:**\n` +
-        `• Check the receipt number is correct\n` +
-        `• Try "show last 10 transactions" to see recent receipts\n` +
-        `• Receipt numbers are shown in the transaction list\n\n` +
-        `Would you like to see recent transactions instead?`
-    };
-  }
-
-  const formatCurrency = (amount: number) => `Rp ${amount.toLocaleString("id-ID")}`;
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
-  };
-  const formatDate = (businessDate: string) => {
-    const date = new Date(businessDate + "T00:00:00");
-    return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-  };
-
-  let responseText = `📋 **Transaction Details - Receipt #${transaction.id}**\n\n`;
-  responseText += `**Date:** ${formatDate(transaction.businessDate)} at ${formatTime(transaction.timestamp)}\n`;
-  responseText += `**Cashier:** ${transaction.cashierName}\n\n`;
-
-  // Items breakdown
-  responseText += `**Items:**\n`;
-  transaction.items.forEach((item, index) => {
-    // Use totalPrice directly as it accounts for quantity and potential modifiers
-    const itemTotal = item.totalPrice; 
-    // Use basePrice for unit price display
-    responseText += `${index + 1}. **${item.name}** (${item.quantity}x @ ${formatCurrency(item.basePrice)})\n`;
-    responseText += `   Subtotal: ${formatCurrency(itemTotal)}\n`;
-  });
-
-  // Calculate totals
-  const subtotal = transaction.subtotal;
-  const tax = transaction.tax || 0;
-
-  responseText += `\n**Summary:**\n`;
-  responseText += `Subtotal: ${formatCurrency(subtotal)}\n`;
-  
-  // Calculate discount if there's a difference between subtotal+tax and total
-  // (Assuming logic: Total = Subtotal + Tax - Discount)
-  const expectedTotal = subtotal + tax;
-  const potentialDiscount = expectedTotal - transaction.total;
-  
-  if (potentialDiscount > 0) {
-    responseText += `Discount: -${formatCurrency(potentialDiscount)}\n`;
-  }
-  
-  if (tax > 0) {
-    responseText += `Tax: ${formatCurrency(tax)}\n`;
-  }
-  responseText += `**Total: ${formatCurrency(transaction.total)}**\n\n`;
-
-  // Payment breakdown
-  responseText += `**Payment:**\n`;
-  transaction.payments.forEach((payment, index) => {
-    responseText += `${index + 1}. ${formatPaymentMethod(payment.method)}: ${formatCurrency(payment.amount)}\n`;
-  });
-
-  responseText += `\n${getEndingQuestion()}`;
-
-  return {
-    success: true,
-    chartType: "card",
-    data: {
-      receiptNumber: transaction.id,
-      itemCount: transaction.items.length,
-      total: transaction.total,
-      date: transaction.businessDate,
-      cashier: transaction.cashierName
-    },
-    responseText
-  };
-}
-
-/**
- * Helper: Get date range based on time range
- */
-function getDateRange(timeRange: TimeRange): { startDate: string; endDate: string } {
-  const today = new Date();
-  const endDate = today.toISOString().split("T")[0];
-  
-  let startDate = endDate;
-
-  // Use the type property of TimeRange
-  switch (timeRange.type) {
-    case "all_time":
-      // Query all data from the beginning (use earliest possible date)
-      startDate = "2000-01-01"; // Far enough back to capture all data
-      break;
-    case "today":
-      startDate = endDate;
-      break;
-    case "yesterday":
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      startDate = yesterday.toISOString().split("T")[0];
-      // endDate should be yesterday too for "yesterday" query
-      const yesterdayEnd = new Date(today);
-      yesterdayEnd.setDate(today.getDate() - 1);
-      return { startDate, endDate: yesterdayEnd.toISOString().split("T")[0] };
-    case "this_week":
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - today.getDay());
-      startDate = weekStart.toISOString().split("T")[0];
-      break;
-    case "last_week":
-      const lastWeekEnd = new Date(today);
-      lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-      const lastWeekStart = new Date(lastWeekEnd);
-      lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
-      startDate = lastWeekStart.toISOString().split("T")[0];
-      const lastWeekEndDate = lastWeekEnd.toISOString().split("T")[0];
-      return { startDate, endDate: lastWeekEndDate };
-    case "this_month":
-      startDate = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, "0")}-01`;
-      break;
-    case "last_month":
-      const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      startDate = lastMonth.toISOString().split("T")[0];
-      const lastMonthEndDate = lastMonthEnd.toISOString().split("T")[0];
-      return { startDate, endDate: lastMonthEndDate };
-    case "last_n_days":
-      if (timeRange.days) {
-        const nDaysAgo = new Date(today);
-        nDaysAgo.setDate(today.getDate() - timeRange.days);
-        startDate = nDaysAgo.toISOString().split("T")[0];
-      }
-      break;
-    default:
-      startDate = endDate;
-  }
-
-  return { startDate, endDate };
-}
-
-/**
- * Helper: Check if we should use monthly summaries (older than 60 days)
- */
-function shouldUseMonthly(startDate: string): boolean {
-  const today = new Date();
-  const sixtyDaysAgo = new Date(today);
-  sixtyDaysAgo.setDate(today.getDate() - 60);
-  const cutoffDate = sixtyDaysAgo.toISOString().split("T")[0];
-
-  return startDate < cutoffDate;
-}
-
-/**
- * Helper: For all_time queries, we need to combine both monthly and daily data
- */
-function isAllTimeQuery(timeRange: TimeRange): boolean {
-  return timeRange.type === "all_time";
-}
-
-/**
- * Helper: Get time label for display
- */
-function getTimeLabel(timeRange: TimeRange): string {
-  const labels: Record<string, string> = {
-    all_time: "All Time",
-    today: "Today",
-    yesterday: "Yesterday",
-    this_week: "This Week",
-    last_week: "Last Week",
-    this_month: "This Month",
-    last_month: "Last Month"
-  };
-
-  if (timeRange.type === "last_n_days" && timeRange.days) {
-    return `Last ${timeRange.days} Days`;
-  }
-
-  return labels[timeRange.type] || "Custom Range";
-}
-
-/**
- * Helper: Format payment method name
- */
-function formatPaymentMethod(method: string): string {
-  const formats: Record<string, string> = {
-    "cash": "Cash",
-    "qris-static": "QRIS Static",
-    "qris-dynamic": "QRIS Dynamic",
-    "card": "Card",
-    "voucher": "Voucher",
-    "transfer": "Bank Transfer"
-  };
-
-  return formats[method] || method;
-}
-
-/**
- * Helper: Generate smart prefix based on query
- */
-function generatePrefix(query: ParsedQuery): string {
-  const timeLabel = getTimeLabel(query.timeRange).toLowerCase();
-  
-  switch (query.intent) {
-    case "revenue":
-      return `💰 Here's your **revenue ${timeLabel}**`;
-    case "top_items":
-      const limit = query.limit || 10;
-      return `📦 Here are your **top ${limit} items ${timeLabel}**`;
-    case "item_performance":
-      return `📊 Here's the **performance for ${query.entity}** ${timeLabel}`;
-    case "category_analysis":
-      return `🏷️ Here's your **category breakdown ${timeLabel}**`;
-    case "payment_methods":
-      return `💳 Here's your **payment method breakdown ${timeLabel}**`;
-    case "employee_performance":
-      return `👥 Here's your **employee performance ${timeLabel}**`;
-    case "attendance":
-      return `⏰ Here's your **attendance summary ${timeLabel}**`;
-    case "peak_hours":
-      return `🕐 Here are your **peak hours ${timeLabel}**`;
-    case "trends":
-    case "trend_analysis":
-      return `📈 Here's your **sales trend ${timeLabel}**`;
-    case "transaction_count":
-      return `🔢 Here's your **transaction count ${timeLabel}**`;
-    case "transaction_history":
-      const historyLimit = query.limit || 10;
-      return `🧾 Here are your **last ${historyLimit} transactions**`;
-    default:
-      return `📊 Here's what I found`;
-  }
-}
-
-/**
- * Helper: Get random ending question
- */
-function getEndingQuestion(): string {
-  const endings = [
-    "Is this what you were looking for?",
-    "Anything else you'd like to know?",
-    "Would you like to see more details?",
-    "Can I help you with anything else?",
-    "Need any other reports?",
-    "Want to explore something else?",
-    "Is there anything else I can show you?",
-    "Would you like me to break down any of these numbers?",
-    "Shall I pull up another report?",
-    "Any other insights you need?"
-  ];
-  
-  return endings[Math.floor(Math.random() * endings.length)];
 }

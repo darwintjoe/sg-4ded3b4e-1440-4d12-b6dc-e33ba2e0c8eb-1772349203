@@ -36,11 +36,22 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages change or during streaming
+  // Auto-scroll to bottom of chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamingText]);
+    if (scrollRef.current) {
+      const scrollContainer = scrollRef.current;
+      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
+      
+      if (isNearBottom) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: "smooth" // Use smooth scrolling
+        });
+      }
+    }
+  }, [messages, isProcessing]); // Only scroll when messages change or processing status changes
 
   // Helper: Add artificial delay
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

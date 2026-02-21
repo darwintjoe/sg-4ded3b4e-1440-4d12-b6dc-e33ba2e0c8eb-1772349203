@@ -819,6 +819,43 @@ export class Database {
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  async getSales(startDate?: Date, endDate?: Date): Promise<Transaction[]> {
+    if (!this.db) return [];
+    
+    // In preview mode or if transactions not initialized
+    if (this.isPreviewMode() || !this.db.objectStoreNames.contains("transactions")) {
+      return this.getAll<Transaction>("transactions");
+    }
+
+    const allTransactions = await this.getAll<Transaction>("transactions");
+    
+    if (startDate && endDate) {
+      return allTransactions.filter(t => {
+        const date = new Date(t.timestamp); // Use timestamp for exact timing
+        return date >= startDate && date <= endDate;
+      });
+    } else if (startDate) {
+      return allTransactions.filter(t => new Date(t.timestamp) >= startDate);
+    }
+    
+    return allTransactions;
+  }
+
+  async getAttendance(startDate?: Date, endDate?: Date): Promise<Attendance[]> {
+    if (!this.db) return [];
+
+    const allAttendance = await this.getAll<Attendance>("attendance");
+    
+    if (startDate && endDate) {
+      return allAttendance.filter(a => {
+        const date = new Date(a.clockIn);
+        return date >= startDate && date <= endDate;
+      });
+    }
+    
+    return allAttendance;
+  }
 }
 
 export const db = new Database();
