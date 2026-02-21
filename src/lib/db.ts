@@ -736,8 +736,19 @@ export class Database {
   }
 
   // Attendance
-  async getAttendance(): Promise<Attendance[]> {
-    return this.getAll<Attendance>("attendance");
+  async getAttendance(startDate?: Date, endDate?: Date): Promise<Attendance[]> {
+    if (!this.db) return [];
+
+    const allAttendance = await this.getAll<Attendance>("attendance");
+    
+    if (startDate && endDate) {
+      return allAttendance.filter(a => {
+        const date = new Date(a.clockIn);
+        return date >= startDate && date <= endDate;
+      });
+    }
+    
+    return allAttendance;
   }
 
   async addAttendance(attendance: Omit<Attendance, "id">): Promise<number> {
@@ -840,21 +851,6 @@ export class Database {
     }
     
     return allTransactions;
-  }
-
-  async getAttendance(startDate?: Date, endDate?: Date): Promise<Attendance[]> {
-    if (!this.db) return [];
-
-    const allAttendance = await this.getAll<Attendance>("attendance");
-    
-    if (startDate && endDate) {
-      return allAttendance.filter(a => {
-        const date = new Date(a.clockIn);
-        return date >= startDate && date <= endDate;
-      });
-    }
-    
-    return allAttendance;
   }
 }
 

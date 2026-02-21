@@ -351,4 +351,5 @@ export interface ParsedQuery {
   compareTimeRange?: TimeRange; // Optional second time range for comparisons
   entity?: string;
   limit?: number;
+  filters?: Record<string, any>;
 }
