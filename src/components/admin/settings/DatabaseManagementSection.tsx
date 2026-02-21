@@ -9,7 +9,13 @@ interface DatabaseManagementSectionProps {
   onInjectSampleData: () => void;
   onClearTransactions: () => void;
   onFactoryReset: () => void;
-  isProcessing: boolean;
+  onInitiateRestore: () => void;
+  restoreState: any;
+  backupProcessing: boolean;
+  handleBackupNow: () => Promise<void>;
+  isSignedIn: boolean;
+  backupStatus: any;
+  startPreviewProcess: () => Promise<void>;
 }
 
 export function DatabaseManagementSection({
@@ -17,8 +23,16 @@ export function DatabaseManagementSection({
   onInjectSampleData,
   onClearTransactions,
   onFactoryReset,
-  isProcessing
+  onInitiateRestore,
+  restoreState,
+  backupProcessing,
+  handleBackupNow,
+  isSignedIn,
+  backupStatus,
+  startPreviewProcess
 }: DatabaseManagementSectionProps) {
+  const isProcessing = backupProcessing || restoreState?.phase !== "idle";
+
   return (
     <Card className="p-4 border-amber-200 dark:border-amber-900">
       <div className="space-y-4">
