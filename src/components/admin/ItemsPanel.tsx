@@ -66,6 +66,7 @@ export function ItemsPanel() {
   const [categorySearch, setCategorySearch] = useState("");
   const [priceDisplay, setPriceDisplay] = useState("");
   const [originalItem, setOriginalItem] = useState<Item | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Import Progress State
   const [importing, setImporting] = useState(false);
@@ -163,41 +164,46 @@ export function ItemsPanel() {
 
   const handleSaveItem = async () => {
     if (!editingItem) return;
+    
+    setIsSaving(true);
+    try {
+      if (!editingItem.name.trim()) {
+        setValidationError("Item name is required");
+        return;
+      }
 
-    if (!editingItem.name.trim()) {
-      setValidationError("Item name is required");
-      return;
+      if (editingItem.price <= 0) {
+        setValidationError("Selling price must be greater than 0");
+        return;
+      }
+
+      const uniqueError = await validateUniqueness(editingItem);
+      if (uniqueError) {
+        setValidationError(uniqueError);
+        return;
+      }
+
+      const itemToSave = {
+        ...editingItem,
+        isActive: editingItem.isActive ?? true
+      };
+
+      if (itemToSave.id) {
+        await db.put("items", itemToSave);
+      } else {
+        await db.add("items", { ...itemToSave, id: Date.now() });
+      }
+
+      await loadItems();
+      setHasUnsavedChanges(false);
+      setValidationError("");
+      setIsDialogOpen(false);
+      setEditingItem(null);
+      setOriginalItem(null);
+      setPriceDisplay("");
+    } finally {
+      setIsSaving(false);
     }
-
-    if (editingItem.price <= 0) {
-      setValidationError("Selling price must be greater than 0");
-      return;
-    }
-
-    const uniqueError = await validateUniqueness(editingItem);
-    if (uniqueError) {
-      setValidationError(uniqueError);
-      return;
-    }
-
-    const itemToSave = {
-      ...editingItem,
-      isActive: editingItem.isActive ?? true
-    };
-
-    if (itemToSave.id) {
-      await db.put("items", itemToSave);
-    } else {
-      await db.add("items", { ...itemToSave, id: Date.now() });
-    }
-
-    await loadItems();
-    setHasUnsavedChanges(false);
-    setValidationError("");
-    setIsDialogOpen(false);
-    setEditingItem(null);
-    setOriginalItem(null);
-    setPriceDisplay("");
   };
 
   const handleDeleteItem = async () => {
@@ -727,9 +733,12 @@ export function ItemsPanel() {
                   </h2>
                   <Button 
                     onClick={handleSaveItem}
-                    disabled={!editingItem || !editingItem.name || editingItem.price <= 0}
+                    disabled={!editingItem || !editingItem.name || editingItem.price <= 0 || isSaving}
                     className="bg-blue-600 hover:bg-blue-700 -mr-3"
                   >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
                     {translate("common.save", language)}
                   </Button>
                 </div>
