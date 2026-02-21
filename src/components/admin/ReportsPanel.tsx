@@ -261,9 +261,9 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       <TabsContent 
         value="ask" 
-        className="flex flex-col h-[calc(100vh-120px)] min-h-[500px] mt-4"
+        className="mt-4 h-[calc(100vh-120px)] overflow-hidden flex flex-col"
       >
-        {/* Chat Messages Container - Takes remaining space */}
+        {/* Chat Messages Container - Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {messages.length === 0 ? (
             /* Welcome Screen - Centered */
@@ -308,7 +308,6 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                   </div>
                 </div>
               ))}
-
               {/* Streaming message */}
               {isStreaming && streamingText && (
                 <div className="flex justify-start">
@@ -323,7 +322,6 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                   </div>
                 </div>
               )}
-
               {/* Thinking indicator */}
               {isProcessing && !isStreaming && (
                 <div className="flex justify-start">
@@ -346,11 +344,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           )}
         </div>
 
-        {/* Chat Input - Keyboard aware, sticky at bottom */}
-        <div 
-          className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-3 transition-all duration-300"
-          style={{ paddingBottom: 'max(0.75rem, env(keyboard-inset-height, env(safe-area-inset-bottom, 0px)))' }}
-        >
+        {/* Chat Input - Simple bottom layout (like ItemsPanel) */}
+        <div className="p-3 border-t bg-background">
           <div className="relative max-w-3xl mx-auto flex gap-2 items-end bg-muted/60 rounded-2xl p-1.5 pr-2 shadow-sm border border-border/50">
             <Textarea
               value={chatInput}
