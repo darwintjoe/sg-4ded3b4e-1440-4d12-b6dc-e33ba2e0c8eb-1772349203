@@ -9,7 +9,7 @@ import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
 import { parseQuery } from "@/lib/chatbot-parser";
 import { getHelpResponse } from "@/lib/chatbot-help";
-import { executeQuery, QueryResult } from "@/lib/chatbot-interpreter";
+import { executeQuery } from "@/lib/chatbot-interpreter";
 import { Language } from "@/types";
 import { PieChart } from "@/components/charts/PieChart";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
@@ -17,6 +17,8 @@ import { LineChart } from "@/components/charts/LineChart";
 import { Heatmap } from "@/components/charts/Heatmap";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Card, CardContent } from "@/components/ui/card";
+import type { QueryResult } from "@/types";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
@@ -145,15 +147,15 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       // Execute query
       const result = await executeQuery(parsedQuery);
 
-      if (result.success) {
+      if (result.type !== "error") {
         await streamResponse(
-          result.responseText || "Query executed successfully",
+          result.text || "Query executed successfully",
           result.data,
           result.chartType
         );
       } else {
         await streamResponse(
-          `❌ **Error:** ${result.error}\n\nTry asking a different question or type **HELP** for examples.`
+          `❌ **Error:** ${result.text || result.error}\n\nTry asking a different question or type **HELP** for examples.`
         );
       }
     } catch (error) {

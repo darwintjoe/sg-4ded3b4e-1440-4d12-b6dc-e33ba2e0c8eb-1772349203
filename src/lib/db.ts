@@ -819,6 +819,33 @@ export class Database {
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  // Helper to get sales for a specific period
+  async getSales(startDate?: Date, endDate?: Date): Promise<Transaction[]> {
+    const transactions = await this.getAll<Transaction>('transactions');
+    
+    if (!startDate || !endDate) {
+      return transactions;
+    }
+
+    return transactions.filter(t => {
+      const date = new Date(t.timestamp);
+      return date >= startDate && date <= endDate;
+    });
+  }
+
+  async getAttendance(startDate?: Date, endDate?: Date): Promise<Attendance[]> {
+    const allAttendance = await this.getAll<Attendance>('attendance');
+    
+    if (startDate && endDate) {
+      return allAttendance.filter(a => {
+        const date = new Date(a.clockIn);
+        return date >= startDate && date <= endDate;
+      });
+    }
+    
+    return allAttendance;
+  }
 }
 
 export const db = new Database();

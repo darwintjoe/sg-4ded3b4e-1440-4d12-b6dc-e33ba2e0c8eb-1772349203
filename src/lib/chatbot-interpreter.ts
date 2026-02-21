@@ -18,10 +18,14 @@ import {
   isValid,
   parseISO,
   startOfDay,
-  endOfDay
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth
 } from "date-fns";
 
-export async function interpretQuery(query: ParsedQuery): Promise<QueryResult> {
+export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
   try {
     switch (query.intent) {
       case "help":
