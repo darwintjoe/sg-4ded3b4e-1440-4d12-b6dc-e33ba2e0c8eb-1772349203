@@ -915,7 +915,7 @@ export function SettingsPanel() {
           </div>
         </div>
         
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 flex flex-col">
            <div className="p-8 max-w-4xl mx-auto space-y-6">
               <div className="text-center space-y-2">
                 <Store className="h-16 w-16 text-amber-500 mx-auto" />
@@ -988,7 +988,7 @@ export function SettingsPanel() {
           </TabsList>
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 flex flex-col">
           <TabsContent value="store" className="flex-1 overflow-y-auto space-y-4 p-4 mt-0 data-[state=inactive]:hidden">
             <BusinessSettingsSection 
               settings={settings} 
