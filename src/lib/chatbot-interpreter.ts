@@ -63,6 +63,9 @@ export async function executeQuery(query: ParsedQuery): Promise<QueryResult> {
       case "top_items":
         return await handleTopItems(query);
 
+      case "bottom_items":
+        return await handleBottomItems(query);
+
       case "item_performance":
         return await handleItemPerformance(query);
 
@@ -267,6 +270,38 @@ async function handleTopItems(query: ParsedQuery): Promise<QueryResult> {
   return {
     type: "text",
     text: `**Top Items (${formatTimeRange(query.timeRange)}):**\n\n${list}`,
+    data: items,
+    timeRange: query.timeRange
+  };
+}
+
+async function handleBottomItems(query: ParsedQuery): Promise<QueryResult> {
+  const sales = await db.getSales(query.timeRange.startDate, query.timeRange.endDate);
+  const itemMap = new Map<string, { name: string; quantity: number; revenue: number }>();
+
+  sales.forEach(t => {
+    t.items.forEach(item => {
+      const existing = itemMap.get(item.name) || { name: item.name, quantity: 0, revenue: 0 };
+      existing.quantity += item.quantity;
+      existing.revenue += item.totalPrice;
+      itemMap.set(item.name, existing);
+    });
+  });
+
+  // Sort ascending (lowest first) instead of descending
+  const items = Array.from(itemMap.values())
+    .sort((a, b) => a.quantity - b.quantity)
+    .slice(0, query.limit || 5);
+
+  if (items.length === 0) {
+    return { type: "text", text: `No items sold during ${formatTimeRange(query.timeRange)}.` };
+  }
+
+  const list = items.map((i, idx) => `${idx + 1}. **${i.name}**: ${i.quantity} sold (${formatCurrency(i.revenue)})`).join("\n");
+
+  return {
+    type: "text",
+    text: `**Slowest Moving Items (${formatTimeRange(query.timeRange)}):**\n\n${list}`,
     data: items,
     timeRange: query.timeRange
   };

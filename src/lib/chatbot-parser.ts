@@ -78,6 +78,7 @@ function extractIntent(input: string): QueryIntent {
 
   if (input.includes("item") || input.includes("product") || input.includes("selling") || input.includes("sold")) {
     if (input.includes("top") || input.includes("best")) return "top_items";
+    if (input.includes("slowest") || input.includes("worst") || input.includes("bottom") || input.includes("least")) return "bottom_items";
     if (input.includes("how many")) return "item_performance"; // "How many coffees sold?"
     return "top_items"; // Default to top items if vague
   }

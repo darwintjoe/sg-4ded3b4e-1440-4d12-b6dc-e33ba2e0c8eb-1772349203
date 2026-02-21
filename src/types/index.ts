@@ -302,6 +302,7 @@ export type QueryIntent =
   | "revenue" 
   | "transactions" 
   | "top_items" 
+  | "bottom_items"
   | "item_performance"
   | "category_analysis"
   | "payment_methods"
