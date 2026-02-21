@@ -207,7 +207,7 @@ async function handleComparison(query: ParsedQuery): Promise<QueryResult> {
                `Difference: ${icon} **${formatCurrency(Math.abs(diff))}** (${diff >= 0 ? '+' : ''}${percentChange}%)`;
 
   return {
-    type: "mixed",
+    type: "text",
     text,
     data: {
       period1: { name: period1Name, value: total1, sales: sales1 },
@@ -222,7 +222,7 @@ async function handleRevenue(query: ParsedQuery): Promise<QueryResult> {
   const count = sales.length;
   
   return {
-    type: "mixed",
+    type: "text",
     text: `Total revenue for **${formatTimeRange(query.timeRange)}** is **${formatCurrency(total)}** across ${count} transactions.`,
     data: { value: total, count },
     timeRange: query.timeRange
@@ -265,10 +265,9 @@ async function handleTopItems(query: ParsedQuery): Promise<QueryResult> {
   const list = items.map((i, idx) => `${idx + 1}. **${i.name}**: ${i.quantity} sold (${formatCurrency(i.revenue)})`).join("\n");
 
   return {
-    type: "mixed",
+    type: "text",
     text: `**Top Items (${formatTimeRange(query.timeRange)}):**\n\n${list}`,
     data: items,
-    chartType: "bar",
     timeRange: query.timeRange
   };
 }
@@ -332,10 +331,9 @@ async function handlePaymentMethods(query: ParsedQuery): Promise<QueryResult> {
   const text = data.map(d => `- **${d.name}**: ${formatCurrency(d.value)}`).join("\n");
 
   return {
-    type: "mixed",
+    type: "text",
     text: `Payment Methods (${formatTimeRange(query.timeRange)}):\n\n${text}`,
-    data,
-    chartType: "pie"
+    data
   };
 }
 
@@ -356,10 +354,9 @@ async function handleEmployeeSales(query: ParsedQuery): Promise<QueryResult> {
   const text = data.map(d => `- **${d.name}**: ${formatCurrency(d.value)}`).join("\n");
 
   return {
-    type: "mixed",
+    type: "text",
     text: `Sales by Employee (${formatTimeRange(query.timeRange)}):\n\n${text}`,
-    data,
-    chartType: "bar"
+    data
   };
 }
 
@@ -397,10 +394,9 @@ async function handleTrends(query: ParsedQuery): Promise<QueryResult> {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
-    type: "mixed",
+    type: "text",
     text: `Sales Trend (${formatTimeRange(query.timeRange)})`,
-    data,
-    chartType: "line"
+    data
   };
 }
 
@@ -418,8 +414,7 @@ async function handlePeakHours(query: ParsedQuery): Promise<QueryResult> {
   return {
     type: "text",
     text: `Peak sales hour is around **${peakHour}:00 - ${peakHour + 1}:00** with ${hours[peakHour]} transactions.`,
-    data: hours.map((count, hour) => ({ hour, count })),
-    chartType: "bar"
+    data: hours.map((count, hour) => ({ hour, count }))
   };
 }
 
