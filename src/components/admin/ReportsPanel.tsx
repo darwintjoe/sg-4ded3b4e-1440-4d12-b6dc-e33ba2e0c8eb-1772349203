@@ -344,8 +344,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           )}
         </div>
 
-        {/* Chat Input - Fixed at bottom of scroll area */}
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t p-3">
+        {/* Chat Input - at bottom of content, not sticky */}
+        <div className="bg-background/95 backdrop-blur-sm border-t p-3">
           <div className="relative max-w-3xl mx-auto flex gap-2 items-end bg-muted/60 rounded-2xl p-1.5 pr-2 shadow-sm border border-border/50">
             <Textarea
               value={chatInput}
