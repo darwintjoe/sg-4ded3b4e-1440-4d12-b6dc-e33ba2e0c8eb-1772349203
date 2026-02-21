@@ -74,7 +74,7 @@ export function SettingsPanel() {
     pin?: string;
   }>({ phase: "idle" });
 
-  const [activeTab, setActiveTab] = useState<string>("storeInfo");
+  const [activeTab, setActiveTab] = useState<string>("store");
   const [revertStatus, setRevertStatus] = useState<{ available: boolean; hoursRemaining: number | null }>({ 
     available: false, 
     hoursRemaining: null 
