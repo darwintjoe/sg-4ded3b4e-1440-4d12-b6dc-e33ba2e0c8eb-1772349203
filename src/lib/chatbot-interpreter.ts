@@ -111,7 +111,6 @@ async function handleTransactionDetail(query: ParsedQuery): Promise<QueryResult>
     return { type: "text", text: "Please specify a receipt number." };
   }
 
-  // Fetch all sales (optimization: could add getById to DB)
   const sales = await db.getSales(); 
   const transaction = sales.find(t => t.id === receiptNumber);
 
@@ -120,15 +119,40 @@ async function handleTransactionDetail(query: ParsedQuery): Promise<QueryResult>
   }
 
   const dateStr = format(new Date(transaction.timestamp), "MMM d, yyyy h:mm a");
+  
+  // Items list with correct property: basePrice
   const itemsList = transaction.items.map(i => 
-    `- ${i.quantity}x ${i.name} (${formatCurrency(i.totalPrice)})`
+    `- ${i.quantity}x ${i.name} @ ${formatCurrency(i.basePrice)} = ${formatCurrency(i.totalPrice)}`
   ).join("\n");
 
-  const text = `**Receipt #${transaction.id}**\n` +
-               `Date: ${dateStr}\n` +
-               `Cashier: ${transaction.cashierName}\n` +
-               `Total: **${formatCurrency(transaction.total)}**\n\n` +
-               `**Items:**\n${itemsList}`;
+  // Payment breakdown
+  const paymentsList = transaction.payments.map(p =>
+    `- ${p.method}: ${formatCurrency(p.amount)}`
+  ).join("\n");
+
+  // Build detailed response
+  let text = `**Receipt #${transaction.id}**\n` +
+             `Date: ${dateStr}\n` +
+             `Cashier: ${transaction.cashierName}\n\n` +
+             `**Items:**\n${itemsList}\n\n`;
+
+  // Add subtotal if different from total
+  if (transaction.subtotal !== undefined && transaction.subtotal !== transaction.total) {
+    text += `Subtotal: ${formatCurrency(transaction.subtotal)}\n`;
+  }
+
+  // Add tax if applicable
+  if (transaction.tax && transaction.tax > 0) {
+    text += `Tax: ${formatCurrency(transaction.tax)}\n`;
+  }
+
+  text += `\n**Total: ${formatCurrency(transaction.total)}**\n\n`;
+  text += `**Payment Method(s):**\n${paymentsList}`;
+
+  // Add change if applicable
+  if (transaction.change && transaction.change > 0) {
+    text += `\n\nChange: ${formatCurrency(transaction.change)}`;
+  }
 
   return { type: "text", text, data: transaction };
 }

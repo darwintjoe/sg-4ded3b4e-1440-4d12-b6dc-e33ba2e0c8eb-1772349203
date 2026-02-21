@@ -656,7 +656,6 @@ export class Database {
           voucher: false,
           transfer: false
         },
-        // Integrations
       };
       await this.put("settings", defaultSettings);
       return defaultSettings;
@@ -736,10 +735,6 @@ export class Database {
   }
 
   // Attendance
-  async getAttendance(): Promise<Attendance[]> {
-    return this.getAll<Attendance>("attendance");
-  }
-
   async addAttendance(attendance: Omit<Attendance, "id">): Promise<number> {
     return this.add<Attendance>("attendance", attendance);
   }
@@ -820,6 +815,7 @@ export class Database {
     });
   }
 
+  // Chatbot helper methods
   async getSales(startDate?: Date, endDate?: Date): Promise<Transaction[]> {
     const allSales = await this.getAll<Transaction>("transactions");
     if (!startDate || !endDate) return allSales;
