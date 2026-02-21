@@ -104,53 +104,93 @@ function extractIntent(input: string): QueryIntent {
 function extractTimeRange(input: string): TimeRange {
   const now = new Date();
 
-  // Special case: "last/latest transaction/sale" without specific time window = all time
-  // This ensures we look at history if the user doesn't say "today"
-  const isTransactionQuery = input.includes("transaction") || input.includes("sale") || input.includes("receipt");
-  const isLastQuery = input.includes("last") || input.includes("latest") || input.includes("recent") || input.includes("previous");
-  const hasTimeWindow = input.includes("today") || input.includes("yesterday") || 
-                        input.includes("week") || input.includes("month") || 
-                        input.includes("year");
-
-  if (isTransactionQuery && isLastQuery && !hasTimeWindow) {
+  // Special case: "last transaction" without time context = all time
+  const isLastQuery = /\b(last|latest|most recent|final)\s+(transaction|sale|receipt)\b/i.test(input);
+  const hasTimeWindow = /\b(today|yesterday|week|month|day)\b/i.test(input);
+  
+  if (isLastQuery && !hasTimeWindow) {
     return { type: "all_time" };
   }
 
   // 1. Specific Months
-  const months = [
-    "january", "february", "march", "april", "may", "june", 
-    "july", "august", "september", "october", "november", "december"
-  ];
-  
-  for (let i = 0; i < months.length; i++) {
-    if (input.includes(months[i])) {
-      let year = now.getFullYear();
-      if (i > now.getMonth()) {
-        year -= 1;
-      }
-      
-      const start = new Date(year, i, 1);
-      const end = endOfMonth(start);
-      return { type: "custom", startDate: start, endDate: end };
-    }
+  const monthMatch = input.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i);
+  if (monthMatch) {
+    const monthNames = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+    const monthIndex = monthNames.indexOf(monthMatch[1].toLowerCase());
+    const year = new Date().getFullYear();
+    return {
+      type: "custom",
+      startDate: new Date(year, monthIndex, 1),
+      endDate: new Date(year, monthIndex + 1, 0, 23, 59, 59)
+    };
   }
 
-  // 2. Relative Keywords
-  if (input.includes("today")) return { type: "today", startDate: startOfDay(now), endDate: endOfDay(now) };
-  if (input.includes("yesterday")) return { type: "yesterday", startDate: startOfDay(subDays(now, 1)), endDate: endOfDay(subDays(now, 1)) };
-  
-  if (input.includes("this week")) return { type: "this_week", startDate: startOfWeek(now), endDate: endOfWeek(now) };
-  if (input.includes("last week")) return { type: "last_week", startDate: startOfWeek(subWeeks(now, 1)), endDate: endOfWeek(subWeeks(now, 1)) };
-  
-  if (input.includes("this month")) return { type: "this_month", startDate: startOfMonth(now), endDate: endOfMonth(now) };
-  if (input.includes("last month")) return { type: "last_month", startDate: startOfMonth(subMonths(now, 1)), endDate: endOfMonth(subMonths(now, 1)) };
-  
-  if (input.includes("this year")) return { type: "custom", startDate: startOfYear(now), endDate: endOfYear(now) };
-  if (input.includes("last year")) return { type: "custom", startDate: startOfYear(subYears(now, 1)), endDate: endOfYear(subYears(now, 1)) };
+  // 2. "Last X months/weeks/days"
+  const lastPeriodMatch = input.match(/\blast\s+(\d+)\s+(month|week|day)s?\b/i);
+  if (lastPeriodMatch) {
+    const count = parseInt(lastPeriodMatch[1]);
+    const unit = lastPeriodMatch[2].toLowerCase();
+    const endDate = endOfDay(now);
+    let startDate: Date;
 
-  if (input.includes("all time")) return { type: "all_time" };
+    if (unit === "month") {
+      startDate = new Date(now.getFullYear(), now.getMonth() - count, now.getDate());
+    } else if (unit === "week") {
+      startDate = new Date(now.getTime() - count * 7 * 24 * 60 * 60 * 1000);
+    } else { // day
+      startDate = new Date(now.getTime() - count * 24 * 60 * 60 * 1000);
+    }
+    startDate = startOfDay(startDate);
 
-  // Default to today if no time specified
+    return { type: "custom", startDate, endDate };
+  }
+
+  // 3. This/Last Week
+  if (/\bthis\s+week\b/i.test(input)) {
+    const startDate = startOfWeek(now);
+    const endDate = endOfDay(now);
+    return { type: "this_week", startDate, endDate };
+  }
+  if (/\blast\s+week\b/i.test(input)) {
+    const lastWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startDate = startOfWeek(lastWeekStart);
+    const endDate = endOfWeek(lastWeekStart);
+    return { type: "last_week", startDate, endDate };
+  }
+
+  // 4. This/Last Month
+  if (/\bthis\s+month\b/i.test(input)) {
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endDate = endOfDay(now);
+    return { type: "this_month", startDate, endDate };
+  }
+  if (/\blast\s+month\b/i.test(input)) {
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const startDate = lastMonth;
+    const endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    return { type: "last_month", startDate, endDate };
+  }
+
+  // 5. This/Last Year
+  if (/\bthis\s+year\b/i.test(input)) {
+    const startDate = startOfYear(now);
+    const endDate = endOfDay(now);
+    return { type: "custom", startDate, endDate };
+  }
+  if (/\blast\s+year\b/i.test(input)) {
+    const lastYear = subYears(now, 1);
+    const startDate = startOfYear(lastYear);
+    const endDate = endOfYear(lastYear);
+    return { type: "custom", startDate, endDate };
+  }
+
+  // 6. Yesterday
+  if (/\byesterday\b/i.test(input)) {
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    return { type: "yesterday", startDate: startOfDay(yesterday), endDate: endOfDay(yesterday) };
+  }
+
+  // 7. Default: Today
   return { type: "today", startDate: startOfDay(now), endDate: endOfDay(now) };
 }
 
