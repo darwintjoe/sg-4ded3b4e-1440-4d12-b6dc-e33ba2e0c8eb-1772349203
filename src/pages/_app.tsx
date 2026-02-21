@@ -25,7 +25,7 @@ export default function App({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <ThemeProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <GoogleAuthProvider>
         <AppProvider>
           {showSplash ? (

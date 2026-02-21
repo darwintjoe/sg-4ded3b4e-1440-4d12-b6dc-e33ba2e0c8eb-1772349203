@@ -3,11 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X, Receipt, Moon, Sun, Monitor, Power } from "lucide-react";
+import { Clock, CreditCard, DollarSign, Wallet, QrCode, Ticket, Upload, X, Receipt, Moon, Sun, Monitor } from "lucide-react";
 import { Settings, Language } from "@/types";
 import { HelpTooltip } from "./HelpTooltip";
 import { translate } from "@/lib/translations";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 
 interface POSSettingsSectionProps {
@@ -20,6 +20,11 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
   const qrFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingQR, setUploadingQR] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getSafeShifts = (s: Settings) => {
     return s.shifts || {
@@ -94,8 +99,38 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
   };
 
   // Sync theme from settings on mount
-  if (settings.theme && settings.theme !== theme) {
-    setTheme(settings.theme);
+  useEffect(() => {
+    if (mounted && settings.theme && settings.theme !== theme) {
+      setTheme(settings.theme);
+    }
+  }, [mounted, settings.theme, theme, setTheme]);
+
+  // Prevent hydration mismatch - don't render theme buttons until mounted
+  if (!mounted) {
+    return (
+      <div className="space-y-4">
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
+            <Sun className="w-4 h-4" />
+            {translate("settings.pos.theme", language)}
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3" disabled>
+              <Sun className="h-4 w-4" />
+              <span className="text-xs">{translate("settings.pos.light", language)}</span>
+            </Button>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3" disabled>
+              <Moon className="h-4 w-4" />
+              <span className="text-xs">{translate("settings.pos.dark", language)}</span>
+            </Button>
+            <Button variant="outline" className="flex flex-col items-center gap-1 h-auto py-3" disabled>
+              <Monitor className="h-4 w-4" />
+              <span className="text-xs">{translate("settings.pos.system", language)}</span>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -132,23 +167,6 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             <Monitor className="h-4 w-4" />
             <span className="text-xs">{translate("settings.pos.system", language)}</span>
           </Button>
-        </div>
-      </Card>
-
-      {/* Always On Display */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Power className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <span className="font-medium">{translate("settings.pos.alwaysOn", language)}</span>
-              <p className="text-xs text-muted-foreground">{translate("settings.pos.alwaysOnHint", language)}</p>
-            </div>
-          </div>
-          <Switch
-            checked={settings.alwaysOnDisplay || false}
-            onCheckedChange={(checked) => onUpdate({ alwaysOnDisplay: checked })}
-          />
         </div>
       </Card>
 
