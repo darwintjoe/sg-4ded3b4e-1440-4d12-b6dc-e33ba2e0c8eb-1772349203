@@ -104,11 +104,15 @@ function extractIntent(input: string): QueryIntent {
 function extractTimeRange(input: string): TimeRange {
   const now = new Date();
 
-  // Special case: "last transaction" without time keywords = all time
-  if (input.includes("last") && input.includes("transaction") && 
-      !input.includes("today") && !input.includes("yesterday") && 
-      !input.includes("week") && !input.includes("month") && 
-      !input.includes("year")) {
+  // Special case: "last/latest transaction/sale" without specific time window = all time
+  // This ensures we look at history if the user doesn't say "today"
+  const isTransactionQuery = input.includes("transaction") || input.includes("sale") || input.includes("receipt");
+  const isLastQuery = input.includes("last") || input.includes("latest") || input.includes("recent") || input.includes("previous");
+  const hasTimeWindow = input.includes("today") || input.includes("yesterday") || 
+                        input.includes("week") || input.includes("month") || 
+                        input.includes("year");
+
+  if (isTransactionQuery && isLastQuery && !hasTimeWindow) {
     return { type: "all_time" };
   }
 
