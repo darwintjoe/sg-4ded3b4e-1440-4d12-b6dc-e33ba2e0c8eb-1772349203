@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { SettingsIcon, AlertTriangle } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { Language } from "@/types";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface DatabaseManagementSectionProps {
   language: Language;
@@ -16,7 +17,6 @@ interface DatabaseManagementSectionProps {
   isSignedIn: boolean;
   backupStatus: any;
   startPreviewProcess: () => Promise<void>;
-  setShowBusinessTypeSelector: (show: boolean) => void;
 }
 
 export function DatabaseManagementSection({
@@ -30,10 +30,14 @@ export function DatabaseManagementSection({
   handleBackupNow,
   isSignedIn,
   backupStatus,
-  startPreviewProcess,
-  setShowBusinessTypeSelector
+  startPreviewProcess
 }: DatabaseManagementSectionProps) {
   const isProcessing = backupProcessing || restoreState?.phase !== "idle";
+  const [showBusinessTypeSelector, setShowBusinessTypeSelector] = React.useState(false);
+  const handleBusinessTypeSelect = (businessType: string) => {
+    onInjectSampleData(businessType);
+    setShowBusinessTypeSelector(false);
+  };
 
   return (
     <Card className="p-4 border-amber-200 dark:border-amber-900">
@@ -115,6 +119,27 @@ export function DatabaseManagementSection({
           </div>
         </div>
       </div>
+      <Dialog open={showBusinessTypeSelector} onOpenChange={(open) => setShowBusinessTypeSelector(open)}>
+        <DialogContent>
+          <div className="text-xs text-muted-foreground text-center">
+            {translate("settings.database.sampleData.selectType", language) || "Select a business type for realistic sample data"}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {BUSINESS_CATALOGS.map((business) => (
+              <button
+                key={business.id}
+                onClick={() => handleBusinessTypeSelect(business.id)}
+                disabled={isProcessing}
+                className="p-4 border rounded-lg text-left hover:bg-accent hover:border-accent transition-colors disabled:opacity-50"
+              >
+                <div className="text-2xl mb-2">{business.icon}</div>
+                <div className="font-medium text-sm">{business.name}</div>
+                <div className="text-xs text-muted-foreground mt-1">{business.description}</div>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
