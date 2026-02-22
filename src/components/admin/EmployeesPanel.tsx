@@ -194,7 +194,9 @@ export function EmployeesPanel() {
 
   const handleNewEmployee = () => {
     const newEmployee: Employee = {
+      id: crypto.randomUUID(),
       name: "",
+      code: "",
       pin: "",
       role: "employee",
       joinDate: Date.now(),
@@ -292,7 +294,9 @@ export function EmployeesPanel() {
           }
 
           const newEmployee: Employee = {
+            id: crypto.randomUUID(),
             name: row.name,
+            code: row.pin || "",
             pin: row.pin,
             role: (row.role as UserRole) || "employee",
             joinDate,

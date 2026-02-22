@@ -5,7 +5,7 @@
 
 import { db } from "../src/lib/db";
 import { backupService } from "../src/lib/backup-service";
-import type { BackupData } from "../src/lib/backup-service";
+import type { BackupData } from "../src/types";
 import type { Transaction, Item, Employee } from "../src/types";
 
 interface TestResult {
