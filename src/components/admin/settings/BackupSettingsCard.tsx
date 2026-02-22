@@ -15,10 +15,10 @@ import {
   Loader2,
 } from "lucide-react";
 import { translate } from "@/lib/translations";
-import type { BackupStatus } from "@/types";
+import type { BackupStatus, Language } from "@/types";
 
 interface BackupSettingsCardProps {
-  language: string;
+  language: Language;
   isSignedIn: boolean;
   user: { email: string } | null;
   backupStatus: BackupStatus;

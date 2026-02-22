@@ -1,4 +1,4 @@
-import { Language } from "@/types";
+import type { Language } from "@/types";
 
 type TranslationKey = string;
 type TranslationValue = string;

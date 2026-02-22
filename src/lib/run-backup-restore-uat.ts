@@ -49,9 +49,9 @@ export class BackupRestoreUATRunner {
     const test1 = await this.executeTest(
       "1.1: Clear Database (Fresh Install)",
       async () => {
-        await this.db.clearAllData();
-        const items = await this.db.getAll("items");
-        const employees = await this.db.getAll("employees");
+        await db.clearAllData();
+        const items = await db.getAll("items");
+        const employees = await db.getAll("employees");
         if (items.length !== 0 || employees.length !== 0) {
           throw new Error("Database not properly cleared");
         }
@@ -63,13 +63,17 @@ export class BackupRestoreUATRunner {
     const test2 = await this.executeTest(
       "1.2: Admin Login",
       async () => {
-        const settings = await this.db.getSettings();
+        const settings = await db.getSettings();
         if (!settings.adminPIN) {
-          // Initialize with default PIN
-          await this.db.updateSettings({ adminPIN: "0000" } as any);
+          // Initialize with default PIN - merge with existing settings
+          const updatedSettings: Settings = {
+            ...settings,
+            adminPIN: "0000"
+          };
+          await db.updateSettings(updatedSettings);
         }
         // Verify admin can authenticate
-        const updatedSettings = await this.db.getSettings();
+        const updatedSettings = await db.getSettings();
         if (updatedSettings.adminPIN !== "0000") {
           throw new Error("Admin PIN not set correctly");
         }
@@ -118,7 +122,7 @@ export class BackupRestoreUATRunner {
         };
 
         // Store in testBackup for restore
-        await this.db.put("testBackup", { id: "scenario1_backup", data: testData });
+        await db.put("testBackup", { id: "scenario1_backup", data: testData });
       }
     );
     this.results.push(test3);
@@ -127,14 +131,14 @@ export class BackupRestoreUATRunner {
     const test4 = await this.executeTest(
       "1.4: Restore Test Data",
       async () => {
-        const backup = await this.db.getById<{ id: string, data: any }>("testBackup", "scenario1_backup");
+        const backup = await db.getById<{ id: string; data: any }>("testBackup", "scenario1_backup");
         if (!backup) throw new Error("Backup not found");
 
-        await this.backupService.finalizeRestore(backup.data);
+        await backupService.finalizeRestore(backup.data);
 
         // Verify data restored
-        const items = await this.db.getAll("items");
-        const employees = await this.db.getAll("employees");
+        const items = await db.getAll("items");
+        const employees = await db.getAll("employees");
         
         if (items.length === 0) throw new Error("Items not restored");
         if (employees.length === 0) throw new Error("Employees not restored");
@@ -146,7 +150,7 @@ export class BackupRestoreUATRunner {
     const test5 = await this.executeTest(
       "1.5: Cashier Login",
       async () => {
-        const employees = await this.db.getAll<Employee>("employees");
+        const employees = await db.getAll<Employee>("employees");
         const cashier = employees.find(e => e.role === "cashier");
         if (!cashier) throw new Error("No cashier employee found");
         if (cashier.pin !== "1111") throw new Error("Cashier PIN mismatch");
@@ -159,8 +163,8 @@ export class BackupRestoreUATRunner {
       "1.6: Create 20 Test Transactions",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const items = await this.db.getAll<Item>("items");
-        const employees = await this.db.getAll<Employee>("employees");
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
         const cashier = employees.find(e => e.role === "cashier");
 
         if (!cashier) throw new Error("No cashier found");
@@ -180,18 +184,18 @@ export class BackupRestoreUATRunner {
             employeeName: cashier.name
           };
 
-          await this.db.add("receipts", receipt);
+          await db.add("receipts", receipt);
 
           // Update daily summary
           const dailyKey = `${today}_${receipt.paymentMethod}`;
-          const existing = await this.db.getById<DailyPaymentSales>("dailyPaymentSales", dailyKey);
+          const existing = await db.getById<DailyPaymentSales>("dailyPaymentSales", dailyKey);
           
           if (existing) {
             existing.totalAmount += receipt.totalAmount;
             existing.transactionCount += 1;
-            await this.db.put("dailyPaymentSales", existing);
+            await db.put("dailyPaymentSales", existing);
           } else {
-            await this.db.add("dailyPaymentSales", {
+            await db.add("dailyPaymentSales", {
               id: dailyKey,
               businessDate: today,
               method: receipt.paymentMethod,
@@ -202,7 +206,7 @@ export class BackupRestoreUATRunner {
         }
 
         // Verify 20 transactions created
-        const receipts = await this.db.getAll("receipts");
+        const receipts = await db.getAll("receipts");
         if (receipts.length !== 20) {
           throw new Error(`Expected 20 receipts, got ${receipts.length}`);
         }
@@ -215,7 +219,7 @@ export class BackupRestoreUATRunner {
       "1.7: Verify Today's Sales Report",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const dailySales = await this.db.getAll<DailyPaymentSales>("dailyPaymentSales");
+        const dailySales = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const todaySales = dailySales.filter(s => s.businessDate === today);
 
         if (todaySales.length === 0) {
@@ -247,18 +251,16 @@ export class BackupRestoreUATRunner {
     const test1 = await this.executeTest(
       "2.1: Create Manual Backup",
       async () => {
-        const backupData = await this.backupService.exportEssentialData();
+        const backupData = await backupService.exportEssentialData();
         
         // Verify backup contains 20 transactions
-        // Note: exportEssentialData exports summaries, not raw receipts usually. 
-        // But for this test let's check what we have access to via DB.
-        const receipts = await this.db.getAll("receipts");
+        const receipts = await db.getAll("receipts");
         if (receipts.length !== 20) {
           throw new Error(`Expected 20 receipts in DB, got ${receipts.length}`);
         }
 
         // Store backup for scenario 3
-        await this.db.put("testBackup", { id: "scenario2_checkpoint", data: backupData });
+        await db.put("testBackup", { id: "scenario2_checkpoint", data: backupData });
         console.log(`   💾 Backup checkpoint created`);
       }
     );
@@ -269,8 +271,8 @@ export class BackupRestoreUATRunner {
       "2.2: Create 30 Additional Transactions",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const items = await this.db.getAll<Item>("items");
-        const employees = await this.db.getAll<Employee>("employees");
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
         const cashier = employees.find(e => e.role === "cashier");
 
         if (!cashier) throw new Error("No cashier found");
@@ -289,18 +291,18 @@ export class BackupRestoreUATRunner {
             employeeName: cashier.name
           };
 
-          await this.db.add("receipts", receipt);
+          await db.add("receipts", receipt);
 
           // Update daily summary
           const dailyKey = `${today}_${receipt.paymentMethod}`;
-          const existing = await this.db.getById<DailyPaymentSales>("dailyPaymentSales", dailyKey);
+          const existing = await db.getById<DailyPaymentSales>("dailyPaymentSales", dailyKey);
           
           if (existing) {
             existing.totalAmount += receipt.totalAmount;
             existing.transactionCount += 1;
-            await this.db.put("dailyPaymentSales", existing);
+            await db.put("dailyPaymentSales", existing);
           } else {
-            await this.db.add("dailyPaymentSales", {
+            await db.add("dailyPaymentSales", {
               id: dailyKey,
               businessDate: today,
               method: receipt.paymentMethod,
@@ -311,7 +313,7 @@ export class BackupRestoreUATRunner {
         }
 
         // Verify now 50 total transactions
-        const receipts = await this.db.getAll("receipts");
+        const receipts = await db.getAll("receipts");
         if (receipts.length !== 50) {
           throw new Error(`Expected 50 receipts, got ${receipts.length}`);
         }
@@ -324,7 +326,7 @@ export class BackupRestoreUATRunner {
       "2.3: Verify Today's Sales Report (50 total)",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const dailySales = await this.db.getAll<DailyPaymentSales>("dailyPaymentSales");
+        const dailySales = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const todaySales = dailySales.filter(s => s.businessDate === today);
 
         const totalTransactions = todaySales.reduce((sum, s) => sum + s.transactionCount, 0);
@@ -351,10 +353,10 @@ export class BackupRestoreUATRunner {
     const test1 = await this.executeTest(
       "3.1: Restore from Checkpoint Backup",
       async () => {
-        const backup = await this.db.getById<{ id: string, data: any }>("testBackup", "scenario2_checkpoint");
+        const backup = await db.getById<{ id: string; data: any }>("testBackup", "scenario2_checkpoint");
         if (!backup) throw new Error("Checkpoint backup not found");
 
-        await this.backupService.finalizeRestore(backup.data);
+        await backupService.finalizeRestore(backup.data);
 
         console.log("   🔄 Database restored to checkpoint");
       }
@@ -365,35 +367,12 @@ export class BackupRestoreUATRunner {
     const test2 = await this.executeTest(
       "3.2: Verify Transaction Count = 20",
       async () => {
-        // Important: finalizeRestore clears 'receipts' (transactions) table in logic? 
-        // Wait, exportEssentialData DOES NOT include transactions.
-        // It includes summaries. 
-        // So raw 'receipts' should be empty or 0 if we restored from essential data.
-        // BUT, the test logic in Scenario 1 manually created receipts.
-        // If we restore from essential data, we LOSE individual receipts unless we back them up.
-        // Let's check what exportEssentialData does: it exports items, employees, settings, summaries.
-        // IT DOES NOT EXPORT TRANSACTIONS.
-        // So upon restore, receipts count should be 0 (or whatever is in backup, which is none).
-        // However, the daily sales summary should reflect the 20 transactions.
-        
-        const receipts = await this.db.getAll("receipts");
-        
-        // This expectation might be wrong if transactions aren't backed up.
-        // "Essential Data" usually implies summaries only for lightweight backup.
-        // Let's verify if transactions are preserved.
-        // If not, we should check summaries instead.
-        
-        // For this UAT, we verify that the Sales Report (summaries) shows 20 transactions.
-        // We'll accept receipts being 0 if that's the intended design, or 20 if full backup.
-        // Checking backup-service.ts -> exportEssentialData -> does NOT include 'transactions' store.
-        
-        // So: Receipts table will be cleared and remain empty.
-        // Summaries will be restored.
+        const receipts = await db.getAll("receipts");
         
         console.log(`   ℹ️ Receipts count: ${receipts.length} (Expected 0 for essential backup)`);
         
         if (receipts.length !== 0) {
-             console.warn("   ⚠️ Warning: Receipts exist, maybe partial clear?");
+          console.warn("   ⚠️ Warning: Receipts exist, maybe partial clear?");
         }
       }
     );
@@ -404,7 +383,7 @@ export class BackupRestoreUATRunner {
       "3.3: Verify Today's Sales Report (20 transactions)",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const dailySales = await this.db.getAll<DailyPaymentSales>("dailyPaymentSales");
+        const dailySales = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
         const todaySales = dailySales.filter(s => s.businessDate === today);
 
         const totalTransactions = todaySales.reduce((sum, s) => sum + s.transactionCount, 0);
