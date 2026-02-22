@@ -311,13 +311,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (admins.length === 0) {
         console.log("Creating default admin...");
         await db.add("employees", {
-          id: "default-admin",
-          code: "0000",
-          name: "Admin User",
+          name: "Admin",
           pin: "0000",
           role: "admin",
           createdAt: Date.now(),
-          joinDate: Date.now()
+          isActive: true
         });
       } else {
         console.log("Admin seeding skipped (exists)");
@@ -329,9 +327,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (cashiers.length === 0) {
         console.log("Creating default cashier...");
         await db.add("employees", {
-          id: crypto.randomUUID(),
           name: "Cashier 1",
-          code: "1111",
           pin: "1111",
           role: "cashier",
           createdAt: Date.now(),
@@ -441,11 +437,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Verify that the email matches the linked admin email
     if (settings.googleDriveLinked && settings.googleAccountEmail === email) {
       setCurrentUser({
-        id: "admin-google",
         name: "Admin (Google)",
-        code: "GOOGLE",
-        pin: "GOOGLE",
         role: "admin",
+        pin: "GOOGLE", // Placeholder
         createdAt: Date.now()
       });
       return true;
@@ -840,7 +834,7 @@ PAYMENT BREAKDOWN:
       // Get business name from settings
       const businessName = settings?.businessName || "My Business";
 
-      // Prepare shift data object
+      // Export to Google Sheets (non-blocking, fire-and-forget)
       const shiftData: ShiftTransactions = {
         shiftId: shift.shiftId,
         cashierName: shift.cashierName,
@@ -849,9 +843,9 @@ PAYMENT BREAKDOWN:
         transactions: shiftTransactions
       };
 
-      // Export to Google Sheets (non-blocking, fire-and-forget)
       sheetsExport.exportShiftTransactions(
         shiftData,
+        shift,
         businessName
       ).then(result => {
         if (result.success) {

@@ -226,29 +226,6 @@ class GoogleAuthService {
   }
 
   /**
-   * Refresh authentication
-   */
-  async refreshAuth(): Promise<boolean> {
-    try {
-      if (this.tokenClient) {
-        this.tokenClient.requestAccessToken({ prompt: "" });
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Auth refresh error:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Get current access token
-   */
-  getAccessToken(): string | null {
-    return this.currentUser?.accessToken || null;
-  }
-
-  /**
    * Upload backup to Google Drive
    */
   async uploadBackup(data: Blob, filename: string, folderPath?: string): Promise<{ success: boolean; fileId?: string; error?: string }> {

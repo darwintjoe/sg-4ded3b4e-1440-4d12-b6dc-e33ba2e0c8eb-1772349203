@@ -7,11 +7,10 @@ export type Language = "en" | "id" | "zh";
 export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "card" | "voucher" | "transfer";
 
 export interface Employee {
-  id: string;
+  id?: number;
   name: string;
-  code: string;
-  pin?: string; // Backward compatibility - some code uses pin
-  role: "admin" | "cashier" | "employee";
+  pin: string;
+  role: UserRole;
   joinDate?: number;
   createdAt: number;
   isActive?: boolean;
@@ -350,28 +349,4 @@ export interface QueryResult {
   chartType?: "bar" | "line" | "pie" | "heatmap";
   timeRange?: TimeRange;
   error?: string;
-}
-
-export interface ShiftTransactions {
-  shiftId: string;
-  cashierName: string;
-  shiftStart: number;
-  shiftEnd: number;
-  transactions: Transaction[];
-}
-
-export interface BackupData {
-  employees: Employee[];
-  attendance?: Attendance[];
-  items: Item[];
-  transactions: Transaction[];
-  shifts: Shift[];
-  settings: Settings;
-  cashbackAmount?: number;
-  version?: number;
-  timestamp?: number;
-  businessId?: string;
-  checksum?: string;
-  categories?: any[];
-  expenses?: any[];
 }

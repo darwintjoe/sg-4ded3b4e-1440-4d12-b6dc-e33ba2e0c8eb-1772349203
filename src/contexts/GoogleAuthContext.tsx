@@ -40,13 +40,11 @@ interface GoogleAuthContextType {
   startRestore: () => Promise<{ success: boolean; backupData?: any; error?: string }>;
   backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
   loadPreview: (backupData: any) => Promise<{ success: boolean; error?: string }>;
-  finalizeRestore: () => Promise<{ success: boolean; error?: string }>;
+  finalizeRestore: (backupData: any) => Promise<{ success: boolean; error?: string }>;
   cancelRestore: () => Promise<{ success: boolean; error?: string }>;
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
   promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
-  getStoredBackup: () => any;
-  clearStoredBackup: () => Promise<{ success: boolean }>;
 }
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
@@ -198,12 +196,19 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   const createBackup = async () => {
     const result = await backupService.createBackup();
+    await refreshBackupStatus();
+    
+    if (result.success) {
+      localStorage.setItem("candidate_created_at", Date.now().toString());
+      localStorage.setItem("candidate_operational_hours", "0");
+      localStorage.setItem("candidate_last_check", Date.now().toString());
+    }
+    
     return result;
   };
 
   const checkBackupAvailability = async () => {
-    const available = await backupService.checkBackupAvailability();
-    return available;
+    return backupService.checkBackupAvailability();
   };
 
   const startRestore = async () => {
@@ -218,26 +223,14 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return backupService.loadPreview(backupData);
   };
 
-  const finalizeRestore = async () => {
-    const result = await backupService.finalizeRestore();
+  const finalizeRestore = async (backupData: any) => {
+    const result = await backupService.finalizeRestore(backupData);
+    await refreshBackupStatus();
     return result;
   };
 
   const cancelRestore = async () => {
     return backupService.cancelRestore();
-  };
-
-  const getStoredBackup = () => {
-    const backup = backupService.getStoredBackup();
-    return backup;
-  };
-
-  const clearStoredBackup = async () => {
-    await backupService.clearStoredBackup();
-  };
-
-  const promoteCandidate = async () => {
-    return backupService.promoteCandidate();
   };
 
   const revertRestore = async () => {
@@ -247,7 +240,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canRevert = () => {
-    const result = backupService.canRevert();
+    return backupService.canRevert();
+  };
+
+  const promoteCandidate = async () => {
+    const result = await backupService.promoteCandidate();
+    await refreshBackupStatus();
     return result;
   };
 
@@ -275,9 +273,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         cancelRestore,
         revertRestore,
         canRevert,
-        promoteCandidate,
-        getStoredBackup,
-        clearStoredBackup
+        promoteCandidate
       }}
     >
       {children}

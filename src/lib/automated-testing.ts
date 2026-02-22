@@ -106,10 +106,10 @@ export class AutomatedTester {
 
     // Seed employees
     const employees: Employee[] = [
-      { id: "admin-1", name: "Admin User", code: "0000", pin: "0000", role: "admin", joinDate: Date.now() - 365 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
-      { id: "cashier-1", name: "Test Cashier", code: "1111", pin: "1111", role: "cashier", joinDate: Date.now() - 180 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
-      { id: "emp-1", name: "John Employee", code: "2222", pin: "2222", role: "employee", joinDate: Date.now() - 90 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
-      { id: "emp-2", name: "Jane Employee", code: "3333", pin: "3333", role: "employee", joinDate: Date.now() - 60 * 24 * 60 * 60 * 1000, createdAt: Date.now() }
+      { name: "Admin User", pin: "0000", role: "admin", joinDate: Date.now() - 365 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "Test Cashier", pin: "1111", role: "cashier", joinDate: Date.now() - 180 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "John Employee", pin: "2222", role: "employee", joinDate: Date.now() - 90 * 24 * 60 * 60 * 1000, createdAt: Date.now() },
+      { name: "Jane Employee", pin: "3333", role: "employee", joinDate: Date.now() - 60 * 24 * 60 * 60 * 1000, createdAt: Date.now() }
     ];
 
     for (const emp of employees) {
@@ -606,9 +606,7 @@ export class AutomatedTester {
       "Master Data CRUD",
       async () => {
         const newEmployee: Employee = {
-          id: crypto.randomUUID(),
           name: "Automated Test Employee",
-          code: "9999",
           pin: "9999",
           role: "employee",
           joinDate: Date.now(),
@@ -633,13 +631,13 @@ export class AutomatedTester {
         const employees = await db.getAll<Employee>("employees");
         
         // Verify no duplicate PINs
-        const pins = employees.map(emp => emp.code || emp.pin || "").filter(Boolean);
+        const pins = employees.map(emp => emp.pin);
         const uniquePINs = new Set(pins);
         this.assertEqual(pins.length, uniquePINs.size, "All PINs should be unique");
         
         // Verify default PINs exist
-        const hasAdmin = employees.some(emp => emp.code === "0000" || emp.pin === "0000");
-        const hasCashier = employees.some(emp => emp.code === "1111" || emp.pin === "1111");
+        const hasAdmin = employees.some(emp => emp.pin === "0000");
+        const hasCashier = employees.some(emp => emp.pin === "1111");
         
         this.assert(hasAdmin, "Admin with PIN 0000 should exist");
         this.assert(hasCashier, "Cashier with PIN 1111 should exist");

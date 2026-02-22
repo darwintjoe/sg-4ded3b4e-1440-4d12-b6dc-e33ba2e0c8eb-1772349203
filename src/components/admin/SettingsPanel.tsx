@@ -604,7 +604,7 @@ export function SettingsPanel() {
       backupService.clearStoredBackup();
       sessionStorage.removeItem("preview_mode");
 
-      const result = await finalizeRestore();
+      const result = await finalizeRestore(previewData);
       
       if (result.success) {
         setRestoreState(prev => ({ ...prev, phase: "success" }));
@@ -648,25 +648,27 @@ export function SettingsPanel() {
   const handleConfirmRestore = async () => {
     try {
       const previewData = backupService.getStoredBackup();
-      if (!previewData) {
-        throw new Error("No backup data to restore");
-      }
+      if (!previewData) throw new Error("Backup preview data not found");
 
-      setRestoreState({ phase: "restoring", pin: "", error: undefined });
-      const result = await finalizeRestore();
+      setPreviewDialog({ open: false, backupData: null });
+      setRestoreState({ phase: "restoring" });
+      
+      backupService.clearStoredBackup();
+      sessionStorage.removeItem("preview_mode");
 
+      const result = await finalizeRestore(previewData);
+      
       if (result.success) {
         setRestoreState({ phase: "success" });
-        setTimeout(() => {
-          setRestoreState({ phase: "idle" });
-          setPreviewDialog({ open: false, backupData: null });
-        }, 2000);
+        setTimeout(() => window.location.reload(), 2000);
       } else {
-        setRestoreState({ phase: "auth", pin: "", error: result.error || result.message });
+        throw new Error(result.error);
       }
-    } catch (error) {
-      console.error("Restore failed:", error);
-      setRestoreState({ phase: "auth", pin: "", error: "Restore failed. Please try again." });
+    } catch (err) {
+      setRestoreState({ 
+        phase: "error", 
+        error: err instanceof Error ? err.message : "Restore failed" 
+      });
     }
   };
 
@@ -924,22 +926,22 @@ export function SettingsPanel() {
               </div>
 
               {previewData && (
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <Card className="p-3">
-                    <div className="text-2xl font-bold">{previewData.items?.length || 0}</div>
-                    <div className="text-muted-foreground text-xs">Items</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.items?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Items</div>
                   </Card>
-                  <Card className="p-3">
-                    <div className="text-2xl font-bold">{previewData.employees?.length || 0}</div>
-                    <div className="text-muted-foreground text-xs">Employees</div>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.employees?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Employees</div>
                   </Card>
-                  <Card className="p-3">
-                    <div className="text-2xl font-bold">{previewData.categories?.length || 0}</div>
-                    <div className="text-muted-foreground text-xs">Categories</div>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.categories?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Categories</div>
                   </Card>
-                  <Card className="p-3">
-                    <div className="text-2xl font-bold">{previewData.shifts?.length || 0}</div>
-                    <div className="text-muted-foreground text-xs">Shifts</div>
+                  <Card className="p-4">
+                    <div className="text-3xl font-bold text-primary">{previewData.shifts?.length || 0}</div>
+                    <div className="text-sm text-muted-foreground">Shifts</div>
                   </Card>
                 </div>
               )}

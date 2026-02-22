@@ -133,15 +133,18 @@ export class AppHealthChecker {
       // Test 4: Employee Management
       results.push(
         await this.runTest("Employee Management", async () => {
-          await db.add("employees", {
-            id: "test-emp-1",
+          const testEmployee: Employee = {
             name: "Test Employee",
-            code: "1234",
-            pin: "1234",
+            pin: "9999",
             role: "cashier",
-            createdAt: Date.now(),
+            createdAt: Date.now(), // Use number for timestamp
             joinDate: Date.now()
-          });
+          };
+
+          const empId = await db.add("employees", testEmployee);
+          if (!empId) throw new Error("Employee creation failed");
+
+          await db.delete("employees", empId);
         })
       );
 
