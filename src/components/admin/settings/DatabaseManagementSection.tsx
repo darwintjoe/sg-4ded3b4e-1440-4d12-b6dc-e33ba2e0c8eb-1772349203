@@ -2,14 +2,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SettingsIcon, AlertTriangle, Store } from "lucide-react";
 import { translate } from "@/lib/translations";
-import { Language } from "@/types";
+import { Language, BusinessType } from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
-import { BUSINESS_CATALOGS } from "@/lib/sample-store-data";
 
 interface DatabaseManagementSectionProps {
   language: Language;
-  onInjectSampleData: (businessType?: string) => void;
+  onInjectSampleData: (businessType: string) => void;
   onClearTransactions: () => void;
   onFactoryReset: () => void;
   onInitiateRestore: () => void;
@@ -20,6 +19,17 @@ interface DatabaseManagementSectionProps {
   backupStatus: any;
   startPreviewProcess: () => Promise<void>;
 }
+
+const BUSINESS_TYPES: Array<{ id: BusinessType; name: string; icon: string; description: string }> = [
+  { id: "convenience-store", name: "Convenience Store", icon: "🏪", description: "Groceries, snacks, drinks & daily essentials" },
+  { id: "stationery", name: "Stationery", icon: "📚", description: "Office supplies, books & writing materials" },
+  { id: "toys", name: "Toys & Games", icon: "🎮", description: "Toys, games & children's products" },
+  { id: "electronics", name: "Electronics", icon: "📱", description: "Phones, accessories & gadgets" },
+  { id: "warung-padang", name: "Warung Padang", icon: "🍛", description: "Indonesian Padang cuisine restaurant" },
+  { id: "noodle-tea", name: "Noodle & Tea", icon: "🍜", description: "Noodles, tea & beverages" },
+  { id: "building-materials", name: "Building Materials", icon: "🏗️", description: "Construction & hardware supplies" },
+  { id: "pharmacy", name: "Pharmacy", icon: "💊", description: "Medicines, health & wellness products" },
+];
 
 export function DatabaseManagementSection({
   language,
@@ -81,9 +91,9 @@ export function DatabaseManagementSection({
           <div className="border rounded-lg p-3 bg-orange-50 dark:bg-orange-950/20">
             <div className="flex items-start gap-3">
               <div className="flex-1">
-                <h4 className="font-medium text-sm mb-1">{translate("settings.database.clearTransactions.title", language)}</h4>
+                <h4 className="font-medium text-sm mb-1">{translate("settings.database.sampleData.title", language)}</h4>
                 <p className="text-xs text-muted-foreground mb-3">
-                  {translate("settings.database.clearTransactions.description", language)}
+                  {translate("settings.database.sampleData.description", language)}
                 </p>
                 <Button
                   variant="outline"
@@ -136,7 +146,7 @@ export function DatabaseManagementSection({
             {translate("settings.database.sampleData.selectTypeDescription", language) || "Choose a business type to generate realistic sample data"}
           </p>
           <div className="grid grid-cols-2 gap-3">
-            {Object.values(BUSINESS_CATALOGS).map((business) => (
+            {BUSINESS_TYPES.map((business) => (
               <button
                 key={business.id}
                 onClick={() => handleBusinessTypeSelect(business.id)}
