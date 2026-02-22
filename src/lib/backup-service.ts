@@ -67,6 +67,23 @@ interface RestoreState {
   revertExpiresAt: number | null;
 }
 
+export interface BackupStatus {
+  lastBackupTime: string | null;
+  lastBackupStatus: "success" | "failed" | "pending" | null;
+  isHealthy: boolean;
+  message: string;
+  canBackup: boolean;
+  canRestore: boolean;
+  subscriptionBlocked: boolean;
+  backupInfo?: {
+    timestamp: string;
+    size: number;
+    itemCount: number;
+    employeeCount: number;
+    checksumValid: boolean;
+  };
+}
+
 interface SubscriptionStatus {
   active: boolean;
   gracePeriod: boolean;

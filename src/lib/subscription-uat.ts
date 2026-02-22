@@ -158,7 +158,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: future.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -185,7 +185,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: past.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -212,7 +212,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: recently.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -235,7 +235,7 @@ export class SubscriptionUAT {
 
             localStorage.removeItem(`subscription_${this.testConfig.businessId}`);
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -274,7 +274,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: future.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
 
             return {
@@ -301,7 +301,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: past.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
 
             return {
@@ -328,7 +328,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: recently.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
 
             return {
@@ -393,7 +393,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: oneDayAgo.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -420,7 +420,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: thirtyDaysAgo.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -447,7 +447,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: thirtyOneDaysAgo.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -474,7 +474,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: expiry.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -523,9 +523,9 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: past.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const primaryStatus = backupService.getSubscriptionStatus(this.testConfig.businessId);
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const secondStatus = backupService.getSubscriptionStatus(secondBusinessId);
 
             const correct = primaryStatus.active && !primaryStatus.expired &&
@@ -563,9 +563,9 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: past.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const primaryBackup = backupService.shouldBackup(this.testConfig.businessId);
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const secondBackup = backupService.shouldBackup(secondBusinessId);
 
             const correct = primaryBackup.allowed && !secondBackup.allowed;
@@ -636,7 +636,7 @@ export class SubscriptionUAT {
               "invalid json {{{"
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -662,7 +662,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: null })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -688,7 +688,7 @@ export class SubscriptionUAT {
               JSON.stringify({})
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
@@ -715,7 +715,7 @@ export class SubscriptionUAT {
               JSON.stringify({ expiresAt: now.toISOString() })
             );
 
-            // @ts-ignore - accessing private method for testing
+            // @ts-expect-error - accessing private method for testing
             const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
 
             return {
