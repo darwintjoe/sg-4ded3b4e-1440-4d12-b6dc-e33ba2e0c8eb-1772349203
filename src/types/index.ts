@@ -350,3 +350,11 @@ export interface QueryResult {
   timeRange?: TimeRange;
   error?: string;
 }
+
+export interface ShiftTransactions {
+  shiftId: string;
+  cashierName: string;
+  shiftStart: number;
+  shiftEnd: number;
+  transactions: Transaction[];
+}
