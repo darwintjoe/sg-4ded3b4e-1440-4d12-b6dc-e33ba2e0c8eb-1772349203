@@ -48,6 +48,7 @@ interface BackupStatus {
   message: string;
   canBackup: boolean;
   canRestore: boolean;
+  subscriptionBlocked: boolean;
   backupInfo?: {
     timestamp: string;
     size: number;
@@ -1077,13 +1078,18 @@ export class BackupService {
     else if (lastBackupStatus === "pending") message = "Backup pending validation";
     else if (lastBackupStatus === "failed") message = "Last backup failed";
 
+    // Check subscription status
+    const subCheck = this.shouldBackup(businessId);
+    const subscriptionBlocked = !subCheck.allowed;
+
     return { 
       lastBackupTime,
       lastBackupStatus,
       isHealthy: true,
       message,
       canBackup, 
-      canRestore, 
+      canRestore,
+      subscriptionBlocked,
       backupInfo 
     };
   }
