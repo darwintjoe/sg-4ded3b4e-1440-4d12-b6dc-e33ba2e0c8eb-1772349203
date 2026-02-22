@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
-import { SettingsPanel } from "@/components/admin/SettingsPanel";
+import SettingsPanel from "@/components/admin/SettingsPanel";
 import { ItemsPanel } from "@/components/admin/ItemsPanel";
 import { EmployeesPanel } from "@/components/admin/EmployeesPanel";
 import { ReportsPanel } from "@/components/admin/ReportsPanel";

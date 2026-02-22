@@ -950,3 +950,15 @@ export function generateSampleStoreData(businessType: BusinessType = "convenienc
     settings
   };
 }
+
+// Export all business type sample data for easy access
+export const sampleStoreData = {
+  "convenience-store": generateSampleStoreData("convenience-store"),
+  "stationery": generateSampleStoreData("stationery"),
+  "toys": generateSampleStoreData("toys"),
+  "electronics": generateSampleStoreData("electronics"),
+  "warung-padang": generateSampleStoreData("warung-padang"),
+  "noodle-tea": generateSampleStoreData("noodle-tea"),
+  "building-materials": generateSampleStoreData("building-materials"),
+  "pharmacy": generateSampleStoreData("pharmacy"),
+};
