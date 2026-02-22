@@ -3,9 +3,26 @@ import type { Language } from "@/types";
 type TranslationKey = string;
 type TranslationValue = string;
 
+/**
+ * Translation function with English fallback
+ * Priority: Current Language → English → Key itself
+ */
+export function translate(key: TranslationKey, language: Language): string {
+  // 1. Try current language
+  const currentLangValue = translations[language]?.[key];
+  if (currentLangValue) return currentLangValue;
+  
+  // 2. Fallback to English
+  const englishValue = translations.en?.[key];
+  if (englishValue) return englishValue;
+  
+  // 3. Last resort: return the key itself
+  return key;
+}
+
 const translations: Record<Language, Record<TranslationKey, TranslationValue>> = {
   en: {
-    // Common
+    // ===== COMMON =====
     "common.loading": "Loading...",
     "common.save": "Save",
     "common.cancel": "Cancel",
@@ -31,6 +48,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.close": "Close",
     "common.yes": "Yes",
     "common.no": "No",
+    "common.ok": "OK",
     "common.all": "All",
     "common.none": "None",
     "common.other": "Other",
@@ -48,16 +66,28 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.error": "Error",
     "common.warning": "Warning",
     "common.info": "Info",
+    "common.active": "Active",
+    "common.inactive": "Inactive",
 
-    // Login
+    // ===== LOGIN =====
     "login.title": "Staff Login",
+    "login.subtitle": "Enter your PIN to start",
     "login.enterPin": "Enter Your PIN",
     "login.forgotPin": "Forgot PIN?",
     "login.contactAdmin": "Contact Administrator",
     "login.adminLogin": "Admin Login",
     "login.adminAccess": "Administrator Access",
+    "login.adminSubtitle": "Enter admin PIN",
+    "login.clockIn": "Clock In",
+    "login.clockOut": "Clock Out",
+    "login.error": "Login failed",
+    "login.google": "Sign in with Google",
+    "login.invalid": "Invalid PIN",
+    "login.pinRequired": "PIN is required",
+    "login.resumeFailed": "Could not resume session",
+    "login.sessionRestored": "Session restored",
 
-    // Admin
+    // ===== ADMIN =====
     "admin.dashboard": "Dashboard",
     "admin.items": "Items",
     "admin.employees": "Employees",
@@ -65,7 +95,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "admin.settings": "Settings",
     "admin.logout": "Logout",
 
-    // POS
+    // ===== POS =====
     "pos.cart": "Order",
     "pos.addToCart": "Add",
     "pos.removeFromCart": "Remove",
@@ -85,11 +115,15 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "pos.scanBarcode": "Scan",
     "pos.manualEntry": "Type",
     "pos.empty": "Add items to start",
+    "pos.search": "Search",
     "pos.searchHint": "Search by name or SKU",
+    "pos.searchPlaceholder": "Search items...",
     "pos.tapToEditHint": "Hold item to edit",
     "pos.clearAll": "Clear",
     "pos.subtotal": "Subtotal",
     "pos.total": "Total",
+    "pos.quantity": "Qty",
+    "pos.unitPrice": "Unit Price",
     "pos.confirmClearCart": "Clear cart?",
     "pos.confirmClearCartMessage": "Remove all items from this order?",
     "pos.confirmPause": "Take a break?",
@@ -107,18 +141,52 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "pos.loadItemsError": "Could not load items",
     "pos.itemNotFound": "Item not found",
     "pos.error": "Error",
+    "pos.editItem": "Edit Item",
+    "pos.deleteItem": "Remove Item",
+    "pos.confirmRemoveItem": "Remove this item from cart?",
+    "pos.confirmDiscardChanges": "Discard changes?",
+    "pos.priceOverrideWarning": "Price override applied",
+    "pos.priceOverrideDisabled": "Price override is disabled",
+    "pos.overrideEnabled": "Override enabled",
     "pos.mode.live": "Live",
     "pos.mode.training": "Practice",
 
-    // Items
+    // ===== PAYMENT =====
+    "payment.title": "Payment",
+    "payment.subtotal": "Subtotal",
+    "payment.amount": "Amount",
+    "payment.paid": "Paid",
+    "payment.change": "Change",
+    "payment.remaining": "Remaining",
+    "payment.cash": "Cash",
+    "payment.card": "Card",
+    "payment.transfer": "Transfer",
+    "payment.voucher": "Voucher",
+    "payment.qrisStatic": "QRIS Static",
+    "payment.qrisDynamic": "QRIS Dynamic",
+    "payment.add": "Add Payment",
+    "payment.complete": "Complete Payment",
+    "payment.cancel": "Cancel",
+
+    // ===== SCANNER =====
+    "scanner.title": "Barcode Scanner",
+
+    // ===== ITEMS =====
     "items.title": "Items Management",
     "items.addItem": "Add Item",
     "items.editItem": "Edit Item",
     "items.deleteItem": "Delete Item",
     "items.itemName": "Item Name",
+    "items.name": "Name",
     "items.sku": "SKU",
+    "items.skuLabel": "SKU / Barcode",
     "items.category": "Category",
+    "items.selectCategory": "Select Category",
+    "items.createCategory": "Create Category",
+    "items.noCategoryFound": "No category found",
+    "items.tapSelectCategory": "Tap to select category",
     "items.price": "Price",
+    "items.sellingPrice": "Selling Price",
     "items.cost": "Cost",
     "items.stock": "Stock",
     "items.lowStock": "Low Stock",
@@ -129,8 +197,12 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.inStock": "In Stock",
     "items.trackStock": "Track Stock",
     "items.variations": "Variations",
+    "items.noItems": "No items yet",
+    "items.noResults": "No items found",
+    "items.activeStatus": "Active Status",
+    "items.activeHelp": "Inactive items won't appear in POS",
 
-    // Employees
+    // ===== EMPLOYEES =====
     "employees.title": "Employees Management",
     "employees.addEmployee": "Add Employee",
     "employees.editEmployee": "Edit Employee",
@@ -162,8 +234,23 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.noEmployees": "No employees yet",
     "employees.selectOrAddRole": "Select or Add Role",
 
-    // Reports
+    // ===== ATTENDANCE =====
+    "attendance.title": "Attendance",
+    "attendance.subtitle": "Track employee attendance",
+    "attendance.checkIn": "Check In",
+    "attendance.checkOut": "Check Out",
+    "attendance.checkedIn": "Checked In",
+    "attendance.checkedOut": "Checked Out",
+    "attendance.notCheckedIn": "Not Checked In",
+    "attendance.hoursWorked": "Hours Worked",
+    "attendance.checkInTime": "Check-in Time",
+    "attendance.checkOutTime": "Check-out Time",
+
+    // ===== REPORTS =====
     "reports.title": "Reports",
+    "reports.query": "Ask a question about your data",
+    "reports.examples": "Example queries",
+    "reports.items.table": "Items Report",
     "reports.sales": "Sales Report",
     "reports.items": "Items Report",
     "reports.employees": "Employees Report",
@@ -180,36 +267,93 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.topItems": "Top Selling Items",
     "reports.lowItems": "Low Performing Items",
 
-    // Settings
+    // ===== SETTINGS TABS =====
     "settings.tabs.store": "Store",
     "settings.tabs.pos": "POS",
     "settings.tabs.backup": "Backup",
     "settings.tabs.database": "Database",
-    
+
+    // ===== SETTINGS - BUSINESS =====
     "settings.business.title": "Business Information",
+    "settings.business.businessInformation": "Business Information",
+    "settings.business.businessName": "Business Name",
+    "settings.business.businessNamePlaceholder": "Enter business name",
     "settings.business.storeName": "Store Name",
     "settings.business.currency": "Currency",
     "settings.business.timezone": "Timezone",
     "settings.business.address": "Address",
+    "settings.business.addressHint": "Appears on receipts",
+    "settings.business.addressPlaceholder": "Enter business address",
     "settings.business.phone": "Phone",
     "settings.business.email": "Email",
     "settings.business.website": "Website",
     "settings.business.logo": "Logo",
-    
+    "settings.business.receiptLogo": "Receipt Logo",
+    "settings.business.uploadLogo": "Upload Logo",
+    "settings.business.uploadLogoHelp": "Recommended: 200x200px PNG",
+    "settings.business.receiptFooter": "Receipt Footer",
+    "settings.business.receiptFooterHint": "Custom message on receipts",
+    "settings.business.receiptFooterPlaceholder": "Thank you for your purchase!",
+    "settings.business.taxId": "Tax ID",
+    "settings.business.taxIdHint": "Business tax identification",
+    "settings.business.taxIdPlaceholder": "Enter tax ID",
+    "settings.business.processing": "Processing...",
+
+    // ===== SETTINGS - PRINTER =====
     "settings.printer.title": "Receipt Printer",
     "settings.printer.enabled": "Enable Receipt Printing",
     "settings.printer.autoPrint": "Auto-print after payment",
     "settings.printer.showLogo": "Show logo on receipt",
     "settings.printer.showFooter": "Show footer message",
     "settings.printer.footerText": "Footer text",
-    
+    "settings.printer.bluetooth": "Bluetooth Printer",
+    "settings.printer.connect": "Connect",
+    "settings.printer.disconnect": "Disconnect",
+    "settings.printer.connected": "Connected",
+    "settings.printer.connecting": "Connecting...",
+    "settings.printer.notConnected": "Not connected",
+    "settings.printer.notSupported": "Bluetooth not supported",
+    "settings.printer.paperWidth": "Paper Width",
+    "settings.printer.testPrint": "Test Print",
+    "settings.printer.printing": "Printing...",
+
+    // ===== SETTINGS - POS =====
     "settings.pos.title": "Point of Sale Settings",
     "settings.pos.quickPay": "Quick pay buttons",
     "settings.pos.soundEffects": "Sound effects",
     "settings.pos.barcodeScanner": "Barcode scanner",
-    "settings.pos.taxRate": "Tax rate (%)",
+    "settings.pos.taxRate": "Tax Rate (%)",
+    "settings.pos.tax1Label": "Tax 1 Label",
+    "settings.pos.tax2Label": "Tax 2 Label",
+    "settings.pos.taxInclusive": "Tax Inclusive",
     "settings.pos.discountEnabled": "Enable discounts",
+    "settings.pos.priceOverride": "Allow Price Override",
+    "settings.pos.priceOverrideHelp": "Cashiers can modify item prices",
+    "settings.pos.theme": "Theme",
+    "settings.pos.light": "Light",
+    "settings.pos.dark": "Dark",
+    "settings.pos.system": "System",
+    "settings.pos.alwaysOn": "Always On Display",
+    "settings.pos.alwaysOnHint": "Keep screen awake during POS use",
     
+    // Shift Management
+    "settings.pos.shiftManagement": "Shift Management",
+    "settings.pos.shift1": "Shift 1",
+    "settings.pos.shift2": "Shift 2",
+    "settings.pos.shift3": "Shift 3",
+    "settings.pos.start": "Start",
+    "settings.pos.end": "End",
+    
+    // Payment Methods
+    "settings.pos.paymentMethods": "Payment Methods",
+    "settings.pos.paymentMethodsHint": "Enable/disable payment options",
+    "settings.pos.qrisStaticImage": "QRIS Static Image",
+    "settings.pos.uploadQR": "Upload QR Code",
+    "settings.pos.qrisDynamicEndpoint": "API Endpoint",
+    "settings.pos.qrisDynamicMerchantId": "Merchant ID",
+    "settings.pos.qrisDynamicApiKey": "API Key",
+
+    // ===== SETTINGS - BACKUP =====
     "settings.backup.title": "Data Backup",
     "settings.backup.connect": "Connect Google Drive",
     "settings.backup.disconnect": "Disconnect",
@@ -225,15 +369,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.emergency": "Emergency Functions",
     "settings.backup.revert": "Revert Restore",
     "settings.backup.advancedHint": "PIN required for security",
+    "settings.dataBackup": "Data Backup",
 
-    // POS Settings - Theme
-    "settings.pos.theme": "Theme",
-    "settings.pos.light": "Light",
-    "settings.pos.dark": "Dark",
-    "settings.pos.system": "System",
-    "settings.pos.alwaysOn": "Always On Display",
-    "settings.pos.alwaysOnHint": "Keep screen awake during POS use",
-
+    // ===== SETTINGS - SECURITY =====
     "settings.security.title": "Security & Access",
     "settings.security.changeAdminPin": "Change Admin PIN",
     "settings.security.currentPin": "Current PIN",
@@ -248,30 +386,32 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.security.localData": "All data stored locally on your device",
     "settings.security.noServer": "No data sent to external servers",
     "settings.security.fullControl": "You have full control over your data",
-    
+    "settings.changeAdminPIN": "Change Admin PIN",
+    "settings.changePIN": "Change PIN",
+    "settings.currentPIN": "Current PIN",
+    "settings.newPIN": "New PIN",
+    "settings.confirmPIN": "Confirm PIN",
+    "settings.protected": "Protected",
+    "settings.taxConfiguration": "Tax Configuration",
+
+    // ===== SETTINGS - DATABASE =====
     "settings.database.title": "Database Management",
+    "settings.database.description": "Manage your local database",
     "settings.database.restore": "Restore Database",
     "settings.database.restoreHint": "Restore from Google Drive backup (requires PIN)",
-    "settings.database.sampleData": "Load Sample Data",
-    "settings.database.sampleDataHint": "Add demo items, employees, and transactions for testing",
-    "settings.database.clearTransactions": "Clear Transactions",
+    "settings.database.sampleData.title": "Sample Data",
+    "settings.database.sampleData.description": "Load demo data for testing",
+    "settings.database.sampleData.button": "Load Sample Data",
+    "settings.database.sampleData.selectType": "Select Data Type",
+    "settings.database.sampleData.selectTypeDescription": "Choose what sample data to load",
+    "settings.database.clearTransactions.button": "Clear Transactions",
     "settings.database.clearHint": "Remove all sales history (keeps items & employees)",
-    "settings.database.factoryReset": "Factory Reset",
-    "settings.database.resetHint": "Delete everything and start fresh",
+    "settings.database.factoryReset.title": "Factory Reset",
+    "settings.database.factoryReset.description": "Delete all data and start fresh",
+    "settings.database.factoryReset.button": "Factory Reset",
     "settings.database.dangerZone": "Danger Zone",
 
-    // Attendance
-    "attendance.title": "Attendance",
-    "attendance.checkIn": "Check In",
-    "attendance.checkOut": "Check Out",
-    "attendance.checkedIn": "Checked In",
-    "attendance.checkedOut": "Checked Out",
-    "attendance.notCheckedIn": "Not Checked In",
-    "attendance.hoursWorked": "Hours Worked",
-    "attendance.checkInTime": "Check-in Time",
-    "attendance.checkOutTime": "Check-out Time",
-
-    // Errors
+    // ===== ERRORS =====
     "error.required": "This field is required",
     "error.invalid": "Invalid value",
     "error.notFound": "Not found",
@@ -280,6 +420,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "error.networkError": "Network error",
     "error.tryAgain": "Please try again",
   },
+  
+  // ===== INDONESIAN - Only include translations that differ from English =====
+  // Missing keys will automatically fallback to English
   id: {
     // Common
     "common.loading": "Memuat...",
@@ -307,6 +450,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.close": "Tutup",
     "common.yes": "Ya",
     "common.no": "Tidak",
+    "common.ok": "OK",
     "common.all": "Semua",
     "common.none": "Tidak Ada",
     "common.other": "Lainnya",
@@ -324,14 +468,26 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.error": "Error",
     "common.warning": "Peringatan",
     "common.info": "Info",
+    "common.active": "Aktif",
+    "common.inactive": "Nonaktif",
 
     // Login
     "login.title": "Login Karyawan",
+    "login.subtitle": "Masukkan PIN untuk mulai",
     "login.enterPin": "Masukkan PIN Anda",
     "login.forgotPin": "Lupa PIN?",
     "login.contactAdmin": "Hubungi Administrator",
     "login.adminLogin": "Login Admin",
     "login.adminAccess": "Akses Administrator",
+    "login.adminSubtitle": "Masukkan PIN admin",
+    "login.clockIn": "Masuk",
+    "login.clockOut": "Keluar",
+    "login.error": "Login gagal",
+    "login.google": "Masuk dengan Google",
+    "login.invalid": "PIN tidak valid",
+    "login.pinRequired": "PIN diperlukan",
+    "login.resumeFailed": "Tidak dapat melanjutkan sesi",
+    "login.sessionRestored": "Sesi dipulihkan",
 
     // Admin
     "admin.dashboard": "Dashboard",
@@ -342,24 +498,61 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "admin.logout": "Keluar",
 
     // POS
-    "pos.cart": "Keranjang",
-    "pos.addToCart": "Tambah ke Keranjang",
-    "pos.removeFromCart": "Hapus dari Keranjang",
-    "pos.clearCart": "Kosongkan Keranjang",
-    "pos.checkout": "Checkout",
-    "pos.payment": "Pembayaran",
-    "pos.cash": "Tunai",
-    "pos.card": "Kartu",
-    "pos.qris": "QRIS",
-    "pos.transfer": "Transfer",
-    "pos.change": "Kembalian",
-    "pos.amountPaid": "Jumlah Dibayar",
-    "pos.printReceipt": "Cetak Struk",
-    "pos.newSale": "Penjualan Baru",
-    "pos.noItems": "Keranjang kosong",
-    "pos.searchItems": "Cari produk...",
-    "pos.scanBarcode": "Scan Barcode",
-    "pos.manualEntry": "Input Manual",
+    "pos.cart": "Pesanan",
+    "pos.empty": "Tambah item untuk mulai",
+    "pos.search": "Cari",
+    "pos.searchHint": "Cari berdasarkan nama atau SKU",
+    "pos.searchPlaceholder": "Cari item...",
+    "pos.tapToEditHint": "Tahan item untuk edit",
+    "pos.clearAll": "Hapus",
+    "pos.subtotal": "Subtotal",
+    "pos.total": "Total",
+    "pos.quantity": "Jml",
+    "pos.unitPrice": "Harga Satuan",
+    "pos.confirmClearCart": "Kosongkan keranjang?",
+    "pos.confirmClearCartMessage": "Hapus semua item dari pesanan ini?",
+    "pos.confirmPause": "Istirahat?",
+    "pos.confirmPauseMessage": "Jeda dan kembali ke layar login. Sesi akan disimpan.",
+    "pos.pauseSession": "Istirahat",
+    "pos.confirmLogout": "Akhiri shift?",
+    "pos.confirmLogoutMessage": "Tutup shift ini dan keluar?",
+    "pos.cannotLogout": "Selesaikan pesanan dulu",
+    "pos.cannotLogoutWithCart": "Selesaikan atau kosongkan pesanan sebelum keluar",
+    "pos.endShift": "Akhiri Shift",
+    "pos.attendance": "Absensi",
+    "pos.lockScreen": "Kunci",
+    "pos.logout": "Selesai",
+    "pos.testSound": "Tes",
+    "pos.loadItemsError": "Gagal memuat item",
+    "pos.itemNotFound": "Item tidak ditemukan",
+    "pos.error": "Error",
+    "pos.editItem": "Edit Item",
+    "pos.deleteItem": "Hapus Item",
+    "pos.confirmRemoveItem": "Hapus item ini dari keranjang?",
+    "pos.confirmDiscardChanges": "Buang perubahan?",
+    "pos.priceOverrideWarning": "Override harga diterapkan",
+    "pos.priceOverrideDisabled": "Override harga dinonaktifkan",
+    "pos.overrideEnabled": "Override aktif",
+
+    // Payment
+    "payment.title": "Pembayaran",
+    "payment.subtotal": "Subtotal",
+    "payment.amount": "Jumlah",
+    "payment.paid": "Dibayar",
+    "payment.change": "Kembalian",
+    "payment.remaining": "Sisa",
+    "payment.cash": "Tunai",
+    "payment.card": "Kartu",
+    "payment.transfer": "Transfer",
+    "payment.voucher": "Voucher",
+    "payment.qrisStatic": "QRIS Statis",
+    "payment.qrisDynamic": "QRIS Dinamis",
+    "payment.add": "Tambah Pembayaran",
+    "payment.complete": "Selesaikan Pembayaran",
+    "payment.cancel": "Batal",
+
+    // Scanner
+    "scanner.title": "Pemindai Barcode",
 
     // Items
     "items.title": "Manajemen Produk",
@@ -367,9 +560,16 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.editItem": "Edit Produk",
     "items.deleteItem": "Hapus Produk",
     "items.itemName": "Nama Produk",
+    "items.name": "Nama",
     "items.sku": "SKU",
+    "items.skuLabel": "SKU / Barcode",
     "items.category": "Kategori",
+    "items.selectCategory": "Pilih Kategori",
+    "items.createCategory": "Buat Kategori",
+    "items.noCategoryFound": "Kategori tidak ditemukan",
+    "items.tapSelectCategory": "Ketuk untuk pilih kategori",
     "items.price": "Harga",
+    "items.sellingPrice": "Harga Jual",
     "items.cost": "Modal",
     "items.stock": "Stok",
     "items.lowStock": "Stok Menipis",
@@ -380,6 +580,10 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.inStock": "Tersedia",
     "items.trackStock": "Lacak Stok",
     "items.variations": "Variasi",
+    "items.noItems": "Belum ada produk",
+    "items.noResults": "Produk tidak ditemukan",
+    "items.activeStatus": "Status Aktif",
+    "items.activeHelp": "Item nonaktif tidak muncul di POS",
 
     // Employees
     "employees.title": "Manajemen Karyawan",
@@ -413,8 +617,23 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.noEmployees": "Belum ada karyawan",
     "employees.selectOrAddRole": "Pilih atau Tambah Peran",
 
+    // Attendance
+    "attendance.title": "Absensi",
+    "attendance.subtitle": "Lacak kehadiran karyawan",
+    "attendance.checkIn": "Masuk",
+    "attendance.checkOut": "Keluar",
+    "attendance.checkedIn": "Sudah Masuk",
+    "attendance.checkedOut": "Sudah Keluar",
+    "attendance.notCheckedIn": "Belum Masuk",
+    "attendance.hoursWorked": "Jam Kerja",
+    "attendance.checkInTime": "Waktu Masuk",
+    "attendance.checkOutTime": "Waktu Keluar",
+
     // Reports
     "reports.title": "Laporan",
+    "reports.query": "Tanya tentang data Anda",
+    "reports.examples": "Contoh pertanyaan",
+    "reports.items.table": "Laporan Produk",
     "reports.sales": "Laporan Penjualan",
     "reports.items": "Laporan Produk",
     "reports.employees": "Laporan Karyawan",
@@ -431,36 +650,89 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.topItems": "Produk Terlaris",
     "reports.lowItems": "Produk Kurang Laku",
 
-    // Settings
+    // Settings Tabs
     "settings.tabs.store": "Toko",
     "settings.tabs.pos": "POS",
     "settings.tabs.backup": "Cadangan",
     "settings.tabs.database": "Database",
-    
+
+    // Settings - Business
     "settings.business.title": "Informasi Bisnis",
+    "settings.business.businessInformation": "Informasi Bisnis",
+    "settings.business.businessName": "Nama Bisnis",
+    "settings.business.businessNamePlaceholder": "Masukkan nama bisnis",
     "settings.business.storeName": "Nama Toko",
     "settings.business.currency": "Mata Uang",
     "settings.business.timezone": "Zona Waktu",
     "settings.business.address": "Alamat",
+    "settings.business.addressHint": "Muncul di struk",
+    "settings.business.addressPlaceholder": "Masukkan alamat bisnis",
     "settings.business.phone": "Telepon",
     "settings.business.email": "Email",
     "settings.business.website": "Website",
     "settings.business.logo": "Logo",
-    
+    "settings.business.receiptLogo": "Logo Struk",
+    "settings.business.uploadLogo": "Unggah Logo",
+    "settings.business.uploadLogoHelp": "Disarankan: 200x200px PNG",
+    "settings.business.receiptFooter": "Footer Struk",
+    "settings.business.receiptFooterHint": "Pesan khusus di struk",
+    "settings.business.receiptFooterPlaceholder": "Terima kasih atas pembelian Anda!",
+    "settings.business.taxId": "NPWP",
+    "settings.business.taxIdHint": "Identifikasi pajak bisnis",
+    "settings.business.taxIdPlaceholder": "Masukkan NPWP",
+    "settings.business.processing": "Memproses...",
+
+    // Settings - Printer
     "settings.printer.title": "Printer Struk",
     "settings.printer.enabled": "Aktifkan cetak struk",
     "settings.printer.autoPrint": "Cetak otomatis setelah bayar",
     "settings.printer.showLogo": "Tampilkan logo di struk",
     "settings.printer.showFooter": "Tampilkan pesan footer",
     "settings.printer.footerText": "Teks footer",
-    
+    "settings.printer.bluetooth": "Printer Bluetooth",
+    "settings.printer.connect": "Hubungkan",
+    "settings.printer.disconnect": "Putuskan",
+    "settings.printer.connected": "Terhubung",
+    "settings.printer.connecting": "Menghubungkan...",
+    "settings.printer.notConnected": "Tidak terhubung",
+    "settings.printer.notSupported": "Bluetooth tidak didukung",
+    "settings.printer.paperWidth": "Lebar Kertas",
+    "settings.printer.testPrint": "Tes Cetak",
+    "settings.printer.printing": "Mencetak...",
+
+    // Settings - POS
     "settings.pos.title": "Pengaturan Kasir",
     "settings.pos.quickPay": "Tombol bayar cepat",
     "settings.pos.soundEffects": "Efek suara",
     "settings.pos.barcodeScanner": "Scanner barcode",
-    "settings.pos.taxRate": "Tarif pajak (%)",
+    "settings.pos.taxRate": "Tarif Pajak (%)",
+    "settings.pos.tax1Label": "Label Pajak 1",
+    "settings.pos.tax2Label": "Label Pajak 2",
+    "settings.pos.taxInclusive": "Pajak Inklusif",
     "settings.pos.discountEnabled": "Aktifkan diskon",
-    
+    "settings.pos.priceOverride": "Izinkan Override Harga",
+    "settings.pos.priceOverrideHelp": "Kasir dapat mengubah harga item",
+    "settings.pos.theme": "Tema",
+    "settings.pos.light": "Terang",
+    "settings.pos.dark": "Gelap",
+    "settings.pos.system": "Sistem",
+    "settings.pos.alwaysOn": "Tampilkan Selalu",
+    "settings.pos.alwaysOnHint": "Tetapkan layar aktif selama penggunaan POS",
+    "settings.pos.shiftManagement": "Manajemen Shift",
+    "settings.pos.shift1": "Shift 1",
+    "settings.pos.shift2": "Shift 2",
+    "settings.pos.shift3": "Shift 3",
+    "settings.pos.start": "Mulai",
+    "settings.pos.end": "Selesai",
+    "settings.pos.paymentMethods": "Metode Pembayaran",
+    "settings.pos.paymentMethodsHint": "Aktifkan/nonaktifkan opsi pembayaran",
+    "settings.pos.qrisStaticImage": "Gambar QRIS Statis",
+    "settings.pos.uploadQR": "Unggah Kode QR",
+    "settings.pos.qrisDynamicEndpoint": "Endpoint API",
+    "settings.pos.qrisDynamicMerchantId": "Merchant ID",
+    "settings.pos.qrisDynamicApiKey": "API Key",
+
+    // Settings - Backup
     "settings.backup.title": "Backup Data",
     "settings.backup.connect": "Hubungkan Google Drive",
     "settings.backup.disconnect": "Putuskan",
@@ -472,19 +744,13 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.download": "Unduh Backup",
     "settings.backup.upload": "Unggah Backup",
     "settings.backup.safe": "Terlindungi",
-    "settings.backup.signInHint": "Hubungkan Google Drive untuk backup otomatis data Anda setiap hari",
+    "settings.backup.signInHint": "Hubungkan Google Drive untuk backup otomatis setiap hari",
     "settings.backup.emergency": "Fungsi Darurat",
     "settings.backup.revert": "Kembalikan Restore",
     "settings.backup.advancedHint": "PIN diperlukan untuk keamanan",
+    "settings.dataBackup": "Backup Data",
 
-    // POS Settings - Theme
-    "settings.pos.theme": "Tema",
-    "settings.pos.light": "Terang",
-    "settings.pos.dark": "Gelap",
-    "settings.pos.system": "Sistem",
-    "settings.pos.alwaysOn": "Tampilkan Selalu",
-    "settings.pos.alwaysOnHint": "Tetapkan layar aktif selama penggunaan POS",
-
+    // Settings - Security
     "settings.security.title": "Keamanan & Akses",
     "settings.security.changeAdminPin": "Ubah PIN Admin",
     "settings.security.currentPin": "PIN Saat Ini",
@@ -493,34 +759,30 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.security.pinChanged": "PIN Admin berhasil diubah",
     "settings.security.pinMismatch": "PIN tidak cocok",
     "settings.security.pinInvalid": "PIN saat ini salah",
-    "settings.security.accessControl": "Kontrol Akses",
-    "settings.security.roleBased": "Akses berbasis peran: Admin, Manajer, Kasir",
-    "settings.security.dataPrivacy": "Privasi Data",
-    "settings.security.localData": "Semua data disimpan lokal di perangkat Anda",
-    "settings.security.noServer": "Tidak ada data dikirim ke server eksternal",
-    "settings.security.fullControl": "Anda memiliki kontrol penuh atas data Anda",
-    
+    "settings.changeAdminPIN": "Ubah PIN Admin",
+    "settings.changePIN": "Ubah PIN",
+    "settings.currentPIN": "PIN Saat Ini",
+    "settings.newPIN": "PIN Baru",
+    "settings.confirmPIN": "Konfirmasi PIN",
+    "settings.protected": "Terlindungi",
+    "settings.taxConfiguration": "Konfigurasi Pajak",
+
+    // Settings - Database
     "settings.database.title": "Manajemen Database",
+    "settings.database.description": "Kelola database lokal Anda",
     "settings.database.restore": "Pulihkan Database",
     "settings.database.restoreHint": "Pulihkan dari backup Google Drive (perlu PIN)",
-    "settings.database.sampleData": "Muat Data Sampel",
-    "settings.database.sampleDataHint": "Tambah demo produk, karyawan, dan transaksi untuk testing",
-    "settings.database.clearTransactions": "Hapus Transaksi",
+    "settings.database.sampleData.title": "Data Sampel",
+    "settings.database.sampleData.description": "Muat data demo untuk testing",
+    "settings.database.sampleData.button": "Muat Data Sampel",
+    "settings.database.sampleData.selectType": "Pilih Jenis Data",
+    "settings.database.sampleData.selectTypeDescription": "Pilih data sampel yang akan dimuat",
+    "settings.database.clearTransactions.button": "Hapus Transaksi",
     "settings.database.clearHint": "Hapus semua riwayat penjualan (produk & karyawan tetap ada)",
-    "settings.database.factoryReset": "Reset Pabrik",
-    "settings.database.resetHint": "Hapus semuanya dan mulai dari awal",
+    "settings.database.factoryReset.title": "Reset Pabrik",
+    "settings.database.factoryReset.description": "Hapus semua data dan mulai dari awal",
+    "settings.database.factoryReset.button": "Reset Pabrik",
     "settings.database.dangerZone": "Zona Berbahaya",
-
-    // Attendance
-    "attendance.title": "Absensi",
-    "attendance.checkIn": "Check In",
-    "attendance.checkOut": "Check Out",
-    "attendance.checkedIn": "Sudah Check In",
-    "attendance.checkedOut": "Sudah Check Out",
-    "attendance.notCheckedIn": "Belum Check In",
-    "attendance.hoursWorked": "Jam Kerja",
-    "attendance.checkInTime": "Waktu Check In",
-    "attendance.checkOutTime": "Waktu Check Out",
 
     // Errors
     "error.required": "Field ini wajib diisi",
@@ -531,6 +793,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "error.networkError": "Error jaringan",
     "error.tryAgain": "Silakan coba lagi",
   },
+  
+  // ===== CHINESE - Only include translations that differ from English =====
+  // Missing keys will automatically fallback to English
   zh: {
     // Common
     "common.loading": "加载中...",
@@ -558,6 +823,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.close": "关闭",
     "common.yes": "是",
     "common.no": "否",
+    "common.ok": "确定",
     "common.all": "全部",
     "common.none": "无",
     "common.other": "其他",
@@ -575,14 +841,26 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.error": "错误",
     "common.warning": "警告",
     "common.info": "信息",
+    "common.active": "激活",
+    "common.inactive": "停用",
 
     // Login
     "login.title": "员工登录",
+    "login.subtitle": "输入PIN码开始",
     "login.enterPin": "输入PIN码",
     "login.forgotPin": "忘记PIN码？",
     "login.contactAdmin": "联系管理员",
     "login.adminLogin": "管理员登录",
     "login.adminAccess": "管理员权限",
+    "login.adminSubtitle": "输入管理员PIN",
+    "login.clockIn": "签到",
+    "login.clockOut": "签退",
+    "login.error": "登录失败",
+    "login.google": "使用Google登录",
+    "login.invalid": "PIN码无效",
+    "login.pinRequired": "需要PIN码",
+    "login.resumeFailed": "无法恢复会话",
+    "login.sessionRestored": "会话已恢复",
 
     // Admin
     "admin.dashboard": "仪表板",
@@ -594,23 +872,60 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
 
     // POS
     "pos.cart": "购物车",
-    "pos.addToCart": "加入购物车",
-    "pos.removeFromCart": "从购物车移除",
-    "pos.clearCart": "清空购物车",
-    "pos.checkout": "结账",
-    "pos.payment": "支付",
-    "pos.cash": "现金",
-    "pos.card": "银行卡",
-    "pos.qris": "QRIS",
-    "pos.transfer": "转账",
-    "pos.change": "找零",
-    "pos.amountPaid": "实付金额",
-    "pos.printReceipt": "打印小票",
-    "pos.newSale": "新交易",
-    "pos.noItems": "购物车为空",
-    "pos.searchItems": "搜索商品...",
-    "pos.scanBarcode": "扫描条码",
-    "pos.manualEntry": "手动输入",
+    "pos.empty": "添加商品开始",
+    "pos.search": "搜索",
+    "pos.searchHint": "按名称或SKU搜索",
+    "pos.searchPlaceholder": "搜索商品...",
+    "pos.tapToEditHint": "长按编辑",
+    "pos.clearAll": "清空",
+    "pos.subtotal": "小计",
+    "pos.total": "总计",
+    "pos.quantity": "数量",
+    "pos.unitPrice": "单价",
+    "pos.confirmClearCart": "清空购物车？",
+    "pos.confirmClearCartMessage": "从订单中删除所有商品？",
+    "pos.confirmPause": "休息一下？",
+    "pos.confirmPauseMessage": "暂停并返回登录界面。会话将被保存。",
+    "pos.pauseSession": "休息",
+    "pos.confirmLogout": "结束班次？",
+    "pos.confirmLogoutMessage": "关闭此班次并退出？",
+    "pos.cannotLogout": "请先完成订单",
+    "pos.cannotLogoutWithCart": "退出前请完成或清空订单",
+    "pos.endShift": "结束班次",
+    "pos.attendance": "考勤",
+    "pos.lockScreen": "锁屏",
+    "pos.logout": "完成",
+    "pos.testSound": "测试",
+    "pos.loadItemsError": "无法加载商品",
+    "pos.itemNotFound": "未找到商品",
+    "pos.error": "错误",
+    "pos.editItem": "编辑商品",
+    "pos.deleteItem": "删除商品",
+    "pos.confirmRemoveItem": "从购物车中删除此商品？",
+    "pos.confirmDiscardChanges": "放弃更改？",
+    "pos.priceOverrideWarning": "已应用价格修改",
+    "pos.priceOverrideDisabled": "价格修改已禁用",
+    "pos.overrideEnabled": "修改已启用",
+
+    // Payment
+    "payment.title": "支付",
+    "payment.subtotal": "小计",
+    "payment.amount": "金额",
+    "payment.paid": "已付",
+    "payment.change": "找零",
+    "payment.remaining": "剩余",
+    "payment.cash": "现金",
+    "payment.card": "银行卡",
+    "payment.transfer": "转账",
+    "payment.voucher": "代金券",
+    "payment.qrisStatic": "QRIS静态",
+    "payment.qrisDynamic": "QRIS动态",
+    "payment.add": "添加支付",
+    "payment.complete": "完成支付",
+    "payment.cancel": "取消",
+
+    // Scanner
+    "scanner.title": "条码扫描器",
 
     // Items
     "items.title": "商品管理",
@@ -618,9 +933,16 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.editItem": "编辑商品",
     "items.deleteItem": "删除商品",
     "items.itemName": "商品名称",
+    "items.name": "名称",
     "items.sku": "SKU",
+    "items.skuLabel": "SKU / 条码",
     "items.category": "分类",
+    "items.selectCategory": "选择分类",
+    "items.createCategory": "创建分类",
+    "items.noCategoryFound": "未找到分类",
+    "items.tapSelectCategory": "点击选择分类",
     "items.price": "价格",
+    "items.sellingPrice": "售价",
     "items.cost": "成本",
     "items.stock": "库存",
     "items.lowStock": "库存不足",
@@ -631,6 +953,10 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.inStock": "有货",
     "items.trackStock": "追踪库存",
     "items.variations": "规格",
+    "items.noItems": "暂无商品",
+    "items.noResults": "未找到商品",
+    "items.activeStatus": "激活状态",
+    "items.activeHelp": "停用商品不会出现在POS",
 
     // Employees
     "employees.title": "员工管理",
@@ -664,8 +990,23 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.noEmployees": "暂无员工",
     "employees.selectOrAddRole": "选择或添加角色",
 
+    // Attendance
+    "attendance.title": "考勤",
+    "attendance.subtitle": "追踪员工出勤",
+    "attendance.checkIn": "签到",
+    "attendance.checkOut": "签退",
+    "attendance.checkedIn": "已签到",
+    "attendance.checkedOut": "已签退",
+    "attendance.notCheckedIn": "未签到",
+    "attendance.hoursWorked": "工作时长",
+    "attendance.checkInTime": "签到时间",
+    "attendance.checkOutTime": "签退时间",
+
     // Reports
     "reports.title": "报表",
+    "reports.query": "询问您的数据",
+    "reports.examples": "示例查询",
+    "reports.items.table": "商品报表",
     "reports.sales": "销售报表",
     "reports.items": "商品报表",
     "reports.employees": "员工报表",
@@ -682,36 +1023,89 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "reports.topItems": "热销商品",
     "reports.lowItems": "滞销商品",
 
-    // Settings
+    // Settings Tabs
     "settings.tabs.store": "商店",
     "settings.tabs.pos": "POS",
     "settings.tabs.backup": "备份",
     "settings.tabs.database": "数据库",
-    
+
+    // Settings - Business
     "settings.business.title": "商家信息",
+    "settings.business.businessInformation": "商家信息",
+    "settings.business.businessName": "商家名称",
+    "settings.business.businessNamePlaceholder": "输入商家名称",
     "settings.business.storeName": "店铺名称",
     "settings.business.currency": "货币",
     "settings.business.timezone": "时区",
     "settings.business.address": "地址",
+    "settings.business.addressHint": "显示在收据上",
+    "settings.business.addressPlaceholder": "输入商家地址",
     "settings.business.phone": "电话",
     "settings.business.email": "邮箱",
     "settings.business.website": "网站",
     "settings.business.logo": "Logo",
-    
+    "settings.business.receiptLogo": "收据Logo",
+    "settings.business.uploadLogo": "上传Logo",
+    "settings.business.uploadLogoHelp": "建议：200x200px PNG",
+    "settings.business.receiptFooter": "收据页脚",
+    "settings.business.receiptFooterHint": "收据上的自定义消息",
+    "settings.business.receiptFooterPlaceholder": "感谢您的惠顾！",
+    "settings.business.taxId": "税号",
+    "settings.business.taxIdHint": "企业税务识别号",
+    "settings.business.taxIdPlaceholder": "输入税号",
+    "settings.business.processing": "处理中...",
+
+    // Settings - Printer
     "settings.printer.title": "小票打印机",
     "settings.printer.enabled": "启用打印",
     "settings.printer.autoPrint": "支付后自动打印",
     "settings.printer.showLogo": "在小票上显示Logo",
     "settings.printer.showFooter": "显示页脚信息",
     "settings.printer.footerText": "页脚文本",
-    
+    "settings.printer.bluetooth": "蓝牙打印机",
+    "settings.printer.connect": "连接",
+    "settings.printer.disconnect": "断开",
+    "settings.printer.connected": "已连接",
+    "settings.printer.connecting": "连接中...",
+    "settings.printer.notConnected": "未连接",
+    "settings.printer.notSupported": "不支持蓝牙",
+    "settings.printer.paperWidth": "纸张宽度",
+    "settings.printer.testPrint": "测试打印",
+    "settings.printer.printing": "打印中...",
+
+    // Settings - POS
     "settings.pos.title": "收银台设置",
     "settings.pos.quickPay": "快速支付按钮",
     "settings.pos.soundEffects": "音效",
     "settings.pos.barcodeScanner": "扫码枪",
     "settings.pos.taxRate": "税率 (%)",
+    "settings.pos.tax1Label": "税1标签",
+    "settings.pos.tax2Label": "税2标签",
+    "settings.pos.taxInclusive": "含税",
     "settings.pos.discountEnabled": "启用折扣",
-    
+    "settings.pos.priceOverride": "允许修改价格",
+    "settings.pos.priceOverrideHelp": "收银员可以修改商品价格",
+    "settings.pos.theme": "主题",
+    "settings.pos.light": "浅色",
+    "settings.pos.dark": "深色",
+    "settings.pos.system": "系统",
+    "settings.pos.alwaysOn": "常亮显示",
+    "settings.pos.alwaysOnHint": "POS使用时保持屏幕唤醒",
+    "settings.pos.shiftManagement": "班次管理",
+    "settings.pos.shift1": "班次1",
+    "settings.pos.shift2": "班次2",
+    "settings.pos.shift3": "班次3",
+    "settings.pos.start": "开始",
+    "settings.pos.end": "结束",
+    "settings.pos.paymentMethods": "支付方式",
+    "settings.pos.paymentMethodsHint": "启用/禁用支付选项",
+    "settings.pos.qrisStaticImage": "QRIS静态图片",
+    "settings.pos.uploadQR": "上传二维码",
+    "settings.pos.qrisDynamicEndpoint": "API端点",
+    "settings.pos.qrisDynamicMerchantId": "商户ID",
+    "settings.pos.qrisDynamicApiKey": "API密钥",
+
+    // Settings - Backup
     "settings.backup.title": "数据备份",
     "settings.backup.connect": "连接 Google Drive",
     "settings.backup.disconnect": "断开连接",
@@ -727,7 +1121,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.emergency": "紧急功能",
     "settings.backup.revert": "撤销恢复",
     "settings.backup.advancedHint": "需要输入PIN码",
-    
+    "settings.dataBackup": "数据备份",
+
+    // Settings - Security
     "settings.security.title": "安全与访问",
     "settings.security.changeAdminPin": "修改管理员PIN",
     "settings.security.currentPin": "当前PIN",
@@ -736,34 +1132,30 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.security.pinChanged": "管理员PIN修改成功",
     "settings.security.pinMismatch": "PIN码不匹配",
     "settings.security.pinInvalid": "当前PIN码错误",
-    "settings.security.accessControl": "访问控制",
-    "settings.security.roleBased": "基于角色的访问控制：管理员、经理、收银员",
-    "settings.security.dataPrivacy": "数据隐私",
-    "settings.security.localData": "所有数据存储在本地设备",
-    "settings.security.noServer": "不向外部服务器发送数据",
-    "settings.security.fullControl": "您完全掌控自己的数据",
-    
+    "settings.changeAdminPIN": "修改管理员PIN",
+    "settings.changePIN": "修改PIN",
+    "settings.currentPIN": "当前PIN",
+    "settings.newPIN": "新PIN",
+    "settings.confirmPIN": "确认PIN",
+    "settings.protected": "已保护",
+    "settings.taxConfiguration": "税务配置",
+
+    // Settings - Database
     "settings.database.title": "数据库管理",
+    "settings.database.description": "管理您的本地数据库",
     "settings.database.restore": "恢复数据库",
     "settings.database.restoreHint": "从 Google Drive 恢复 (需要PIN)",
-    "settings.database.sampleData": "加载演示数据",
-    "settings.database.sampleDataHint": "添加测试用的商品、员工和交易数据",
-    "settings.database.clearTransactions": "清空交易数据",
+    "settings.database.sampleData.title": "演示数据",
+    "settings.database.sampleData.description": "加载测试数据",
+    "settings.database.sampleData.button": "加载演示数据",
+    "settings.database.sampleData.selectType": "选择数据类型",
+    "settings.database.sampleData.selectTypeDescription": "选择要加载的演示数据",
+    "settings.database.clearTransactions.button": "清空交易",
     "settings.database.clearHint": "删除所有销售记录 (保留商品和员工)",
-    "settings.database.factoryReset": "恢复出厂设置",
-    "settings.database.resetHint": "删除所有数据并重置",
+    "settings.database.factoryReset.title": "恢复出厂设置",
+    "settings.database.factoryReset.description": "删除所有数据并重置",
+    "settings.database.factoryReset.button": "恢复出厂设置",
     "settings.database.dangerZone": "危险区域",
-
-    // Attendance
-    "attendance.title": "考勤",
-    "attendance.checkIn": "签到",
-    "attendance.checkOut": "签退",
-    "attendance.checkedIn": "已签到",
-    "attendance.checkedOut": "已签退",
-    "attendance.notCheckedIn": "未签到",
-    "attendance.hoursWorked": "工作时长",
-    "attendance.checkInTime": "签到时间",
-    "attendance.checkOutTime": "签退时间",
 
     // Errors
     "error.required": "此项必填",
@@ -775,7 +1167,3 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "error.tryAgain": "请重试",
   },
 };
-
-export function translate(key: TranslationKey, language: Language): string {
-  return translations[language]?.[key] || key;
-}
