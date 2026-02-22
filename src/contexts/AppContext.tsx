@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance, ShiftTransactions } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -835,9 +835,10 @@ PAYMENT BREAKDOWN:
       const businessName = settings?.businessName || "My Business";
 
       // Export to Google Sheets (non-blocking, fire-and-forget)
-      const shiftData: Shift = {
+      const shiftData: ShiftTransactions = {
         shiftId: shift.shiftId,
-        cashierName: shift.cashierName,
+        employeeId: shift.cashierId,
+        employeeName: shift.cashierName,
         shiftStart: shift.shiftStart,
         shiftEnd: shift.shiftEnd || Date.now(),
         transactions: shiftTransactions
