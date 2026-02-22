@@ -6,7 +6,6 @@
 import { openDB, IDBPDatabase } from "idb";
 import { BackupData } from "@/types";
 import { googleAuth } from "./google-auth";
-import { showBackupBlockedNotification } from "./google-auth";
 
 const DB_NAME = "SellMoreDB";
 const DB_VERSION = 4;
@@ -107,13 +106,11 @@ export class BackupService {
         const parsed = JSON.parse(subData);
         expiresAt = parsed.expiresAt || null;
       } catch (e) {
-        // Invalid JSON, treat as legacy (active)
         return { active: true, expired: false, gracePeriod: false, expiresAt: null, daysUntilExpiry: null, daysSinceExpiry: null };
       }
     }
 
     if (!expiresAt) {
-      // No subscription data, treat as legacy (active)
       return { active: true, expired: false, gracePeriod: false, expiresAt: null, daysUntilExpiry: null, daysSinceExpiry: null };
     }
 
@@ -124,7 +121,6 @@ export class BackupService {
     const daysSinceExpiry = Math.abs(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 
     if (diffDays > 0) {
-      // Active subscription
       return { 
         active: true, 
         expired: false, 
@@ -135,7 +131,6 @@ export class BackupService {
       };
     }
 
-    // Expired - check grace period (30 days)
     const GRACE_PERIOD_DAYS = 30;
     const inGracePeriod = daysSinceExpiry <= GRACE_PERIOD_DAYS;
 
@@ -194,14 +189,13 @@ export class BackupService {
     } else if (subscriptionStatus.expired) {
       isHealthy = false;
       message = "Subscription expired. Backup blocked. Please renew to continue backup service.";
-      canRestore = true; // Always allow restore
+      canRestore = true;
     } else if (subscriptionStatus.active && subscriptionStatus.daysUntilExpiry !== null) {
       if (subscriptionStatus.daysUntilExpiry <= 7) {
         message = `Subscription expires in ${subscriptionStatus.daysUntilExpiry} days. Please renew soon.`;
       }
     }
 
-    // Check if backup is too old (> 7 days)
     if (lastBackupTime && subscriptionStatus.active) {
       const lastBackup = new Date(lastBackupTime);
       const daysSinceBackup = Math.floor((Date.now() - lastBackup.getTime()) / (1000 * 60 * 60 * 24));
@@ -245,11 +239,8 @@ export class BackupService {
 
   async createBackup(businessId: string): Promise<{ success: boolean; message: string; data?: BackupData }> {
     try {
-      // Check subscription
       const backupDecision = this.shouldBackup(businessId);
       if (!backupDecision.allowed) {
-        const status = this.getSubscriptionStatus(businessId);
-        showBackupBlockedNotification(status.daysSinceExpiry || 0);
         return { success: false, message: "Backup blocked: Subscription expired" };
       }
 
@@ -277,13 +268,11 @@ export class BackupService {
         checksum: "",
       };
 
-      // Generate checksum
       const dataStr = JSON.stringify({
         items, employees, categories, transactions, shifts, expenses
       });
       backupData.checksum = await this.generateChecksum(dataStr);
 
-      // Save locally
       localStorage.setItem(`last_backup_time_${businessId}`, new Date().toISOString());
       localStorage.setItem(`last_backup_status_${businessId}`, "success");
       localStorage.setItem(`backup_info_${businessId}`, JSON.stringify({
@@ -306,11 +295,8 @@ export class BackupService {
 
   async uploadToGoogleDrive(businessId: string, data: BackupData): Promise<{ success: boolean; message: string }> {
     try {
-      // Check subscription
       const backupDecision = this.shouldBackup(businessId);
       if (!backupDecision.allowed) {
-        const status = this.getSubscriptionStatus(businessId);
-        showBackupBlockedNotification(status.daysSinceExpiry || 0);
         return { success: false, message: "Upload blocked: Subscription expired" };
       }
 
@@ -349,8 +335,6 @@ export class BackupService {
       }
 
       const result = await response.json();
-      
-      // Save file ID for reference
       localStorage.setItem(`last_backup_file_id_${businessId}`, result.id);
       
       return { success: true, message: "Backup uploaded to Google Drive" };
@@ -422,17 +406,15 @@ export class BackupService {
 
   async restoreFromBackup(businessId: string, data: BackupData): Promise<{ success: boolean; message: string }> {
     try {
-      // Create a backup of current state first (revert capability)
       const currentBackup = await this.createBackup(`${businessId}-revert-${Date.now()}`);
       if (currentBackup.success && currentBackup.data) {
         this.restoreState.currentDBBackup = JSON.stringify(currentBackup.data);
         this.restoreState.canRevert = true;
-        this.restoreState.revertExpiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+        this.restoreState.revertExpiresAt = Date.now() + 24 * 60 * 60 * 1000;
       }
 
       const db = await this.initDB();
 
-      // Clear existing data
       const tx = db.transaction(["items", "employees", "categories", "transactions", "shifts", "expenses"], "readwrite");
       await Promise.all([
         tx.objectStore("items").clear(),
@@ -444,7 +426,6 @@ export class BackupService {
       ]);
       await tx.done;
 
-      // Restore data
       if (data.items?.length) {
         const itemTx = db.transaction("items", "readwrite");
         for (const item of data.items) {
@@ -493,7 +474,6 @@ export class BackupService {
         await expenseTx.done;
       }
 
-      // Restore settings
       if (data.settings) {
         await db.put("settings", data.settings, "app");
       }
@@ -532,6 +512,95 @@ export class BackupService {
         message: error instanceof Error ? error.message : "Revert failed" 
       };
     }
+  }
+
+  async storeBackupForPreview(data: BackupData): Promise<void> {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("preview_backup_data", JSON.stringify(data));
+    }
+  }
+
+  async getStoredBackup(): Promise<BackupData | null> {
+    if (typeof window === "undefined") return null;
+    const data = localStorage.getItem("preview_backup_data");
+    return data ? JSON.parse(data) : null;
+  }
+
+  async clearStoredBackup(): Promise<void> {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("preview_backup_data");
+    }
+  }
+
+  async exportEssentialData(): Promise<string> {
+    const db = await this.initDB();
+    const items = await db.getAll("items");
+    const employees = await db.getAll("employees");
+    
+    const data = {
+      items: items.slice(0, 100),
+      employees: employees.slice(0, 50),
+      exportDate: new Date().toISOString(),
+    };
+    
+    return JSON.stringify(data, null, 2);
+  }
+
+  async checkBackupAvailability(): Promise<{ available: boolean; message: string }> {
+    const status = await this.getBackupStatus("default");
+    return {
+      available: status.canBackup,
+      message: status.message,
+    };
+  }
+
+  async startRestore(fileId: string): Promise<{ success: boolean; message: string }> {
+    const data = await this.downloadBackup(fileId);
+    if (!data) {
+      return { success: false, message: "Failed to download backup" };
+    }
+
+    const result = await this.restoreFromBackup("default", data);
+    return result;
+  }
+
+  async finalizeRestore(): Promise<{ success: boolean; message: string }> {
+    this.restoreState.phase = "complete";
+    this.restoreState.progress = 100;
+    this.notifyListeners();
+    return { success: true, message: "Restore finalized" };
+  }
+
+  async cancelRestore(): Promise<{ success: boolean; message: string }> {
+    this.restoreState.phase = "idle";
+    this.restoreState.progress = 0;
+    this.restoreState.previewData = null;
+    this.notifyListeners();
+    return { success: true, message: "Restore cancelled" };
+  }
+
+  async canRevert(): Promise<{ canRevert: boolean; expiresAt: number | null }> {
+    return {
+      canRevert: this.restoreState.canRevert,
+      expiresAt: this.restoreState.revertExpiresAt,
+    };
+  }
+
+  async promoteCandidate(): Promise<{ success: boolean; message: string }> {
+    this.restoreState.canRevert = false;
+    this.restoreState.currentDBBackup = null;
+    return { success: true, message: "Backup promoted" };
+  }
+
+  async loadPreview(fileId: string): Promise<{ success: boolean; data?: BackupData; message: string }> {
+    const data = await this.downloadBackup(fileId);
+    if (data) {
+      this.restoreState.previewData = data;
+      this.restoreState.phase = "preview";
+      this.notifyListeners();
+      return { success: true, data, message: "Preview loaded" };
+    }
+    return { success: false, message: "Failed to load preview" };
   }
 
   private async generateChecksum(data: string): Promise<string> {
