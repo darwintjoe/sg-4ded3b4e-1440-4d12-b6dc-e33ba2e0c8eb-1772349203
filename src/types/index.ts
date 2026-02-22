@@ -6,6 +6,10 @@ export type Language = "en" | "id" | "zh";
 
 export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "card" | "voucher" | "transfer";
 
+// ==========================================
+// Core Business Entities
+// ==========================================
+
 export interface Employee {
   id?: number;
   name: string;
@@ -105,6 +109,19 @@ export interface Shift {
   status: "active" | "closed";
 }
 
+export interface ShiftTransactions {
+  shiftId: string | number;
+  employeeId: string | number;
+  employeeName: string;
+  shiftStart: number;
+  shiftEnd: number;
+  transactions: Transaction[];
+}
+
+// ==========================================
+// Daily Aggregates
+// ==========================================
+
 export interface DailyAttendance {
   id?: number;
   employeeId: number;
@@ -152,6 +169,10 @@ export interface DailyShiftSummary {
   hoursWorked: number;
 }
 
+// ==========================================
+// Monthly Aggregates
+// ==========================================
+
 export interface MonthlyItemSales {
   id?: number;
   itemId: number;
@@ -192,6 +213,10 @@ export interface MonthlyAttendanceSummary {
   lateCount: number;
 }
 
+// ==========================================
+// Reports & Analytics
+// ==========================================
+
 export interface ShiftReport {
   cashierId: number;
   cashierName: string;
@@ -206,6 +231,10 @@ export interface ShiftReport {
     voucher: number;
   };
 }
+
+// ==========================================
+// Session & State Management
+// ==========================================
 
 export interface PauseState {
   id: number;
@@ -227,7 +256,19 @@ export interface CashierSession {
   mode: POSMode;
 }
 
+// ==========================================
+// Settings & Configuration
+// ==========================================
+
+export interface ShiftConfig {
+  enabled: boolean;
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface Settings {
+  id?: number;
   key: string;
   mode: POSMode;
   tax1Enabled: boolean;
@@ -284,24 +325,73 @@ export interface Settings {
   theme?: "light" | "dark" | "system";
   
   // QRIS Configuration
-  qrisStaticImage?: string; // Base64 encoded QR code image
-  qrisDynamicEndpoint?: string; // API endpoint for generating dynamic QR
-  qrisDynamicApiKey?: string; // API key for authentication
-  qrisDynamicMerchantId?: string; // Merchant ID
-}
-
-export interface ShiftConfig {
-  enabled: boolean;
-  name: string;
-  startTime: string;
-  endTime: string;
+  qrisStaticImage?: string;
+  qrisDynamicEndpoint?: string;
+  qrisDynamicApiKey?: string;
+  qrisDynamicMerchantId?: string;
 }
 
 export interface Translations {
   [key: string]: string;
 }
 
+// ==========================================
+// Google Auth & Backup
+// ==========================================
+
+export interface GoogleUser {
+  email: string;
+  name: string;
+  picture: string;
+  accessToken: string;
+}
+
+export interface BackupStatus {
+  lastBackupTime: string | null;
+  lastBackupStatus: "success" | "failed" | "pending" | null;
+  isHealthy: boolean;
+  message: string;
+  canBackup?: boolean;
+  canRestore: boolean;
+  backupInfo?: {
+    timestamp: string;
+    size: number;
+    itemCount: number;
+    employeeCount: number;
+    checksumValid: boolean;
+  };
+}
+
+export interface BackupMetadata {
+  version: string;
+  timestamp: string;
+  deviceId: string;
+  dataSize: number;
+  checksum: string;
+  status: "candidate" | "verified";
+  itemCount?: number;
+  employeeCount?: number;
+}
+
+export interface BackupData {
+  metadata: BackupMetadata;
+  items: Item[];
+  employees: Employee[];
+  categories: string[];
+  settings: Settings;
+  shifts: Shift[];
+  dailyItemSales: DailyItemSales[];
+  dailyPaymentSales: DailyPaymentSales[];
+  dailyAttendance: DailyAttendance[];
+  monthlyItemSales: MonthlyItemSales[];
+  monthlySalesSummary: MonthlySalesSummary[];
+  monthlyAttendanceSummary: MonthlyAttendanceSummary[];
+}
+
+// ==========================================
 // Chatbot Types
+// ==========================================
+
 export type QueryIntent = 
   | "revenue" 
   | "transactions" 
@@ -339,23 +429,31 @@ export interface ParsedQuery {
   comparison?: ComparisonType;
   entity?: string;
   limit?: number;
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
 }
 
 export interface QueryResult {
   type: "text" | "data" | "chart" | "mixed" | "error";
   text: string;
-  data?: any;
+  data?: unknown;
   chartType?: "bar" | "line" | "pie" | "heatmap";
   timeRange?: TimeRange;
   error?: string;
 }
 
-export interface ShiftTransactions {
-  shiftId: string | number;
-  employeeId: string | number;
-  employeeName: string;
-  shiftStart: number;
-  shiftEnd: number;
-  transactions: Transaction[];
+// ==========================================
+// Sheets Export Types
+// ==========================================
+
+export interface TransactionRow {
+  receiptNumber: string;
+  timestamp: string;
+  description: string;
+  tax: number;
+  service: number;
+  total: number;
+  paymentMethod: "cash" | "qris" | "transfer" | string;
+  cashAmount: number;
+  qrisAmount: number;
+  transferAmount: number;
 }
