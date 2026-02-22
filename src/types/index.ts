@@ -248,6 +248,26 @@ export interface Settings {
   businessTaxId?: string;
   receiptFooter?: string;
   
+  // Basic store settings
+  storeAddress?: string;
+  storePhone?: string;
+  taxRate?: number;
+  currency?: string;
+  theme?: "light" | "dark" | "system";
+  
+  // Printer settings
+  printerEnabled?: boolean;
+  printerName?: string;
+  
+  // Backup settings
+  backupEnabled?: boolean;
+  autoBackup?: boolean;
+  
+  // Stock settings
+  lowStockThreshold?: number;
+  showTax?: boolean;
+  printReceipt?: boolean;
+  
   // Integrations
   googleDriveLinked: boolean;
   googleAccountEmail?: string;
@@ -281,7 +301,6 @@ export interface Settings {
   
   // Display Settings
   alwaysOnDisplay?: boolean;
-  theme?: "light" | "dark" | "system";
   
   // QRIS Configuration
   qrisStaticImage?: string; // Base64 encoded QR code image

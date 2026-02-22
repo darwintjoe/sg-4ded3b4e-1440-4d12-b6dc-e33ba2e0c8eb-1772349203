@@ -878,7 +878,9 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
  */
 export function getDefaultSettings(): Settings {
   return {
-    storeName: "Toko Saya",
+    key: "settings",
+    mode: "retail",
+    businessName: "Demo Store",
     storeAddress: "",
     storePhone: "",
     taxRate: 0,
