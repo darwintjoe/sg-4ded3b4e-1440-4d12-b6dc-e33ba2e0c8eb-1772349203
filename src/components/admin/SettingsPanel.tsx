@@ -604,7 +604,7 @@ export function SettingsPanel() {
       backupService.clearStoredBackup();
       sessionStorage.removeItem("preview_mode");
 
-      const result = await finalizeRestore(previewData);
+      const result = await finalizeRestore();
       
       if (result.success) {
         setRestoreState(prev => ({ ...prev, phase: "success" }));
@@ -653,17 +653,16 @@ export function SettingsPanel() {
       }
 
       setRestoreState({ phase: "restoring", pin: "", error: undefined });
-      const result = await backupService.finalizeRestore();
+      const result = await finalizeRestore();
 
       if (result.success) {
         setRestoreState({ phase: "success" });
         setTimeout(() => {
           setRestoreState({ phase: "idle" });
-          setShowRestorePreview(false);
-          setRestoreFile(null);
+          setPreviewDialog({ open: false, backupData: null });
         }, 2000);
       } else {
-        setRestoreState({ phase: "auth", pin: "", error: result.message });
+        setRestoreState({ phase: "auth", pin: "", error: result.error || result.message });
       }
     } catch (error) {
       console.error("Restore failed:", error);
