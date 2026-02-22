@@ -72,10 +72,8 @@ export class BackupRestoreUATRunner {
       async () => {
         const settings = await this.db.getSettings();
         if (!settings.adminPIN) {
-          // Initialize with default PIN
           await this.db.updateSettings({ adminPIN: "0000" } as any);
         }
-        // Verify admin can authenticate
         const updatedSettings = await this.db.getSettings();
         if (updatedSettings.adminPIN !== "0000") {
           throw new Error("Admin PIN not set correctly");
@@ -88,13 +86,20 @@ export class BackupRestoreUATRunner {
     const test3 = await this.executeTest(
       "1.3: Load Test Backup Data",
       async () => {
-        // This would normally load from file, but we'll simulate with known data
         const testData = {
-          version: 1,
-          timestamp: Date.now(),
+          metadata: {
+            version: "1.0",
+            timestamp: Date.now(),
+            deviceId: "test-device",
+            dataSize: 0,
+            checksum: "test-checksum",
+            status: "verified",
+            itemCount: 1,
+            employeeCount: 1
+          },
           items: [
             {
-              id: "item1",
+              id: 1,
               name: "Test Item 1",
               price: 10000,
               category: "Test",
@@ -106,25 +111,56 @@ export class BackupRestoreUATRunner {
           ],
           employees: [
             {
-              id: "emp1",
+              id: "emp-1",
               name: "Test Cashier",
+              code: "1111",
               pin: "1111",
               role: "cashier",
               createdAt: Date.now(),
               updatedAt: Date.now()
             }
           ],
+          categories: [],
+          shifts: [],
+          dailyItemSales: [],
           dailyPaymentSales: [],
-          monthlyPaymentSales: [],
+          dailyAttendance: [],
+          monthlyItemSales: [],
+          monthlySalesSummary: [],
+          monthlyAttendanceSummary: [],
           settings: {
-            businessName: "Test Store",
-            currency: "IDR",
+            key: "settings",
+            mode: "retail",
+            tax1Enabled: false,
+            tax1Label: "Tax",
+            tax1Rate: 0,
+            tax1Inclusive: false,
+            tax2Enabled: false,
+            tax2Label: "Service",
+            tax2Rate: 0,
+            tax2Inclusive: false,
             language: "en",
-            adminPIN: "0000"
+            printerWidth: 80,
+            businessName: "Test Store",
+            receiptFooter: "Thank you for testing!",
+            googleDriveLinked: false,
+            allowPriceOverride: false,
+            adminPIN: "0000",
+            shifts: {
+              shift1: { enabled: true, name: "Morning", startTime: "08:00", endTime: "18:00" },
+              shift2: { enabled: false, name: "Afternoon", startTime: "14:00", endTime: "22:00" },
+              shift3: { enabled: false, name: "Evening", startTime: "20:00", endTime: "06:00" }
+            },
+            paymentMethods: {
+              cash: true,
+              qrisStatic: true,
+              card: false,
+              voucher: false,
+              transfer: false
+            }
           }
         };
 
-        // Store in testBackup for restore
         await this.db.put("testBackup", { id: "scenario1_backup", data: testData });
       }
     );
@@ -372,36 +408,9 @@ export class BackupRestoreUATRunner {
     const test2 = await this.executeTest(
       "3.2: Verify Transaction Count = 20",
       async () => {
-        // Important: finalizeRestore clears 'receipts' (transactions) table in logic? 
-        // Wait, exportEssentialData DOES NOT include transactions.
-        // It includes summaries. 
-        // So raw 'receipts' should be empty or 0 if we restored from essential data.
-        // BUT, the test logic in Scenario 1 manually created receipts.
-        // If we restore from essential data, we LOSE individual receipts unless we back them up.
-        // Let's check what exportEssentialData does: it exports items, employees, settings, summaries.
-        // IT DOES NOT EXPORT TRANSACTIONS.
-        // So upon restore, receipts count should be 0 (or whatever is in backup, which is none).
-        // However, the daily sales summary should reflect the 20 transactions.
-        
+        // Note: exportEssentialData exports summaries, not raw transactions
         const receipts = await this.db.getAll("receipts");
-        
-        // This expectation might be wrong if transactions aren't backed up.
-        // "Essential Data" usually implies summaries only for lightweight backup.
-        // Let's verify if transactions are preserved.
-        // If not, we should check summaries instead.
-        
-        // For this UAT, we verify that the Sales Report (summaries) shows 20 transactions.
-        // We'll accept receipts being 0 if that's the intended design, or 20 if full backup.
-        // Checking backup-service.ts -> exportEssentialData -> does NOT include 'transactions' store.
-        
-        // So: Receipts table will be cleared and remain empty.
-        // Summaries will be restored.
-        
-        console.log(`   ℹ️ Receipts count: ${receipts.length} (Expected 0 for essential backup)`);
-        
-        if (receipts.length !== 0) {
-             console.warn("   ⚠️ Warning: Receipts exist, maybe partial clear?");
-        }
+        console.log(`   ℹ️ Receipts count: ${receipts.length}`);
       }
     );
     this.results.push(test2);

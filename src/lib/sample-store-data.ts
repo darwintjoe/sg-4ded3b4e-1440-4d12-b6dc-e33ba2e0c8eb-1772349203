@@ -504,8 +504,9 @@ export function generateSampleItems(businessType: BusinessType = "convenience-st
 
 export function generateSampleEmployees(): Employee[] {
   return SAMPLE_EMPLOYEES.map((emp, index) => ({
-    id: index + 1,
+    id: `emp-${index + 1}`,
     name: emp.name,
+    code: emp.pin,
     pin: emp.pin,
     role: emp.role as UserRole,
     createdAt: Date.now(),
