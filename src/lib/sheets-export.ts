@@ -10,20 +10,7 @@
  */
 
 import { googleAuth } from "./google-auth";
-import type { ShiftTransactions, Shift, Transaction } from "@/types";
-
-export interface TransactionRow {
-  receiptNumber: string;
-  timestamp: string;
-  description: string;
-  tax: number;
-  service: number;
-  total: number;
-  paymentMethod: "cash" | "qris" | "transfer" | string;
-  cashAmount: number;
-  qrisAmount: number;
-  transferAmount: number;
-}
+import type { ShiftTransactions, Shift, Transaction, TransactionRow } from "@/types";
 
 interface SheetInfo {
   id: string;

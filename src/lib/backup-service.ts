@@ -14,48 +14,7 @@
 
 import { db } from "./db";
 import { googleAuth } from "./google-auth";
-
-export interface BackupMetadata {
-  version: string;
-  timestamp: string;
-  deviceId: string;
-  dataSize: number;
-  checksum: string;
-  status: "candidate" | "verified";
-  itemCount?: number;
-  employeeCount?: number;
-}
-
-export interface BackupData {
-  metadata: BackupMetadata;
-  items: any[];
-  employees: any[];
-  categories: any[];
-  settings: any;
-  shifts: any[];
-  dailyItemSales: any[];
-  dailyPaymentSales: any[];
-  dailyAttendance: any[];
-  monthlyItemSales: any[];
-  monthlySalesSummary: any[];
-  monthlyAttendanceSummary: any[];
-}
-
-interface BackupStatus {
-  lastBackupTime: string | null;
-  lastBackupStatus: "success" | "failed" | "pending" | null;
-  isHealthy: boolean;
-  message: string;
-  canBackup: boolean;
-  canRestore: boolean;
-  backupInfo?: {
-    timestamp: string;
-    size: number;
-    itemCount: number;
-    employeeCount: number;
-    checksumValid: boolean;
-  };
-}
+import type { BackupMetadata, BackupData, BackupStatus } from "@/types";
 
 interface RestoreState {
   phase: "idle" | "downloading" | "verifying" | "backing_up" | "preview" | "finalizing" | "complete";

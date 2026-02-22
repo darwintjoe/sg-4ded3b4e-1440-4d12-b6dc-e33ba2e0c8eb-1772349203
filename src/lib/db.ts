@@ -1,6 +1,6 @@
 // src/lib/db.ts - IndexedDB wrapper with optimized upsert for mobile devices
 
-import {
+import type {
   Item,
   Employee,
   Transaction,
