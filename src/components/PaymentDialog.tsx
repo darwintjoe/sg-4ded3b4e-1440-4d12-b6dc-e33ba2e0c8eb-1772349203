@@ -45,7 +45,7 @@ export function PaymentDialog({
   const { toast } = useToast();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState<string>("");
   const [qrisRef, setQrisRef] = useState("");
   const [completed, setCompleted] = useState(false);
   const [change, setChange] = useState(0);

@@ -198,19 +198,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   const createBackup = async () => {
     const result = await backupService.createBackup();
-    await refreshBackupStatus();
-    
-    if (result.success) {
-      localStorage.setItem("candidate_created_at", Date.now().toString());
-      localStorage.setItem("candidate_operational_hours", "0");
-      localStorage.setItem("candidate_last_check", Date.now().toString());
-    }
-    
     return result;
   };
 
   const checkBackupAvailability = async () => {
-    return backupService.checkBackupAvailability();
+    const available = await backupService.checkBackupAvailability();
+    return available;
   };
 
   const startRestore = async () => {
@@ -227,7 +220,6 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   const finalizeRestore = async () => {
     const result = await backupService.finalizeRestore();
-    await refreshBackupStatus();
     return result;
   };
 
@@ -236,12 +228,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const getStoredBackup = () => {
-    return backupService.getStoredBackup();
+    const backup = backupService.getStoredBackup();
+    return backup;
   };
 
-  const clearStoredBackup = () => {
-    backupService.clearStoredBackup();
-    return Promise.resolve({ success: true });
+  const clearStoredBackup = async () => {
+    await backupService.clearStoredBackup();
   };
 
   const promoteCandidate = async () => {
@@ -255,7 +247,8 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canRevert = () => {
-    return backupService.canRevert();
+    const result = backupService.canRevert();
+    return result;
   };
 
   const createCalendarEvent = async (event: any) => {

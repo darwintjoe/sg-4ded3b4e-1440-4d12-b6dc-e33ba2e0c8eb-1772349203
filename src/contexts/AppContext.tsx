@@ -311,13 +311,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (admins.length === 0) {
         console.log("Creating default admin...");
         await db.add("employees", {
-          id: crypto.randomUUID(),
-          name: "Admin",
+          id: "default-admin",
           code: "0000",
+          name: "Admin User",
           pin: "0000",
           role: "admin",
           createdAt: Date.now(),
-          isActive: true
+          joinDate: Date.now()
         });
       } else {
         console.log("Admin seeding skipped (exists)");
