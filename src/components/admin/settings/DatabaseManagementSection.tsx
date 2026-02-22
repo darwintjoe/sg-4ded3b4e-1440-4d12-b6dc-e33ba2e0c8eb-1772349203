@@ -127,7 +127,7 @@ export function DatabaseManagementSection({
             {translate("settings.database.sampleData.selectType", language) || "Select a business type for realistic sample data"}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {BUSINESS_CATALOGS.map((business) => (
+            {Object.values(BUSINESS_CATALOGS).map((business) => (
               <button
                 key={business.id}
                 onClick={() => handleBusinessTypeSelect(business.id)}
