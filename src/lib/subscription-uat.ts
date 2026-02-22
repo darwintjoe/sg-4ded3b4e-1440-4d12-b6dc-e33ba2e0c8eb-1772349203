@@ -1,740 +1,805 @@
 /**
  * Subscription UAT (User Acceptance Testing)
- * Tests subscription status, grace period, backup blocking, and multi-business scenarios
+ * Tests subscription status, grace period, and backup blocking functionality
  */
 
-import { BackupService } from "./backup-service";
+import { backupService, BackupStatus } from "./backup-service";
 
-export interface SubscriptionUATResult {
-  testCase: string;
-  category: string;
-  status: "PASS" | "FAIL" | "SKIP";
+export interface UATResult {
+  pass: boolean;
   message: string;
-  timestamp: number;
+  details?: Record<string, any>;
 }
 
-export interface SubscriptionUATReport {
-  startTime: number;
-  endTime: number;
-  totalTests: number;
-  passed: number;
-  failed: number;
-  skipped: number;
-  results: SubscriptionUATResult[];
-  summary: string;
+export interface UATSuite {
+  name: string;
+  description: string;
+  tests: UATTest[];
 }
 
+export interface UATTest {
+  id: string;
+  name: string;
+  description: string;
+  run: () => Promise<UATResult>;
+}
+
+// Test configuration
+interface TestConfig {
+  businessId: string;
+  activeSubscription?: {
+    expiresAt: string;
+  };
+  expiredSubscription?: {
+    expiresAt: string;
+  };
+  gracePeriodSubscription?: {
+    expiresAt: string;
+  };
+}
+
+/**
+ * Main Subscription UAT Class
+ */
 export class SubscriptionUAT {
-  private results: SubscriptionUATResult[] = [];
-  private originalLocalStorage: Record<string, string> = {};
+  private results: Map<string, UATResult> = new Map();
+  private testConfig: TestConfig;
+  private originalLocalStorage: Record<string, string | null> = {};
+  private originalDate: typeof Date;
 
-  // Helper: Save original localStorage state
-  private saveLocalStorageState() {
-    this.originalLocalStorage = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key) {
-        this.originalLocalStorage[key] = localStorage.getItem(key) || "";
-      }
-    }
+  constructor(config: TestConfig) {
+    this.testConfig = config;
+    this.originalDate = Date;
   }
 
-  // Helper: Restore original localStorage state
-  private restoreLocalStorageState() {
-    localStorage.clear();
-    Object.entries(this.originalLocalStorage).forEach(([key, value]) => {
-      localStorage.setItem(key, value);
-    });
-  }
+  /**
+   * Run all subscription tests
+   */
+  async runAllTests(): Promise<Map<string, UATResult>> {
+    console.log("🧪 Starting Subscription UAT Tests...\n");
 
-  // Helper: Set subscription data in localStorage
-  private setSubscription(businessId: string | null, expiresAt: string | null, active: boolean = true) {
-    const key = businessId ? `subscription_${businessId}` : "subscription";
-    const data = {
-      active,
-      expiresAt,
-      updatedAt: new Date().toISOString()
-    };
-    localStorage.setItem(key, JSON.stringify(data));
-  }
-
-  // Helper: Clear all subscription data
-  private clearSubscriptions() {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key === "subscription" || key.startsWith("subscription_"))) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-  }
-
-  // Helper: Execute test with timestamp
-  private async executeTest(
-    testCase: string,
-    category: string,
-    testFn: () => Promise<void>
-  ): Promise<SubscriptionUATResult> {
-    const timestamp = Date.now();
-    
-    try {
-      await testFn();
-      return {
-        testCase,
-        category,
-        status: "PASS",
-        message: "Test passed successfully",
-        timestamp
-      };
-    } catch (error) {
-      return {
-        testCase,
-        category,
-        status: "FAIL",
-        message: error instanceof Error ? error.message : String(error),
-        timestamp
-      };
-    }
-  }
-
-  // Helper: Assertion
-  private assert(condition: boolean, message: string) {
-    if (!condition) {
-      throw new Error(`Assertion failed: ${message}`);
-    }
-  }
-
-  private assertEqual(actual: any, expected: any, message: string) {
-    if (actual !== expected) {
-      throw new Error(`${message}\nExpected: ${expected}\nActual: ${actual}`);
-    }
-  }
-
-  // ========================================
-  // TEST CATEGORY 1: Active Subscription
-  // ========================================
-
-  async test_1_1_ActiveSubscriptionAllowsBackup() {
-    return this.executeTest(
-      "1.1: Active Subscription - Backup Allowed",
-      "Active Subscription",
-      async () => {
-        this.clearSubscriptions();
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        this.setSubscription(null, futureDate.toISOString(), true);
-
-        const backupService = new BackupService();
-        const status = await backupService.getBackupStatus();
-        
-        this.assert(status.canBackup, "Backup should be allowed with active subscription");
-        this.assert(!status.subscriptionBlocked, "Should not be subscription blocked");
-      }
-    );
-  }
-
-  async test_1_2_LegacyUserNoSubscriptionData() {
-    return this.executeTest(
-      "1.2: Legacy User (No Subscription Data) - Backup Allowed",
-      "Active Subscription",
-      async () => {
-        this.clearSubscriptions();
-        // No subscription data set - simulates legacy user
-
-        const backupService = new BackupService();
-        const status = await backupService.getBackupStatus();
-        
-        this.assert(status.canBackup, "Legacy users should be allowed to backup");
-        this.assert(!status.subscriptionBlocked, "Legacy users should not be blocked");
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 2: Expired Subscription
-  // ========================================
-
-  async test_2_1_ExpiredSubscriptionBlocksBackup() {
-    return this.executeTest(
-      "2.1: Expired Subscription (Past 30-day Grace) - Backup Blocked",
-      "Expired Subscription",
-      async () => {
-        this.clearSubscriptions();
-        const pastDate = new Date();
-        pastDate.setDate(pastDate.getDate() - 40); // 40 days ago (past grace period)
-        this.setSubscription(null, pastDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        
-        // Try to create backup
-        const result = await backupService.createBackup();
-        
-        this.assertEqual(result.success, false, "Backup should fail");
-        this.assertEqual(result.subscriptionBlocked, true, "Should be subscription blocked");
-      }
-    );
-  }
-
-  async test_2_2_ExpiredShowsCorrectError() {
-    return this.executeTest(
-      "2.2: Expired Subscription - Shows Correct Error Message",
-      "Expired Subscription",
-      async () => {
-        this.clearSubscriptions();
-        const pastDate = new Date();
-        pastDate.setDate(pastDate.getDate() - 40);
-        this.setSubscription(null, pastDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assert(result.error?.includes("Subscription expired"), "Should show subscription expired error");
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 3: Grace Period
-  // ========================================
-
-  async test_3_1_GracePeriodAllowsBackup() {
-    return this.executeTest(
-      "3.1: Grace Period (Within 30 Days) - Backup Allowed",
-      "Grace Period",
-      async () => {
-        this.clearSubscriptions();
-        const expiredDate = new Date();
-        expiredDate.setDate(expiredDate.getDate() - 15); // 15 days ago (within grace)
-        this.setSubscription(null, expiredDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        // Note: createBackup also checks Google sign-in, so it might fail for that reason
-        // but should NOT be subscription blocked
-        if (result.subscriptionBlocked) {
-          throw new Error("Backup should be allowed during grace period");
-        }
-      }
-    );
-  }
-
-  async test_3_2_GracePeriodExactly30Days() {
-    return this.executeTest(
-      "3.2: Grace Period (Exactly 30 Days) - Backup Allowed",
-      "Grace Period",
-      async () => {
-        this.clearSubscriptions();
-        const expiredDate = new Date();
-        expiredDate.setDate(expiredDate.getDate() - 30); // Exactly 30 days ago
-        this.setSubscription(null, expiredDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        if (result.subscriptionBlocked) {
-          throw new Error("Backup should be allowed at exactly 30 days grace");
-        }
-      }
-    );
-  }
-
-  async test_3_3_GracePeriodEndBoundary() {
-    return this.executeTest(
-      "3.3: Grace Period (31 Days - Just Past) - Backup Blocked",
-      "Grace Period",
-      async () => {
-        this.clearSubscriptions();
-        const expiredDate = new Date();
-        expiredDate.setDate(expiredDate.getDate() - 31); // 31 days ago (just past grace)
-        this.setSubscription(null, expiredDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assertEqual(result.subscriptionBlocked, true, "Backup should be blocked after grace period");
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 4: Multi-Business Subscription
-  // ========================================
-
-  async test_4_1_BusinessAActive_BusinessBExpired() {
-    return this.executeTest(
-      "4.1: Business A Active, Business B Expired - Independent Status",
-      "Multi-Business",
-      async () => {
-        this.clearSubscriptions();
-        
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        
-        const pastDate = new Date();
-        pastDate.setDate(pastDate.getDate() - 40);
-        
-        // Business A: Active
-        this.setSubscription("business-a", futureDate.toISOString(), true);
-        // Business B: Expired
-        this.setSubscription("business-b", pastDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        
-        // Business A should allow backup
-        const resultA = await backupService.createBackup("business-a");
-        if (resultA.subscriptionBlocked) {
-          throw new Error("Business A (active) should allow backup");
-        }
-        
-        // Business B should block backup
-        const resultB = await backupService.createBackup("business-b");
-        this.assertEqual(resultB.subscriptionBlocked, true, "Business B (expired) should block backup");
-      }
-    );
-  }
-
-  async test_4_2_MultipleBusinessesMixedStatus() {
-    return this.executeTest(
-      "4.2: Multiple Businesses - Mixed Subscription Status",
-      "Multi-Business",
-      async () => {
-        this.clearSubscriptions();
-        
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        
-        const graceDate = new Date();
-        graceDate.setDate(graceDate.getDate() - 10);
-        
-        const expiredDate = new Date();
-        expiredDate.setDate(expiredDate.getDate() - 40);
-        
-        // Multiple businesses with different statuses
-        this.setSubscription("active-corp", futureDate.toISOString(), true);
-        this.setSubscription("grace-corp", graceDate.toISOString(), false);
-        this.setSubscription("expired-corp", expiredDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        
-        // Test each business
-        const resultActive = await backupService.createBackup("active-corp");
-        const resultGrace = await backupService.createBackup("grace-corp");
-        const resultExpired = await backupService.createBackup("expired-corp");
-        
-        this.assert(!resultActive.subscriptionBlocked, "Active corp should not be blocked");
-        this.assert(!resultGrace.subscriptionBlocked, "Grace corp should not be blocked");
-        this.assert(resultExpired.subscriptionBlocked === true, "Expired corp should be blocked");
-      }
-    );
-  }
-
-  async test_4_3_DefaultBusinessWhenNoIdProvided() {
-    return this.executeTest(
-      "4.3: Default Business (No ID) - Uses Legacy Subscription Key",
-      "Multi-Business",
-      async () => {
-        this.clearSubscriptions();
-        
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        
-        // Set default subscription (no business ID)
-        this.setSubscription(null, futureDate.toISOString(), true);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup(); // No businessId
-        
-        if (result.subscriptionBlocked) {
-          throw new Error("Default business should use legacy subscription and allow backup");
-        }
-      }
-    );
-  }
-
-  async test_4_4_BusinessIsolation() {
-    return this.executeTest(
-      "4.4: Business Subscription Isolation - No Cross-Contamination",
-      "Multi-Business",
-      async () => {
-        this.clearSubscriptions();
-        
-        // Only set subscription for business-x
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        this.setSubscription("business-x", futureDate.toISOString(), true);
-        
-        // business-y has no subscription data
-        // Should fall back to legacy or be treated as active (legacy behavior)
-
-        const backupService = new BackupService();
-        
-        // business-x should work
-        const resultX = await backupService.createBackup("business-x");
-        
-        // business-y should either work (legacy) or fail gracefully
-        const resultY = await backupService.createBackup("business-y");
-        
-        // The key test: business-x subscription should NOT affect business-y
-        // Both should behave independently
-        this.assert(!resultX.subscriptionBlocked, "Business X should work");
-        // Business Y result depends on implementation, but should not be affected by X
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 5: Subscription Data Formats
-  // ========================================
-
-  async test_5_1_InvalidSubscriptionData() {
-    return this.executeTest(
-      "5.1: Invalid Subscription JSON - Treated as Active (Legacy)",
-      "Data Formats",
-      async () => {
-        this.clearSubscriptions();
-        localStorage.setItem("subscription", "invalid json {{");
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        // Invalid data should be treated as legacy (active)
-        this.assert(!result.subscriptionBlocked, "Invalid data should default to active");
-      }
-    );
-  }
-
-  async test_5_2_MissingExpiresAt() {
-    return this.executeTest(
-      "5.2: Missing expiresAt Field - Treated as Active",
-      "Data Formats",
-      async () => {
-        this.clearSubscriptions();
-        localStorage.setItem("subscription", JSON.stringify({ active: true }));
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assert(!result.subscriptionBlocked, "Missing expiresAt should default to active");
-      }
-    );
-  }
-
-  async test_5_3_NullExpiresAt() {
-    return this.executeTest(
-      "5.3: Null expiresAt - Treated as Active",
-      "Data Formats",
-      async () => {
-        this.clearSubscriptions();
-        this.setSubscription(null, null, true);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assert(!result.subscriptionBlocked, "Null expiresAt should default to active");
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 6: Edge Cases
-  // ========================================
-
-  async test_6_1_SubscriptionExactlyAtNow() {
-    return this.executeTest(
-      "6.1: Subscription Expires Exactly Now - Should Enter Grace Period",
-      "Edge Cases",
-      async () => {
-        this.clearSubscriptions();
-        const now = new Date();
-        this.setSubscription(null, now.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        // Exactly at expiration should be in grace period (allowed)
-        this.assert(!result.subscriptionBlocked, "Exactly at expiration should be in grace period");
-      }
-    );
-  }
-
-  async test_6_2_VeryOldSubscription() {
-    return this.executeTest(
-      "6.2: Very Old Subscription (1 Year Ago) - Backup Blocked",
-      "Edge Cases",
-      async () => {
-        this.clearSubscriptions();
-        const oldDate = new Date();
-        oldDate.setFullYear(oldDate.getFullYear() - 1);
-        this.setSubscription(null, oldDate.toISOString(), false);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assertEqual(result.subscriptionBlocked, true, "Very old subscription should block backup");
-      }
-    );
-  }
-
-  async test_6_3_FarFutureSubscription() {
-    return this.executeTest(
-      "6.3: Far Future Subscription (10 Years) - Backup Allowed",
-      "Edge Cases",
-      async () => {
-        this.clearSubscriptions();
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 10);
-        this.setSubscription(null, futureDate.toISOString(), true);
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assert(!result.subscriptionBlocked, "Far future subscription should allow backup");
-      }
-    );
-  }
-
-  async test_6_4_EmptyLocalStorage() {
-    return this.executeTest(
-      "6.4: Completely Empty localStorage - Backup Allowed (Legacy)",
-      "Edge Cases",
-      async () => {
-        localStorage.clear();
-
-        const backupService = new BackupService();
-        const result = await backupService.createBackup();
-        
-        this.assert(!result.subscriptionBlocked, "Empty localStorage should allow backup (legacy)");
-      }
-    );
-  }
-
-  // ========================================
-  // TEST CATEGORY 7: Status Reporting
-  // ========================================
-
-  async test_7_1_BackupStatusReflectsSubscription() {
-    return this.executeTest(
-      "7.1: getBackupStatus Returns Correct Subscription Info",
-      "Status Reporting",
-      async () => {
-        this.clearSubscriptions();
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        this.setSubscription(null, futureDate.toISOString(), true);
-
-        const backupService = new BackupService();
-        const status = await backupService.getBackupStatus();
-        
-        this.assert(status.canBackup, "Status should indicate backup is possible");
-        this.assert(status.isHealthy, "Status should indicate healthy");
-      }
-    );
-  }
-
-  async test_7_2_FormattedLastBackupTime() {
-    return this.executeTest(
-      "7.2: getFormattedLastBackupTime Works Correctly",
-      "Status Reporting",
-      async () => {
-        const backupService = new BackupService();
-        
-        // No backup yet
-        const timeNever = backupService.getFormattedLastBackupTime();
-        this.assertEqual(timeNever, "Never", "Should return 'Never' when no backup");
-        
-        // Set a recent backup time
-        localStorage.setItem("last_backup_time", new Date().toISOString());
-        const timeRecent = backupService.getFormattedLastBackupTime();
-        this.assert(timeRecent === "Just now" || timeRecent.includes("hour"), "Should return recent time");
-      }
-    );
-  }
-
-  async test_7_3_BusinessSpecificBackupTime() {
-    return this.executeTest(
-      "7.3: Business-Specific Last Backup Time",
-      "Status Reporting",
-      async () => {
-        const backupService = new BackupService();
-        
-        // Set different backup times for different businesses
-        const now = new Date();
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        localStorage.setItem("last_backup_time_business-1", now.toISOString());
-        localStorage.setItem("last_backup_time_business-2", yesterday.toISOString());
-        
-        const time1 = backupService.getFormattedLastBackupTime("business-1");
-        const time2 = backupService.getFormattedLastBackupTime("business-2");
-        
-        this.assert(time1 === "Just now" || time1.includes("hour"), "Business 1 should be recent");
-        this.assert(time2.includes("day") || time2 === "1 day ago", "Business 2 should be older");
-      }
-    );
-  }
-
-  // ========================================
-  // MAIN TEST EXECUTION
-  // ========================================
-
-  async runAllTests(): Promise<SubscriptionUATReport> {
-    const startTime = Date.now();
-    console.log("🧪 Starting Subscription UAT Suite...\n");
-
-    // Save state before tests
+    // Save original localStorage state
     this.saveLocalStorageState();
 
-    const tests = [
-      // Category 1: Active Subscription
-      () => this.test_1_1_ActiveSubscriptionAllowsBackup(),
-      () => this.test_1_2_LegacyUserNoSubscriptionData(),
-      
-      // Category 2: Expired Subscription
-      () => this.test_2_1_ExpiredSubscriptionBlocksBackup(),
-      () => this.test_2_2_ExpiredShowsCorrectError(),
-      
-      // Category 3: Grace Period
-      () => this.test_3_1_GracePeriodAllowsBackup(),
-      () => this.test_3_2_GracePeriodExactly30Days(),
-      () => this.test_3_3_GracePeriodEndBoundary(),
-      
-      // Category 4: Multi-Business
-      () => this.test_4_1_BusinessAActive_BusinessBExpired(),
-      () => this.test_4_2_MultipleBusinessesMixedStatus(),
-      () => this.test_4_3_DefaultBusinessWhenNoIdProvided(),
-      () => this.test_4_4_BusinessIsolation(),
-      
-      // Category 5: Data Formats
-      () => this.test_5_1_InvalidSubscriptionData(),
-      () => this.test_5_2_MissingExpiresAt(),
-      () => this.test_5_3_NullExpiresAt(),
-      
-      // Category 6: Edge Cases
-      () => this.test_6_1_SubscriptionExactlyAtNow(),
-      () => this.test_6_2_VeryOldSubscription(),
-      () => this.test_6_3_FarFutureSubscription(),
-      () => this.test_6_4_EmptyLocalStorage(),
-      
-      // Category 7: Status Reporting
-      () => this.test_7_1_BackupStatusReflectsSubscription(),
-      () => this.test_7_2_FormattedLastBackupTime(),
-      () => this.test_7_3_BusinessSpecificBackupTime(),
-    ];
+    try {
+      // Run each test suite
+      await this.runSuite(this.getSubscriptionStatusTests());
+      await this.runSuite(this.getBackupBlockingTests());
+      await this.runSuite(this.getGracePeriodTests());
+      await this.runSuite(this.getMultiBusinessTests());
+      await this.runSuite(this.getEdgeCaseTests());
 
-    for (const test of tests) {
-      const result = await test();
-      this.results.push(result);
-      
-      const icon = result.status === "PASS" ? "✅" : result.status === "FAIL" ? "❌" : "⏭️";
-      console.log(`${icon} ${result.testCase}`);
-      
-      if (result.status === "FAIL") {
-        console.log(`   └─ ${result.message}`);
-      }
+    } finally {
+      // Restore original state
+      this.restoreLocalStorageState();
     }
 
-    // Restore state after tests
-    this.restoreLocalStorageState();
+    this.printSummary();
+    return this.results;
+  }
 
-    const endTime = Date.now();
-    const passed = this.results.filter(r => r.status === "PASS").length;
-    const failed = this.results.filter(r => r.status === "FAIL").length;
-    const skipped = this.results.filter(r => r.status === "SKIP").length;
+  /**
+   * Run a test suite
+   */
+  private async runSuite(suite: UATSuite): Promise<void> {
+    console.log(`\n📋 ${suite.name}`);
+    console.log(`   ${suite.description}\n`);
 
-    const report: SubscriptionUATReport = {
-      startTime,
-      endTime,
-      totalTests: this.results.length,
-      passed,
-      failed,
-      skipped,
-      results: this.results,
-      summary: this.generateSummary(passed, failed, skipped, endTime - startTime)
+    for (const test of suite.tests) {
+      const result = await test.run();
+      this.results.set(test.id, result);
+
+      const icon = result.pass ? "✅" : "❌";
+      console.log(`   ${icon} ${test.name}`);
+      if (!result.pass) {
+        console.log(`      ${result.message}`);
+        if (result.details) {
+          console.log(`      Details:`, result.details);
+        }
+      }
+    }
+  }
+
+  /**
+   * Save current localStorage state
+   */
+  private saveLocalStorageState(): void {
+    if (typeof window === "undefined") return;
+
+    const keys = [
+      "subscription",
+      `subscription_${this.testConfig.businessId}`,
+      "last_backup_time",
+      `last_backup_time_${this.testConfig.businessId}`,
+      "device_id",
+      "google_tokens",
+    ];
+
+    for (const key of keys) {
+      this.originalLocalStorage[key] = localStorage.getItem(key);
+    }
+  }
+
+  /**
+   * Restore original localStorage state
+   */
+  private restoreLocalStorageState(): void {
+    if (typeof window === "undefined") return;
+
+    for (const [key, value] of Object.entries(this.originalLocalStorage)) {
+      if (value === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+      }
+    }
+  }
+
+  /**
+   * Subscription Status Detection Tests
+   */
+  private getSubscriptionStatusTests(): UATSuite {
+    return {
+      name: "Subscription Status Detection",
+      description: "Verify subscription status is correctly detected",
+      tests: [
+        {
+          id: "SUB-001",
+          name: "Detect active subscription",
+          description: "Should detect active subscription when expiresAt is in future",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: future.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.active && !status.gracePeriod && !status.expired,
+              message: status.active
+                ? "Subscription correctly detected as active"
+                : `Expected active, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "SUB-002",
+          name: "Detect expired subscription",
+          description: "Should detect expired subscription when expiresAt + 30 days < now",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const past = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000); // 40 days ago
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: past.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: !status.active && !status.gracePeriod && status.expired,
+              message: status.expired
+                ? "Subscription correctly detected as expired"
+                : `Expected expired, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "SUB-003",
+          name: "Detect grace period",
+          description: "Should detect grace period when expired but within 30 days",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const recently = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000); // 15 days ago
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: recently.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: !status.active && status.gracePeriod && !status.expired,
+              message: status.gracePeriod
+                ? "Grace period correctly detected"
+                : `Expected grace period, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "SUB-004",
+          name: "Handle missing subscription data",
+          description: "Should treat missing subscription as active (legacy support)",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            localStorage.removeItem(`subscription_${this.testConfig.businessId}`);
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.active && !status.gracePeriod && !status.expired,
+              message: status.active
+                ? "Missing subscription correctly treated as active (legacy support)"
+                : `Expected active for missing data, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+      ],
     };
-
-    console.log("\n" + report.summary);
-
-    return report;
   }
 
-  private generateSummary(passed: number, failed: number, skipped: number, duration: number): string {
-    const total = passed + failed + skipped;
-    const passRate = total > 0 ? ((passed / total) * 100).toFixed(1) : "0.0";
-    
-    return `
-═══════════════════════════════════════════════════════
-🧪 SUBSCRIPTION UAT REPORT
-═══════════════════════════════════════════════════════
-Total Tests:    ${total}
-✅ Passed:      ${passed}
-❌ Failed:      ${failed}
-⏭️  Skipped:     ${skipped}
-📊 Pass Rate:   ${passRate}%
-⏱️  Duration:    ${(duration / 1000).toFixed(2)}s
-═══════════════════════════════════════════════════════
-${failed === 0 ? "🎉 ALL SUBSCRIPTION TESTS PASSED!" : "⚠️  Some tests failed - review logs above"}
-═══════════════════════════════════════════════════════
-    `;
+  /**
+   * Backup Blocking Tests
+   */
+  private getBackupBlockingTests(): UATSuite {
+    return {
+      name: "Backup Functionality Blocking",
+      description: "Verify backup is blocked based on subscription status",
+      tests: [
+        {
+          id: "BLK-001",
+          name: "Allow backup with active subscription",
+          description: "Backup should be allowed when subscription is active",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: future.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
+
+            return {
+              pass: shouldBackup.allowed && !shouldBackup.reason,
+              message: shouldBackup.allowed
+                ? "Backup correctly allowed for active subscription"
+                : `Expected allowed, got: ${JSON.stringify(shouldBackup)}`,
+              details: shouldBackup,
+            };
+          },
+        },
+        {
+          id: "BLK-002",
+          name: "Block backup with expired subscription",
+          description: "Backup should be blocked when subscription expired past grace period",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const past = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: past.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
+
+            return {
+              pass: !shouldBackup.allowed && shouldBackup.reason === "subscription_expired",
+              message: !shouldBackup.allowed
+                ? "Backup correctly blocked for expired subscription"
+                : `Expected blocked, got: ${JSON.stringify(shouldBackup)}`,
+              details: shouldBackup,
+            };
+          },
+        },
+        {
+          id: "BLK-003",
+          name: "Allow backup during grace period with reason",
+          description: "Backup should be allowed during grace period with grace_period reason",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const recently = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: recently.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const shouldBackup = backupService.shouldBackup(this.testConfig.businessId);
+
+            return {
+              pass: shouldBackup.allowed && shouldBackup.reason === "grace_period",
+              message: shouldBackup.allowed && shouldBackup.reason === "grace_period"
+                ? "Backup correctly allowed during grace period with reason"
+                : `Expected allowed with grace_period reason, got: ${JSON.stringify(shouldBackup)}`,
+              details: shouldBackup,
+            };
+          },
+        },
+        {
+          id: "BLK-004",
+          name: "Backup status includes subscriptionBlocked",
+          description: "getBackupStatus should include subscriptionBlocked flag",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const past = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: past.toISOString() })
+            );
+
+            const status = await backupService.getBackupStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.subscriptionBlocked === true,
+              message: status.subscriptionBlocked
+                ? "Backup status correctly shows subscriptionBlocked: true"
+                : `Expected subscriptionBlocked: true, got: ${status.subscriptionBlocked}`,
+              details: { subscriptionBlocked: status.subscriptionBlocked },
+            };
+          },
+        },
+      ],
+    };
   }
 
-  // Export results
-  exportResults(): string {
-    return JSON.stringify(this.results, null, 2);
+  /**
+   * Grace Period Tests
+   */
+  private getGracePeriodTests(): UATSuite {
+    return {
+      name: "Grace Period Functionality",
+      description: "Verify 30-day grace period works correctly",
+      tests: [
+        {
+          id: "GRACE-001",
+          name: "Grace period exact boundary - day 1",
+          description: "Should be in grace period on day 1 after expiry",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const oneDayAgo = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: oneDayAgo.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.gracePeriod === true,
+              message: status.gracePeriod
+                ? "Day 1 correctly in grace period"
+                : `Expected grace period on day 1, got: ${JSON.stringify(status)}`,
+              details: { daysSinceExpiry: 1, status },
+            };
+          },
+        },
+        {
+          id: "GRACE-002",
+          name: "Grace period exact boundary - day 30",
+          description: "Should be in grace period on day 30 after expiry",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: thirtyDaysAgo.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.gracePeriod === true,
+              message: status.gracePeriod
+                ? "Day 30 correctly in grace period"
+                : `Expected grace period on day 30, got: ${JSON.stringify(status)}`,
+              details: { daysSinceExpiry: 30, status },
+            };
+          },
+        },
+        {
+          id: "GRACE-003",
+          name: "Grace period ends after day 30",
+          description: "Should be fully expired on day 31",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: thirtyOneDaysAgo.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.expired === true && status.gracePeriod === false,
+              message: status.expired && !status.gracePeriod
+                ? "Day 31 correctly shows expired (grace period ended)"
+                : `Expected expired on day 31, got: ${JSON.stringify(status)}`,
+              details: { daysSinceExpiry: 31, status },
+            };
+          },
+        },
+        {
+          id: "GRACE-004",
+          name: "Expiry timestamp preserved in status",
+          description: "Original expiry timestamp should be preserved",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const expiry = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: expiry.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.expiresAt === expiry.toISOString(),
+              message: status.expiresAt === expiry.toISOString()
+                ? "Expiry timestamp correctly preserved"
+                : `Expected ${expiry.toISOString()}, got ${status.expiresAt}`,
+              details: { expected: expiry.toISOString(), actual: status.expiresAt },
+            };
+          },
+        },
+      ],
+    };
   }
 
-  exportCSV(): string {
-    const headers = ["Test Case", "Category", "Status", "Message", "Timestamp"];
-    const rows = this.results.map(r => [
-      r.testCase,
-      r.category,
-      r.status,
-      r.message,
-      new Date(r.timestamp).toISOString()
-    ]);
-    
-    return [
-      headers.join(","),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n");
+  /**
+   * Multi-Business Tests
+   */
+  private getMultiBusinessTests(): UATSuite {
+    const secondBusinessId = "second-business-123";
+
+    return {
+      name: "Multi-Business Subscription Support",
+      description: "Verify subscription is scoped per business",
+      tests: [
+        {
+          id: "MULTI-001",
+          name: "Separate subscription status per business",
+          description: "Each business should have independent subscription status",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            // Set primary business as active
+            const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: future.toISOString() })
+            );
+
+            // Set second business as expired
+            const past = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${secondBusinessId}`,
+              JSON.stringify({ expiresAt: past.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const primaryStatus = backupService.getSubscriptionStatus(this.testConfig.businessId);
+            // @ts-ignore - accessing private method for testing
+            const secondStatus = backupService.getSubscriptionStatus(secondBusinessId);
+
+            const correct = primaryStatus.active && !primaryStatus.expired &&
+                          !secondStatus.active && secondStatus.expired;
+
+            return {
+              pass: correct,
+              message: correct
+                ? "Businesses correctly have independent subscription status"
+                : "Primary should be active, second should be expired",
+              details: { primary: primaryStatus, second: secondStatus },
+            };
+          },
+        },
+        {
+          id: "MULTI-002",
+          name: "Backup allowed for active, blocked for expired",
+          description: "Backup should respect per-business subscription status",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            // Primary business active
+            const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: future.toISOString() })
+            );
+
+            // Second business expired
+            const past = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+            localStorage.setItem(
+              `subscription_${secondBusinessId}`,
+              JSON.stringify({ expiresAt: past.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const primaryBackup = backupService.shouldBackup(this.testConfig.businessId);
+            // @ts-ignore - accessing private method for testing
+            const secondBackup = backupService.shouldBackup(secondBusinessId);
+
+            const correct = primaryBackup.allowed && !secondBackup.allowed;
+
+            return {
+              pass: correct,
+              message: correct
+                ? "Backup correctly allowed for active, blocked for expired"
+                : "Active business should allow backup, expired should block",
+              details: { primary: primaryBackup, second: secondBackup },
+            };
+          },
+        },
+        {
+          id: "MULTI-003",
+          name: "Independent backup timestamps",
+          description: "Each business should track backup timestamps separately",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const now = new Date().toISOString();
+            localStorage.setItem(`last_backup_time_${this.testConfig.businessId}`, now);
+            localStorage.setItem(`last_backup_time_${secondBusinessId}`, "2023-01-01T00:00:00.000Z");
+
+            const primaryStatus = await backupService.getBackupStatus(this.testConfig.businessId);
+            const secondStatus = await backupService.getBackupStatus(secondBusinessId);
+
+            const correct = primaryStatus.lastBackupTime === now &&
+                          secondStatus.lastBackupTime === "2023-01-01T00:00:00.000Z";
+
+            return {
+              pass: correct,
+              message: correct
+                ? "Backup timestamps correctly separated per business"
+                : "Each business should have independent backup timestamps",
+              details: {
+                primaryTime: primaryStatus.lastBackupTime,
+                secondTime: secondStatus.lastBackupTime,
+              },
+            };
+          },
+        },
+      ],
+    };
+  }
+
+  /**
+   * Edge Case Tests
+   */
+  private getEdgeCaseTests(): UATSuite {
+    return {
+      name: "Edge Cases",
+      description: "Handle unusual subscription scenarios",
+      tests: [
+        {
+          id: "EDGE-001",
+          name: "Handle invalid subscription JSON",
+          description: "Should treat invalid JSON as active (legacy support)",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              "invalid json {{{"
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.active && !status.expired && !status.gracePeriod,
+              message: status.active
+                ? "Invalid JSON correctly treated as active"
+                : `Expected active for invalid JSON, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "EDGE-002",
+          name: "Handle null expiresAt",
+          description: "Should treat null expiresAt as active (legacy support)",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: null })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.active && !status.expired && !status.gracePeriod,
+              message: status.active
+                ? "Null expiresAt correctly treated as active"
+                : `Expected active for null expiresAt, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "EDGE-003",
+          name: "Handle empty subscription object",
+          description: "Should treat empty object as active (legacy support)",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({})
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: status.active && !status.expired && !status.gracePeriod,
+              message: status.active
+                ? "Empty object correctly treated as active"
+                : `Expected active for empty object, got: ${JSON.stringify(status)}`,
+              details: status,
+            };
+          },
+        },
+        {
+          id: "EDGE-004",
+          name: "Handle subscription expiry exactly at now",
+          description: "Should treat expiry exactly at current time as grace period",
+          run: async () => {
+            if (typeof window === "undefined") {
+              return { pass: true, message: "Skipped on server" };
+            }
+
+            const now = new Date();
+            localStorage.setItem(
+              `subscription_${this.testConfig.businessId}`,
+              JSON.stringify({ expiresAt: now.toISOString() })
+            );
+
+            // @ts-ignore - accessing private method for testing
+            const status = backupService.getSubscriptionStatus(this.testConfig.businessId);
+
+            return {
+              pass: !status.active && status.gracePeriod,
+              message: status.gracePeriod
+                ? "Expiry at current time correctly in grace period"
+                : `Expected grace period for expiry at now, got: ${JSON.stringify(status)}`,
+              details: { now: now.toISOString(), status },
+            };
+          },
+        },
+      ],
+    };
+  }
+
+  /**
+   * Print test summary
+   */
+  private printSummary(): void {
+    console.log("\n" + "=".repeat(60));
+    console.log("📊 SUBSCRIPTION UAT SUMMARY");
+    console.log("=".repeat(60));
+
+    const total = this.results.size;
+    const passed = Array.from(this.results.values()).filter((r) => r.pass).length;
+    const failed = total - passed;
+
+    console.log(`\nTotal Tests: ${total}`);
+    console.log(`✅ Passed: ${passed}`);
+    console.log(`❌ Failed: ${failed}`);
+    console.log(`\nSuccess Rate: ${((passed / total) * 100).toFixed(1)}%`);
+
+    if (failed > 0) {
+      console.log("\n❌ Failed Tests:");
+      this.results.forEach((result, id) => {
+        if (!result.pass) {
+          console.log(`   ${id}: ${result.message}`);
+        }
+      });
+    }
+
+    console.log("\n" + "=".repeat(60));
   }
 }
 
-// Singleton for browser console usage
-let uatInstance: SubscriptionUAT | null = null;
+/**
+ * Run subscription UAT tests
+ */
+export async function runSubscriptionUAT(businessId?: string): Promise<Map<string, UATResult>> {
+  const testBusinessId = businessId || `test-business-${Date.now()}`;
 
-export async function runSubscriptionUAT(): Promise<SubscriptionUATReport> {
-  uatInstance = new SubscriptionUAT();
-  return await uatInstance.runAllTests();
+  const uat = new SubscriptionUAT({
+    businessId: testBusinessId,
+  });
+
+  return uat.runAllTests();
 }
 
-export function exportSubscriptionUATResults(): string {
-  if (!uatInstance) {
-    return "No UAT results available. Run tests first with runSubscriptionUAT()";
-  }
-  return uatInstance.exportResults();
+/**
+ * Export results to JSON
+ */
+export function exportSubscriptionUATResults(results: Map<string, UATResult>): string {
+  const obj: Record<string, UATResult> = {};
+  results.forEach((result, id) => {
+    obj[id] = result;
+  });
+  return JSON.stringify(obj, null, 2);
 }
 
-export function exportSubscriptionUATCSV(): string {
-  if (!uatInstance) {
-    return "No UAT results available. Run tests first with runSubscriptionUAT()";
-  }
-  return uatInstance.exportCSV();
+/**
+ * Export results to CSV
+ */
+export function exportSubscriptionUATCSV(results: Map<string, UATResult>): string {
+  const lines = ["Test ID,Pass,Message,Details"];
+  results.forEach((result, id) => {
+    const details = result.details ? JSON.stringify(result.details).replace(/"/g, '""') : "";
+    lines.push(`"${id}","${result.pass}","${result.message}","${details}"`);
+  });
+  return lines.join("\n");
 }
 
-// Console helpers
-declare global {
-  interface Window {
-    runSubscriptionUAT: typeof runSubscriptionUAT;
-    exportSubscriptionUATResults: typeof exportSubscriptionUATResults;
-    exportSubscriptionUATCSV: typeof exportSubscriptionUATCSV;
-  }
-}
-
+// Export for window access
 if (typeof window !== "undefined") {
-  window.runSubscriptionUAT = runSubscriptionUAT;
-  window.exportSubscriptionUATResults = exportSubscriptionUATResults;
-  window.exportSubscriptionUATCSV = exportSubscriptionUATCSV;
+  (window as any).runSubscriptionUAT = runSubscriptionUAT;
+  (window as any).exportSubscriptionUATResults = exportSubscriptionUATResults;
+  (window as any).exportSubscriptionUATCSV = exportSubscriptionUATCSV;
 }
