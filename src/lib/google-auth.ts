@@ -105,18 +105,23 @@ class GoogleAuthService {
       return new Promise((resolve) => {
         this.tokenClient.callback = async (response: any) => {
           if (response.error) {
+            console.error("Google OAuth error:", response.error);
             resolve({ success: false, error: response.error });
             return;
           }
 
           const accessToken = response.access_token;
+          console.log("Google OAuth: Access token received");
 
           // Get user info
           const userInfo = await this.fetchUserInfo(accessToken);
           if (!userInfo) {
+            console.error("Google OAuth: Failed to get user info");
             resolve({ success: false, error: "Failed to get user info" });
             return;
           }
+
+          console.log("Google OAuth: User info received", userInfo.email);
 
           this.currentUser = {
             email: userInfo.email,
@@ -128,11 +133,13 @@ class GoogleAuthService {
 
           // Save to localStorage
           this.saveUser(this.currentUser);
+          console.log("Google OAuth: User saved, sign-in complete");
 
           resolve({ success: true, user: this.currentUser });
         };
 
         // Request access token
+        console.log("Google OAuth: Requesting access token...");
         this.tokenClient.requestAccessToken({ prompt: "consent" });
       });
     } catch (error) {
