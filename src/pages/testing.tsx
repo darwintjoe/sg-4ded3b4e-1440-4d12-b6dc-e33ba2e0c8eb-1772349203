@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PlayCircle, Download, FileText, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { runAutomatedTests, exportTestResults, exportTestCSV } from "@/lib/automated-testing";
 import type { TestReport } from "@/lib/automated-testing";
+import { appHealthChecker } from "@/lib/app-health-check";
 
 export default function TestingPage() {
   const [isRunning, setIsRunning] = useState(false);
@@ -14,6 +15,8 @@ export default function TestingPage() {
   const [uatResults, setUatResults] = useState<any>(null);
   const [autoExecuteUAT, setAutoExecuteUAT] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isHealthCheckRunning, setIsHealthCheckRunning] = useState(false);
+  const [results, setResults] = useState<TestResult[]>([]);
 
   const handleRunTests = async () => {
     setIsRunning(true);
@@ -95,6 +98,62 @@ export default function TestingPage() {
 
   const passRate = testReport ? ((testReport.passed / testReport.totalTests) * 100).toFixed(1) : "0";
 
+  const runTests = async () => {
+    setIsRunning(true);
+    setResults([]);
+    setSummary(null);
+    try {
+      const report = await runAutomatedTests();
+      setTestReport(report);
+    } catch (error) {
+      console.error("Testing failed:", error);
+      alert("Testing failed: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runHealthCheck = async () => {
+    setIsHealthCheckRunning(true);
+    setResults([]);
+    setSummary(null);
+
+    try {
+      const report = await appHealthChecker.runHealthCheck();
+      
+      // Convert health check results to TestResult format
+      const testResults: TestResult[] = report.results.map(r => ({
+        category: r.category || "Health Check",
+        testCase: r.testCase || r.name,
+        status: r.passed ? "PASS" : "FAIL",
+        message: r.error || r.message || (r.passed ? "Passed" : "Failed"),
+        duration: r.duration,
+        timestamp: r.timestamp || Date.now()
+      }));
+
+      setResults(testResults);
+      setSummary({
+        total: report.total,
+        passed: report.passed,
+        failed: report.failed,
+        skipped: report.skipped,
+        duration: report.duration
+      });
+    } catch (error) {
+      console.error("Health check failed:", error);
+      setResults([{
+        category: "System",
+        testCase: "Health Check Runner",
+        status: "FAIL",
+        message: error instanceof Error ? error.message : "Unknown error",
+        duration: 0,
+        timestamp: Date.now()
+      }]);
+    }
+
+    setIsHealthCheckRunning(false);
+  };
+
   return (
     <div className="min-h-screen overflow-y-auto">
       <div className="container mx-auto p-8 pb-20">
@@ -118,50 +177,22 @@ export default function TestingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-4 justify-center flex-wrap">
-                <button
-                  onClick={handleRunTests}
-                  disabled={isRunning}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{ minWidth: "200px" }}
-                >
-                  {isRunning ? "Running Tests..." : "▶️ Run All Tests"}
-                </button>
-                <button
-                  onClick={async () => {
-                    setIsRunning(true);
-                    try {
-                      const { appHealthChecker } = await import("@/lib/app-health-check");
-                      const report = await appHealthChecker.runHealthCheck();
-                      
-                      setTestReport({
-                        startTime: Date.now(),
-                        endTime: Date.now(),
-                        totalTests: report.total,
-                        passed: report.passed,
-                        failed: report.failed,
-                        results: report.results.map(r => ({
-                          category: "Health Check",
-                          testCase: r.name,
-                          status: r.passed ? "PASS" : "FAIL",
-                          duration: r.duration,
-                          timestamp: Date.now(),
-                          message: r.error || "Test passed"
-                        })),
-                        skipped: 0,
-                        summary: `Health Check Complete: ${report.passed} passed, ${report.failed} failed.`
-                      });
-                    } catch (error) {
-                      console.error("Health check failed:", error);
-                    } finally {
-                      setIsRunning(false);
-                    }
-                  }}
-                  disabled={isRunning}
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  style={{ minWidth: "200px" }}
-                >
-                  {isRunning ? "Running..." : "🏥 Quick Health Check"}
-                </button>
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={runTests}
+                    disabled={isRunning}
+                    variant="outline"
+                  >
+                    {isRunning ? "Running Tests..." : "Run All Tests"}
+                  </Button>
+                  <Button
+                    onClick={runHealthCheck}
+                    disabled={isRunning || isHealthCheckRunning}
+                    variant="outline"
+                  >
+                    {isHealthCheckRunning ? "Running Health Check..." : "Health Check"}
+                  </Button>
+                </div>
               </div>
 
               {isRunning && (
