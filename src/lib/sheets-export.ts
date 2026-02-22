@@ -10,6 +10,7 @@
  */
 
 import { googleAuth } from "./google-auth";
+import type { ShiftTransactions, Transaction } from "@/types";
 
 export interface TransactionRow {
   receiptNumber: string;
@@ -22,14 +23,6 @@ export interface TransactionRow {
   cashAmount: number;
   qrisAmount: number;
   transferAmount: number;
-}
-
-export interface ShiftTransactions {
-  shiftId: string;
-  cashierName: string;
-  shiftStart: string;
-  shiftEnd: string;
-  transactions: TransactionRow[];
 }
 
 interface SheetInfo {
@@ -62,8 +55,10 @@ export class SheetsExportService {
         return { success: false, error: "Not signed in" };
       }
 
-      const year = new Date(shiftData.shiftEnd).getFullYear();
-      const month = new Date(shiftData.shiftEnd).getMonth(); // 0-11
+      // Convert timestamps to ISO strings for date extraction
+      const shiftEndDate = new Date(shiftData.shiftEnd);
+      const year = shiftEndDate.getFullYear();
+      const month = shiftEndDate.getMonth(); // 0-11
       const sheetName = `Sell More - ${businessName} ${year}`;
 
       // Get or create sheet for this year
@@ -81,8 +76,46 @@ export class SheetsExportService {
         return { success: false, error: "Failed to create tab" };
       }
 
+      // Convert Transaction objects to TransactionRow format
+      const transactionRows: TransactionRow[] = shiftData.transactions.map((tx, index) => {
+        const receiptNumber = `${shiftData.shiftId}-${index + 1}`;
+        const itemsDesc = tx.items.map(item => `${item.quantity}x ${item.name}`).join(", ");
+        
+        // Determine primary payment method
+        let paymentMethod = "cash";
+        let cashAmount = 0;
+        let qrisAmount = 0;
+        let transferAmount = 0;
+
+        tx.payments.forEach(p => {
+          if (p.method === "cash") {
+            cashAmount += p.amount;
+            paymentMethod = "cash";
+          } else if (p.method === "qris-static" || p.method === "qris-dynamic") {
+            qrisAmount += p.amount;
+            paymentMethod = "qris";
+          } else if (p.method === "transfer") {
+            transferAmount += p.amount;
+            paymentMethod = "transfer";
+          }
+        });
+
+        return {
+          receiptNumber,
+          timestamp: new Date(tx.timestamp).toISOString(),
+          description: itemsDesc,
+          tax: tx.tax,
+          service: 0, // Not tracked currently
+          total: tx.total,
+          paymentMethod,
+          cashAmount,
+          qrisAmount,
+          transferAmount
+        };
+      });
+
       // Append transactions
-      await this.appendTransactions(sheet.id, tabId, shiftData.transactions);
+      await this.appendTransactions(sheet.id, tabId, transactionRows);
 
       return { success: true };
     } catch (error) {
