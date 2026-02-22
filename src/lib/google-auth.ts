@@ -245,7 +245,7 @@ class GoogleAuthService {
    * Get current access token
    */
   getAccessToken(): string | null {
-    return this.accessToken;
+    return this.currentUser?.accessToken || null;
   }
 
   /**
