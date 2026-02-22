@@ -838,8 +838,8 @@ PAYMENT BREAKDOWN:
       const shiftData: ShiftTransactions = {
         shiftId: shift.shiftId,
         cashierName: shift.cashierName,
-        shiftStart: shift.shiftStart,
-        shiftEnd: shift.shiftEnd || Date.now(),
+        shiftStart: new Date(shift.shiftStart).toISOString(),
+        shiftEnd: new Date(shift.shiftEnd || Date.now()).toISOString(),
         transactions: shiftTransactions
       };
 
