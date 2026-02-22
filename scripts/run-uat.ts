@@ -101,7 +101,7 @@ class BackupRestoreUATRunner {
         
         const result = await backupService.finalizeRestore(this.testBackupData);
         if (!result.success) {
-          throw new Error(result.error || "Restore failed");
+          throw new Error(result.message || "Restore failed");
         }
         console.log("   🔄 Restore completed successfully");
       }
@@ -261,7 +261,7 @@ class BackupRestoreUATRunner {
         
         const result = await backupService.finalizeRestore(this.checkpointBackupData);
         if (!result.success) {
-          throw new Error(result.error || "Restore failed");
+          throw new Error(result.message || "Restore failed");
         }
         console.log("   🔄 Restored to checkpoint");
       }
@@ -371,8 +371,6 @@ class BackupRestoreUATRunner {
         paymentMethods: {
           cash: true,
           card: true,
-          ewallet: true,
-          qr: true,
           transfer: true
         }
       }
