@@ -9,6 +9,19 @@ import {
   generateSampleStoreData 
 } from "@/lib/sample-store-data";
 import { sheetsExport } from "@/lib/sheets-export";
+import { 
+  detectShift, 
+  generateShiftId, 
+  getBusinessDate, 
+  generateDailyShiftSummary,
+  getShiftReportData 
+} from "@/lib/shift-service";
+import { 
+  cleanupOldDailyRecords, 
+  archiveColdData, 
+  checkAndRollupMonthly 
+} from "@/lib/data-rollup-service";
+import { appLog } from "@/lib/logger";
 
 interface AppContextType {
   mode: POSMode;
@@ -100,74 +113,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     init();
   }, []);
 
-  // Daily cleanup: Delete records older than 30 days
-  const cleanupOldDailyRecords = async () => {
-    try {
-      const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
-      const cutoffDate = thirtyDaysAgo.toISOString().split("T")[0];
-
-      console.log(`🧹 Cleaning up daily records older than ${cutoffDate}...`);
-
-      // Get all daily records with error handling
-      let dailyItems: DailyItemSales[] = [];
-      let dailyPayments: DailyPaymentSales[] = [];
-      let dailyAttendance: DailyAttendance[] = [];
-
-      try {
-        dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
-      } catch (e) {
-        console.log("dailyItemSales table not ready yet");
-      }
-
-      try {
-        dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-      } catch (e) {
-        console.log("dailyPaymentSales table not ready yet");
-      }
-
-      try {
-        dailyAttendance = await db.getAll<DailyAttendance>("dailyAttendance");
-      } catch (e) {
-        console.log("dailyAttendance table not ready yet");
-      }
-
-      // Delete old records
-      let deletedCount = 0;
-      
-      for (const record of dailyItems) {
-        if (record.businessDate < cutoffDate && record.id) {
-          await db.delete("dailyItemSales", record.id);
-          deletedCount++;
-        }
-      }
-      
-      for (const record of dailyPayments) {
-        if (record.businessDate < cutoffDate && record.id) {
-          await db.delete("dailyPaymentSales", record.id);
-          deletedCount++;
-        }
-      }
-      
-      for (const record of dailyAttendance) {
-        if (record.date < cutoffDate && record.id) {
-          await db.delete("dailyAttendance", record.id);
-          deletedCount++;
-        }
-      }
-
-      if (deletedCount > 0) {
-        console.log(`🧹 Deleted ${deletedCount} old daily records`);
-      } else {
-        console.log("🧹 No old records to clean up");
-      }
-    } catch (error) {
-      console.error("Error cleaning up old daily records:", error);
-      throw error; // Re-throw so caller can handle
-    }
-  };
-
   // Auto-save cart state whenever it changes
   useEffect(() => {
     if (currentUser && currentShift) {
@@ -218,52 +163,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsInitializing(false);
       throw error;
     }
-  };
-
-  // Smart shift detection based on clock-in time proximity
-  const detectShift = (clockInTime: number): { name: string; start: string; end: string } | null => {
-    if (!settings) return null;
-
-    const enabledShifts = Object.values(settings.shifts).filter(s => s.enabled);
-    
-    if (enabledShifts.length === 0) return null;
-    if (enabledShifts.length === 1) {
-      return {
-        name: enabledShifts[0].name,
-        start: enabledShifts[0].startTime,
-        end: enabledShifts[0].endTime
-      };
-    }
-
-    // Convert timestamp to minutes since midnight
-    const clockInDate = new Date(clockInTime);
-    const clockInMinutes = clockInDate.getHours() * 60 + clockInDate.getMinutes();
-
-    // Helper to convert "HH:MM" to minutes
-    const timeToMinutes = (time: string): number => {
-      const [hours, minutes] = time.split(":").map(Number);
-      return hours * 60 + minutes;
-    };
-
-    // Find closest shift by start time
-    let closestShift = enabledShifts[0];
-    let smallestDistance = Infinity;
-
-    for (const shift of enabledShifts) {
-      const shiftStartMinutes = timeToMinutes(shift.startTime);
-      const distance = Math.abs(clockInMinutes - shiftStartMinutes);
-
-      if (distance < smallestDistance) {
-        smallestDistance = distance;
-        closestShift = shift;
-      }
-    }
-
-    return {
-      name: closestShift.name,
-      start: closestShift.startTime,
-      end: closestShift.endTime
-    };
   };
 
   const updateSettings = async (newSettings: Settings) => {
@@ -378,16 +277,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const settings = await db.getSettings();
     settings.language = lang;
     await db.updateSettings(settings);
-  };
-
-  const getBusinessDate = (): string => {
-    return new Date().toISOString().split("T")[0];
-  };
-
-  const generateShiftId = async (businessDate: string): Promise<string> => {
-    const existingShifts = await db.searchByIndex<Shift>("shifts", "businessDate", businessDate);
-    const shiftNumber = existingShifts.length + 1;
-    return `${businessDate}-shift-${shiftNumber}`;
   };
 
   const login = async (pin: string): Promise<boolean> => {
@@ -544,69 +433,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const generateDailyShiftSummary = async (shift: Shift) => {
-    try {
-      const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
-
-      const paymentBreakdown = {
-        cash: 0,
-        qrisStatic: 0,
-        qrisDynamic: 0,
-        voucher: 0
-      };
-
-      let totalRevenue = 0;
-
-      shiftTransactions.forEach((t) => {
-        totalRevenue += t.total;
-        t.payments.forEach((p) => {
-          if (p.method === "cash") paymentBreakdown.cash += p.amount;
-          else if (p.method === "qris-static") paymentBreakdown.qrisStatic += p.amount;
-          else if (p.method === "qris-dynamic") paymentBreakdown.qrisDynamic += p.amount;
-          else if (p.method === "voucher") paymentBreakdown.voucher += p.amount;
-        });
-      });
-
-      const hoursWorked = shift.shiftEnd ? (shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60) : 0;
-
-      const summary: DailyShiftSummary = {
-        shiftId: shift.shiftId,
-        businessDate: shift.businessDate,
-        cashierId: shift.cashierId,
-        cashierName: shift.cashierName,
-        totalRevenue,
-        totalReceipts: shiftTransactions.length,
-        paymentBreakdown,
-        hoursWorked
-      };
-
-      await db.add("dailyShiftSummary", summary);
-    } catch (error) {
-      console.error("Error generating daily shift summary:", error);
-    }
-  };
-
-  const checkAndRollupMonthly = async () => {
-    try {
-      const today = getBusinessDate();
-      const currentMonth = today.substring(0, 7); // YYYY-MM
-
-      const settings = await db.getSettings();
-      const lastMonth = (settings as any).lastMonthlyRollup;
-
-      if (lastMonth && lastMonth !== currentMonth) {
-        // Month changed, rollup previous month
-        await rollupMonthlyData(lastMonth);
-      }
-
-      // Update last rollup date
-      const updatedSettings = { ...settings, lastMonthlyRollup: currentMonth } as any;
-      await db.updateSettings(updatedSettings);
-    } catch (error) {
-      console.error("Error checking monthly rollup:", error);
-    }
-  };
-
   const rollupMonthlyData = async (month: string) => {
     try {
       // Rollup item sales
@@ -694,39 +520,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log(`Monthly rollup completed for ${month}`);
     } catch (error) {
       console.error("Error rolling up monthly data:", error);
-    }
-  };
-
-  const archiveColdData = async () => {
-    try {
-      const today = getBusinessDate();
-      const cutoffDate = new Date(today);
-      cutoffDate.setDate(cutoffDate.getDate() - 30); // Changed from 7 to 30 days
-      const cutoffString = cutoffDate.toISOString().split("T")[0];
-
-      // Delete daily records older than 30 days
-      const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
-      const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-
-      let deletedCount = 0;
-
-      for (const item of dailyItems) {
-        if (item.businessDate < cutoffString && item.id) {
-          await db.delete("dailyItemSales", item.id);
-          deletedCount++;
-        }
-      }
-
-      for (const payment of dailyPayments) {
-        if (payment.businessDate < cutoffString && payment.id) {
-          await db.delete("dailyPaymentSales", payment.id);
-          deletedCount++;
-        }
-      }
-
-      console.log(`✅ Archived cold data: Deleted ${deletedCount} records older than ${cutoffString}`);
-    } catch (error) {
-      console.error("Error archiving cold data:", error);
     }
   };
 
