@@ -3,9 +3,9 @@
  * Executes the critical backup-restore flow tests programmatically
  */
 
-import { db, Database } from "./db";
-import { backupService, BackupService } from "./backup-service";
-import { Item, Employee, DailyPaymentSales } from "@/types";
+import { db } from "./db";
+import { backupService } from "./backup-service";
+import type { Item, Employee, DailyPaymentSales } from "@/types";
 
 interface TestResult {
   testName: string;
@@ -15,14 +15,7 @@ interface TestResult {
 }
 
 export class BackupRestoreUATRunner {
-  private db: Database;
-  private backupService: BackupService;
   private results: TestResult[] = [];
-
-  constructor() {
-    this.db = db;
-    this.backupService = backupService;
-  }
 
   private async executeTest(
     testName: string,
