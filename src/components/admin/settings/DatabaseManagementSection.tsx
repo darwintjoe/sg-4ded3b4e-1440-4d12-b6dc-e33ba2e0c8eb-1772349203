@@ -1,8 +1,32 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SettingsIcon, AlertTriangle } from "lucide-react";
+import { SettingsIcon, AlertTriangle, Store, ToyBrick, Coffee, Pill, Building, Zap, Palette, UtensilsCrossed } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { Language } from "@/types";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+type BusinessType = 
+  | "convenience-store"
+  | "stationery"
+  | "toys"
+  | "electronics"
+  | "warung-padang"
+  | "noodle-tea"
+  | "building-materials"
+  | "pharmacy";
+
+const businessTypes: { id: BusinessType; name: string; icon: React.ReactNode; description: string }[] = [
+  { id: "convenience-store", name: "settings.database.businessType.convenienceStore", icon: <Store className="h-5 w-5" />, description: "settings.database.businessType.convenienceStoreDesc" },
+  { id: "stationery", name: "settings.database.businessType.stationery", icon: <Palette className="h-5 w-5" />, description: "settings.database.businessType.stationeryDesc" },
+  { id: "toys", name: "settings.database.businessType.toys", icon: <ToyBrick className="h-5 w-5" />, description: "settings.database.businessType.toysDesc" },
+  { id: "electronics", name: "settings.database.businessType.electronics", icon: <Zap className="h-5 w-5" />, description: "settings.database.businessType.electronicsDesc" },
+  { id: "warung-padang", name: "settings.database.businessType.warungPadang", icon: <UtensilsCrossed className="h-5 w-5" />, description: "settings.database.businessType.warungPadangDesc" },
+  { id: "noodle-tea", name: "settings.database.businessType.noodleTea", icon: <Coffee className="h-5 w-5" />, description: "settings.database.businessType.noodleTeaDesc" },
+  { id: "building-materials", name: "settings.database.businessType.buildingMaterials", icon: <Building className="h-5 w-5" />, description: "settings.database.businessType.buildingMaterialsDesc" },
+  { id: "pharmacy", name: "settings.database.businessType.pharmacy", icon: <Pill className="h-5 w-5" />, description: "settings.database.businessType.pharmacyDesc" },
+];
 
 interface DatabaseManagementSectionProps {
   language: Language;
