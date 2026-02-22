@@ -2,9 +2,20 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SettingsIcon, AlertTriangle, Store } from "lucide-react";
 import { translate } from "@/lib/translations";
-import { Language, BusinessType } from "@/types";
+import { Language } from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
+
+// Define BusinessType locally since it's not exported from @/types
+type BusinessType = 
+  | "convenience-store"
+  | "stationery"
+  | "toys"
+  | "electronics"
+  | "warung-padang"
+  | "noodle-tea"
+  | "building-materials"
+  | "pharmacy";
 
 interface DatabaseManagementSectionProps {
   language: Language;
