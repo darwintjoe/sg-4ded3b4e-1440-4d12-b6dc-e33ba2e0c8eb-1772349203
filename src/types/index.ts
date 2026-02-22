@@ -361,7 +361,7 @@ export interface ShiftTransactions {
 
 export interface BackupData {
   employees: Employee[];
-  attendance: Attendance[];
+  attendance?: Attendance[];
   items: Item[];
   transactions: Transaction[];
   shifts: Shift[];

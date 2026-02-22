@@ -253,6 +253,7 @@ export class BackupService {
       const shifts = await db.getAll("shifts");
       const settings = await db.get("settings", "app") || {};
       const expenses = await db.getAll("expenses");
+      const attendance = await db.getAll("attendance") || [];
 
       const backupData: BackupData = {
         version: 2,
@@ -260,6 +261,7 @@ export class BackupService {
         businessId,
         items,
         employees,
+        attendance,
         categories,
         transactions,
         shifts,
