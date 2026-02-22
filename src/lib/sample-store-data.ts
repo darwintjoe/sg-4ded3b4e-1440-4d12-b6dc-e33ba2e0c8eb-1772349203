@@ -163,13 +163,13 @@ export const SAMPLE_ITEMS_DATA = {
   ],
   "Stationery": [
     { name: "Pulpen Standard", price: 3000, barcode: "8999560100016" },
-    { name: "Pensil 2B", price: 2000, barcode: "8999560100023" },
-    { name: "Penghapus", price: 1500, barcode: "8999560100030" },
-    { name: "Buku Tulis", price: 5000, barcode: "8999560100047" },
-    { name: "Tipe-X", price: 6000, barcode: "8999560100054" },
-    { name: "Lem UHU", price: 8000, barcode: "8999560100061" },
-    { name: "Gunting", price: 10000, barcode: "8999560100078" },
-    { name: "Stapler", price: 15000, barcode: "8999560100085" },
+    { name: "Pulpen Pilot", price: 8000, barcode: "8999560100017" },
+    { name: "Pensil 2B Faber", price: 5000, barcode: "8999560100023" },
+    { name: "Pensil Mekanik", price: 12000, barcode: "8999560100024" },
+    { name: "Spidol Permanent", price: 6000, barcode: "8999560100025" },
+    { name: "Spidol Whiteboard", price: 8000, barcode: "8999560100026" },
+    { name: "Highlighter Set", price: 15000, barcode: "8999560100027" },
+    { name: "Tinta Printer", price: 45000, barcode: "8999560100028" },
   ],
   "Phone Accessories": [
     { name: "Kabel Data Micro USB", price: 20000, barcode: "8990560100015" },
@@ -870,5 +870,113 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
       summary: monthlySummary,
     },
     monthlyAttendanceSummaries
+  };
+}
+
+export function getDefaultSettings(): Settings {
+  return {
+    businessName: "My Store",
+    businessAddress: "",
+    businessPhone: "",
+    businessTaxId: "",
+    currency: "IDR",
+    taxRate: 0,
+    enableTax: false,
+    receiptFooter: "Thank you for your purchase!",
+    enableSound: true,
+    printReceipt: true,
+    darkMode: false,
+    language: "en",
+    backupEnabled: true,
+    backupInterval: "daily",
+    autoLogout: false,
+    autoLogoutMinutes: 30,
+    printerType: "bluetooth",
+    printerName: "",
+    printerAddress: "",
+    paperWidth: 80,
+    lowStockThreshold: 10,
+    enableNotifications: true,
+    enableLowStockAlerts: true,
+    enableAttendance: true,
+    enableShiftManagement: true,
+    shiftNames: {
+      shift1: "Morning Shift",
+      shift2: "Afternoon Shift",
+      shift3: "Evening Shift"
+    },
+    shiftTimes: {
+      shift1: "07:00",
+      shift2: "14:00",
+      shift3: "19:00"
+    },
+    backupRetention: 30,
+    receiptTemplate: "default",
+    theme: "system",
+    fontSize: "medium",
+    enableAnimations: true,
+    autoBackup: true,
+    autoSync: true,
+    enableOfflineMode: true,
+    syncInterval: 5,
+    maxOfflineTransactions: 1000,
+    enableBarcode: true,
+    enableScanner: true,
+    scannerType: "camera",
+    enableDiscount: true,
+    discountPresets: [5, 10, 15, 20, 25],
+    enableVoucher: true,
+    enableLoyalty: false,
+    loyaltyPointsRate: 1,
+    loyaltyRedemptionRate: 100,
+    enableTableManagement: false,
+    enableKitchenDisplay: false,
+    enableReservations: false,
+    enableDelivery: false,
+    deliveryProviders: [],
+    enableMultiCurrency: false,
+    secondaryCurrencies: [],
+    enableTaxInclusive: false,
+    taxCalculationMethod: "additive",
+    roundToNearest: 100,
+    enableCashDrawer: false,
+    cashDrawerOpenOnCash: true,
+    enableWeightScale: false,
+    weightScaleUnit: "kg",
+    enableAgeVerification: false,
+    ageRestrictedCategories: [],
+    enableEmployeeCommission: false,
+    commissionRate: 0,
+    enableTimeTracking: false,
+    enablePayroll: false,
+    payPeriod: "monthly",
+    overtimeRate: 1.5,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+}
+
+export function generateSampleStoreData(businessType: BusinessType = "convenience-store"): {
+  items: Item[];
+  employees: Employee[];
+  transactions: Transaction[];
+  dailySummaries: DailyPaymentSales[];
+  dailyItemSales: DailyItemSales[];
+  dailyAttendance: DailyAttendance[];
+  monthlyItemSales: MonthlyItemSales[];
+  monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
+  monthlyAttendanceSummaries: MonthlyAttendanceSummary[];
+  settings: Settings;
+} {
+  const items = generateSampleItems(businessType);
+  const employees = generateSampleEmployees();
+  const transactionData = generateSampleTransactions(items, employees, businessType);
+  const settings = getDefaultSettings();
+  
+  return {
+    items,
+    employees,
+    ...transactionData,
+    settings
   };
 }
