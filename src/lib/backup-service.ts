@@ -88,6 +88,69 @@ export class BackupService {
   private storedBackup: any | null = null;
 
   /**
+   * Subscription status for backup gating
+   */
+  interface SubscriptionStatus {
+    active: boolean;
+    gracePeriod: boolean;
+    expired: boolean;
+    expiresAt: string | null;
+  }
+
+  /**
+   * Check subscription status from localStorage (set by payment system)
+   */
+  private getSubscriptionStatus(businessId?: string): SubscriptionStatus {
+    const key = businessId ? `subscription_${businessId}` : "subscription";
+    const subData = localStorage.getItem(key);
+    
+    if (!subData) {
+      // No subscription data = assume active (legacy users)
+      return { active: true, gracePeriod: false, expired: false, expiresAt: null };
+    }
+
+    try {
+      const sub = JSON.parse(subData);
+      const expiresAt = sub.expiresAt ? new Date(sub.expiresAt) : null;
+      const now = new Date();
+      const graceEnd = expiresAt ? new Date(expiresAt.getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+
+      if (!expiresAt) {
+        return { active: true, gracePeriod: false, expired: false, expiresAt: null };
+      }
+
+      if (now <= expiresAt) {
+        return { active: true, gracePeriod: false, expired: false, expiresAt: sub.expiresAt };
+      }
+
+      if (graceEnd && now <= graceEnd) {
+        return { active: false, gracePeriod: true, expired: false, expiresAt: sub.expiresAt };
+      }
+
+      return { active: false, gracePeriod: false, expired: true, expiresAt: sub.expiresAt };
+    } catch {
+      return { active: true, gracePeriod: false, expired: false, expiresAt: null };
+    }
+  }
+
+  /**
+   * Check if backup should run based on subscription
+   */
+  private shouldBackup(businessId?: string): { allowed: boolean; reason?: string } {
+    const sub = this.getSubscriptionStatus(businessId);
+    
+    if (sub.active) {
+      return { allowed: true };
+    }
+    
+    if (sub.gracePeriod) {
+      return { allowed: true, reason: "grace_period" };
+    }
+    
+    return { allowed: false, reason: "subscription_expired" };
+  }
+
+  /**
    * Get backup folder path based on businessId
    * Backward compatible: single business uses legacy path
    */
@@ -354,8 +417,19 @@ export class BackupService {
   /**
    * Create backup (as candidate) with optional businessId
    */
-  async createBackup(businessId?: string): Promise<{ success: boolean; error?: string }> {
+  async createBackup(businessId?: string): Promise<{ success: boolean; error?: string; subscriptionBlocked?: boolean }> {
     try {
+      // Check subscription first
+      const backupCheck = this.shouldBackup(businessId);
+      if (!backupCheck.allowed) {
+        console.log("Backup skipped: subscription expired");
+        return { 
+          success: false, 
+          error: "Subscription expired - backup disabled",
+          subscriptionBlocked: true
+        };
+      }
+
       if (!googleAuth.isSignedIn()) {
         return { success: false, error: "Not signed in to Google" };
       }
@@ -394,7 +468,8 @@ export class BackupService {
       console.error("Backup creation failed:", error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : "Backup failed" 
+        error: error instanceof Error ? error.message : "Backup failed",
+        subscriptionBlocked: false
       };
     }
   }
