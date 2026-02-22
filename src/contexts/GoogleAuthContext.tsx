@@ -233,6 +233,19 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return backupService.cancelRestore();
   };
 
+  const getStoredBackup = () => {
+    return backupService.getStoredBackup();
+  };
+
+  const clearStoredBackup = () => {
+    backupService.clearStoredBackup();
+    return Promise.resolve({ success: true });
+  };
+
+  const promoteCandidate = async () => {
+    return backupService.promoteCandidate();
+  };
+
   const revertRestore = async () => {
     const result = await backupService.revertRestore();
     await refreshBackupStatus();
@@ -241,12 +254,6 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 
   const canRevert = () => {
     return backupService.canRevert();
-  };
-
-  const promoteCandidate = async () => {
-    const result = await backupService.promoteCandidate();
-    await refreshBackupStatus();
-    return result;
   };
 
   const createCalendarEvent = async (event: any) => {
