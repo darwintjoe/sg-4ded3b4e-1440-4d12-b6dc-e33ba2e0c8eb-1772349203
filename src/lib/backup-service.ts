@@ -14,7 +14,15 @@
 
 import { db } from "./db";
 import { googleAuth } from "./google-auth";
-import type { BackupMetadata, BackupData, BackupStatus } from "@/types";
+import type { 
+  BackupMetadata, 
+  BackupData, 
+  BackupStatus, 
+  Item, 
+  Employee, 
+  Settings, 
+  Shift 
+} from "@/types";
 
 interface RestoreState {
   phase: "idle" | "downloading" | "verifying" | "backing_up" | "preview" | "finalizing" | "complete";
@@ -264,15 +272,15 @@ export class BackupService {
       const cutoffDate = sixtyDaysAgo.toISOString().split("T")[0];
 
       // Master data (always small)
-      const items = await db.getAll("items");
-      const employees = await db.getAll("employees");
-      const categories = await db.getAll("categories");
-      const settingsArray = await db.getAll("settings");
-      const settings = settingsArray.find((s: any) => s.id === 1 || s.key === "settings") || settingsArray[0];
+      const items = await db.getAll("items") as Item[];
+      const employees = await db.getAll("employees") as Employee[];
+      const categories = await db.getAll("categories") as string[];
+      const settingsArray = await db.getAll("settings") as Settings[];
+      const settings = settingsArray.find((s) => s.id === 1 || s.key === "settings") || settingsArray[0];
 
       // Recent shifts (last 60 days only)
-      const allShifts = await db.getAll("shifts");
-      const shifts = allShifts.filter((s: any) => {
+      const allShifts = await db.getAll("shifts") as Shift[];
+      const shifts = allShifts.filter((s) => {
         const shiftDate = new Date(s.shiftStart).toISOString().split("T")[0];
         return shiftDate >= cutoffDate;
       });
