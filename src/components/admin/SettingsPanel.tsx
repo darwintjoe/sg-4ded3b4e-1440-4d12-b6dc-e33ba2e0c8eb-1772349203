@@ -34,6 +34,7 @@ import { generateSampleStoreData } from "@/lib/sample-store-data";
 import { useToast } from "@/hooks/use-toast";
 import { RestorePreviewDialog } from "@/components/RestorePreviewDialog";
 import { translate } from "@/lib/translations";
+import { BusinessType } from "@/lib/sample-store-data";
 
 // Extracted components
 import { HelpTooltip } from "./settings/HelpTooltip";
@@ -167,7 +168,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleInjectSampleData = async () => {
+  const handleInjectSampleData = async (businessType: BusinessType = "convenience-store") => {
     if (!confirm("This will add sample data to your database. Continue?")) return;
 
     try {
@@ -177,7 +178,7 @@ export function SettingsPanel() {
         message: "Preparing sample data...",
       });
 
-      const data = generateSampleStoreData();
+      const data = generateSampleStoreData(businessType);
       let itemsAdded = 0, itemsSkipped = 0;
       let employeesAdded = 0, employeesSkipped = 0;
       let transactionsAdded = 0, transactionsSkipped = 0;
