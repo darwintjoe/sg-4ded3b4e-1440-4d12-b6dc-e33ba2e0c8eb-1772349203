@@ -228,17 +228,27 @@ class GoogleAuthService {
   /**
    * Upload backup to Google Drive
    */
-  async uploadBackup(data: Blob, filename: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
+  async uploadBackup(data: Blob, filename: string, folderPath?: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
+      }
+
+      // Get or create folder from path
+      let parentId = "root";
+      if (folderPath) {
+        const folderResult = await this.getOrCreateFolder(folderPath);
+        if (!folderResult.success) {
+          return { success: false, error: folderResult.error };
+        }
+        parentId = folderResult.folderId!;
       }
 
       // Create file metadata
       const metadata = {
         name: filename,
         mimeType: "application/gzip",
-        parents: ["root"],
+        parents: [parentId],
       };
 
       // Upload to Drive
@@ -271,16 +281,92 @@ class GoogleAuthService {
   }
 
   /**
+   * Get or create folder path in Google Drive
+   */
+  private async getOrCreateFolder(folderPath: string): Promise<{ success: boolean; folderId?: string; error?: string }> {
+    try {
+      const parts = folderPath.split("/").filter(p => p);
+      let currentParentId = "root";
+      
+      for (const part of parts) {
+        // Check if folder exists
+        const query = `name='${part}' and mimeType='application/vnd.google-apps.folder' and '${currentParentId}' in parents and trashed=false`;
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+          {
+            headers: {
+              Authorization: `Bearer ${this.currentUser!.accessToken}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          return { success: false, error: "Failed to check folder" };
+        }
+
+        const result = await response.json();
+        
+        if (result.files && result.files.length > 0) {
+          // Folder exists
+          currentParentId = result.files[0].id;
+        } else {
+          // Create folder
+          const createResponse = await fetch(
+            "https://www.googleapis.com/drive/v3/files",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${this.currentUser!.accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                name: part,
+                mimeType: "application/vnd.google-apps.folder",
+                parents: [currentParentId],
+              }),
+            }
+          );
+
+          if (!createResponse.ok) {
+            return { success: false, error: "Failed to create folder" };
+          }
+
+          const createResult = await createResponse.json();
+          currentParentId = createResult.id;
+        }
+      }
+
+      return { success: true, folderId: currentParentId };
+    } catch (error) {
+      console.error("Folder creation failed:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Folder operation failed" };
+    }
+  }
+
+  /**
    * List backups from Google Drive
    */
-  async listBackups(): Promise<{ success: boolean; backups?: BackupMetadata[]; error?: string }> {
+  async listBackups(folderPath?: string): Promise<{ success: boolean; backups?: BackupMetadata[]; error?: string }> {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
       }
 
+      let parentQuery = "'root' in parents";
+      
+      if (folderPath) {
+        const folderResult = await this.getOrCreateFolder(folderPath);
+        if (!folderResult.success) {
+          // If folder doesn't exist, return empty list (no backups yet)
+          return { success: true, backups: [] };
+        }
+        parentQuery = `'${folderResult.folderId}' in parents`;
+      }
+
+      const query = `name contains 'backup_' and ${parentQuery} and (mimeType='application/gzip' or mimeType='application/json') and trashed=false`;
+      
       const response = await fetch(
-        "https://www.googleapis.com/drive/v3/files?q=name contains 'backup_' and (mimeType='application/gzip' or mimeType='application/json')&fields=files(id,name,createdTime,size)&orderBy=createdTime desc",
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime,size)&orderBy=createdTime desc`,
         {
           headers: {
             Authorization: `Bearer ${this.currentUser.accessToken}`,
