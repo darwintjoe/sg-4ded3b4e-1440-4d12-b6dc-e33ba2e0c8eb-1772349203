@@ -4,6 +4,8 @@ import { SettingsIcon, AlertTriangle } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { Language } from "@/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useState } from "react";
+import { BUSINESS_CATALOGS } from "@/lib/sample-store-data";
 
 interface DatabaseManagementSectionProps {
   language: Language;
@@ -33,7 +35,7 @@ export function DatabaseManagementSection({
   startPreviewProcess
 }: DatabaseManagementSectionProps) {
   const isProcessing = backupProcessing || restoreState?.phase !== "idle";
-  const [showBusinessTypeSelector, setShowBusinessTypeSelector] = React.useState(false);
+  const [showBusinessTypeSelector, setShowBusinessTypeSelector] = useState(false);
   const handleBusinessTypeSelect = (businessType: string) => {
     onInjectSampleData(businessType);
     setShowBusinessTypeSelector(false);
