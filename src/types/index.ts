@@ -10,6 +10,7 @@ export interface Employee {
   id: string;
   name: string;
   code: string;
+  pin?: string; // Backward compatibility - some code uses pin
   role: "admin" | "cashier" | "employee";
   joinDate?: number;
   createdAt: number;
