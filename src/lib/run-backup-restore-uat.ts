@@ -5,7 +5,7 @@
 
 import { db } from "./db";
 import { backupService } from "./backup-service";
-import type { Item, Employee, DailyPaymentSales } from "@/types";
+import type { Item, Employee, DailyPaymentSales, Settings } from "@/types";
 
 interface TestResult {
   testName: string;
