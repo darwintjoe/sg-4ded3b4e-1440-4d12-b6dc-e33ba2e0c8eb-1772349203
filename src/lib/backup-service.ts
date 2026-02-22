@@ -1025,6 +1025,27 @@ export class BackupService {
   }
 
   /**
+   * Store backup for preview (compatibility method)
+   */
+  storeBackupForPreview(data: any): void {
+    this.storedBackup = data;
+  }
+
+  /**
+   * Get stored backup (compatibility method)
+   */
+  getStoredBackup(): any | null {
+    return this.storedBackup;
+  }
+
+  /**
+   * Clear stored backup (compatibility method)
+   */
+  clearStoredBackup(): void {
+    this.storedBackup = null;
+  }
+
+  /**
    * Get backup status
    */
   async getBackupStatus(businessId?: string): Promise<BackupStatus> {
