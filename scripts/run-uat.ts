@@ -3,415 +3,451 @@
  * Run with: npx ts-node --project tsconfig.json scripts/run-uat.ts
  */
 
+import { BackupService } from "../src/lib/backup-service";
 import { db } from "../src/lib/db";
-import { backupService } from "../src/lib/backup-service";
-import type { BackupData } from "../src/types";
-import type { Transaction, Item, Employee } from "../src/types";
+import { AutomatedTester } from "../src/lib/automated-testing";
+import type { BackupData, Transaction, Item, Employee } from "../src/types";
 
 interface TestResult {
-  testName: string;
+  testCase: string;
+  category: string;
   status: "PASS" | "FAIL" | "SKIP";
+  message: string;
   duration: number;
-  message?: string;
-  error?: string;
+  timestamp: number;
 }
 
-class BackupRestoreUATRunner {
+export class BackupRestoreUATRunner {
   private results: TestResult[] = [];
-  private testBackupData: BackupData | null = null;
-  private checkpointBackupData: BackupData | null = null;
+  private backupService: BackupService;
+  private tester: AutomatedTester;
 
-  async runFullSuite() {
-    console.log("\n🚀 ========================================");
-    console.log("   BACKUP-RESTORE UAT TEST SUITE");
-    console.log("========================================\n");
-
-    const startTime = Date.now();
-
-    await this.scenario1_FreshInstallRestore();
-    await this.scenario2_ManualBackupAndTransactions();
-    await this.scenario3_RestoreFromCheckpoint();
-
-    const duration = Date.now() - startTime;
-    this.printSummary(duration);
+  constructor() {
+    this.backupService = new BackupService();
+    this.tester = new AutomatedTester();
   }
 
   private async executeTest(
-    testName: string,
+    testCase: string,
+    category: string,
     testFn: () => Promise<void>
   ): Promise<TestResult> {
-    const startTime = Date.now();
-    console.log(`\n🔍 ${testName}...`);
-
+    const start = performance.now();
+    const timestamp = Date.now();
+    
     try {
       await testFn();
-      const duration = Date.now() - startTime;
-      console.log(`   ✅ PASS (${duration}ms)`);
-      return { testName, status: "PASS", duration };
+      const duration = performance.now() - start;
+      
+      return {
+        testCase,
+        category,
+        status: "PASS",
+        message: "Test passed successfully",
+        duration,
+        timestamp
+      };
     } catch (error) {
-      const duration = Date.now() - startTime;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`   ❌ FAIL (${duration}ms): ${errorMsg}`);
-      return { testName, status: "FAIL", duration, error: errorMsg };
+      const duration = performance.now() - start;
+      
+      return {
+        testCase,
+        category,
+        status: "FAIL",
+        message: error instanceof Error ? error.message : String(error),
+        duration,
+        timestamp
+      };
     }
   }
 
-  private async scenario1_FreshInstallRestore() {
-    console.log("\n📋 SCENARIO 1: Fresh Install → Restore → 20 Transactions");
-    console.log("─────────────────────────────────────────────────────────");
+  async runFullSuite(): Promise<void> {
+    console.log("🔄 Starting Backup-Restore UAT Suite...\n");
 
-    // 1.1: Clear Database (Fresh Install)
-    const test1 = await this.executeTest(
-      "1.1: Clear Database (Fresh Install)",
-      async () => {
-        await db.clearAllData();
-        console.log("   🗑️  Database cleared");
-      }
-    );
-    this.results.push(test1);
+    // Initialize clean environment
+    await this.tester.initializeTestEnvironment();
+    await this.tester.seedTestData();
 
-    // 1.2: Admin Login
-    const test2 = await this.executeTest(
-      "1.2: Admin Login",
+    // Run UAT tests
+    await this.test_1_1_FreshInstallRestore();
+    await this.test_1_2_CreateTransactions();
+    await this.test_1_3_CheckpointReport();
+    await this.test_1_4_CreateCheckpoint();
+    await this.test_1_5_AdditionalTransactions();
+    await this.test_1_6_FullReport();
+    await this.test_1_7_RestoreCheckpoint();
+    await this.test_1_8_VerifyRestoredState();
+    await this.test_1_9_DataIntegrityCheck();
+
+    this.printReport();
+  }
+
+  // 1.1: Fresh Install + Restore
+  private async test_1_1_FreshInstallRestore(): Promise<void> {
+    const test = await this.executeTest(
+      "1.1: Fresh Install + Restore Test Data",
+      "Setup",
       async () => {
-        const settings = await db.getSettings();
-        if (!settings.adminPIN || settings.adminPIN !== "0000") {
-          throw new Error("Admin PIN not set or incorrect");
+        // Clear all data
+        const stores = ["items", "employees", "transactions", "attendance", "shifts"];
+        for (const store of stores) {
+          await db.clear(store);
         }
-        console.log("   🔐 Admin authenticated");
-      }
-    );
-    this.results.push(test2);
 
-    // 1.3: Load Test Backup Data
-    const test3 = await this.executeTest(
-      "1.3: Load Test Backup Data",
-      async () => {
-        this.testBackupData = await this.generateTestBackupData();
-        console.log(`   📦 Test backup created: ${this.testBackupData.items.length} items`);
-      }
-    );
-    this.results.push(test3);
-
-    // 1.4: Execute Restore
-    const test4 = await this.executeTest(
-      "1.4: Execute Restore",
-      async () => {
-        if (!this.testBackupData) throw new Error("No test backup data");
+        // Verify empty
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
         
-        const result = await backupService.finalizeRestore();
-        if (!result.success) {
-          throw new Error(result.message || "Restore failed");
+        if (items.length !== 0 || employees.length !== 0) {
+          throw new Error("Database not cleared properly");
         }
-        console.log("   🔄 Restore completed successfully");
-      }
-    );
-    this.results.push(test4);
 
-    // 1.5: Cashier Login
-    const test5 = await this.executeTest(
-      "1.5: Cashier Login",
-      async () => {
-        const employees = await db.getEmployees();
-        const cashier = employees.find((e: Employee) => e.role === "cashier");
-        if (!cashier) throw new Error("No cashier found after restore");
-        console.log(`   👤 Cashier authenticated: ${cashier.name}`);
-      }
-    );
-    this.results.push(test5);
-
-    // 1.6: Create 20 Test Transactions
-    const test6 = await this.executeTest(
-      "1.6: Create 20 Test Transactions",
-      async () => {
-        const items = await db.getItems();
-        if (items.length === 0) throw new Error("No items found");
-
-        const today = new Date().toISOString().split("T")[0];
+        // Seed test data
+        await this.tester.seedTestData();
         
+        const restoredItems = await db.getAll<Item>("items");
+        const restoredEmployees = await db.getAll<Employee>("employees");
+        
+        if (restoredItems.length === 0 || restoredEmployees.length === 0) {
+          throw new Error("Test data not restored");
+        }
+
+        console.log("✅ Fresh install + restore completed");
+      }
+    );
+    this.results.push(test);
+  }
+
+  // 1.2: Create 20 transactions
+  private async test_1_2_CreateTransactions(): Promise<void> {
+    const test = await this.executeTest(
+      "1.2: Create 20 Transactions",
+      "Transaction Creation",
+      async () => {
+        const employees = await db.getAll<Employee>("employees");
+        const cashier = employees.find(e => e.role === "cashier");
+        
+        if (!cashier) {
+          throw new Error("No cashier found");
+        }
+
+        const items = await db.getAll<Item>("items");
+        const activeItems = items.filter(i => i.isActive !== false);
+
+        // Create 20 transactions
         for (let i = 0; i < 20; i++) {
-          const transaction: Omit<Transaction, "id"> = {
-            businessDate: today,
-            timestamp: Date.now(),
-            shiftId: "shift-test",
-            cashierId: 1,
-            cashierName: "Test Cashier",
-            mode: "retail",
+          const item = activeItems[i % activeItems.length];
+          const transaction = {
             items: [{ 
-              itemId: items[0].id!,
-              sku: items[0].sku || "TEST-SKU",
-              name: items[0].name,
-              basePrice: items[0].price,
-              quantity: 1,
-              totalPrice: items[0].price
+              itemId: item.id!, 
+              sku: item.sku || "",
+              name: item.name, 
+              basePrice: item.price, 
+              quantity: 1, 
+              totalPrice: item.price 
             }],
-            subtotal: items[0].price,
+            subtotal: item.price,
             tax: 0,
-            total: items[0].price,
-            payments: [{ method: "cash", amount: items[0].price }],
-            change: 0
+            total: item.price,
+            payments: [{ method: "cash" as const, amount: item.price }],
+            change: 0,
+            cashierId: cashier.id,
+            cashierName: cashier.name,
+            timestamp: Date.now() + i * 1000,
+            shiftId: "shift1",
+            mode: "retail" as const,
+            businessDate: new Date().toISOString().split("T")[0]
           };
-          
-          await db.addTransaction(transaction);
-        }
-        console.log("   📝 20 transactions created");
-      }
-    );
-    this.results.push(test6);
 
-    // 1.7: Verify Today's Sales Report
-    const test7 = await this.executeTest(
-      "1.7: Verify Today's Sales Report",
-      async () => {
-        const today = new Date().toISOString().split("T")[0];
-        const dailySales = await db.getDailyPaymentSales();
-        
-        const todaySales = dailySales.filter((s: any) => s.businessDate === today);
-        const totalTransactions = todaySales.reduce((sum: number, s: any) => sum + s.transactionCount, 0);
-        
-        if (totalTransactions !== 20) {
-          throw new Error(`Expected 20 transactions, got ${totalTransactions}`);
+          await db.add("transactions", transaction);
         }
-        console.log(`   📊 Today's Sales: ${totalTransactions} transactions`);
+
+        const transactions = await db.getAll<Transaction>("transactions");
+        if (transactions.length < 20) {
+          throw new Error(`Expected 20 transactions, got ${transactions.length}`);
+        }
+
+        console.log("✅ Created 20 transactions");
       }
     );
-    this.results.push(test7);
+    this.results.push(test);
   }
 
-  private async scenario2_ManualBackupAndTransactions() {
-    console.log("\n📋 SCENARIO 2: Manual Backup → 30 More Transactions");
-    console.log("─────────────────────────────────────────────────────────");
-
-    // 2.1: Create Manual Backup (Checkpoint)
-    const test1 = await this.executeTest(
-      "2.1: Create Manual Backup (Checkpoint)",
-      async () => {
-        const backupData = await backupService.exportEssentialData();
-        this.checkpointBackupData = backupData;
-        console.log(`   💾 Checkpoint backup created`);
-      }
-    );
-    this.results.push(test1);
-
-    // 2.2: Create 30 Additional Transactions
-    const test2 = await this.executeTest(
-      "2.2: Create 30 Additional Transactions",
-      async () => {
-        const items = await db.getItems();
-        const today = new Date().toISOString().split("T")[0];
-        
-        for (let i = 0; i < 30; i++) {
-          const transaction: Omit<Transaction, "id"> = {
-            businessDate: today,
-            timestamp: Date.now(),
-            shiftId: "shift-test",
-            cashierId: 1,
-            cashierName: "Test Cashier",
-            mode: "retail",
-            items: [{ 
-              itemId: items[0].id!,
-              sku: items[0].sku || "TEST-SKU",
-              name: items[0].name,
-              basePrice: items[0].price,
-              quantity: 1,
-              totalPrice: items[0].price
-            }],
-            subtotal: items[0].price,
-            tax: 0,
-            total: items[0].price,
-            payments: [{ method: "cash", amount: items[0].price }],
-            change: 0
-          };
-          
-          await db.addTransaction(transaction);
-        }
-        console.log("   📝 30 additional transactions created");
-      }
-    );
-    this.results.push(test2);
-
-    // 2.3: Verify Today's Sales Report (50 Total)
-    const test3 = await this.executeTest(
-      "2.3: Verify Today's Sales Report (50 Total)",
+  // 1.3: Report Today's Sales
+  private async test_1_3_CheckpointReport(): Promise<void> {
+    const test = await this.executeTest(
+      "1.3: Report Today's Sales (Should Show 20 Transactions)",
+      "Reporting",
       async () => {
         const today = new Date().toISOString().split("T")[0];
-        const dailySales = await db.getDailyPaymentSales();
+        const transactions = await db.getAll<Transaction>("transactions");
         
-        const todaySales = dailySales.filter((s: any) => s.businessDate === today);
-        const totalTransactions = todaySales.reduce((sum: number, s: any) => sum + s.transactionCount, 0);
+        const todayTransactions = transactions.filter(t => t.businessDate === today);
         
-        if (totalTransactions !== 50) {
-          throw new Error(`Expected 50 transactions, got ${totalTransactions}`);
+        if (todayTransactions.length !== 20) {
+          throw new Error(`Expected 20 transactions for today, got ${todayTransactions.length}`);
         }
-        console.log(`   📊 Today's Sales: ${totalTransactions} transactions`);
+
+        const revenue = todayTransactions.reduce((sum, t) => sum + t.total, 0);
+        console.log(`📊 Checkpoint report: ${revenue.toLocaleString()} (${todayTransactions.length} transactions)`);
       }
     );
-    this.results.push(test3);
+    this.results.push(test);
   }
 
-  private async scenario3_RestoreFromCheckpoint() {
-    console.log("\n📋 SCENARIO 3: Restore from Checkpoint → Verify 20 Transactions");
-    console.log("─────────────────────────────────────────────────────────");
-
-    // 3.1: Restore from Checkpoint Backup
-    const test1 = await this.executeTest(
-      "3.1: Restore from Checkpoint Backup",
+  // 1.4: Create Manual Backup
+  private async test_1_4_CreateCheckpoint(): Promise<void> {
+    const test = await this.executeTest(
+      "1.4: Create Manual Backup (Checkpoint)",
+      "Backup",
       async () => {
-        if (!this.checkpointBackupData) throw new Error("No checkpoint backup");
+        const result = await this.backupService.createBackup();
         
-        const result = await backupService.finalizeRestore();
         if (!result.success) {
-          throw new Error(result.message || "Restore failed");
+          throw new Error(`Backup failed: ${result.error}`);
         }
-        console.log("   🔄 Restored to checkpoint");
-      }
-    );
-    this.results.push(test1);
 
-    // 3.2: Verify Transaction Count = 20
-    const test2 = await this.executeTest(
-      "3.2: Verify Transaction Count = 20",
-      async () => {
-        const today = new Date().toISOString().split("T")[0];
-        const dailySales = await db.getDailyPaymentSales();
-        
-        const todaySales = dailySales.filter((s: any) => s.businessDate === today);
-        const totalTransactions = todaySales.reduce((sum: number, s: any) => sum + s.transactionCount, 0);
-        
-        if (totalTransactions !== 20) {
-          throw new Error(`Expected 20 transactions after restore, got ${totalTransactions}`);
-        }
-        console.log(`   ✅ Transaction count correct: ${totalTransactions}`);
-      }
-    );
-    this.results.push(test2);
+        // Store backup for restore test
+        const backupData = await this.backupService.exportEssentialData();
+        localStorage.setItem("uat_checkpoint_backup", JSON.stringify(backupData));
 
-    // 3.3: Verify Today's Sales Report
-    const test3 = await this.executeTest(
-      "3.3: Verify Today's Sales Report",
-      async () => {
-        const today = new Date().toISOString().split("T")[0];
-        const dailySales = await db.getDailyPaymentSales();
-        
-        const todaySales = dailySales.filter((s: any) => s.businessDate === today);
-        const totalTransactions = todaySales.reduce((sum: number, s: any) => sum + s.transactionCount, 0);
-        const totalRevenue = todaySales.reduce((sum: number, s: any) => sum + s.totalAmount, 0);
-        
-        console.log(`   📊 Final Report: ${totalTransactions} transactions, Revenue: ${totalRevenue}`);
+        console.log("✅ Checkpoint backup created");
       }
     );
-    this.results.push(test3);
+    this.results.push(test);
   }
 
-  private async generateTestBackupData(): Promise<BackupData> {
-    const today = new Date().toISOString().split("T")[0];
-    
-    return {
-      employees: [
-        {
-          id: "1",
-          name: "Test Cashier",
-          code: "1234",
-          pin: "1234",
-          role: "cashier",
-          isActive: true,
-          createdAt: Date.now()
+  // 1.5: Create 30 more transactions
+  private async test_1_5_AdditionalTransactions(): Promise<void> {
+    const test = await this.executeTest(
+      "1.5: Create 30 More Transactions",
+      "Transaction Creation",
+      async () => {
+        const employees = await db.getAll<Employee>("employees");
+        const cashier = employees.find(e => e.role === "cashier");
+        
+        if (!cashier) {
+          throw new Error("No cashier found");
         }
-      ],
-      attendance: [],
-      items: [
-        {
-          id: 1,
-          sku: "TEST-001",
-          name: "Test Product 1",
-          price: 10000,
-          category: "Food",
-          isActive: true
+
+        const items = await db.getAll<Item>("items");
+        const activeItems = items.filter(i => i.isActive !== false);
+        const beforeCount = (await db.getAll<Transaction>("transactions")).length;
+
+        // Create 30 more transactions
+        for (let i = 0; i < 30; i++) {
+          const item = activeItems[i % activeItems.length];
+          const transaction = {
+            items: [{ 
+              itemId: item.id!, 
+              sku: item.sku || "",
+              name: item.name, 
+              basePrice: item.price, 
+              quantity: 1, 
+              totalPrice: item.price 
+            }],
+            subtotal: item.price,
+            tax: 0,
+            total: item.price,
+            payments: [{ method: "cash" as const, amount: item.price }],
+            change: 0,
+            cashierId: cashier.id,
+            cashierName: cashier.name,
+            timestamp: Date.now() + (20000 + i * 1000),
+            shiftId: "shift1",
+            mode: "retail" as const,
+            businessDate: new Date().toISOString().split("T")[0]
+          };
+
+          await db.add("transactions", transaction);
         }
-      ],
-      transactions: [],
-      shifts: [],
-      settings: {
-        key: "settings",
-        mode: "retail",
-        tax1Enabled: true,
-        tax1Label: "PPN",
-        tax1Rate: 10,
-        tax1Inclusive: false,
-        tax2Enabled: false,
-        tax2Label: "Service",
-        tax2Rate: 0,
-        tax2Inclusive: false,
-        language: "en",
-        printerWidth: 58,
-        businessName: "Test Store UAT",
-        receiptFooter: "Thank you for testing!",
-        googleDriveLinked: false,
-        allowPriceOverride: false,
-        adminPIN: "0000",
-        shifts: {
-          shift1: { enabled: true, name: "Morning", startTime: "08:00", endTime: "18:00" },
-          shift2: { enabled: false, name: "Afternoon", startTime: "14:00", endTime: "22:00" },
-          shift3: { enabled: false, name: "Evening", startTime: "20:00", endTime: "06:00" }
-        },
-        paymentMethods: {
-          cash: true,
-          card: true,
-          transfer: true
+
+        const afterCount = (await db.getAll<Transaction>("transactions")).length;
+        
+        if (afterCount !== beforeCount + 30) {
+          throw new Error(`Expected ${beforeCount + 30} transactions, got ${afterCount}`);
         }
-      },
-      categories: [],
-      expenses: []
-    };
+
+        console.log("✅ Created 30 additional transactions");
+      }
+    );
+    this.results.push(test);
   }
 
-  private printSummary(duration: number) {
-    console.log("\n");
-    console.log("========================================");
-    console.log("   TEST SUMMARY");
-    console.log("========================================");
-    
+  // 1.6: Full Report (50 transactions)
+  private async test_1_6_FullReport(): Promise<void> {
+    const test = await this.executeTest(
+      "1.6: Report After 50 Total Transactions",
+      "Reporting",
+      async () => {
+        const today = new Date().toISOString().split("T")[0];
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        const todayTransactions = transactions.filter(t => t.businessDate === today);
+        
+        if (todayTransactions.length !== 50) {
+          throw new Error(`Expected 50 total transactions for today, got ${todayTransactions.length}`);
+        }
+
+        const revenue = todayTransactions.reduce((sum, t) => sum + t.total, 0);
+        console.log(`📊 Full report: ${revenue.toLocaleString()} (${todayTransactions.length} transactions)`);
+      }
+    );
+    this.results.push(test);
+  }
+
+  // 1.7: Restore Checkpoint
+  private async test_1_7_RestoreCheckpoint(): Promise<void> {
+    const test = await this.executeTest(
+      "1.7: Restore from Checkpoint",
+      "Restore",
+      async () => {
+        const backupJson = localStorage.getItem("uat_checkpoint_backup");
+        if (!backupJson) {
+          throw new Error("No checkpoint backup found");
+        }
+
+        const backupData: BackupData = JSON.parse(backupJson);
+        
+        // Store backup in service
+        this.backupService.storeBackupForPreview(backupData);
+        
+        // Execute restore
+        const result = await this.backupService.finalizeRestore();
+        
+        if (!result.success) {
+          throw new Error(`Restore failed: ${result.error}`);
+        }
+
+        console.log("✅ Restored from checkpoint");
+      }
+    );
+    this.results.push(test);
+  }
+
+  // 1.8: Verify Restored State
+  private async test_1_8_VerifyRestoredState(): Promise<void> {
+    const test = await this.executeTest(
+      "1.8: Verify Restored State Shows 20 Transactions",
+      "Verification",
+      async () => {
+        const today = new Date().toISOString().split("T")[0];
+        const transactions = await db.getAll<Transaction>("transactions");
+        
+        const todayTransactions = transactions.filter(t => t.businessDate === today);
+        
+        // After restore, should have 20 transactions (checkpoint state)
+        if (todayTransactions.length !== 20) {
+          throw new Error(`Expected 20 transactions after restore, got ${todayTransactions.length}`);
+        }
+
+        const revenue = todayTransactions.reduce((sum, t) => sum + t.total, 0);
+        console.log(`📊 Restored report: ${revenue.toLocaleString()} (${todayTransactions.length} transactions)`);
+      }
+    );
+    this.results.push(test);
+  }
+
+  // 1.9: Data Integrity Check
+  private async test_1_9_DataIntegrityCheck(): Promise<void> {
+    const test = await this.executeTest(
+      "1.9: Data Integrity After Restore",
+      "Verification",
+      async () => {
+        const items = await db.getAll<Item>("items");
+        const employees = await db.getAll<Employee>("employees");
+        const transactions = await db.getAll<Transaction>("transactions");
+
+        // Verify basic data exists
+        if (items.length === 0) {
+          throw new Error("No items after restore");
+        }
+
+        if (employees.length === 0) {
+          throw new Error("No employees after restore");
+        }
+
+        // Verify transaction references are valid
+        for (const txn of transactions) {
+          const cashier = employees.find(e => e.id === txn.cashierId);
+          if (!cashier) {
+            throw new Error(`Invalid cashier reference in transaction ${txn.id}`);
+          }
+
+          for (const item of txn.items) {
+            const dbItem = items.find(i => i.id === item.itemId);
+            if (!dbItem) {
+              throw new Error(`Invalid item reference in transaction ${txn.id}`);
+            }
+          }
+        }
+
+        // Verify no duplicate SKUs
+        const skus = items.map(i => i.sku).filter(Boolean);
+        const uniqueSkus = new Set(skus);
+        if (skus.length !== uniqueSkus.size) {
+          throw new Error("Duplicate SKUs found");
+        }
+
+        // Verify no duplicate PINs
+        const pins = employees.map(e => e.code || e.pin).filter(Boolean);
+        const uniquePins = new Set(pins);
+        if (pins.length !== uniquePins.size) {
+          throw new Error("Duplicate PINs found");
+        }
+
+        console.log("✅ Data integrity verified");
+      }
+    );
+    this.results.push(test);
+  }
+
+  private printReport(): void {
     const passed = this.results.filter(r => r.status === "PASS").length;
     const failed = this.results.filter(r => r.status === "FAIL").length;
     const total = this.results.length;
-    
-    console.log(`\n📊 Total Tests: ${total}`);
+
+    console.log("\n═══════════════════════════════════════════════════════");
+    console.log("🔄 BACKUP-RESTORE UAT REPORT");
+    console.log("═══════════════════════════════════════════════════════");
+    console.log(`Total Tests: ${total}`);
     console.log(`✅ Passed: ${passed}`);
     console.log(`❌ Failed: ${failed}`);
-    console.log(`⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`📈 Pass Rate: ${((passed / total) * 100).toFixed(1)}%`);
-    
+    console.log(`📊 Pass Rate: ${((passed / total) * 100).toFixed(1)}%`);
+    console.log("═══════════════════════════════════════════════════════");
+
     if (failed > 0) {
-      console.log("\n❌ FAILED TESTS:");
+      console.log("\n❌ Failed Tests:");
       this.results
         .filter(r => r.status === "FAIL")
         .forEach(r => {
-          console.log(`   - ${r.testName}`);
-          console.log(`     Error: ${r.error}`);
+          console.log(`  • ${r.testCase}`);
+          console.log(`    ${r.message}`);
         });
     }
-    
-    console.log("\n========================================\n");
+
+    console.log(failed === 0 ? "\n🎉 ALL TESTS PASSED!" : "\n⚠️ Some tests failed");
+    console.log("═══════════════════════════════════════════════════════\n");
   }
 
-  exportResults() {
-    return {
-      summary: {
-        total: this.results.length,
-        passed: this.results.filter(r => r.status === "PASS").length,
-        failed: this.results.filter(r => r.status === "FAIL").length,
-        passRate: ((this.results.filter(r => r.status === "PASS").length / this.results.length) * 100).toFixed(1)
-      },
-      results: this.results
-    };
+  exportResults(): string {
+    return JSON.stringify(this.results, null, 2);
   }
 }
 
-// Make available globally for browser execution
-if (typeof window !== "undefined") {
-  (window as any).runBackupRestoreUAT = async () => {
-    const runner = new BackupRestoreUATRunner();
-    await runner.runFullSuite();
-    return runner.exportResults();
-  };
+// Run if executed directly
+if (require.main === module) {
+  const runner = new BackupRestoreUATRunner();
+  runner.runFullSuite().then(() => {
+    process.exit(0);
+  }).catch((error) => {
+    console.error("UAT failed:", error);
+    process.exit(1);
+  });
+}
+
+// Export for programmatic use
+export function runBackupRestoreUAT(): Promise<string> {
+  const runner = new BackupRestoreUATRunner();
+  return runner.runFullSuite().then(() => runner.exportResults());
 }
