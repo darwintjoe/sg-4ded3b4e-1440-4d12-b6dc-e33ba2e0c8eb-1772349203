@@ -652,8 +652,7 @@ export function SettingsPanel() {
         throw new Error("No backup data to restore");
       }
 
-      setRestoreState({ phase: "restore", progress: 0, message: "Restoring data..." });
-
+      setRestoreState({ phase: "restoring", pin: "", error: undefined });
       const result = await backupService.finalizeRestore();
 
       if (result.success) {
