@@ -367,4 +367,10 @@ export interface BackupData {
   shifts: Shift[];
   settings: Settings;
   cashbackAmount?: number;
+  version?: number;
+  timestamp?: number;
+  businessId?: string;
+  checksum?: string;
+  categories?: any[];
+  expenses?: any[];
 }
