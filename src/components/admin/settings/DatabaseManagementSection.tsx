@@ -1,9 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SettingsIcon, AlertTriangle } from "lucide-react";
+import { SettingsIcon, AlertTriangle, Store } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { Language } from "@/types";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState } from "react";
 import { BUSINESS_CATALOGS } from "@/lib/sample-store-data";
 
@@ -36,6 +36,7 @@ export function DatabaseManagementSection({
 }: DatabaseManagementSectionProps) {
   const isProcessing = backupProcessing || restoreState?.phase !== "idle";
   const [showBusinessTypeSelector, setShowBusinessTypeSelector] = useState(false);
+
   const handleBusinessTypeSelect = (businessType: string) => {
     onInjectSampleData(businessType);
     setShowBusinessTypeSelector(false);
@@ -69,6 +70,7 @@ export function DatabaseManagementSection({
                   onClick={() => setShowBusinessTypeSelector(true)}
                   disabled={isProcessing}
                 >
+                  <Store className="h-4 w-4 mr-2" />
                   {translate("settings.database.sampleData.button", language)}
                 </Button>
               </div>
@@ -121,22 +123,29 @@ export function DatabaseManagementSection({
           </div>
         </div>
       </div>
-      <Dialog open={showBusinessTypeSelector} onOpenChange={(open) => setShowBusinessTypeSelector(open)}>
-        <DialogContent>
-          <div className="text-xs text-muted-foreground text-center">
-            {translate("settings.database.sampleData.selectType", language) || "Select a business type for realistic sample data"}
-          </div>
+
+      {/* Business Type Selector Modal */}
+      <Dialog open={showBusinessTypeSelector} onOpenChange={setShowBusinessTypeSelector}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              {translate("settings.database.sampleData.selectType", language) || "Select Business Type"}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground text-center mb-4">
+            {translate("settings.database.sampleData.selectTypeDescription", language) || "Choose a business type to generate realistic sample data"}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {Object.values(BUSINESS_CATALOGS).map((business) => (
               <button
                 key={business.id}
                 onClick={() => handleBusinessTypeSelect(business.id)}
                 disabled={isProcessing}
-                className="p-4 border rounded-lg text-left hover:bg-accent hover:border-accent transition-colors disabled:opacity-50"
+                className="p-4 border rounded-lg text-left hover:bg-accent hover:border-primary transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <div className="text-2xl mb-2">{business.icon}</div>
+                <div className="text-3xl mb-2">{business.icon}</div>
                 <div className="font-medium text-sm">{business.name}</div>
-                <div className="text-xs text-muted-foreground mt-1">{business.description}</div>
+                <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{business.description}</div>
               </button>
             ))}
           </div>
