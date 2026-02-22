@@ -295,6 +295,14 @@ export class BackupService {
     }
   }
 
+  async backupCurrentDatabase(businessId: string): Promise<BackupData> {
+    const result = await this.createBackup(businessId);
+    if (!result.success || !result.data) {
+      throw new Error(result.message);
+    }
+    return result.data;
+  }
+
   /**
    * Create backup and upload to Google Drive
    */
