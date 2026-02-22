@@ -217,12 +217,81 @@ class GoogleAuthService {
   }
 
   /**
-   * Refresh access token
+   * Refresh access token using Google Identity Services
+   * Called automatically when token is near expiry or expired
    */
-  private async refreshAccessToken(): Promise<string | null> {
-    // TODO: Implement token refresh
-    // For now, require re-authentication
-    return null;
+  async refreshAccessToken(): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.tokenClient) {
+        await this.initialize();
+      }
+
+      return new Promise((resolve) => {
+        this.tokenClient.callback = async (response: any) => {
+          if (response.error) {
+            // If refresh fails, sign out to force re-authentication
+            this.signOut();
+            resolve({ success: false, error: response.error });
+            return;
+          }
+
+          const accessToken = response.access_token;
+
+          // Get user info to verify token
+          const userInfo = await this.fetchUserInfo(accessToken);
+          if (!userInfo) {
+            this.signOut();
+            resolve({ success: false, error: "Failed to verify refreshed token" });
+            return;
+          }
+
+          // Update current user with new token
+          this.currentUser = {
+            email: userInfo.email,
+            name: userInfo.name,
+            picture: userInfo.picture,
+            accessToken: accessToken,
+            expiresAt: Date.now() + (3500 * 1000), // 58 minutes
+          };
+
+          // Save updated token
+          this.saveUser(this.currentUser);
+
+          resolve({ success: true });
+        };
+
+        // Request new token without prompt (silent refresh)
+        this.tokenClient.requestAccessToken({ prompt: "" });
+      });
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      this.signOut();
+      return { success: false, error: error instanceof Error ? error.message : "Refresh failed" };
+    }
+  }
+
+  /**
+   * Check if token needs refresh (within 5 minutes of expiry)
+   */
+  isTokenExpiringSoon(): boolean {
+    if (!this.currentUser?.expiresAt) return true;
+    const fiveMinutes = 5 * 60 * 1000;
+    return Date.now() > (this.currentUser.expiresAt - fiveMinutes);
+  }
+
+  /**
+   * Ensure valid token before API calls
+   * Automatically refreshes if needed
+   */
+  async ensureValidToken(): Promise<boolean> {
+    if (!this.currentUser) return false;
+    
+    if (this.isTokenExpiringSoon()) {
+      const result = await this.refreshAccessToken();
+      return result.success;
+    }
+    
+    return true;
   }
 
   /**
@@ -232,6 +301,12 @@ class GoogleAuthService {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
+      }
+
+      // Ensure token is valid before upload
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
       }
 
       // Get or create folder from path
@@ -352,6 +427,12 @@ class GoogleAuthService {
         return { success: false, error: "Not signed in" };
       }
 
+      // Ensure token is valid before listing
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
+      }
+
       let parentQuery = "'root' in parents";
       
       if (folderPath) {
@@ -398,6 +479,12 @@ class GoogleAuthService {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
+      }
+
+      // Ensure token is valid before download
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
       }
 
       const response = await fetch(
@@ -450,6 +537,12 @@ class GoogleAuthService {
         return { success: false, error: "Not signed in" };
       }
 
+      // Ensure token is valid before rename
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
+      }
+
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}`,
         {
@@ -485,6 +578,12 @@ class GoogleAuthService {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
+      }
+
+      // Ensure token is valid before delete
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
       }
 
       const response = await fetch(
@@ -523,6 +622,12 @@ class GoogleAuthService {
     try {
       if (!this.currentUser) {
         return { success: false, error: "Not signed in" };
+      }
+
+      // Ensure token is valid before creating event
+      const tokenValid = await this.ensureValidToken();
+      if (!tokenValid) {
+        return { success: false, error: "Session expired. Please sign in again." };
       }
 
       const calendarEvent = {
