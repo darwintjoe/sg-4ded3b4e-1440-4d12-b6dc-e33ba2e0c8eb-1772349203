@@ -604,8 +604,8 @@ PAYMENT BREAKDOWN:
 
     const clockInTime = Date.now();
     
-    // Smart shift detection
-    const detectedShift = detectShift(clockInTime);
+    // Smart shift detection using current settings
+    const detectedShift = detectShift(clockInTime, settings);
 
     await db.add("attendance", {
       employeeId: employee.id!,
