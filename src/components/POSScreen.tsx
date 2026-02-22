@@ -18,6 +18,7 @@ import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound } from "@/lib/utils";
 import Image from "next/image";
+import { getSubscriptionInfo, getSubscriptionBarPercentage, getSubscriptionBarColor } from "@/lib/subscription-service";
 
 interface POSScreenProps {
   onAdminClick: () => void;
@@ -43,12 +44,23 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [subscriptionInfo, setSubscriptionInfo] = useState(getSubscriptionInfo());
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const router = useRouter();
+
+  // Load subscription info
+  useEffect(() => {
+    const info = getSubscriptionInfo();
+    setSubscriptionInfo(info);
+  }, []);
+
+  // Calculate subscription bar values
+  const subscriptionBarPercentage = getSubscriptionBarPercentage();
+  const subscriptionBarColor = getSubscriptionBarColor(subscriptionInfo.status);
 
   // Screen Wake Lock - Always enabled for POS use
   useEffect(() => {
@@ -401,7 +413,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
       {/* Fixed Top Header */}
       <div className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-3 py-2 flex-shrink-0 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onAdminClick} className="h-9 w-9 p-0">
               <SettingsIcon className="h-5 w-5" />
@@ -422,6 +434,17 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               <Volume2 className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+        
+        {/* Subscription Progress Bar */}
+        <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+          <div 
+            className="h-full transition-all duration-500 ease-out rounded-full"
+            style={{ 
+              width: `${subscriptionBarPercentage}%`,
+              backgroundColor: subscriptionBarColor
+            }}
+          />
         </div>
         
         {/* Action Buttons */}
