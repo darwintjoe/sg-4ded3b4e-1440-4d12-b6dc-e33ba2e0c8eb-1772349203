@@ -186,8 +186,9 @@ class BackupRestoreUATRunner {
     const test1 = await this.executeTest(
       "2.1: Create Manual Backup (Checkpoint)",
       async () => {
-        this.checkpointBackupData = await backupService.exportEssentialData();
-        console.log(`   💾 Checkpoint backup created: ${this.checkpointBackupData.dailyPaymentSales.length} daily records`);
+        const backupData = await backupService.exportEssentialData();
+        this.checkpointBackupData = backupData;
+        console.log(`   💾 Checkpoint backup created`);
       }
     );
     this.results.push(test1);

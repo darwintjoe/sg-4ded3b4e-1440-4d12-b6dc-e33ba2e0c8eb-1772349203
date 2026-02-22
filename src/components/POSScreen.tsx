@@ -99,7 +99,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       
       const today = new Date().toISOString().split("T")[0];
       const shifts = await db.searchByIndex<Shift>("shifts", "businessDate", today);
-      const activeShift = shifts.find(s => s.cashierId === currentUser.id && s.status === "active");
+      const activeShift = shifts.find(s => String(s.cashierId) === String(currentUser.id) && s.status === "active");
       
       setCurrentShift(activeShift || null);
     } catch (error) {
