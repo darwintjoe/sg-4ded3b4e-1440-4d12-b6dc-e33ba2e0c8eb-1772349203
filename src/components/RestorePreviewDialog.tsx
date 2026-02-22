@@ -11,34 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Package, Users, Calendar, Database, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
-
-interface BackupData {
-  metadata: {
-    version: string;
-    timestamp: string;
-    deviceId: string;
-    dataSize: number;
-    checksum: string;
-    status: string;
-    itemCount?: number;
-    employeeCount?: number;
-  };
-  items: any[];
-  employees: any[];
-  categories: any[];
-  settings: any;
-  shifts: any[];
-  dailyItemSales: any[];
-  dailyPaymentSales: any[];
-  dailyAttendance: any[];
-  monthlyItemSales: any[];
-  monthlySalesSummary: any[];
-  monthlyAttendanceSummary: any[];
-}
+import type { BackupData, Shift } from "@/types";
 
 interface RestorePreviewDialogProps {
   open: boolean;
-  backupData: any | null;
+  backupData: BackupData | null;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -66,18 +43,18 @@ export function RestorePreviewDialog({
 
   const getOldestShiftDate = () => {
     if (!backupData.shifts || backupData.shifts.length === 0) return "None";
-    const oldestShift = backupData.shifts.reduce((oldest, shift) => {
+    const oldestShift = backupData.shifts.reduce((oldest: Shift, shift: Shift) => {
       return new Date(shift.shiftStart) < new Date(oldest.shiftStart) ? shift : oldest;
     });
-    return formatDate(oldestShift.shiftStart);
+    return formatDate(new Date(oldestShift.shiftStart).toISOString());
   };
 
   const getNewestShiftDate = () => {
     if (!backupData.shifts || backupData.shifts.length === 0) return "None";
-    const newestShift = backupData.shifts.reduce((newest, shift) => {
+    const newestShift = backupData.shifts.reduce((newest: Shift, shift: Shift) => {
       return new Date(shift.shiftStart) > new Date(newest.shiftStart) ? shift : newest;
     });
-    return formatDate(newestShift.shiftStart);
+    return formatDate(new Date(newestShift.shiftStart).toISOString());
   };
 
   const handleConfirm = async () => {

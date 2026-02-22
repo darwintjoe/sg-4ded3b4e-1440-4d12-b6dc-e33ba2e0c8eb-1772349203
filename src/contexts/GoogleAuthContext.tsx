@@ -2,7 +2,22 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
 import { db } from "@/lib/db";
-import type { GoogleUser, BackupStatus } from "@/types";
+import type { GoogleUser, BackupStatus, BackupData, Shift, Transaction } from "@/types";
+
+interface CalendarEvent {
+  summary: string;
+  description: string;
+  start: string;
+  end: string;
+}
+
+interface BackupAvailabilityInfo {
+  timestamp: string;
+  size: number;
+  itemCount: number;
+  employeeCount: number;
+  checksumValid: boolean;
+}
 
 interface GoogleAuthContextType {
   user: GoogleUser | null;
@@ -10,16 +25,16 @@ interface GoogleAuthContextType {
   isInitialized: boolean;
   signIn: () => Promise<{ success: boolean; user?: GoogleUser; error?: string }>;
   signOut: () => void;
-  createCalendarEvent: (event: any) => Promise<{ success: boolean; eventId?: string; error?: string }>;
+  createCalendarEvent: (event: CalendarEvent) => Promise<{ success: boolean; eventId?: string; error?: string }>;
   // Backup methods
   backupStatus: BackupStatus;
   refreshBackupStatus: () => Promise<void>;
   createBackup: () => Promise<{ success: boolean; error?: string }>;
-  checkBackupAvailability: () => Promise<{ exists: boolean; info?: any; error?: string }>;
-  startRestore: () => Promise<{ success: boolean; backupData?: any; error?: string }>;
+  checkBackupAvailability: () => Promise<{ exists: boolean; info?: BackupAvailabilityInfo; error?: string }>;
+  startRestore: () => Promise<{ success: boolean; backupData?: BackupData; error?: string }>;
   backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
-  loadPreview: (backupData: any) => Promise<{ success: boolean; error?: string }>;
-  finalizeRestore: (backupData: any) => Promise<{ success: boolean; error?: string }>;
+  loadPreview: (backupData: BackupData) => Promise<{ success: boolean; error?: string }>;
+  finalizeRestore: (backupData: BackupData) => Promise<{ success: boolean; error?: string }>;
   cancelRestore: () => Promise<{ success: boolean; error?: string }>;
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
@@ -198,11 +213,11 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return backupService.backupCurrentDatabase();
   };
 
-  const loadPreview = async (backupData: any) => {
+  const loadPreview = async (backupData: BackupData) => {
     return backupService.loadPreview(backupData);
   };
 
-  const finalizeRestore = async (backupData: any) => {
+  const finalizeRestore = async (backupData: BackupData) => {
     const result = await backupService.finalizeRestore(backupData);
     await refreshBackupStatus();
     return result;
@@ -228,7 +243,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
-  const createCalendarEvent = async (event: any) => {
+  const createCalendarEvent = async (event: CalendarEvent) => {
     return googleAuth.createCalendarEvent(event);
   };
 
