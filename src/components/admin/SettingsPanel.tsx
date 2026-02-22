@@ -103,8 +103,8 @@ export default function SettingsPanel() {
     }
 
     try {
-      const storedSettings = await db.getById("settings", 1);
-      if (!storedSettings || storedSettings.adminPin !== currentPin) {
+      const storedSettings = await db.getSettings();
+      if (!storedSettings || storedSettings.adminPIN !== currentPin) {
         toast({
           title: translate("settings.error", language),
           description: translate("settings.incorrectCurrentPIN", language),
@@ -113,7 +113,7 @@ export default function SettingsPanel() {
         return;
       }
 
-      await updateSettings({ adminPin: newPin });
+      await updateSettings({ adminPIN: newPin });
       toast({
         title: translate("settings.success", language),
         description: translate("settings.pinChanged", language),
@@ -310,8 +310,7 @@ export default function SettingsPanel() {
     if (!confirmed) return;
 
     try {
-      await db.clearAll();
-      await db.initializeDefaults();
+      await db.clearAllStores();
       
       toast({
         title: translate("settings.success", language),
@@ -344,22 +343,19 @@ export default function SettingsPanel() {
         throw new Error("Invalid business type");
       }
 
-      await db.put("settings", {
+      await db.updateSettings({
         ...settings,
         ...data.settings,
-        id: 1,
       });
 
-      const itemsStore = db.transaction("items", "readwrite").store;
-      await itemsStore.clear();
+      await db.clear("items");
       for (const item of data.items) {
-        await db.put("items", item);
+        await db.add("items", item);
       }
 
-      const employeesStore = db.transaction("employees", "readwrite").store;
-      await employeesStore.clear();
+      await db.clear("employees");
       for (const employee of data.employees) {
-        await db.put("employees", employee);
+        await db.add("employees", employee);
       }
 
       toast({
@@ -388,11 +384,8 @@ export default function SettingsPanel() {
     if (!confirmed) return;
 
     try {
-      const transactionsStore = db.transaction("transactions", "readwrite").store;
-      await transactionsStore.clear();
-
-      const shiftsStore = db.transaction("shifts", "readwrite").store;
-      await shiftsStore.clear();
+      await db.clearTransactions();
+      await db.clear("shifts");
 
       toast({
         title: translate("settings.success", language),
