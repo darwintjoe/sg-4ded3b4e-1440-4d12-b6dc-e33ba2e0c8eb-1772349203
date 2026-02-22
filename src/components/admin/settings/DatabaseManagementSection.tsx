@@ -58,7 +58,7 @@ export function DatabaseManagementSection({
                   variant="default"
                   size="sm"
                   className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={onInjectSampleData}
+                  onClick={() => setShowBusinessTypeSelector(true)}
                   disabled={isProcessing}
                 >
                   {translate("settings.database.sampleData.button", language)}
