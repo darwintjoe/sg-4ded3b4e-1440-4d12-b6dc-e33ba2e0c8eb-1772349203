@@ -7,6 +7,9 @@
  * - MINIMAL data (only what's needed for business continuity)
  * - AUTOMATIC validation (promote only when proven good)
  * - SIMPLE restore (one button, always works)
+ * 
+ * Multi-business support added - maintains backward compatibility
+ * Subscription gating with 30-day grace period
  */
 
 import { db } from "./db";
@@ -63,6 +66,13 @@ interface RestoreState {
   revertExpiresAt: number | null;
 }
 
+interface SubscriptionStatus {
+  active: boolean;
+  gracePeriod: boolean;
+  expired: boolean;
+  expiresAt: string | null;
+}
+
 // In-memory cache for large backups when sessionStorage quota exceeded
 const inMemoryBackupCache: any = null;
 
@@ -86,16 +96,6 @@ export class BackupService {
 
   // Store backup data temporarily for preview
   private storedBackup: any | null = null;
-
-  /**
-   * Subscription status for backup gating
-   */
-  interface SubscriptionStatus {
-    active: boolean;
-    gracePeriod: boolean;
-    expired: boolean;
-    expiresAt: string | null;
-  }
 
   /**
    * Check subscription status from localStorage (set by payment system)
