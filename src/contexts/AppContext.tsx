@@ -816,6 +816,45 @@ PAYMENT BREAKDOWN:
     }
   };
 
+  const exportTransactionsToSheets = async (shift: Shift) => {
+    try {
+      if (!googleAuth.isSignedIn) {
+        console.log("Google not linked, skipping Sheets export");
+        return;
+      }
+
+      // Get all transactions for this shift
+      const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
+      
+      if (shiftTransactions.length === 0) {
+        console.log("No transactions to export to Sheets");
+        return;
+      }
+
+      // Get business name from settings
+      const businessName = settings?.businessName || "My Business";
+
+      // Export to Google Sheets (non-blocking, fire-and-forget)
+      sheetsExport.exportShiftTransactions(
+        shiftTransactions,
+        shift,
+        businessName
+      ).then(result => {
+        if (result.success) {
+          console.log("✅ Transactions exported to Google Sheets");
+        } else {
+          console.error("❌ Sheets export failed:", result.error);
+        }
+      }).catch(error => {
+        // Silent fail - no blocking
+        console.error("❌ Sheets export error:", error);
+      });
+    } catch (error) {
+      console.error("Error exporting to Sheets:", error);
+      // Silent fail - don't block logout
+    }
+  };
+
   const clockIn = async (pin: string): Promise<{ success: boolean; message: string }> => {
     const employees = await db.getAll<Employee>("employees");
     const employee = employees.find(emp => emp.pin === pin);
