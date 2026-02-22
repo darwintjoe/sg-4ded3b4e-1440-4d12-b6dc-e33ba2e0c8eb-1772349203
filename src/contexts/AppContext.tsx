@@ -8,6 +8,7 @@ import {
   getDefaultSettings,
   generateSampleStoreData 
 } from "@/lib/sample-store-data";
+import { sheetsExport } from "@/lib/sheets-export";
 
 interface AppContextType {
   mode: POSMode;
@@ -516,6 +517,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // Send shift report as calendar event (fire-and-forget)
       sendShiftReportToCalendar(updatedShift);
+
+      // Export transactions to Google Sheets (fire-and-forget)
+      exportTransactionsToSheets(updatedShift);
     } catch (error) {
       console.error("Error closing shift:", error);
     }
