@@ -9,47 +9,22 @@ interface PieChartProps {
   }>;
 }
 
-// Custom active shape that pulls out the selected slice
-const renderActiveShape = (props: any) => {
-  const {
-    cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value
-  } = props;
-
-  return (
-    <g>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 10}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        style={{ filter: "brightness(1.1)", transition: "all 0.2s ease" }}
-      />
-      <Sector
-        cx={cx}
-        cy={cy}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        innerRadius={outerRadius + 12}
-        outerRadius={outerRadius + 16}
-        fill={fill}
-        style={{ opacity: 0.3 }}
-      />
-    </g>
-  );
-};
-
 export function PieChart({ data }: PieChartProps) {
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  const onPieEnter = (_: any, index: number) => {
-    setActiveIndex(index);
-  };
-
-  const onPieLeave = () => {
-    setActiveIndex(undefined);
+  // Calculate the pull-out offset for active slice
+  const getSliceOffset = (index: number, startAngle: number, endAngle: number) => {
+    if (activeIndex !== index) return { dx: 0, dy: 0 };
+    
+    // Calculate midpoint angle and offset
+    const midAngle = (startAngle + endAngle) / 2;
+    const radian = (Math.PI / 180) * midAngle;
+    const offset = 8; // Pull-out distance
+    
+    return {
+      dx: Math.cos(radian) * offset,
+      dy: -Math.sin(radian) * offset
+    };
   };
 
   return (
@@ -60,13 +35,10 @@ export function PieChart({ data }: PieChartProps) {
           cx="50%"
           cy="50%"
           innerRadius={0}
-          outerRadius={110}
+          outerRadius={activeIndex !== null ? 100 : 110}
           paddingAngle={2}
           dataKey="value"
-          activeIndex={activeIndex}
-          activeShape={renderActiveShape}
-          onMouseEnter={onPieEnter}
-          onMouseLeave={onPieLeave}
+          onMouseLeave={() => setActiveIndex(null)}
         >
           {data.map((entry, index) => (
             <Cell 
@@ -75,8 +47,12 @@ export function PieChart({ data }: PieChartProps) {
               style={{ 
                 cursor: "pointer",
                 outline: "none",
+                filter: activeIndex === index ? "brightness(1.15) drop-shadow(0 4px 8px rgba(0,0,0,0.2))" : "brightness(1)",
+                transform: activeIndex === index ? "scale(1.05)" : "scale(1)",
+                transformOrigin: "center",
                 transition: "all 0.2s ease"
               }}
+              onMouseEnter={() => setActiveIndex(index)}
             />
           ))}
         </Pie>
