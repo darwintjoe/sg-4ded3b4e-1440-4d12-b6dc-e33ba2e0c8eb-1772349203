@@ -45,6 +45,8 @@ interface GoogleAuthContextType {
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
   promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
+  getStoredBackup: () => any;
+  clearStoredBackup: () => Promise<{ success: boolean }>;
 }
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
@@ -280,7 +282,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         cancelRestore,
         revertRestore,
         canRevert,
-        promoteCandidate
+        promoteCandidate,
+        getStoredBackup,
+        clearStoredBackup
       }}
     >
       {children}
