@@ -105,14 +105,6 @@ export interface Shift {
   status: "active" | "closed";
 }
 
-export interface ShiftTransactions {
-  shiftId: string;
-  cashierName: string;
-  shiftStart: number;
-  shiftEnd: number;
-  transactions: Transaction[];
-}
-
 export interface DailyAttendance {
   id?: number;
   employeeId: number;
