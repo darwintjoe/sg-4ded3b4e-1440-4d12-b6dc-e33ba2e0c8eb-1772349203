@@ -87,35 +87,15 @@ export class BackupService {
   // Store backup data temporarily for preview
   private storedBackup: any | null = null;
 
-  storeBackupForPreview(data: any) {
-    this.storedBackup = data;
-    // Also store in sessionStorage to survive refresh
-    try {
-      sessionStorage.setItem("preview_backup_data", JSON.stringify(data));
-    } catch (e) {
-      console.warn("Backup too large for sessionStorage, preview might not survive refresh");
+  /**
+   * Get backup folder path based on businessId
+   * Backward compatible: single business uses legacy path
+   */
+  private getBackupFolder(businessId?: string): string {
+    if (businessId) {
+      return `SellMore-Backups/${businessId}`;
     }
-  }
-
-  getStoredBackup(): any | null {
-    if (this.storedBackup) return this.storedBackup;
-    
-    // Try retrieving from sessionStorage
-    try {
-      const stored = sessionStorage.getItem("preview_backup_data");
-      if (stored) {
-        this.storedBackup = JSON.parse(stored);
-        return this.storedBackup;
-      }
-    } catch (e) {
-      return null;
-    }
-    return null;
-  }
-
-  clearStoredBackup() {
-    this.storedBackup = null;
-    sessionStorage.removeItem("preview_backup_data");
+    return this.BACKUP_FOLDER;
   }
 
   /**
@@ -372,9 +352,9 @@ export class BackupService {
   }
 
   /**
-   * Create backup (as candidate)
+   * Create backup (as candidate) with optional businessId
    */
-  async createBackup(): Promise<{ success: boolean; error?: string }> {
+  async createBackup(businessId?: string): Promise<{ success: boolean; error?: string }> {
     try {
       if (!googleAuth.isSignedIn()) {
         return { success: false, error: "Not signed in to Google" };
@@ -387,18 +367,23 @@ export class BackupService {
       // Compress
       const compressed = await this.compressData(jsonString);
 
-      // Upload as candidate
+      // Upload as candidate with business folder
+      const folderPath = this.getBackupFolder(businessId);
       const uploadResult = await googleAuth.uploadBackup(
         compressed,
-        this.CANDIDATE_NAME
+        this.CANDIDATE_NAME,
+        folderPath
       );
 
       if (!uploadResult.success) {
         return { success: false, error: uploadResult.error };
       }
 
-      // Store candidate tracking (for operational time promotion)
-      localStorage.setItem("last_backup_time", backupData.metadata.timestamp);
+      // Store candidate tracking (scoped to business if provided)
+      const storageKey = businessId 
+        ? `last_backup_time_${businessId}` 
+        : "last_backup_time";
+      localStorage.setItem(storageKey, backupData.metadata.timestamp);
       localStorage.setItem("last_backup_status", "pending");
       localStorage.setItem("candidate_created_at", Date.now().toString());
       localStorage.setItem("candidate_operational_hours", "0");
@@ -439,9 +424,8 @@ export class BackupService {
 
   /**
    * Promote candidate to "last known good" (after validation)
-   * FIXED: Uses rename instead of re-upload
    */
-  async promoteCandidate(): Promise<{ success: boolean; error?: string }> {
+  async promoteCandidate(businessId?: string): Promise<{ success: boolean; error?: string }> {
     try {
       if (!googleAuth.isSignedIn()) {
         return { success: false, error: "Not signed in to Google" };
@@ -454,8 +438,9 @@ export class BackupService {
         return { success: false, error: "App health check failed" };
       }
 
-      // List backups
-      const listResult = await googleAuth.listBackups();
+      // List backups with business folder
+      const folderPath = this.getBackupFolder(businessId);
+      const listResult = await googleAuth.listBackups(folderPath);
       if (!listResult.success || !listResult.backups) {
         return { success: false, error: "Failed to list backups" };
       }
@@ -473,7 +458,7 @@ export class BackupService {
         await googleAuth.deleteBackup(lastKnownGood.id);
       }
 
-      // Rename candidate to "last known good" (no re-upload needed!)
+      // Rename candidate to "last known good"
       const renameResult = await googleAuth.renameBackup(
         candidate.id,
         this.LAST_KNOWN_GOOD_NAME
@@ -483,9 +468,12 @@ export class BackupService {
         return { success: false, error: renameResult.error };
       }
 
-      // Update status
-      localStorage.setItem("last_backup_status", "success");
-      
+      // Update status (scoped to business)
+      const statusKey = businessId 
+        ? `last_backup_status_${businessId}` 
+        : "last_backup_status";
+      localStorage.setItem(statusKey, "success");
+
       // Clear promotion tracking
       localStorage.removeItem("candidate_created_at");
       localStorage.removeItem("candidate_operational_hours");
@@ -504,7 +492,7 @@ export class BackupService {
   /**
    * Check if backup exists and get info
    */
-  async checkBackupAvailability(): Promise<{ 
+  async checkBackupAvailability(businessId?: string): Promise<{ 
     exists: boolean; 
     info?: {
       timestamp: string;
@@ -520,8 +508,9 @@ export class BackupService {
         return { exists: false };
       }
 
-      // List backups
-      const listResult = await googleAuth.listBackups();
+      // List backups with business folder
+      const folderPath = this.getBackupFolder(businessId);
+      const listResult = await googleAuth.listBackups(folderPath);
       if (!listResult.success || !listResult.backups) {
         return { exists: false, error: "Failed to list backups" };
       }
@@ -578,7 +567,7 @@ export class BackupService {
   /**
    * Start restore process - Phase 1: Download and verify
    */
-  async startRestore(): Promise<{ success: boolean; backupData?: BackupData; error?: string }> {
+  async startRestore(businessId?: string): Promise<{ success: boolean; backupData?: BackupData; error?: string }> {
     try {
       this.restoreState.phase = "downloading";
       this.restoreState.progress = 20;
@@ -587,8 +576,9 @@ export class BackupService {
         return { success: false, error: "Not signed in to Google" };
       }
 
-      // List backups
-      const listResult = await googleAuth.listBackups();
+      // List backups with business folder
+      const folderPath = this.getBackupFolder(businessId);
+      const listResult = await googleAuth.listBackups(folderPath);
       if (!listResult.success || !listResult.backups) {
         return { success: false, error: "Failed to list backups" };
       }
@@ -962,7 +952,7 @@ export class BackupService {
   /**
    * Get backup status
    */
-  async getBackupStatus(): Promise<BackupStatus> {
+  async getBackupStatus(businessId?: string): Promise<BackupStatus> {
     const canBackup = googleAuth.isSignedIn();
     let canRestore = false;
     let backupInfo: {
@@ -974,13 +964,16 @@ export class BackupService {
     } | undefined;
 
     if (canBackup) {
-      const backupCheck = await this.checkBackupAvailability();
+      const backupCheck = await this.checkBackupAvailability(businessId);
       canRestore = backupCheck.exists;
       backupInfo = backupCheck.info;
     }
 
-    const lastBackupTime = localStorage.getItem("last_backup_time");
-    const lastBackupStatus = localStorage.getItem("last_backup_status") as "success" | "failed" | "pending" | null;
+    const timeKey = businessId ? `last_backup_time_${businessId}` : "last_backup_time";
+    const statusKey = businessId ? `last_backup_status_${businessId}` : "last_backup_status";
+    
+    const lastBackupTime = localStorage.getItem(timeKey);
+    const lastBackupStatus = localStorage.getItem(statusKey) as "success" | "failed" | "pending" | null;
     
     let message = "Ready";
     if (!canBackup) message = "Not signed in";
@@ -1002,8 +995,9 @@ export class BackupService {
   /**
    * Get formatted last backup time
    */
-  getFormattedLastBackupTime(): string {
-    const lastBackupTime = localStorage.getItem("last_backup_time");
+  getFormattedLastBackupTime(businessId?: string): string {
+    const key = businessId ? `last_backup_time_${businessId}` : "last_backup_time";
+    const lastBackupTime = localStorage.getItem(key);
     if (!lastBackupTime) return "Never";
 
     const backupDate = new Date(lastBackupTime);
