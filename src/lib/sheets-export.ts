@@ -67,7 +67,7 @@ export class SheetsExportService {
       const sheetName = `Sell More - ${businessName} ${year}`;
 
       // Get or create sheet for this year
-      let sheet = await this.findOrCreateSheet(sheetName, businessId);
+      const sheet = await this.findOrCreateSheet(sheetName, businessId);
 
       if (!sheet) {
         return { success: false, error: "Failed to create/access sheet" };

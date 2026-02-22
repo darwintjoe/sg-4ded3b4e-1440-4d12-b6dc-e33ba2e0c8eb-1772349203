@@ -835,8 +835,16 @@ PAYMENT BREAKDOWN:
       const businessName = settings?.businessName || "My Business";
 
       // Export to Google Sheets (non-blocking, fire-and-forget)
+      const shiftData: ShiftTransactions = {
+        shiftId: shift.shiftId,
+        cashierName: shift.cashierName,
+        shiftStart: shift.shiftStart,
+        shiftEnd: shift.shiftEnd || Date.now(),
+        transactions: shiftTransactions
+      };
+
       sheetsExport.exportShiftTransactions(
-        shiftTransactions,
+        shiftData,
         shift,
         businessName
       ).then(result => {
