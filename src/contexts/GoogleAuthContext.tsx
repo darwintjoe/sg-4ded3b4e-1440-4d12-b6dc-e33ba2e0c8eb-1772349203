@@ -40,7 +40,7 @@ interface GoogleAuthContextType {
   startRestore: () => Promise<{ success: boolean; backupData?: any; error?: string }>;
   backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
   loadPreview: (backupData: any) => Promise<{ success: boolean; error?: string }>;
-  finalizeRestore: (backupData: any) => Promise<{ success: boolean; error?: string }>;
+  finalizeRestore: () => Promise<{ success: boolean; error?: string }>;
   cancelRestore: () => Promise<{ success: boolean; error?: string }>;
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
@@ -223,8 +223,8 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return backupService.loadPreview(backupData);
   };
 
-  const finalizeRestore = async (backupData: any) => {
-    const result = await backupService.finalizeRestore(backupData);
+  const finalizeRestore = async () => {
+    const result = await backupService.finalizeRestore();
     await refreshBackupStatus();
     return result;
   };

@@ -99,7 +99,7 @@ class BackupRestoreUATRunner {
       async () => {
         if (!this.testBackupData) throw new Error("No test backup data");
         
-        const result = await backupService.finalizeRestore(this.testBackupData);
+        const result = await backupService.finalizeRestore();
         if (!result.success) {
           throw new Error(result.message || "Restore failed");
         }
@@ -259,7 +259,7 @@ class BackupRestoreUATRunner {
       async () => {
         if (!this.checkpointBackupData) throw new Error("No checkpoint backup");
         
-        const result = await backupService.finalizeRestore(this.checkpointBackupData);
+        const result = await backupService.finalizeRestore();
         if (!result.success) {
           throw new Error(result.message || "Restore failed");
         }
@@ -307,16 +307,18 @@ class BackupRestoreUATRunner {
     const today = new Date().toISOString().split("T")[0];
     
     return {
-      metadata: {
-        version: "1.0",
-        timestamp: new Date().toISOString(),
-        deviceId: "test-device",
-        dataSize: 0,
-        checksum: "test-checksum",
-        status: "verified",
-        itemCount: 1,
-        employeeCount: 1
-      },
+      employees: [
+        {
+          id: "1",
+          name: "Test Cashier",
+          code: "1234",
+          pin: "1234",
+          role: "cashier",
+          isActive: true,
+          createdAt: Date.now()
+        }
+      ],
+      attendance: [],
       items: [
         {
           id: 1,
@@ -327,24 +329,8 @@ class BackupRestoreUATRunner {
           isActive: true
         }
       ],
-      employees: [
-        {
-          id: 1,
-          name: "Test Cashier",
-          pin: "1234",
-          role: "cashier",
-          isActive: true,
-          createdAt: Date.now()
-        }
-      ],
-      categories: [],
+      transactions: [],
       shifts: [],
-      dailyItemSales: [],
-      dailyPaymentSales: [],
-      dailyAttendance: [],
-      monthlyItemSales: [],
-      monthlySalesSummary: [],
-      monthlyAttendanceSummary: [],
       settings: {
         key: "settings",
         mode: "retail",
@@ -373,7 +359,9 @@ class BackupRestoreUATRunner {
           card: true,
           transfer: true
         }
-      }
+      },
+      categories: [],
+      expenses: []
     };
   }
 
