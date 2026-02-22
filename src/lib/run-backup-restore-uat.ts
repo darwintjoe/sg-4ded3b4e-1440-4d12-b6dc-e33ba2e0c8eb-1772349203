@@ -173,7 +173,7 @@ export class BackupRestoreUATRunner {
         const backup = await this.db.getById<{ id: string, data: any }>("testBackup", "scenario1_backup");
         if (!backup) throw new Error("Backup not found");
 
-        await this.backupService.finalizeRestore(backup.data);
+        await this.backupService.finalizeRestore();
 
         // Verify data restored
         const items = await this.db.getAll("items");
@@ -397,7 +397,7 @@ export class BackupRestoreUATRunner {
         const backup = await this.db.getById<{ id: string, data: any }>("testBackup", "scenario2_checkpoint");
         if (!backup) throw new Error("Checkpoint backup not found");
 
-        await this.backupService.finalizeRestore(backup.data);
+        await this.backupService.finalizeRestore();
 
         console.log("   🔄 Database restored to checkpoint");
       }
