@@ -167,7 +167,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleInjectSampleData = async () => {
+  const handleInjectSampleData = async (businessType?: string) => {
     if (!confirm("This will add sample data to your database. Continue?")) return;
 
     try {
@@ -177,7 +177,7 @@ export function SettingsPanel() {
         message: "Preparing sample data...",
       });
 
-      const data = generateSampleStoreData();
+      const data = generateSampleStoreData(businessType as any);
       let itemsAdded = 0, itemsSkipped = 0;
       let employeesAdded = 0, employeesSkipped = 0;
       let transactionsAdded = 0, transactionsSkipped = 0;
