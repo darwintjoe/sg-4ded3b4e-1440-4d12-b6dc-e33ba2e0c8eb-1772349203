@@ -1081,16 +1081,83 @@ export function SettingsPanel() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Alert className="mb-4">
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      {translate("settings.backup.signInHint", language)}
-                    </AlertDescription>
-                  </Alert>
-                  <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
-                    <Cloud className="h-3 w-3 mr-2" />
-                    {translate("settings.backup.connect", language)}
-                  </Button>
+                  {!isSignedIn ? (
+                    <>
+                      <Alert className="mb-4">
+                        <Info className="h-4 w-4" />
+                        <AlertDescription className="text-xs">
+                          {translate("settings.backup.signInHint", language)}
+                        </AlertDescription>
+                      </Alert>
+                      <Button onClick={handleGoogleSignIn} className="w-full" size="sm">
+                        <Cloud className="h-3 w-3 mr-2" />
+                        {translate("settings.backup.connect", language)}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Account:</span>
+                          <span className="font-medium">{user?.email}</span>
+                        </div>
+                        {backupStatus.lastBackupTime && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Last Backup:</span>
+                            <span className="font-medium">
+                              {new Date(backupStatus.lastBackupTime).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Status:</span>
+                          <Badge variant={backupStatus.isHealthy ? "default" : "secondary"} className={backupStatus.isHealthy ? "bg-green-500/10 text-green-700" : ""}>
+                            {backupStatus.isHealthy ? "Healthy" : backupStatus.message}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleBackupNow} 
+                          className="flex-1" 
+                          size="sm"
+                          disabled={backupProcessing}
+                        >
+                          {backupProcessing ? (
+                            <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                          ) : (
+                            <Upload className="h-3 w-3 mr-2" />
+                          )}
+                          {translate("settings.backup.backupNow", language)}
+                        </Button>
+                        <Button 
+                          onClick={initiateRestore} 
+                          variant="outline" 
+                          className="flex-1" 
+                          size="sm"
+                          disabled={restoreState.phase !== "idle"}
+                        >
+                          <Download className="h-3 w-3 mr-2" />
+                          {translate("settings.backup.restore", language)}
+                        </Button>
+                      </div>
+
+                      <Separator />
+
+                      <Button 
+                        onClick={() => {
+                          signOut();
+                          updateAndSave({ googleDriveLinked: false, googleAccountEmail: "" });
+                        }} 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full text-muted-foreground"
+                      >
+                        {translate("settings.backup.disconnect", language)}
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
