@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
-import { Shield, X, Link as LinkIcon } from "lucide-react";
+import { Settings, X } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { LanguageSelector } from "@/components/LanguageSelector";
 
@@ -95,13 +95,13 @@ export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
         {/* Shield Icon */}
         <div className="flex justify-center mb-3">
           <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-4 rounded-2xl shadow-2xl">
-            <Shield className="h-12 w-12 text-white" />
+            <Settings className="h-12 w-12 text-white" />
           </div>
         </div>
 
         {/* Title */}
         <h1 className="text-3xl font-black tracking-tight text-white text-center mb-1">
-          {translate("login.title", language)}
+          Admin Login
         </h1>
         <p className="text-sm text-amber-200 font-medium text-center mb-4">
           {translate("login.adminSubtitle", language)}
