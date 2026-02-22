@@ -10,6 +10,7 @@
  */
 
 import { googleAuth } from "./google-auth";
+import type { ShiftTransactions, Shift, Transaction } from "@/types";
 
 export interface TransactionRow {
   receiptNumber: string;
@@ -22,14 +23,6 @@ export interface TransactionRow {
   cashAmount: number;
   qrisAmount: number;
   transferAmount: number;
-}
-
-export interface ShiftTransactions {
-  shiftId: string;
-  cashierName: string;
-  shiftStart: string;
-  shiftEnd: string;
-  transactions: TransactionRow[];
 }
 
 interface SheetInfo {
@@ -53,6 +46,7 @@ export class SheetsExportService {
    */
   async exportShiftTransactions(
     shiftData: ShiftTransactions,
+    shift: Shift,
     businessName: string,
     businessId?: string
   ): Promise<{ success: boolean; error?: string }> {
@@ -62,8 +56,9 @@ export class SheetsExportService {
         return { success: false, error: "Not signed in" };
       }
 
-      const year = new Date(shiftData.shiftEnd).getFullYear();
-      const month = new Date(shiftData.shiftEnd).getMonth(); // 0-11
+      const shiftEndTime = shiftData.shiftEnd;
+      const year = new Date(shiftEndTime).getFullYear();
+      const month = new Date(shiftEndTime).getMonth(); // 0-11
       const sheetName = `Sell More - ${businessName} ${year}`;
 
       // Get or create sheet for this year
@@ -81,8 +76,11 @@ export class SheetsExportService {
         return { success: false, error: "Failed to create tab" };
       }
 
+      // Convert transactions to rows
+      const transactionRows = this.convertTransactionsToRows(shiftData.transactions);
+
       // Append transactions
-      await this.appendTransactions(sheet.id, tabId, shiftData.transactions);
+      await this.appendTransactions(sheet.id, tabId, transactionRows);
 
       return { success: true };
     } catch (error) {
@@ -90,6 +88,50 @@ export class SheetsExportService {
       console.warn("Sheets export failed (silent):", error);
       return { success: false, error: error instanceof Error ? error.message : "Export failed" };
     }
+  }
+
+  /**
+   * Convert Transaction[] to TransactionRow[] for sheet export
+   */
+  private convertTransactionsToRows(transactions: Transaction[]): TransactionRow[] {
+    return transactions.map((tx, index) => {
+      // Build description from items
+      const description = tx.items
+        .map(item => `${item.quantity}x ${item.name}`)
+        .join(", ");
+
+      // Calculate payment amounts by method
+      let cashAmount = 0;
+      let qrisAmount = 0;
+      let transferAmount = 0;
+      let primaryMethod = "cash";
+
+      tx.payments.forEach(payment => {
+        if (payment.method === "cash") {
+          cashAmount += payment.amount;
+          primaryMethod = "cash";
+        } else if (payment.method === "qris-static" || payment.method === "qris-dynamic") {
+          qrisAmount += payment.amount;
+          primaryMethod = "qris";
+        } else if (payment.method === "transfer") {
+          transferAmount += payment.amount;
+          primaryMethod = "transfer";
+        }
+      });
+
+      return {
+        receiptNumber: `${tx.shiftId}-${index + 1}`,
+        timestamp: new Date(tx.timestamp).toISOString(),
+        description,
+        tax: tx.tax,
+        service: 0, // No service charge field in Transaction type
+        total: tx.total,
+        paymentMethod: primaryMethod,
+        cashAmount,
+        qrisAmount,
+        transferAmount
+      };
+    });
   }
 
   /**
