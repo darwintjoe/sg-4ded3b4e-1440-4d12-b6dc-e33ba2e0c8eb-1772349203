@@ -1,4 +1,5 @@
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Cell, Tooltip } from "recharts";
+import { useState } from "react";
 
 interface DataPoint {
   name: string;
@@ -15,6 +16,8 @@ interface HorizontalBarChartProps {
 }
 
 export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
+  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
+
   const formatValue = (value: number) => {
     if (value >= 1_000_000) {
       return (value / 1_000_000).toFixed(1) + "M";
@@ -36,29 +39,54 @@ export function HorizontalBarChart({ data }: HorizontalBarChartProps) {
         data={data}
         layout="vertical"
         margin={{ top: 5, right: 20, left: 5, bottom: 5 }}
+        onMouseLeave={() => setActiveIndex(undefined)}
       >
-        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" opacity={0.3} horizontal={false} />
         <XAxis 
           type="number" 
           tickFormatter={formatValue}
           tick={{ fontSize: 10 }}
+          axisLine={{ stroke: "#e5e7eb" }}
+          tickLine={false}
         />
         <YAxis 
           type="category" 
           dataKey="name" 
           width={100}
           tick={{ fontSize: 10 }}
+          axisLine={false}
+          tickLine={false}
         />
         <Tooltip 
           formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{ fontSize: "10px", backgroundColor: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.1)", border: "none" }}
-          labelStyle={{ fontSize: "10px", fontWeight: "bold" }}
+          contentStyle={{ 
+            fontSize: "11px", 
+            backgroundColor: "rgba(255, 255, 255, 0.98)", 
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)", 
+            border: "none",
+            borderRadius: "8px",
+            padding: "8px 12px"
+          }}
+          labelStyle={{ fontSize: "11px", fontWeight: "600", marginBottom: "2px" }}
           wrapperStyle={{ outline: "none" }}
           cursor={false}
         />
-        <Bar dataKey="value">
+        <Bar 
+          dataKey="value" 
+          radius={[0, 4, 4, 0]}
+          onMouseEnter={(_, index) => setActiveIndex(index)}
+        >
           {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color || "hsl(var(--chart-1))"} />
+            <Cell 
+              key={`cell-${index}`} 
+              fill={entry.color || "hsl(var(--chart-1))"} 
+              style={{ 
+                cursor: "pointer",
+                outline: "none",
+                filter: activeIndex === index ? "brightness(1.15)" : "brightness(1)",
+                transition: "all 0.15s ease"
+              }}
+            />
           ))}
         </Bar>
       </RechartsBarChart>
