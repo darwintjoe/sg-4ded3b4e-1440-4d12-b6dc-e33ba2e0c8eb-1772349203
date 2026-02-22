@@ -7,10 +7,10 @@ export type Language = "en" | "id" | "zh";
 export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "card" | "voucher" | "transfer";
 
 export interface Employee {
-  id?: number;
+  id: string;
   name: string;
-  pin: string;
-  role: UserRole;
+  code: string;
+  role: "admin" | "cashier" | "employee";
   joinDate?: number;
   createdAt: number;
   isActive?: boolean;
@@ -357,4 +357,14 @@ export interface ShiftTransactions {
   shiftStart: number;
   shiftEnd: number;
   transactions: Transaction[];
+}
+
+export interface BackupData {
+  employees: Employee[];
+  attendance: Attendance[];
+  items: Item[];
+  transactions: Transaction[];
+  shifts: Shift[];
+  settings: Settings;
+  cashbackAmount?: number;
 }
