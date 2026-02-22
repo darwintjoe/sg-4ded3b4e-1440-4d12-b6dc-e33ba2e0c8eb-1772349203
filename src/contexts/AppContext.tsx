@@ -10,6 +10,28 @@ import {
 } from "@/lib/sample-store-data";
 import { sheetsExport } from "@/lib/sheets-export";
 
+interface BackupStatus {
+  lastBackupTime: string | null;
+  lastBackupStatus: "success" | "failed" | "pending" | null;
+  isHealthy: boolean;
+  message: string;
+  canRestore: boolean;
+  backupInfo?: {
+    timestamp: string;
+    size: number;
+    itemCount: number;
+    employeeCount: number;
+    checksumValid: boolean;
+  };
+}
+
+interface GoogleUser {
+  email: string;
+  name: string;
+  picture: string;
+  accessToken: string;
+}
+
 interface AppContextType {
   mode: POSMode;
   setMode: (mode: POSMode) => void;
@@ -40,6 +62,25 @@ interface AppContextType {
   hasActiveSession: boolean;
   isInitializing: boolean;
   loadingStatus: string;
+  // Google Auth properties
+  user: GoogleUser | null;
+  isSignedIn: boolean;
+  isInitialized: boolean;
+  signIn: () => Promise<{ success: boolean; user?: GoogleUser; error?: string }>;
+  signOut: () => void;
+  createCalendarEvent: (event: any) => Promise<{ success: boolean; eventId?: string; error?: string }>;
+  backupStatus: BackupStatus;
+  refreshBackupStatus: () => Promise<void>;
+  createBackup: () => Promise<{ success: boolean; error?: string }>;
+  checkBackupAvailability: () => Promise<{ exists: boolean; info?: any; error?: string }>;
+  startRestore: () => Promise<{ success: boolean; backupData?: any; error?: string }>;
+  backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
+  loadPreview: (backupData: any) => Promise<{ success: boolean; error?: string }>;
+  finalizeRestore: (backupData: any) => Promise<{ success: boolean; error?: string }>;
+  cancelRestore: () => Promise<{ success: boolean; error?: string }>;
+  revertRestore: () => Promise<{ success: boolean; error?: string }>;
+  canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
+  promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -435,7 +476,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loginAdminViaGoogle = async (email: string): Promise<boolean> => {
     // Verify that the email matches the linked admin email
-    if (settings.googleDriveLinked && settings.googleAccountEmail === email) {
+    if (settings && settings.googleDriveLinked && settings.googleAccountEmail === email) {
       setCurrentUser({
         name: "Admin (Google)",
         role: "admin",
