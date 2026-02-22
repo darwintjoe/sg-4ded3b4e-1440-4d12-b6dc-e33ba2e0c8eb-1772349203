@@ -263,11 +263,11 @@ export function SettingsPanel() {
         ...prev, 
         message: "Processing daily summaries...",
         progress: 0,
-        total: data.dailySummaries.length
+        total: data.dailyPaymentSales.length
       }));
       
-      for (let i = 0; i < data.dailySummaries.length; i++) {
-        await db.upsertDailyPaymentSales(data.dailySummaries[i]);
+      for (let i = 0; i < data.dailyPaymentSales.length; i++) {
+        await db.upsertDailyPaymentSales(data.dailyPaymentSales[i]);
         dailySummariesAdded++;
         if (i % 50 === 0) setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
       }
@@ -292,18 +292,18 @@ export function SettingsPanel() {
         ...prev, 
         message: "Processing monthly summaries...",
         progress: 0,
-        total: data.monthlySummaries.payments.length + data.monthlySummaries.summary.length + (data.monthlyItemSales?.length || 0)
+        total: data.monthlyPaymentSales.length + data.monthlySalesSummaries.length + (data.monthlyItemSales?.length || 0)
       }));
       
       let monthlySummaryProgress = 0;
-      for (const summary of data.monthlySummaries.payments) {
+      for (const summary of data.monthlyPaymentSales) {
         await db.upsertMonthlyPaymentSales(summary);
         monthlySummariesAdded++;
         monthlySummaryProgress++;
         setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
       }
 
-      for (const summary of data.monthlySummaries.summary) {
+      for (const summary of data.monthlySalesSummaries) {
         await db.upsertMonthlySalesSummary(summary);
         monthlySummaryProgress++;
         setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));

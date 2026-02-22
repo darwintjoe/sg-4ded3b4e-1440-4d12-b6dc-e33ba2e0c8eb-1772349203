@@ -142,16 +142,16 @@ export class ReportsUAT {
       }
       
       // Save daily summaries
-      for (const daily of sampleData.dailySummaries) {
+      for (const daily of sampleData.dailyPaymentSales) {
         await db.upsertDailyPaymentSales(daily);
       }
       
       // Save monthly summaries
-      for (const monthly of sampleData.monthlySummaries.payments) {
+      for (const monthly of sampleData.monthlyPaymentSales) {
         await db.upsertMonthlyPaymentSales(monthly);
       }
       
-      for (const monthly of sampleData.monthlySummaries.summary) {
+      for (const monthly of sampleData.monthlySalesSummaries) {
         await db.upsertMonthlySalesSummary(monthly);
       }
       
@@ -761,15 +761,15 @@ export class ReportsUAT {
     for (const txn of this.testData.transactions) await db.addTransaction(txn);
     
     // Inject summaries
-    for (const daily of this.testData.dailySummaries) {
+    for (const daily of this.testData.dailyPaymentSales) {
       await db.upsertDailyPaymentSales(daily);
     }
     
-    for (const monthly of this.testData.monthlySummaries.payments) {
+    for (const monthly of this.testData.monthlyPaymentSales) {
       await db.upsertMonthlyPaymentSales(monthly);
     }
     
-    for (const summary of this.testData.monthlySummaries.summary) {
+    for (const summary of this.testData.monthlySalesSummaries) {
       await db.upsertMonthlySalesSummary(summary);
     }
     
