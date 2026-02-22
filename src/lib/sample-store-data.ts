@@ -163,13 +163,13 @@ export const SAMPLE_ITEMS_DATA = {
   ],
   "Stationery": [
     { name: "Pulpen Standard", price: 3000, barcode: "8999560100016" },
-    { name: "Pulpen Pilot", price: 8000, barcode: "8999560100017" },
-    { name: "Pensil 2B Faber", price: 5000, barcode: "8999560100023" },
-    { name: "Pensil Mekanik", price: 12000, barcode: "8999560100024" },
-    { name: "Spidol Permanent", price: 6000, barcode: "8999560100025" },
-    { name: "Spidol Whiteboard", price: 8000, barcode: "8999560100026" },
-    { name: "Highlighter Set", price: 15000, barcode: "8999560100027" },
-    { name: "Tinta Printer", price: 45000, barcode: "8999560100028" },
+    { name: "Pensil 2B", price: 2000, barcode: "8999560100023" },
+    { name: "Penghapus", price: 1500, barcode: "8999560100030" },
+    { name: "Buku Tulis", price: 5000, barcode: "8999560100047" },
+    { name: "Tipe-X", price: 6000, barcode: "8999560100054" },
+    { name: "Lem UHU", price: 8000, barcode: "8999560100061" },
+    { name: "Gunting", price: 10000, barcode: "8999560100078" },
+    { name: "Stapler", price: 15000, barcode: "8999560100085" },
   ],
   "Phone Accessories": [
     { name: "Kabel Data Micro USB", price: 20000, barcode: "8990560100015" },
@@ -870,73 +870,5 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
       summary: monthlySummary,
     },
     monthlyAttendanceSummaries
-  };
-}
-
-/**
- * Get default settings for a new store
- */
-export function getDefaultSettings(): Settings {
-  return {
-    key: "settings",
-    mode: "retail",
-    businessName: "Demo Store",
-    storeAddress: "",
-    storePhone: "",
-    taxRate: 0,
-    currency: "IDR",
-    language: "id",
-    theme: "light",
-    printerEnabled: false,
-    printerName: "",
-    backupEnabled: true,
-    lowStockThreshold: 10,
-    showTax: false,
-    printReceipt: true,
-    autoBackup: false
-  };
-}
-
-/**
- * Generate complete sample store data package
- * This is the main function that generates all sample data for a new store
- * 
- * @param businessType - Type of business to generate data for
- * @returns Complete sample data package with items, employees, transactions, and settings
- */
-export function generateSampleStoreData(businessType: BusinessType = "convenience-store"): {
-  items: Item[];
-  employees: Employee[];
-  transactions: Transaction[];
-  dailyPaymentSales: DailyPaymentSales[];
-  dailyItemSales: DailyItemSales[];
-  dailyAttendance: DailyAttendance[];
-  monthlyItemSales: MonthlyItemSales[];
-  monthlyPaymentSales: MonthlyPaymentSales[];
-  monthlySalesSummaries: MonthlySalesSummary[];
-  monthlyAttendanceSummaries: MonthlyAttendanceSummary[];
-  settings: Settings;
-} {
-  // Generate items based on business type
-  const items = generateSampleItems(businessType);
-  
-  // Generate employees
-  const employees = generateSampleEmployees();
-  
-  // Generate transactions and all summaries
-  const transactionData = generateSampleTransactions(items, employees, businessType);
-  
-  return {
-    items,
-    employees,
-    transactions: transactionData.transactions,
-    dailyPaymentSales: transactionData.dailySummaries,
-    dailyItemSales: transactionData.dailyItemSales,
-    dailyAttendance: transactionData.dailyAttendance,
-    monthlyItemSales: transactionData.monthlyItemSales,
-    monthlyPaymentSales: transactionData.monthlySummaries.payments,
-    monthlySalesSummaries: transactionData.monthlySummaries.summary,
-    monthlyAttendanceSummaries: transactionData.monthlyAttendanceSummaries,
-    settings: getDefaultSettings()
   };
 }

@@ -34,7 +34,6 @@ import { generateSampleStoreData } from "@/lib/sample-store-data";
 import { useToast } from "@/hooks/use-toast";
 import { RestorePreviewDialog } from "@/components/RestorePreviewDialog";
 import { translate } from "@/lib/translations";
-import { BusinessType } from "@/lib/sample-store-data";
 
 // Extracted components
 import { HelpTooltip } from "./settings/HelpTooltip";
@@ -168,7 +167,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleInjectSampleData = async (businessType: BusinessType = "convenience-store") => {
+  const handleInjectSampleData = async () => {
     if (!confirm("This will add sample data to your database. Continue?")) return;
 
     try {
@@ -178,7 +177,7 @@ export function SettingsPanel() {
         message: "Preparing sample data...",
       });
 
-      const data = generateSampleStoreData(businessType);
+      const data = generateSampleStoreData();
       let itemsAdded = 0, itemsSkipped = 0;
       let employeesAdded = 0, employeesSkipped = 0;
       let transactionsAdded = 0, transactionsSkipped = 0;
@@ -263,11 +262,11 @@ export function SettingsPanel() {
         ...prev, 
         message: "Processing daily summaries...",
         progress: 0,
-        total: data.dailyPaymentSales.length
+        total: data.dailySummaries.length
       }));
       
-      for (let i = 0; i < data.dailyPaymentSales.length; i++) {
-        await db.upsertDailyPaymentSales(data.dailyPaymentSales[i]);
+      for (let i = 0; i < data.dailySummaries.length; i++) {
+        await db.upsertDailyPaymentSales(data.dailySummaries[i]);
         dailySummariesAdded++;
         if (i % 50 === 0) setProgressDialog(prev => ({ ...prev, progress: i + 1 }));
       }
@@ -292,18 +291,18 @@ export function SettingsPanel() {
         ...prev, 
         message: "Processing monthly summaries...",
         progress: 0,
-        total: data.monthlyPaymentSales.length + data.monthlySalesSummaries.length + (data.monthlyItemSales?.length || 0)
+        total: data.monthlySummaries.payments.length + data.monthlySummaries.summary.length + (data.monthlyItemSales?.length || 0)
       }));
       
       let monthlySummaryProgress = 0;
-      for (const summary of data.monthlyPaymentSales) {
+      for (const summary of data.monthlySummaries.payments) {
         await db.upsertMonthlyPaymentSales(summary);
         monthlySummariesAdded++;
         monthlySummaryProgress++;
         setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
       }
 
-      for (const summary of data.monthlySalesSummaries) {
+      for (const summary of data.monthlySummaries.summary) {
         await db.upsertMonthlySalesSummary(summary);
         monthlySummaryProgress++;
         setProgressDialog(prev => ({ ...prev, progress: monthlySummaryProgress }));
