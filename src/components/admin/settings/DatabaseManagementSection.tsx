@@ -6,7 +6,7 @@ import { Language } from "@/types";
 
 interface DatabaseManagementSectionProps {
   language: Language;
-  onInjectSampleData: () => void;
+  onInjectSampleData: (businessType?: string) => void;
   onClearTransactions: () => void;
   onFactoryReset: () => void;
   onInitiateRestore: () => void;
@@ -16,6 +16,7 @@ interface DatabaseManagementSectionProps {
   isSignedIn: boolean;
   backupStatus: any;
   startPreviewProcess: () => Promise<void>;
+  setShowBusinessTypeSelector: (show: boolean) => void;
 }
 
 export function DatabaseManagementSection({
@@ -29,7 +30,8 @@ export function DatabaseManagementSection({
   handleBackupNow,
   isSignedIn,
   backupStatus,
-  startPreviewProcess
+  startPreviewProcess,
+  setShowBusinessTypeSelector
 }: DatabaseManagementSectionProps) {
   const isProcessing = backupProcessing || restoreState?.phase !== "idle";
 
