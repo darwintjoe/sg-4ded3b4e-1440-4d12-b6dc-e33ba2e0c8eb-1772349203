@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance, ShiftTransactions } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance, ShiftTransactions, BackupStatus, GoogleUser } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -9,28 +9,6 @@ import {
   generateSampleStoreData 
 } from "@/lib/sample-store-data";
 import { sheetsExport } from "@/lib/sheets-export";
-
-interface BackupStatus {
-  lastBackupTime: string | null;
-  lastBackupStatus: "success" | "failed" | "pending" | null;
-  isHealthy: boolean;
-  message: string;
-  canRestore: boolean;
-  backupInfo?: {
-    timestamp: string;
-    size: number;
-    itemCount: number;
-    employeeCount: number;
-    checksumValid: boolean;
-  };
-}
-
-interface GoogleUser {
-  email: string;
-  name: string;
-  picture: string;
-  accessToken: string;
-}
 
 interface AppContextType {
   mode: POSMode;

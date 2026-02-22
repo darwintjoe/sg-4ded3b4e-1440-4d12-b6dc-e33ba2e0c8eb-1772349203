@@ -2,28 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
 import { db } from "@/lib/db";
-
-interface GoogleUser {
-  email: string;
-  name: string;
-  picture: string;
-  accessToken: string;
-}
-
-interface BackupStatus {
-  lastBackupTime: string | null;
-  lastBackupStatus: "success" | "failed" | "pending" | null;
-  isHealthy: boolean;
-  message: string;
-  canRestore: boolean;
-  backupInfo?: {
-    timestamp: string;
-    size: number;
-    itemCount: number;
-    employeeCount: number;
-    checksumValid: boolean;
-  };
-}
+import type { GoogleUser, BackupStatus } from "@/types";
 
 interface GoogleAuthContextType {
   user: GoogleUser | null;
