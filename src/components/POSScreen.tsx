@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
 import { CartItemEditDialog } from "@/components/CartItemEditDialog";
@@ -45,6 +46,18 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState(getSubscriptionInfo());
+  
+  // Item not found flow states
+  const [itemNotFoundOpen, setItemNotFoundOpen] = useState(false);
+  const [notFoundBarcode, setNotFoundBarcode] = useState("");
+  const [pinVerifyOpen, setPinVerifyOpen] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [createItemOpen, setCreateItemOpen] = useState(false);
+  const [newItemData, setNewItemData] = useState({ name: "", price: 0, sku: "" });
+  const [newItemPriceDisplay, setNewItemPriceDisplay] = useState("");
+  const [isCreatingItem, setIsCreatingItem] = useState(false);
+  
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -246,13 +259,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         }
         
         // Sound is handled by BarcodeScanner for immediate feedback
+        // Return true to indicate item was found - scanner will handle cooldown
       } else {
-        // Item not found
-        toast({
-          title: translate("pos.itemNotFound", language),
-          description: `SKU: ${barcode}`,
-          variant: "destructive",
-        });
+        // Item not found - close scanner and show dialog
+        setScannerOpen(false);
+        setNotFoundBarcode(barcode);
+        setItemNotFoundOpen(true);
       }
     } catch (error) {
       console.error("Barcode scan error:", error);
@@ -262,6 +274,163 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         variant: "destructive",
       });
     }
+  };
+
+  // Handle "No" on item not found dialog
+  const handleItemNotFoundNo = () => {
+    setItemNotFoundOpen(false);
+    setNotFoundBarcode("");
+    // Reopen scanner after brief delay
+    setTimeout(() => {
+      setScannerOpen(true);
+    }, 500);
+  };
+
+  // Handle "Yes" on item not found dialog - start PIN verification
+  const handleItemNotFoundYes = () => {
+    setItemNotFoundOpen(false);
+    setPinInput("");
+    setPinError("");
+    setPinVerifyOpen(true);
+  };
+
+  // Verify cashier PIN
+  const handlePinVerify = async () => {
+    if (!currentUser?.pin) {
+      setPinError(translate("pos.noPinSet", language));
+      return;
+    }
+    
+    if (pinInput === currentUser.pin) {
+      setPinVerifyOpen(false);
+      setPinInput("");
+      setPinError("");
+      
+      // Open create item dialog with SKU pre-filled
+      setNewItemData({ name: "", price: 0, sku: notFoundBarcode });
+      setNewItemPriceDisplay("");
+      setCreateItemOpen(true);
+      
+      // Try to lookup product name
+      lookupProductName(notFoundBarcode);
+    } else {
+      setPinError(translate("pos.incorrectPin", language));
+    }
+  };
+
+  // Lookup product name from external API
+  const lookupProductName = async (sku: string) => {
+    try {
+      const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
+      const data = await response.json();
+      if (data.success && data.productName) {
+        setNewItemData(prev => ({ ...prev, name: data.productName }));
+      }
+    } catch (error) {
+      // Silent failure - user can enter name manually
+    }
+  };
+
+  // Format price for display
+  const formatPriceInput = (value: string): string => {
+    const numValue = value.replace(/[^\d]/g, "");
+    if (!numValue || numValue === "0") return "";
+    return parseInt(numValue).toLocaleString("id-ID");
+  };
+
+  // Handle new item price change
+  const handleNewItemPriceChange = (value: string) => {
+    const formatted = formatPriceInput(value);
+    setNewItemPriceDisplay(formatted);
+    const numericValue = parseInt(value.replace(/[^\d]/g, "")) || 0;
+    setNewItemData(prev => ({ ...prev, price: numericValue }));
+  };
+
+  // Capitalize words helper
+  const capitalizeWords = (str: string) => {
+    return str.split(" ").map(word => 
+      word.length === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(" ");
+  };
+
+  // Save new item and add to cart
+  const handleSaveNewItem = async () => {
+    if (!newItemData.name.trim() || newItemData.price <= 0) {
+      toast({
+        title: translate("common.error", language),
+        description: translate("items.validationError", language),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingItem(true);
+    try {
+      const newItem: Item = {
+        id: Date.now(),
+        sku: newItemData.sku,
+        name: capitalizeWords(newItemData.name),
+        price: newItemData.price,
+        category: "General",
+        variants: [],
+        modifiers: [],
+        isActive: true
+      };
+
+      await db.add("items", newItem);
+      
+      // Refresh items list
+      const allItems = await db.getItems();
+      setItems(allItems.filter(item => item.isActive !== false));
+
+      // Add to cart
+      const cartItem: CartItem = {
+        itemId: newItem.id!,
+        sku: newItem.sku || `ITEM-${newItem.id}`,
+        name: newItem.name,
+        quantity: 1,
+        basePrice: newItem.price,
+        totalPrice: newItem.price,
+        variant: undefined,
+        modifiers: []
+      };
+      setCart([...cart, cartItem]);
+
+      toast({
+        title: translate("items.itemCreated", language),
+        description: newItem.name,
+      });
+
+      setCreateItemOpen(false);
+      setNewItemData({ name: "", price: 0, sku: "" });
+      setNotFoundBarcode("");
+
+      // Reopen scanner after brief delay
+      setTimeout(() => {
+        setScannerOpen(true);
+      }, 500);
+
+    } catch (error) {
+      console.error("Error creating item:", error);
+      toast({
+        title: translate("common.error", language),
+        description: translate("items.createError", language),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingItem(false);
+    }
+  };
+
+  // Cancel create item
+  const handleCancelCreateItem = () => {
+    setCreateItemOpen(false);
+    setNewItemData({ name: "", price: 0, sku: "" });
+    setNotFoundBarcode("");
+    // Reopen scanner after brief delay
+    setTimeout(() => {
+      setScannerOpen(true);
+    }, 500);
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
@@ -787,6 +956,137 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Item Not Found Dialog */}
+      <AlertDialog open={itemNotFoundOpen} onOpenChange={setItemNotFoundOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("pos.itemNotFound", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-mono text-base bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                {notFoundBarcode}
+              </span>
+              <br /><br />
+              {translate("pos.createNewItem", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleItemNotFoundNo}>
+              {translate("common.no", language)}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleItemNotFoundYes} className="bg-blue-600 hover:bg-blue-700">
+              {translate("common.yes", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* PIN Verification Dialog */}
+      <AlertDialog open={pinVerifyOpen} onOpenChange={setPinVerifyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{translate("pos.enterPin", language)}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {translate("pos.enterPinToCreateItem", language)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              type="password"
+              inputMode="numeric"
+              maxLength={6}
+              value={pinInput}
+              onChange={(e) => {
+                setPinInput(e.target.value.replace(/\D/g, ""));
+                setPinError("");
+              }}
+              placeholder="••••••"
+              className="text-center text-2xl tracking-widest"
+              autoFocus
+            />
+            {pinError && (
+              <p className="text-red-500 text-sm mt-2 text-center">{pinError}</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setPinVerifyOpen(false);
+              setPinInput("");
+              setPinError("");
+              setTimeout(() => setScannerOpen(true), 500);
+            }}>
+              {translate("common.cancel", language)}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handlePinVerify} className="bg-blue-600 hover:bg-blue-700">
+              {translate("common.verify", language)}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create New Item Dialog */}
+      <Dialog open={createItemOpen} onOpenChange={(open) => {
+        if (!open) handleCancelCreateItem();
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{translate("items.addItem", language)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* SKU - Read Only */}
+            <div className="space-y-2">
+              <Label>{translate("items.skuLabel", language)}</Label>
+              <Input
+                value={newItemData.sku}
+                readOnly
+                className="bg-slate-100 dark:bg-slate-800 font-mono"
+              />
+            </div>
+
+            {/* Item Name */}
+            <div className="space-y-2">
+              <Label>
+                {translate("items.itemName", language)} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={newItemData.name}
+                onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder={translate("items.itemNamePlaceholder", language)}
+                autoFocus
+              />
+            </div>
+
+            {/* Price */}
+            <div className="space-y-2">
+              <Label>
+                {translate("items.sellingPrice", language)} <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={newItemPriceDisplay}
+                onChange={(e) => handleNewItemPriceChange(e.target.value)}
+                placeholder="25,000"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleCancelCreateItem} className="flex-1">
+              {translate("common.cancel", language)}
+            </Button>
+            <Button 
+              onClick={handleSaveNewItem} 
+              disabled={!newItemData.name.trim() || newItemData.price <= 0 || isCreatingItem}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+            >
+              {isCreatingItem ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {translate("common.save", language)}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
