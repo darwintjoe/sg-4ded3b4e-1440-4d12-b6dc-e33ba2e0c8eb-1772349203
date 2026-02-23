@@ -118,7 +118,7 @@ export async function exportChartAsPDF(
       }
     }
 
-    // Save PDF (browser handles duplicate filenames automatically)
+    // Save PDF
     pdf.save(`${filename}.pdf`);
 
     // Auto-open PDF in new tab after short delay
@@ -126,7 +126,7 @@ export async function exportChartAsPDF(
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true };
   } catch (error) {
@@ -165,7 +165,7 @@ export async function exportChartAsImage(
     // Convert to JPG data URL
     const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.92);
 
-    // Download image (browser handles duplicate filenames automatically)
+    // Download image
     const link = document.createElement("a");
     link.href = jpgDataUrl;
     link.download = `${filename}.jpg`;
@@ -176,7 +176,7 @@ export async function exportChartAsImage(
     // Auto-open image in new tab after short delay
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
