@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility functions for exporting reports as PDF or images
- * Optimized for single-capture approach with proper pagination
+ * Uses single-capture approach with smart pagination
  */
 
 export interface ExportOptions {
@@ -29,13 +29,13 @@ function compressImage(canvas: HTMLCanvasElement, quality: number = 0.7): string
 
 /**
  * Export a report as PDF with smart pagination
- * - Captures content ONCE
- * - Chart section on page 1 (scaled to fit)
- * - Table section on page 2+ (with proper pagination)
+ * Captures content ONCE, then splits into:
+ * - Page 1: Chart section (fits to page)
+ * - Page 2+: Table section (paginated)
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
-  _unusedTableRef: HTMLElement | null, // Keep signature for compatibility
+  _unusedTableRef: HTMLElement | null, // Keep for API compatibility
   options: ExportOptions
 ): Promise<ExportResult> {
   if (!reportRef) {
@@ -77,36 +77,28 @@ export async function exportChartAsPDF(
       yOffset += 10;
     }
 
-    // Capture entire report ONCE with lower scale for smaller file size
+    // Capture entire report ONCE with optimized settings
     const reportCanvas = await html2canvas(reportRef, {
       backgroundColor: "#ffffff",
-      scale: 1.5,
+      scale: 2, // Good quality without being too large
       logging: false,
       useCORS: true,
+      imageTimeout: 0,
     });
 
-    // Compress report image
-    const reportImgData = compressImage(reportCanvas, 0.8);
-    
-    // Calculate dimensions to fit content properly
+    // Calculate dimensions
     const reportAspectRatio = reportCanvas.width / reportCanvas.height;
     const reportWidth = contentWidth;
     const reportHeight = reportWidth / reportAspectRatio;
 
-    // Calculate how much fits on page 1 (for chart section)
+    // Calculate split point: ~50% of content for chart section
     const maxPage1Height = pageHeight - yOffset - margin;
+    const chartSectionHeight = Math.min(reportHeight * 0.5, maxPage1Height);
     
-    // Try to fit ~40% of content on page 1 (chart section)
-    const chartSectionHeight = Math.min(reportHeight * 0.4, maxPage1Height);
-    
-    // Center chart horizontally
-    const chartX = margin;
-    
-    // Add chart section to page 1
     const pxPerMm = reportCanvas.width / reportWidth;
     const chartHeightPx = chartSectionHeight * pxPerMm;
     
-    // Create canvas for chart section
+    // Create canvas for chart section (Page 1)
     const chartCanvas = document.createElement("canvas");
     chartCanvas.width = reportCanvas.width;
     chartCanvas.height = Math.ceil(chartHeightPx);
@@ -123,33 +115,32 @@ export async function exportChartAsPDF(
         reportCanvas.width, chartHeightPx
       );
       
-      const chartData = compressImage(chartCanvas, 0.8);
-      pdf.addImage(chartData, "JPEG", chartX, yOffset, reportWidth, chartSectionHeight, undefined, "FAST");
+      const chartData = compressImage(chartCanvas, 0.85);
+      pdf.addImage(chartData, "JPEG", margin, yOffset, reportWidth, chartSectionHeight, undefined, "FAST");
     }
 
-    // Add table section starting on NEW page 2
+    // Add NEW page for table section
     pdf.addPage();
     yOffset = margin;
 
     // Add "Data Table" subtitle
-    pdf.setFontSize(12);
+    pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.text("Data Table", margin, yOffset);
-    yOffset += 8;
+    yOffset += 10;
 
     // Calculate remaining content (table section)
     const remainingHeight = reportHeight - chartSectionHeight;
-    const sourceY = chartSectionHeight;
+    const sourceYPx = chartHeightPx;
     
-    // Add table section with pagination
+    // Paginate table section
     const availableHeight = pageHeight - yOffset - margin;
     let tableRemainingHeight = remainingHeight;
-    let tableSourceY = sourceY;
+    let tableSourceYPx = sourceYPx;
 
     while (tableRemainingHeight > 0) {
       const sliceHeight = Math.min(tableRemainingHeight, availableHeight);
       const sliceHeightPx = sliceHeight * pxPerMm;
-      const sourceYPx = tableSourceY * pxPerMm;
 
       // Create temp canvas for slice
       const tempCanvas = document.createElement("canvas");
@@ -162,18 +153,18 @@ export async function exportChartAsPDF(
         ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
         ctx.drawImage(
           reportCanvas,
-          0, sourceYPx,
+          0, tableSourceYPx,
           reportCanvas.width, sliceHeightPx,
           0, 0,
           reportCanvas.width, sliceHeightPx
         );
         
-        const sliceData = compressImage(tempCanvas, 0.75);
+        const sliceData = compressImage(tempCanvas, 0.8);
         pdf.addImage(sliceData, "JPEG", margin, yOffset, reportWidth, sliceHeight, undefined, "FAST");
       }
 
       tableRemainingHeight -= sliceHeight;
-      tableSourceY += sliceHeight;
+      tableSourceYPx += sliceHeightPx;
 
       if (tableRemainingHeight > 0) {
         pdf.addPage();
@@ -195,11 +186,11 @@ export async function exportChartAsPDF(
 }
 
 /**
- * Export a report as JPG image (compressed)
+ * Export a report as JPG image (single capture, no duplication)
  */
 export async function exportChartAsImage(
   reportRef: HTMLElement | null,
-  _unusedTableRef: HTMLElement | null, // Keep signature for compatibility
+  _unusedTableRef: HTMLElement | null, // Keep for API compatibility
   options: ExportOptions
 ): Promise<ExportResult> {
   if (!reportRef) {
@@ -209,22 +200,25 @@ export async function exportChartAsImage(
   try {
     const { filename } = options;
 
-    // Capture entire report ONCE with lower scale for smaller file
+    // Capture entire report ONCE with optimized settings
     const canvas = await html2canvas(reportRef, {
       backgroundColor: "#ffffff",
-      scale: 1.5,
+      scale: 2,
       logging: false,
       useCORS: true,
+      imageTimeout: 0,
     });
 
     // Convert to JPG blob with compression
-    const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.9);
     
-    // Download image (no auto-open to avoid blank page issue)
+    // Download image (no auto-open to avoid blank page)
     const link = document.createElement("a");
     link.href = jpgDataUrl;
     link.download = `${filename}.jpg`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
@@ -237,11 +231,11 @@ export async function exportChartAsImage(
 }
 
 /**
- * Print report using optimized PDF
+ * Print report using optimized PDF (single capture)
  */
 export async function printReport(
   reportRef: HTMLElement | null,
-  _unusedTableRef: HTMLElement | null, // Keep signature for compatibility
+  _unusedTableRef: HTMLElement | null, // Keep for API compatibility
   title: string
 ): Promise<ExportResult> {
   if (!reportRef) {
@@ -279,20 +273,20 @@ export async function printReport(
     // Capture report ONCE
     const reportCanvas = await html2canvas(reportRef, {
       backgroundColor: "#ffffff",
-      scale: 1.5,
+      scale: 2,
       logging: false,
       useCORS: true,
+      imageTimeout: 0,
     });
 
-    const reportImgData = compressImage(reportCanvas, 0.8);
     const reportWidth = contentWidth;
     const reportHeight = reportWidth / (reportCanvas.width / reportCanvas.height);
     const maxPage1Height = pageHeight - yOffset - margin;
-    const chartSectionHeight = Math.min(reportHeight * 0.4, maxPage1Height);
+    const chartSectionHeight = Math.min(reportHeight * 0.5, maxPage1Height);
     const pxPerMm = reportCanvas.width / reportWidth;
     const chartHeightPx = chartSectionHeight * pxPerMm;
     
-    // Chart section
+    // Chart section on page 1
     const chartCanvas = document.createElement("canvas");
     chartCanvas.width = reportCanvas.width;
     chartCanvas.height = Math.ceil(chartHeightPx);
@@ -309,7 +303,7 @@ export async function printReport(
         reportCanvas.width, chartHeightPx
       );
       
-      const chartData = compressImage(chartCanvas, 0.8);
+      const chartData = compressImage(chartCanvas, 0.85);
       pdf.addImage(chartData, "JPEG", margin, yOffset, reportWidth, chartSectionHeight, undefined, "FAST");
     }
 
@@ -317,21 +311,20 @@ export async function printReport(
     pdf.addPage();
     yOffset = margin;
 
-    pdf.setFontSize(12);
+    pdf.setFontSize(14);
     pdf.setFont("helvetica", "bold");
     pdf.text("Data Table", margin, yOffset);
-    yOffset += 8;
+    yOffset += 10;
 
     const remainingHeight = reportHeight - chartSectionHeight;
-    const sourceY = chartSectionHeight;
+    const sourceYPx = chartHeightPx;
     const availableHeight = pageHeight - yOffset - margin;
     let tableRemainingHeight = remainingHeight;
-    let tableSourceY = sourceY;
+    let tableSourceYPx = sourceYPx;
 
     while (tableRemainingHeight > 0) {
       const sliceHeight = Math.min(tableRemainingHeight, availableHeight);
       const sliceHeightPx = sliceHeight * pxPerMm;
-      const sourceYPx = tableSourceY * pxPerMm;
 
       const tempCanvas = document.createElement("canvas");
       tempCanvas.width = reportCanvas.width;
@@ -343,18 +336,18 @@ export async function printReport(
         ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
         ctx.drawImage(
           reportCanvas,
-          0, sourceYPx,
+          0, tableSourceYPx,
           reportCanvas.width, sliceHeightPx,
           0, 0,
           reportCanvas.width, sliceHeightPx
         );
         
-        const sliceData = compressImage(tempCanvas, 0.75);
+        const sliceData = compressImage(tempCanvas, 0.8);
         pdf.addImage(sliceData, "JPEG", margin, yOffset, reportWidth, sliceHeight, undefined, "FAST");
       }
 
       tableRemainingHeight -= sliceHeight;
-      tableSourceY += sliceHeight;
+      tableSourceYPx += sliceHeightPx;
 
       if (tableRemainingHeight > 0) {
         pdf.addPage();
