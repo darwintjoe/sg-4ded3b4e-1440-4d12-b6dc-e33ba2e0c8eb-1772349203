@@ -44,41 +44,35 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState<"pdf" | "image" | "print" | null>(null);
   
-  // Refs for export functionality - SEPARATE refs for chart and table
-  const salesChartRef = useRef<HTMLDivElement>(null);
-  const salesTableRef = useRef<HTMLDivElement>(null);
-  const itemsChartRef = useRef<HTMLDivElement>(null);
-  const itemsTableRef = useRef<HTMLDivElement>(null);
-  const attendanceRef = useRef<HTMLDivElement>(null);
+  // Single ref per report - captures entire content ONCE
+  const salesReportRef = useRef<HTMLDivElement>(null);
+  const itemsReportRef = useRef<HTMLDivElement>(null);
+  const attendanceReportRef = useRef<HTMLDivElement>(null);
 
   // Export handlers
   const handleExportPDF = async () => {
-    let chartEl: HTMLDivElement | null = null;
-    let tableEl: HTMLDivElement | null = null;
+    let reportRef: HTMLDivElement | null = null;
     let title = "Report";
 
     if (activeTab === "sales") {
-      chartEl = salesChartRef.current;
-      tableEl = salesTableRef.current;
+      reportRef = salesReportRef.current;
       title = "Sales Report";
     } else if (activeTab === "items") {
-      chartEl = itemsChartRef.current;
-      tableEl = itemsTableRef.current;
+      reportRef = itemsReportRef.current;
       title = "Items Report";
     } else if (activeTab === "attendance") {
-      chartEl = attendanceRef.current;
-      tableEl = attendanceRef.current;
+      reportRef = attendanceReportRef.current;
       title = "Attendance Report";
     }
 
-    if (chartEl && tableEl) {
+    if (reportRef) {
       setIsExporting("pdf");
       toast({
         title: "Generating PDF...",
         description: "Please wait while we prepare your report.",
       });
 
-      const result = await exportChartAsPDF(chartEl, tableEl, {
+      const result = await exportChartAsPDF(reportRef, null, {
         filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`,
         title,
         includeTimestamp: true,
@@ -89,8 +83,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       if (result.success) {
         toast({
-          title: "PDF Ready!",
-          description: "Your report has been downloaded and opened.",
+          title: "PDF Downloaded!",
+          description: "Your report has been saved to your downloads folder.",
         });
       } else {
         toast({
@@ -103,28 +97,24 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   };
 
   const handleExportImage = async () => {
-    let chartEl: HTMLDivElement | null = null;
-    let tableEl: HTMLDivElement | null = null;
+    let reportRef: HTMLDivElement | null = null;
 
     if (activeTab === "sales") {
-      chartEl = salesChartRef.current;
-      tableEl = salesTableRef.current;
+      reportRef = salesReportRef.current;
     } else if (activeTab === "items") {
-      chartEl = itemsChartRef.current;
-      tableEl = itemsTableRef.current;
+      reportRef = itemsReportRef.current;
     } else if (activeTab === "attendance") {
-      chartEl = attendanceRef.current;
-      tableEl = attendanceRef.current;
+      reportRef = attendanceReportRef.current;
     }
 
-    if (chartEl && tableEl) {
+    if (reportRef) {
       setIsExporting("image");
       toast({
         title: "Generating Image...",
         description: "Please wait while we prepare your image.",
       });
 
-      const result = await exportChartAsImage(chartEl, tableEl, {
+      const result = await exportChartAsImage(reportRef, null, {
         filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`
       });
 
@@ -132,8 +122,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
       if (result.success) {
         toast({
-          title: "Image Ready!",
-          description: "Your report image has been downloaded and opened.",
+          title: "Image Downloaded!",
+          description: "Your report image has been saved to your downloads folder.",
         });
       } else {
         toast({
@@ -146,32 +136,28 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   };
 
   const handlePrint = async () => {
-    let chartEl: HTMLDivElement | null = null;
-    let tableEl: HTMLDivElement | null = null;
+    let reportRef: HTMLDivElement | null = null;
     let title = "Report";
 
     if (activeTab === "sales") {
-      chartEl = salesChartRef.current;
-      tableEl = salesTableRef.current;
+      reportRef = salesReportRef.current;
       title = "Sales Report";
     } else if (activeTab === "items") {
-      chartEl = itemsChartRef.current;
-      tableEl = itemsTableRef.current;
+      reportRef = itemsReportRef.current;
       title = "Items Report";
     } else if (activeTab === "attendance") {
-      chartEl = attendanceRef.current;
-      tableEl = attendanceRef.current;
+      reportRef = attendanceReportRef.current;
       title = "Attendance Report";
     }
 
-    if (chartEl && tableEl) {
+    if (reportRef) {
       setIsExporting("print");
       toast({
         title: "Preparing Print...",
         description: "Opening print dialog...",
       });
 
-      const result = await printReport(chartEl, tableEl, title);
+      const result = await printReport(reportRef, null, title);
 
       setIsExporting(null);
 
@@ -431,23 +417,19 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       </div>
 
       <TabsContent value="sales" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={salesChartRef}>
-          <div ref={salesTableRef}>
-            <SalesReport language={language} />
-          </div>
+        <div ref={salesReportRef}>
+          <SalesReport language={language} />
         </div>
       </TabsContent>
 
       <TabsContent value="items" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={itemsChartRef}>
-          <div ref={itemsTableRef}>
-            <ItemsReport language={language} />
-          </div>
+        <div ref={itemsReportRef}>
+          <ItemsReport language={language} />
         </div>
       </TabsContent>
 
       <TabsContent value="attendance" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={attendanceRef}>
+        <div ref={attendanceReportRef}>
           <AttendanceReport language={language} />
         </div>
       </TabsContent>
