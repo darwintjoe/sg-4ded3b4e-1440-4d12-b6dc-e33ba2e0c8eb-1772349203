@@ -457,3 +457,61 @@ export interface TransactionRow {
   qrisAmount: number;
   transferAmount: number;
 }
+
+// ==========================================
+// Accurate.id Integration Types
+// ==========================================
+
+export interface AccurateCredentials {
+  clientId: string;
+  clientSecret: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: number;
+  databaseId?: string;
+  hostUrl?: string;
+}
+
+export interface AccurateConnectionStatus {
+  connected: boolean;
+  lastSyncTime?: string;
+  companyName?: string;
+  databaseName?: string;
+  error?: string;
+}
+
+export interface AccurateSyncQueueItem {
+  id?: number;
+  type: "sales_invoice" | "item" | "customer" | "payment";
+  action: "create" | "update" | "delete";
+  localId: number | string;
+  payload: Record<string, unknown>;
+  status: "pending" | "processing" | "success" | "failed";
+  attempts: number;
+  lastAttempt?: number;
+  errorMessage?: string;
+  createdAt: number;
+}
+
+export interface AccurateItemMapping {
+  localItemId: number;
+  accurateItemId: number;
+  accurateItemNo: string;
+  lastSyncedAt: number;
+}
+
+export interface AccurateSalesInvoice {
+  transactionNo: string;
+  transDate: string;
+  customerNo?: string;
+  branchName?: string;
+  description?: string;
+  detailItem: AccurateSalesInvoiceDetail[];
+}
+
+export interface AccurateSalesInvoiceDetail {
+  itemNo: string;
+  quantity: number;
+  unitPrice: number;
+  itemDescription?: string;
+}
