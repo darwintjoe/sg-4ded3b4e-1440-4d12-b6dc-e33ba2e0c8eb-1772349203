@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Printer, Bluetooth, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Printer, Bluetooth, AlertCircle, CheckCircle2, Image } from "lucide-react";
 import { Settings, Language } from "@/types";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { translate } from "@/lib/translations";
@@ -23,6 +23,7 @@ export function PrinterSettingsSection({ language, settings, onUpdate }: Printer
   const [printerName, setPrinterName] = useState<string | null>(null);
   const [printerError, setPrinterError] = useState<string | null>(null);
   const [testPrinting, setTestPrinting] = useState(false);
+  const [logoPrinting, setLogoPrinting] = useState(false);
 
   const isBluetoothSupported = bluetoothPrinter.isSupported();
 
@@ -83,6 +84,23 @@ export function PrinterSettingsSection({ language, settings, onUpdate }: Printer
       setPrinterError(error instanceof Error ? error.message : "Test print failed");
     } finally {
       setTestPrinting(false);
+    }
+  };
+
+  const handleLogoTest = async () => {
+    setLogoPrinting(true);
+    setPrinterError(null);
+
+    try {
+      const result = await bluetoothPrinter.printLogoTest(settings);
+      
+      if (!result.success) {
+        setPrinterError(result.error || "Logo print failed");
+      }
+    } catch (error) {
+      setPrinterError(error instanceof Error ? error.message : "Logo print failed");
+    } finally {
+      setLogoPrinting(false);
     }
   };
 
@@ -158,16 +176,26 @@ export function PrinterSettingsSection({ language, settings, onUpdate }: Printer
           </div>
 
           {printerConnected && (
-            <Button
-              onClick={handleTestPrint}
-              disabled={testPrinting}
-              variant="secondary"
-              size="sm"
-              className="w-full"
-            >
-              <Printer className="h-3 w-3 mr-2" />
-              {testPrinting ? translate("settings.printer.printing", language) : translate("settings.printer.testPrint", language)}
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                onClick={handleTestPrint}
+                disabled={testPrinting}
+                variant="secondary"
+                size="sm"
+              >
+                <Printer className="h-3 w-3 mr-2" />
+                {testPrinting ? translate("settings.printer.printing", language) : translate("settings.printer.testPrint", language)}
+              </Button>
+              <Button
+                onClick={handleLogoTest}
+                disabled={logoPrinting}
+                variant="secondary"
+                size="sm"
+              >
+                <Image className="h-3 w-3 mr-2" />
+                {logoPrinting ? "Printing..." : "Print Logo"}
+              </Button>
+            </div>
           )}
 
           {printerError && (
