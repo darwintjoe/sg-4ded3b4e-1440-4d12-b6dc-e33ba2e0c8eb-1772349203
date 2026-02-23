@@ -31,6 +31,10 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
     delay: 500,
   });
 
+  // Determine SKU font size based on length
+  const skuLength = (item.sku || "").length;
+  const skuFontClass = skuLength > 12 ? "text-xs" : "text-sm";
+
   return (
     <TableRow
       {...longPressHandlers}
@@ -39,9 +43,9 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
         item.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="text-sm w-[30%] truncate">{item.sku || "-"}</TableCell>
-      <TableCell className="text-sm w-[50%] break-words whitespace-normal">{item.name}</TableCell>
-      <TableCell className="text-right text-sm w-[20%] whitespace-nowrap">
+      <TableCell className={cn("w-[30%] min-w-[100px] truncate", skuFontClass)}>{item.sku || "-"}</TableCell>
+      <TableCell className="text-sm w-[50%] min-w-[120px] break-words whitespace-normal">{item.name}</TableCell>
+      <TableCell className="text-right text-sm w-[20%] min-w-[70px] whitespace-nowrap">
         {item.price.toLocaleString("id-ID")}
       </TableCell>
     </TableRow>
@@ -667,53 +671,55 @@ export function ItemsPanel() {
       {/* Scrollable Table Section */}
       <div className="flex-1 overflow-hidden relative">
         <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <Card className="m-3 overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-50 dark:bg-slate-900">
-                <TableRow>
-                  <TableHead className="w-[30%]">
-                    <button
-                      onClick={() => handleSort("sku")}
-                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                    >
-                      {translate("items.sku", language)}
-                      <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[50%]">
-                    <button
-                      onClick={() => handleSort("name")}
-                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                    >
-                      {translate("items.name", language)}
-                      <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[20%] text-right">
-                    <button
-                      onClick={() => handleSort("price")}
-                      className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
-                    >
-                      {translate("items.price", language)}
-                      <ArrowUpDown className="h-3 w-3" />
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length === 0 ? (
+          <Card className="m-3 overflow-x-auto">
+            <div className="min-w-[125%]">
+              <Table>
+                <TableHeader className="bg-slate-50 dark:bg-slate-900">
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                      {searchQuery ? translate("items.noResults", language) : translate("items.noItems", language)}
-                    </TableCell>
+                    <TableHead className="w-[30%] min-w-[100px]">
+                      <button
+                        onClick={() => handleSort("sku")}
+                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
+                      >
+                        {translate("items.sku", language)}
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[50%] min-w-[120px]">
+                      <button
+                        onClick={() => handleSort("name")}
+                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
+                      >
+                        {translate("items.name", language)}
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </TableHead>
+                    <TableHead className="w-[20%] min-w-[70px] text-right">
+                      <button
+                        onClick={() => handleSort("price")}
+                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
+                      >
+                        {translate("items.price", language)}
+                        <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  filteredItems.map((item) => (
-                    <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredItems.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
+                        {searchQuery ? translate("items.noResults", language) : translate("items.noItems", language)}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredItems.map((item) => (
+                      <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </Card>
         </div>
 
