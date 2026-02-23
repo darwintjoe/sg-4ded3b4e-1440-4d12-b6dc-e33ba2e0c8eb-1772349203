@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowUp, Sparkles, MoreVertical, FileText, Image, Printer, Loader2 } from "lucide-react";
+import { ArrowUp, Sparkles } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -16,10 +15,6 @@ import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { LineChart } from "@/components/charts/LineChart";
 import { Heatmap } from "@/components/charts/Heatmap";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
-import { Card, CardContent } from "@/components/ui/card";
-import type { QueryResult } from "@/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { exportChartAsPDF, exportChartAsImage, printReport } from "@/lib/reportExportUtils";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -42,134 +37,6 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const [isExporting, setIsExporting] = useState<"pdf" | "image" | "print" | null>(null);
-  
-  // Single ref per report - captures entire content ONCE
-  const salesReportRef = useRef<HTMLDivElement>(null);
-  const itemsReportRef = useRef<HTMLDivElement>(null);
-  const attendanceReportRef = useRef<HTMLDivElement>(null);
-
-  // Export handlers
-  const handleExportPDF = async () => {
-    let reportRef: HTMLDivElement | null = null;
-    let title = "Report";
-
-    if (activeTab === "sales") {
-      reportRef = salesReportRef.current;
-      title = "Sales Report";
-    } else if (activeTab === "items") {
-      reportRef = itemsReportRef.current;
-      title = "Items Report";
-    } else if (activeTab === "attendance") {
-      reportRef = attendanceReportRef.current;
-      title = "Attendance Report";
-    }
-
-    if (reportRef) {
-      setIsExporting("pdf");
-      toast({
-        title: "Generating PDF...",
-        description: "Please wait while we prepare your report.",
-      });
-
-      const result = await exportChartAsPDF(reportRef, null, {
-        filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`,
-        title,
-        includeTimestamp: true,
-        pageOrientation: "portrait"
-      });
-
-      setIsExporting(null);
-
-      if (result.success) {
-        toast({
-          title: "PDF Downloaded!",
-          description: "Your report has been saved to your downloads folder.",
-        });
-      } else {
-        toast({
-          title: "Export Failed",
-          description: result.error || "Could not generate PDF",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const handleExportImage = async () => {
-    let reportRef: HTMLDivElement | null = null;
-
-    if (activeTab === "sales") {
-      reportRef = salesReportRef.current;
-    } else if (activeTab === "items") {
-      reportRef = itemsReportRef.current;
-    } else if (activeTab === "attendance") {
-      reportRef = attendanceReportRef.current;
-    }
-
-    if (reportRef) {
-      setIsExporting("image");
-      toast({
-        title: "Generating Image...",
-        description: "Please wait while we prepare your image.",
-      });
-
-      const result = await exportChartAsImage(reportRef, null, {
-        filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`
-      });
-
-      setIsExporting(null);
-
-      if (result.success) {
-        toast({
-          title: "Image Downloaded!",
-          description: "Your report image has been saved to your downloads folder.",
-        });
-      } else {
-        toast({
-          title: "Export Failed",
-          description: result.error || "Could not generate image",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const handlePrint = async () => {
-    let reportRef: HTMLDivElement | null = null;
-    let title = "Report";
-
-    if (activeTab === "sales") {
-      reportRef = salesReportRef.current;
-      title = "Sales Report";
-    } else if (activeTab === "items") {
-      reportRef = itemsReportRef.current;
-      title = "Items Report";
-    } else if (activeTab === "attendance") {
-      reportRef = attendanceReportRef.current;
-      title = "Attendance Report";
-    }
-
-    if (reportRef) {
-      setIsExporting("print");
-      toast({
-        title: "Preparing Print...",
-        description: "Opening print dialog...",
-      });
-
-      const result = await printReport(reportRef, null, title);
-
-      setIsExporting(null);
-
-      if (!result.success) {
-        toast({
-          title: "Print Failed",
-          description: result.error || "Could not open print dialog",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   // Auto-scroll to bottom when messages change or during streaming
   useEffect(() => {
@@ -347,7 +214,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   return (
     <Tabs defaultValue="sales" value={activeTab} onValueChange={setActiveTab} className="w-full">
       <div className="flex flex-col gap-4">
-        {/* Row 1: Tabs + Export + Print */}
+        {/* Row 1: Tabs only */}
         <div className="flex items-center justify-between gap-4">
           <TabsList className="flex-1">
             <TabsTrigger value="sales" className="flex-1">Sales</TabsTrigger>
@@ -355,83 +222,19 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
             <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
             <TabsTrigger value="ask" className="flex-1">Ask Me</TabsTrigger>
           </TabsList>
-
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8"
-                  disabled={isExporting !== null}
-                >
-                  {isExporting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <MoreVertical className="h-4 w-4" />
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem 
-                  className="gap-2 cursor-pointer hover:bg-accent/80 active:bg-accent focus:bg-accent/80 transition-colors" 
-                  onClick={handleExportPDF}
-                  disabled={isExporting !== null}
-                >
-                  {isExporting === "pdf" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileText className="h-4 w-4" />
-                  )}
-                  Export as PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="gap-2 cursor-pointer hover:bg-accent/80 active:bg-accent focus:bg-accent/80 transition-colors" 
-                  onClick={handleExportImage}
-                  disabled={isExporting !== null}
-                >
-                  {isExporting === "image" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Image className="h-4 w-4" />
-                  )}
-                  Export as Image
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="gap-2 cursor-pointer hover:bg-accent/80 active:bg-accent focus:bg-accent/80 transition-colors" 
-                  onClick={handlePrint}
-                  disabled={isExporting !== null}
-                >
-                  {isExporting === "print" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Printer className="h-4 w-4" />
-                  )}
-                  Print
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </div>
 
       <TabsContent value="sales" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={salesReportRef}>
-          <SalesReport language={language} />
-        </div>
+        <SalesReport language={language} />
       </TabsContent>
 
       <TabsContent value="items" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={itemsReportRef}>
-          <ItemsReport language={language} />
-        </div>
+        <ItemsReport language={language} />
       </TabsContent>
 
       <TabsContent value="attendance" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <div ref={attendanceReportRef}>
-          <AttendanceReport language={language} />
-        </div>
+        <AttendanceReport language={language} />
       </TabsContent>
 
       <TabsContent 
