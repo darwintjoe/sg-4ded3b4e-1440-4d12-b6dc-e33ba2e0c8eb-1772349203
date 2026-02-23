@@ -93,6 +93,7 @@ export function PieChart({ data }: PieChartProps) {
           outerRadius={140}
           paddingAngle={2}
           dataKey="value"
+          activeIndex={activeIndex}
           activeShape={renderActiveShape}
           inactiveShape={renderInactiveShape}
           onMouseEnter={handlePieEnter}
