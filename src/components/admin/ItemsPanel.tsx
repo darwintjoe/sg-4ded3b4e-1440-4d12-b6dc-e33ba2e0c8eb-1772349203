@@ -40,8 +40,8 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
       )}
     >
       <TableCell className="text-sm w-[30%] truncate">{item.sku || "-"}</TableCell>
-      <TableCell className="text-sm w-[45%] truncate">{item.name}</TableCell>
-      <TableCell className="text-right text-sm w-[25%] whitespace-nowrap">
+      <TableCell className="text-sm w-[50%] break-words whitespace-normal">{item.name}</TableCell>
+      <TableCell className="text-right text-sm w-[20%] whitespace-nowrap">
         {item.price.toLocaleString("id-ID")}
       </TableCell>
     </TableRow>
@@ -598,10 +598,10 @@ export function ItemsPanel() {
 
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
-        {/* Row 1: Filters + Import/Export */}
-        <div className="flex items-center gap-2">
+        {/* Row 1: Filters + Import/Export - Dynamic Width */}
+        <div className="flex items-center gap-2 w-full">
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
+            <SelectTrigger className="flex-1 min-w-0 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -612,7 +612,7 @@ export function ItemsPanel() {
           </Select>
 
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
+            <SelectTrigger className="flex-1 min-w-0 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -627,20 +627,18 @@ export function ItemsPanel() {
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
-            className="w-auto px-3 whitespace-nowrap"
+            className="flex-1 min-w-0 text-sm"
           >
-            <ArrowDownToLine className="h-4 w-4 mr-2" />
-            <span>{translate("common.import", language)}</span>
+            {translate("common.import", language)}
           </Button>
 
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleCSVExport}
-            className="w-auto px-3 whitespace-nowrap"
+            className="flex-1 min-w-0 text-sm"
           >
-            <ArrowUpFromLine className="h-4 w-4 mr-2" />
-            <span>{translate("common.export", language)}</span>
+            {translate("common.export", language)}
           </Button>
 
           <input
@@ -682,7 +680,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[45%]">
+                  <TableHead className="w-[50%]">
                     <button
                       onClick={() => handleSort("name")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
@@ -691,7 +689,7 @@ export function ItemsPanel() {
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[25%] text-right">
+                  <TableHead className="w-[20%] text-right">
                     <button
                       onClick={() => handleSort("price")}
                       className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"

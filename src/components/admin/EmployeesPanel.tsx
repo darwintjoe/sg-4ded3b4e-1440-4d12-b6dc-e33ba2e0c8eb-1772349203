@@ -45,7 +45,7 @@ const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Emp
         employee.isActive === false && "opacity-50 bg-slate-100 dark:bg-slate-900"
       )}
     >
-      <TableCell className="text-sm w-[50%] truncate">{employee.name}</TableCell>
+      <TableCell className="text-sm w-[50%] break-words whitespace-normal">{employee.name}</TableCell>
       <TableCell className="text-sm w-[25%]">{employee.pin}</TableCell>
       <TableCell className="text-right text-sm w-[25%] whitespace-nowrap">
         {formatDate(employee.joinDate)}
@@ -385,10 +385,10 @@ export function EmployeesPanel() {
     <div className="flex flex-col h-full">
       {/* Fixed Filters Section - Max 2 Rows */}
       <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
-        {/* Row 1: Status + Role + Import + Export */}
-        <div className="flex items-center gap-2">
+        {/* Row 1: Status + Role + Import + Export - Dynamic Width */}
+        <div className="flex items-center gap-2 w-full">
           <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-            <SelectTrigger className="w-auto min-w-[90px] whitespace-nowrap text-sm">
+            <SelectTrigger className="flex-1 min-w-0 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -399,7 +399,7 @@ export function EmployeesPanel() {
           </Select>
 
           <Select value={roleFilter} onValueChange={(v: any) => setRoleFilter(v)}>
-            <SelectTrigger className="w-auto min-w-[100px] whitespace-nowrap text-sm">
+            <SelectTrigger className="flex-1 min-w-0 text-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -414,20 +414,18 @@ export function EmployeesPanel() {
             variant="outline" 
             size="sm" 
             onClick={() => fileInputRef.current?.click()}
-            className="gap-2 whitespace-nowrap text-sm"
+            className="flex-1 min-w-0 text-sm"
           >
-            <ArrowDownToLine className="h-4 w-4" />
-            <span>{translate("common.import", language)}</span>
+            {translate("common.import", language)}
           </Button>
 
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleCSVExport}
-            className="gap-2 whitespace-nowrap text-sm"
+            className="flex-1 min-w-0 text-sm"
           >
-            <ArrowUpFromLine className="h-4 w-4" />
-            <span>{translate("common.export", language)}</span>
+            {translate("common.export", language)}
           </Button>
 
           <input
