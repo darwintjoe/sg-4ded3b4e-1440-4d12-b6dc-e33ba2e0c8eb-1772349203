@@ -315,7 +315,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       // Try to lookup product name
       lookupProductName(notFoundBarcode);
     } else {
+      // Don't close modal - just show error
       setPinError(translate("pos.incorrectPin", language));
+      setPinInput("");
     }
   };
 
@@ -754,13 +756,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                 <HelpCircle className="h-3 w-3" />
                 {translate("pos.tapToEditHint", language)}
               </p>
-              {cart.map((item, idx) => (
+              {[...cart].reverse().map((item, idx) => {
+                const actualIndex = cart.length - 1 - idx;
+                return (
                 <div
-                  key={idx}
-                  onTouchStart={(e) => handleLongPressStart(item, idx, e.touches[0].clientX, e.touches[0].clientY)}
+                  key={actualIndex}
+                  onTouchStart={(e) => handleLongPressStart(item, actualIndex, e.touches[0].clientX, e.touches[0].clientY)}
                   onTouchMove={(e) => handleLongPressMove(e.touches[0].clientX, e.touches[0].clientY)}
                   onTouchEnd={handleLongPressEnd}
-                  onMouseDown={(e) => handleLongPressStart(item, idx, e.clientX, e.clientY)}
+                  onMouseDown={(e) => handleLongPressStart(item, actualIndex, e.clientX, e.clientY)}
                   onMouseMove={(e) => handleLongPressMove(e.clientX, e.clientY)}
                   onMouseUp={handleLongPressEnd}
                   onMouseLeave={handleLongPressEnd}
@@ -791,7 +795,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -983,8 +988,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       </AlertDialog>
 
       {/* PIN Verification Dialog */}
-      <AlertDialog open={pinVerifyOpen} onOpenChange={setPinVerifyOpen}>
-        <AlertDialogContent>
+      <AlertDialog open={pinVerifyOpen} onOpenChange={(open) => {
+        if (!open) {
+          setPinVerifyOpen(false);
+          setPinInput("");
+          setPinError("");
+          setTimeout(() => setScannerOpen(true), 500);
+        }
+      }}>
+        <AlertDialogContent className="pb-36">
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.enterPin", language)}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1000,6 +1012,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               onChange={(e) => {
                 setPinInput(e.target.value.replace(/\D/g, ""));
                 setPinError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && pinInput.length > 0) {
+                  e.preventDefault();
+                  handlePinVerify();
+                }
               }}
               placeholder="••••••"
               className="text-center text-2xl tracking-widest"
