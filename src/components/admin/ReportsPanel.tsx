@@ -388,7 +388,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem 
-                  className="gap-2 cursor-pointer" 
+                  className="gap-2 cursor-pointer hover:bg-accent active:bg-accent/80 focus:bg-accent" 
                   onClick={handleExportPDF}
                   disabled={isExporting !== null}
                 >
@@ -400,7 +400,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                   Export as PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  className="gap-2 cursor-pointer" 
+                  className="gap-2 cursor-pointer hover:bg-accent active:bg-accent/80 focus:bg-accent" 
                   onClick={handleExportImage}
                   disabled={isExporting !== null}
                 >
@@ -413,7 +413,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  className="gap-2 cursor-pointer" 
+                  className="gap-2 cursor-pointer hover:bg-accent active:bg-accent/80 focus:bg-accent" 
                   onClick={handlePrint}
                   disabled={isExporting !== null}
                 >
