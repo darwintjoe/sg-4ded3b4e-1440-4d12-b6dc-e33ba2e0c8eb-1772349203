@@ -273,14 +273,14 @@ export function ItemsReport({ language }: ItemsReportProps) {
   }
 
   return (
-    <div ref={reportContainerRef} className="space-y-4">
-      {/* Share button - absolute positioned in top right */}
-      <div className="fixed top-4 right-4 z-50 md:absolute md:top-2 md:right-2">
+    <div ref={reportContainerRef} className="space-y-4 relative">
+      {/* Share button - sticky positioned within scroll area */}
+      <div className="sticky top-0 z-10 flex justify-end pb-2">
         <Button
           onClick={handleShare}
           size="sm"
           variant="default"
-          className="h-8 w-8 p-0 rounded-full shadow-lg"
+          className="h-9 w-9 p-0 rounded-full shadow-lg"
         >
           <Share2 className="h-4 w-4" />
         </Button>
