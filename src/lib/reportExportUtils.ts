@@ -50,7 +50,7 @@ export async function exportChartAsPDF(
       orientation: pageOrientation,
       unit: "mm",
       format: "a4",
-      compress: true, // Enable PDF compression
+      compress: true,
     });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -81,7 +81,7 @@ export async function exportChartAsPDF(
     // Capture chart with lower scale for smaller file size
     const chartCanvas = await html2canvas(chartRef, {
       backgroundColor: "#ffffff",
-      scale: 1.5, // Reduced from 2 for smaller file size
+      scale: 1.5,
       logging: false,
       useCORS: true,
     });
@@ -106,7 +106,7 @@ export async function exportChartAsPDF(
     
     pdf.addImage(chartImgData, "JPEG", chartX, yOffset, chartWidth, chartHeight, undefined, "FAST");
 
-    // Capture and add table on new page(s) if provided
+    // Capture and add table on NEW PAGE if provided
     if (tableRef) {
       pdf.addPage();
       yOffset = margin;
@@ -119,7 +119,7 @@ export async function exportChartAsPDF(
 
       const tableCanvas = await html2canvas(tableRef, {
         backgroundColor: "#ffffff",
-        scale: 1.5, // Reduced for smaller file size
+        scale: 1.5,
         logging: false,
         useCORS: true,
       });
@@ -250,7 +250,7 @@ export async function exportChartAsImage(
     // Capture combined content with lower scale for smaller file
     const canvas = await html2canvas(container, {
       backgroundColor: "#ffffff",
-      scale: 1.5, // Reduced from 2
+      scale: 1.5,
       logging: false,
       useCORS: true,
     });
