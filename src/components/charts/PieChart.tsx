@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { PieChart as RechartsPie, Pie, Cell, Tooltip, Sector } from "recharts";
+import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 
 interface PieChartProps {
   data: Array<{
@@ -9,18 +10,7 @@ interface PieChartProps {
   }>;
 }
 
-interface ActiveShapeProps {
-  cx: number;
-  cy: number;
-  innerRadius: number;
-  outerRadius: number;
-  startAngle: number;
-  endAngle: number;
-  fill: string;
-  payload: { name: string; value: number };
-}
-
-const renderActiveShape = (props: ActiveShapeProps) => {
+const renderActiveShape = (props: PieSectorDataItem) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
 
   return (
@@ -29,10 +19,10 @@ const renderActiveShape = (props: ActiveShapeProps) => {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={outerRadius + 8}
+        outerRadius={(outerRadius || 140) + 8}
         startAngle={startAngle}
         endAngle={endAngle}
-        fill={fill}
+        fill={fill || "hsl(var(--chart-1))"}
         style={{
           filter: "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.3))",
         }}
