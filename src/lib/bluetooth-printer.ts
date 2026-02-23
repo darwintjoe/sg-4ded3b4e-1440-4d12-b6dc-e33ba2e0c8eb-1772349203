@@ -184,10 +184,174 @@ class BluetoothPrinterService {
   private device: BluetoothDevice | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
   private connected = false;
+  private autoReconnectAttempts = 0;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
 
   // Standard ESC/POS service UUID (most thermal printers)
   private readonly SERVICE_UUID = "000018f0-0000-1000-8000-00805f9b34fb";
   private readonly CHARACTERISTIC_UUID = "00002af1-0000-1000-8000-00805f9b34fb";
+
+  // Event callbacks
+  private onDisconnectCallback: (() => void) | null = null;
+  private onConnectCallback: ((name: string) => void) | null = null;
+
+  /**
+   * Set callback for when printer connects
+   */
+  setOnConnect(callback: (name: string) => void) {
+    this.onConnectCallback = callback;
+  }
+
+  /**
+   * Set callback for when printer disconnects
+   */
+  setOnDisconnect(callback: () => void) {
+    this.onDisconnectCallback = callback;
+  }
+
+  /**
+   * Get stored printer ID from settings
+   */
+  private getStoredPrinterId(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const settings = localStorage.getItem("sellmore_settings");
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        return parsed.bluetoothPrinterId || null;
+      }
+    } catch (e) {
+      console.error("Error reading stored printer ID:", e);
+    }
+    return null;
+  }
+
+  /**
+   * Try to auto-reconnect to previously paired printer
+   */
+  async autoReconnect(): Promise<{ success: boolean; printerName?: string; error?: string }> {
+    const storedId = this.getStoredPrinterId();
+    
+    if (!storedId) {
+      return { success: false, error: "No previously connected printer found" };
+    }
+
+    if (!this.isSupported()) {
+      return { success: false, error: "Bluetooth not supported" };
+    }
+
+    // Reset attempts
+    this.autoReconnectAttempts = 0;
+
+    try {
+      // Try to get previously permitted devices
+      // Note: This requires the "bluetooth" permission which may not be available
+      // in all browsers without a user gesture
+      const devices = await navigator.bluetooth.getDevices?.() || [];
+      const knownDevice = devices.find(d => d.id === storedId);
+
+      if (knownDevice) {
+        return await this.connectToDevice(knownDevice);
+      }
+
+      // If getDevices not available or device not found, 
+      // we can't auto-reconnect without user interaction
+      return { 
+        success: false, 
+        error: "Please manually connect - auto-reconnect requires previous permission" 
+      };
+    } catch (error) {
+      console.error("Auto-reconnect error:", error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : "Auto-reconnect failed" 
+      };
+    }
+  }
+
+  /**
+   * Connect to a specific device (used by auto-reconnect)
+   */
+  private async connectToDevice(device: BluetoothDevice): Promise<{ success: boolean; printerName?: string; printerId?: string; error?: string }> {
+    try {
+      this.device = device;
+
+      // Connect to GATT server
+      const server = await device.gatt?.connect();
+      if (!server) {
+        return { success: false, error: "Failed to connect to GATT server" };
+      }
+
+      // Get service
+      const service = await server.getPrimaryService(this.SERVICE_UUID);
+
+      // Get characteristic
+      this.characteristic = await service.getCharacteristic(this.CHARACTERISTIC_UUID);
+
+      this.connected = true;
+
+      // Handle disconnection
+      device.addEventListener("gattserverdisconnected", () => {
+        this.connected = false;
+        console.log("Printer disconnected");
+        this.onDisconnectCallback?.();
+        
+        // Attempt reconnection after short delay
+        setTimeout(() => {
+          this.attemptReconnect();
+        }, 2000);
+      });
+
+      // Notify connected
+      this.onConnectCallback?.(device.name || "Unknown Printer");
+
+      return {
+        success: true,
+        printerName: device.name || "Unknown Printer",
+        printerId: device.id,
+      };
+    } catch (error) {
+      this.connected = false;
+      console.error("Connect to device error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to connect",
+      };
+    }
+  }
+
+  /**
+   * Attempt to reconnect after disconnection
+   */
+  private async attemptReconnect(): Promise<void> {
+    if (this.autoReconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      console.log("Max reconnection attempts reached");
+      return;
+    }
+
+    this.autoReconnectAttempts++;
+    console.log(`Reconnection attempt ${this.autoReconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS}`);
+
+    const storedId = this.getStoredPrinterId();
+    if (!storedId) return;
+
+    try {
+      const devices = await navigator.bluetooth.getDevices?.() || [];
+      const device = devices.find(d => d.id === storedId);
+
+      if (device) {
+        const result = await this.connectToDevice(device);
+        if (result.success) {
+          console.log("Successfully reconnected to printer");
+          this.autoReconnectAttempts = 0;
+        }
+      }
+    } catch (error) {
+      console.error("Reconnection attempt failed:", error);
+      // Try again after delay
+      setTimeout(() => this.attemptReconnect(), 3000);
+    }
+  }
 
   /**
    * Check if Web Bluetooth API is available
