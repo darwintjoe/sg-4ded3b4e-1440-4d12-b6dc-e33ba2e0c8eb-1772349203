@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowUp, Sparkles } from "lucide-react";
+import { ArrowUp, Sparkles, Share2 } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -16,6 +16,7 @@ import { LineChart } from "@/components/charts/LineChart";
 import { Heatmap } from "@/components/charts/Heatmap";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { useToast } from "@/hooks/use-toast";
+import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
 
 interface Message {
   role: "user" | "assistant";
@@ -37,6 +38,61 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Refs for report containers (for sharing)
+  const salesReportRef = useRef<HTMLDivElement>(null);
+  const itemsReportRef = useRef<HTMLDivElement>(null);
+  const attendanceReportRef = useRef<HTMLDivElement>(null);
+
+  // Share handler for current active report
+  const handleShare = async () => {
+    let targetRef: React.RefObject<HTMLDivElement | null>;
+    let filename: string;
+
+    switch (activeTab) {
+      case "sales":
+        targetRef = salesReportRef;
+        filename = generateExportFilename("sales-report");
+        break;
+      case "items":
+        targetRef = itemsReportRef;
+        filename = generateExportFilename("items-report");
+        break;
+      case "attendance":
+        targetRef = attendanceReportRef;
+        filename = generateExportFilename("attendance-report");
+        break;
+      default:
+        toast({
+          title: "Cannot share",
+          description: "Share is only available for report tabs",
+          variant: "destructive"
+        });
+        return;
+    }
+
+    if (!targetRef.current) {
+      toast({
+        title: "Share failed",
+        description: "Report content not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const result = await shareReportAsImage(targetRef.current, {
+      filename,
+      title: `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report`
+    });
+
+    if (!result.success && result.error) {
+      toast({
+        title: "Share failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
 
   // Auto-scroll to bottom when messages change or during streaming
   useEffect(() => {
@@ -213,28 +269,35 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
   return (
     <Tabs defaultValue="sales" value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <div className="flex flex-col gap-4">
-        {/* Row 1: Tabs only */}
-        <div className="flex items-center justify-between gap-4">
-          <TabsList className="flex-1">
-            <TabsTrigger value="sales" className="flex-1">Sales</TabsTrigger>
-            <TabsTrigger value="items" className="flex-1">Items</TabsTrigger>
-            <TabsTrigger value="attendance" className="flex-1">Attendance</TabsTrigger>
-            <TabsTrigger value="ask" className="flex-1">Ask Me</TabsTrigger>
-          </TabsList>
-        </div>
+      <div className="flex items-center gap-2">
+        <TabsList className="flex-1">
+          <TabsTrigger value="sales" className="flex-1 text-xs">Sales</TabsTrigger>
+          <TabsTrigger value="items" className="flex-1 text-xs">Items</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-1 text-xs">Attendance</TabsTrigger>
+          <TabsTrigger value="ask" className="flex-1 text-xs">Ask Me</TabsTrigger>
+        </TabsList>
+        {activeTab !== "ask" && (
+          <Button
+            onClick={handleShare}
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 shrink-0"
+          >
+            <Share2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <TabsContent value="sales" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <SalesReport language={language} />
+        <SalesReport language={language} containerRef={salesReportRef} />
       </TabsContent>
 
       <TabsContent value="items" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <ItemsReport language={language} />
+        <ItemsReport language={language} containerRef={itemsReportRef} />
       </TabsContent>
 
       <TabsContent value="attendance" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <AttendanceReport language={language} />
+        <AttendanceReport language={language} containerRef={attendanceReportRef} />
       </TabsContent>
 
       <TabsContent 

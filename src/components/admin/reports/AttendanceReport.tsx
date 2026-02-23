@@ -1,21 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
-import { Share2 } from "lucide-react";
-import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
-import { useToast } from "@/hooks/use-toast";
 
 type AttendanceTimeRange = "mtd" | "ytd";
 
 interface AttendanceReportProps {
   language: string;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-export function AttendanceReport({ language }: AttendanceReportProps) {
-  const reportContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+export function AttendanceReport({ language, containerRef }: AttendanceReportProps) {
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
   const [attendanceData, setAttendanceData] = useState<Array<{
     employeeName: string;
@@ -66,38 +62,8 @@ export function AttendanceReport({ language }: AttendanceReportProps) {
     }
   };
 
-  const handleShare = async () => {
-    if (!reportContainerRef.current) return;
-
-    const filename = generateExportFilename("attendance-report");
-    const result = await shareReportAsImage(reportContainerRef.current, {
-      filename,
-      title: "Attendance Report"
-    });
-
-    if (!result.success && result.error) {
-      toast({
-        title: "Share failed",
-        description: result.error,
-        variant: "destructive"
-      });
-    }
-  };
-
   return (
-    <div ref={reportContainerRef} className="space-y-4 relative">
-      {/* Share button - sticky positioned within scroll area */}
-      <div className="sticky top-0 z-10 flex justify-end pb-2">
-        <Button
-          onClick={handleShare}
-          size="sm"
-          variant="default"
-          className="h-9 w-9 p-0 rounded-full shadow-lg"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-      </div>
-
+    <div ref={containerRef} className="space-y-4">
       <div className="flex justify-end gap-2">
         <Button
           variant={attendanceTimeRange === "mtd" ? "default" : "outline"}

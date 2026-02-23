@@ -4,12 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyItemSales, MonthlyItemSales, Language } from "@/types";
 import { db } from "@/lib/db";
 import { translate } from "@/lib/translations";
-import { Package, Share2 } from "lucide-react";
+import { Package } from "lucide-react";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
-import { useToast } from "@/hooks/use-toast";
 
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type ChartView = "bar" | "pie";
@@ -17,6 +15,7 @@ type SortBy = "quantity" | "revenue";
 
 interface ItemsReportProps {
   language: string;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface AggregatedItemData {
@@ -28,19 +27,12 @@ interface AggregatedItemData {
 
 // Smooth Color Spectrum Generator
 const generateSpectrumColor = (index: number, total: number): string => {
-  // Calculate hue based on position in spectrum (0-360 degrees)
-  // Distributes colors evenly across the rainbow spectrum
   const hue = (index / total) * 360;
-  
-  // Use high saturation and medium lightness for vibrant, professional colors
-  // HSL format: hue (0-360), saturation (70%), lightness (50%)
   return `hsl(${hue}, 70%, 50%)`;
 };
 
-export function ItemsReport({ language }: ItemsReportProps) {
+export function ItemsReport({ language, containerRef }: ItemsReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
-  const reportContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -228,24 +220,6 @@ export function ItemsReport({ language }: ItemsReportProps) {
     }
   };
 
-  const handleShare = async () => {
-    if (!reportContainerRef.current) return;
-
-    const filename = generateExportFilename("items-report");
-    const result = await shareReportAsImage(reportContainerRef.current, {
-      filename,
-      title: "Top Items Report"
-    });
-
-    if (!result.success && result.error) {
-      toast({
-        title: "Share failed",
-        description: result.error,
-        variant: "destructive"
-      });
-    }
-  };
-
   const barChartData = topItems.map(item => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
@@ -273,19 +247,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
   }
 
   return (
-    <div ref={reportContainerRef} className="space-y-4 relative">
-      {/* Share button - sticky positioned within scroll area */}
-      <div className="sticky top-0 z-10 flex justify-end pb-2">
-        <Button
-          onClick={handleShare}
-          size="sm"
-          variant="default"
-          className="h-9 w-9 p-0 rounded-full shadow-lg"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-      </div>
-
+    <div ref={containerRef} className="space-y-4">
       <div className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
         <Card className="border-0 shadow-none">
           <CardContent className="p-0">

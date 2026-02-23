@@ -3,18 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DailyPaymentSales, MonthlySalesSummary } from "@/types";
 import { db } from "@/lib/db";
-import { DollarSign, Receipt, TrendingUp, Share2 } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDateRange, formatBusinessDate, getYearMonth } from "@/lib/dateRangeUtils";
 import type { TimeRange } from "@/lib/dateRangeUtils";
-import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
-import { useToast } from "@/hooks/use-toast";
 
 type SalesTimeRange = "MTD" | "30D" | "YTD" | "12M" | "5Y";
 
 interface SalesReportProps {
   language: string;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 interface AggregatedSalesData {
@@ -28,12 +27,10 @@ interface AggregatedSalesData {
   voucher: number;
 }
 
-export function SalesReport({ language }: SalesReportProps) {
+export function SalesReport({ language, containerRef }: SalesReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
   const salesChartRef = useRef<HTMLDivElement>(null);
   const salesTableRef = useRef<HTMLDivElement>(null);
-  const reportContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -314,24 +311,6 @@ export function SalesReport({ language }: SalesReportProps) {
     }
   };
 
-  const handleShare = async () => {
-    if (!reportContainerRef.current) return;
-
-    const filename = generateExportFilename("sales-report");
-    const result = await shareReportAsImage(reportContainerRef.current, {
-      filename,
-      title: "Sales Report"
-    });
-
-    if (!result.success && result.error) {
-      toast({
-        title: "Share failed",
-        description: result.error,
-        variant: "destructive"
-      });
-    }
-  };
-
   const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
 
   // Pre-calculate table totals (memoized in render)
@@ -345,19 +324,7 @@ export function SalesReport({ language }: SalesReportProps) {
   };
 
   return (
-    <div ref={reportContainerRef} className="space-y-4 relative">
-      {/* Share button - sticky positioned within scroll area */}
-      <div className="sticky top-0 z-10 flex justify-end pb-2">
-        <Button
-          onClick={handleShare}
-          size="sm"
-          variant="default"
-          className="h-9 w-9 p-0 rounded-full shadow-lg"
-        >
-          <Share2 className="h-4 w-4" />
-        </Button>
-      </div>
-
+    <div ref={containerRef} className="space-y-4">
       <div ref={salesChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
         <div className="text-center space-y-1 pb-3 border-b">
           <h2 className="text-lg font-bold">{t.reports.salesReport}</h2>
