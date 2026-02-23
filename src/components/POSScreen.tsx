@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound } from "@/lib/utils";
 import Image from "next/image";
 import { getSubscriptionInfo, getSubscriptionBarPercentage, getSubscriptionBarColor } from "@/lib/subscription-service";
+import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 
 interface POSScreenProps {
   onAdminClick: () => void;
