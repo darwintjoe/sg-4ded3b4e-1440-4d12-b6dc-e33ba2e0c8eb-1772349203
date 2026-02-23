@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { PieChart as RechartsPie, Pie, Cell, Tooltip, Sector } from "recharts";
+import { PieChart as RechartsPie, Pie, Cell, Sector } from "recharts";
 import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 
 interface PieChartProps {
@@ -11,7 +11,7 @@ interface PieChartProps {
 }
 
 const renderActiveShape = (props: PieSectorDataItem) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value } = props;
 
   return (
     <g>
@@ -19,7 +19,7 @@ const renderActiveShape = (props: PieSectorDataItem) => {
         cx={cx}
         cy={cy}
         innerRadius={innerRadius}
-        outerRadius={(outerRadius || 140) + 8}
+        outerRadius={(outerRadius || 140) + 10}
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill || "hsl(var(--chart-1))"}
@@ -27,19 +27,59 @@ const renderActiveShape = (props: PieSectorDataItem) => {
           filter: "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.3))",
         }}
       />
+      {/* Custom tooltip positioned at center */}
+      <text
+        x={cx}
+        y={(cy || 175) - 10}
+        textAnchor="middle"
+        fill="#333"
+        fontSize={14}
+        fontWeight={600}
+      >
+        {name}
+      </text>
+      <text
+        x={cx}
+        y={(cy || 175) + 12}
+        textAnchor="middle"
+        fill="#666"
+        fontSize={13}
+      >
+        {typeof value === "number" ? value.toLocaleString() : value}
+      </text>
     </g>
+  );
+};
+
+const renderInactiveShape = (props: PieSectorDataItem) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+
+  return (
+    <Sector
+      cx={cx}
+      cy={cy}
+      innerRadius={innerRadius}
+      outerRadius={outerRadius}
+      startAngle={startAngle}
+      endAngle={endAngle}
+      fill={fill || "hsl(var(--chart-1))"}
+    />
   );
 };
 
 export function PieChart({ data }: PieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
 
-  const handleCellClick = useCallback((index: number) => {
+  const handleCellClick = useCallback((_: unknown, index: number) => {
     setActiveIndex(prev => prev === index ? undefined : index);
   }, []);
 
   const handlePieEnter = useCallback((_: unknown, index: number) => {
     setActiveIndex(index);
+  }, []);
+
+  const handlePieLeave = useCallback(() => {
+    setActiveIndex(undefined);
   }, []);
 
   return (
@@ -53,10 +93,11 @@ export function PieChart({ data }: PieChartProps) {
           outerRadius={140}
           paddingAngle={2}
           dataKey="value"
-          activeIndex={activeIndex}
           activeShape={renderActiveShape}
+          inactiveShape={renderInactiveShape}
           onMouseEnter={handlePieEnter}
-          onClick={(_, index) => handleCellClick(index)}
+          onMouseLeave={handlePieLeave}
+          onClick={handleCellClick}
         >
           {data.map((entry, index) => (
             <Cell
@@ -65,23 +106,11 @@ export function PieChart({ data }: PieChartProps) {
               style={{
                 cursor: "pointer",
                 outline: "none",
+                opacity: activeIndex === undefined || activeIndex === index ? 1 : 0.6,
               }}
             />
           ))}
         </Pie>
-        <Tooltip
-          formatter={(value: number) => value.toLocaleString()}
-          contentStyle={{
-            fontSize: "12px",
-            backgroundColor: "rgba(255, 255, 255, 0.98)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            border: "none",
-            borderRadius: "8px",
-            padding: "10px 14px"
-          }}
-          labelStyle={{ fontSize: "12px", fontWeight: "600", marginBottom: "2px" }}
-          wrapperStyle={{ outline: "none" }}
-        />
       </RechartsPie>
     </div>
   );
