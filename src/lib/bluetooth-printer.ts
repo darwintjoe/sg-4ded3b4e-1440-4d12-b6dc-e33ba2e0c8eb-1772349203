@@ -618,8 +618,90 @@ class BluetoothPrinterService {
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
 
+      // === MOCK RECEIPT ITEMS TEST ===
+      commands.push(this.cmdAlign("center"));
+      commands.push(this.cmdBold(true));
+      commands.push(this.encodeText("MOCK RECEIPT TEST"));
+      commands.push(this.cmdBold(false));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.cmdAlign("left"));
+
+      // Item 1
+      commands.push(this.encodeText("Kopi Susu"));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.encodeText(this.padLine("2 x 15.000", "30.000", width)));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.cmdLineFeed(1));
+
+      // Item 2
+      commands.push(this.encodeText("Nasi Goreng Special"));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.encodeText(this.padLine("1 x 25.000", "25.000", width)));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.cmdLineFeed(1));
+
+      // Item 3
+      commands.push(this.encodeText("Teh Manis Dingin"));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.encodeText(this.padLine("3 x 8.000", "24.000", width)));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.cmdLineFeed(1));
+
+      // Item 4 - Long name
+      commands.push(this.encodeText("Mie Goreng Seafood Spesial"));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.encodeText(this.padLine("1 x 35.000", "35.000", width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Separator
+      commands.push(this.cmdAlign("center"));
+      commands.push(this.encodeText(this.separatorLine(width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Subtotal
+      commands.push(this.cmdAlign("left"));
+      commands.push(this.encodeText(this.padLine("Subtotal:", "114.000", width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Tax
+      commands.push(this.encodeText(this.padLine("PPN (10%):", "11.400", width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Separator
+      commands.push(this.cmdAlign("center"));
+      commands.push(this.encodeText(this.separatorLine(width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // TOTAL
+      commands.push(this.cmdBold(true));
+      commands.push(this.cmdTextSize(2, 2));
+      commands.push(this.encodeText(this.padLine("TOTAL:", "125.400", width - 10)));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.cmdTextSize(1, 1));
+      commands.push(this.cmdBold(false));
+
+      // Separator
+      commands.push(this.cmdAlign("center"));
+      commands.push(this.encodeText(this.separatorLine(width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Payment
+      commands.push(this.cmdAlign("left"));
+      commands.push(this.encodeText(this.padLine("Payment (Cash):", "150.000", width)));
+      commands.push(this.cmdLineFeed(1));
+      commands.push(this.encodeText(this.padLine("Change:", "24.600", width)));
+      commands.push(this.cmdLineFeed(1));
+
+      // Separator
+      commands.push(this.cmdAlign("center"));
+      commands.push(this.encodeText(this.separatorLine(width)));
+      commands.push(this.cmdLineFeed(1));
+
       // Footer
+      commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(settings.receiptFooter || "Thank you!"));
+      commands.push(this.cmdLineFeed(2));
+      commands.push(this.encodeText("Test completed successfully"));
       commands.push(this.cmdLineFeed(3));
 
       // Cut paper
