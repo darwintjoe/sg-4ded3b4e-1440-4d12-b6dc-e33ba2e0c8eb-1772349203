@@ -3,10 +3,10 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility functions for exporting reports as PDF or images
- * Uses single-capture approach with smart pagination
  * - Captures content ONCE from reportRef
- * - PDF: Paginates content across multiple pages as needed
+ * - PDF: Simple pagination across pages (no duplicate headers)
  * - Image: Single JPG export
+ * - Auto-open after download
  */
 
 export interface ExportOptions {
@@ -119,7 +119,7 @@ export async function exportChartAsPDF(
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true };
   } catch (error) {
@@ -169,7 +169,7 @@ export async function exportChartAsImage(
     // Auto-open image after short delay
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
@@ -271,7 +271,7 @@ export async function printReport(
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
-        }, 500);
+        }, 300);
       };
     }
 
