@@ -24,12 +24,14 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         console.log("Audio playback failed (likely due to browser autoplay policy):", error);
       });
 
-      // Fade out transition
-      setIsVisible(false);
-      // Wait for fade animation to complete before calling onComplete
+      // Wait for sound to play (ka-ching.mp3 is ~1 second), then fade out
       setTimeout(() => {
-        onComplete();
-      }, 500);
+        setIsVisible(false);
+        // Wait for fade animation to complete before calling onComplete
+        setTimeout(() => {
+          onComplete();
+        }, 500);
+      }, 800);
     };
 
     // Handle video error (fallback to auto-complete after 5 seconds)
@@ -59,11 +61,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     return () => {
       video.removeEventListener("ended", handleVideoEnd);
       video.removeEventListener("error", handleVideoError);
-      // Stop audio when component unmounts
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
     };
   }, [onComplete]);
 
