@@ -12,18 +12,18 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Initialize and play ka-ching sound
-    audioRef.current = new Audio("/ka-ching.mp3");
-    audioRef.current.volume = 0.7;
-    audioRef.current.play().catch((error) => {
-      console.log("Audio playback failed (likely due to browser autoplay policy):", error);
-    });
-
     const video = videoRef.current;
     if (!video) return;
 
     // Handle video end
     const handleVideoEnd = () => {
+      // Play ka-ching sound at video end
+      audioRef.current = new Audio("/ka-ching.mp3");
+      audioRef.current.volume = 0.7;
+      audioRef.current.play().catch((error) => {
+        console.log("Audio playback failed (likely due to browser autoplay policy):", error);
+      });
+
       // Fade out transition
       setIsVisible(false);
       // Wait for fade animation to complete before calling onComplete
