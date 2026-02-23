@@ -131,13 +131,12 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
                     duration: 1500,
                   });
 
-                  // Reset cooldown after 2 seconds
+                  // Reset cooldown after 2 seconds - DO NOT check mounted here
+                  // The timeout should always reset cooldown state
                   setTimeout(() => {
-                    if (mounted) {
-                      cooldownRef.current = false;
-                      setScanCooldown(false);
-                      setLastScannedCode(null);
-                    }
+                    cooldownRef.current = false;
+                    setScanCooldown(false);
+                    setLastScannedCode(null);
                   }, 2000);
                 }
               } catch (err) {
