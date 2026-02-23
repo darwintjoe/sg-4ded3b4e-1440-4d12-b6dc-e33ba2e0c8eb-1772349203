@@ -43,6 +43,7 @@ import { PrinterSettingsSection } from "./settings/PrinterSettingsSection";
 import { POSSettingsSection } from "./settings/POSSettingsSection";
 import { DatabaseManagementSection } from "./settings/DatabaseManagementSection";
 import { BackupSettingsCard } from "./settings/BackupSettingsCard";
+import { AccurateIntegrationSection } from "./settings/AccurateIntegrationSection";
 
 export function SettingsPanel() {
   const { settings: currentSettings, updateSettings, language, loginAdmin } = useApp();
@@ -1052,6 +1053,7 @@ export function SettingsPanel() {
               backupStatus={backupStatus}
               startPreviewProcess={startPreviewProcess}
             />
+            <AccurateIntegrationSection />
           </TabsContent>
         </div>
       </Tabs>
