@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility for exporting reports as PDF or images
- * Clean approach: Capture ONCE, paginate cleanly, NO extra headers
+ * Simple approach: Capture ONCE, paginate cleanly, NO extra headers
  */
 
 export interface ExportOptions {
