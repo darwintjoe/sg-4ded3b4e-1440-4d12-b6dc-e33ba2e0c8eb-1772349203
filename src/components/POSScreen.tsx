@@ -1089,7 +1089,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                 {translate("items.itemName", language)} <span className="text-red-500">*</span>
               </Label>
               <Input
-                ref={newItemNameRef}
                 value={newItemData.name}
                 onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder={translate("items.itemNamePlaceholder", language)}
