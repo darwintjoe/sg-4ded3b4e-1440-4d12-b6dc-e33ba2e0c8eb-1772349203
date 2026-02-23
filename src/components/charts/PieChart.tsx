@@ -12,6 +12,11 @@ interface PieChartProps {
 export function PieChart({ data }: PieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
+  const handleCellClick = (index: number) => {
+    // Toggle selection: tap same slice to deselect, tap different to select
+    setActiveIndex(prev => prev === index ? null : index);
+  };
+
   return (
     <div className="w-full h-full flex items-center justify-center">
       <RechartsPie width={350} height={350}>
@@ -20,10 +25,9 @@ export function PieChart({ data }: PieChartProps) {
           cx="50%"
           cy="50%"
           innerRadius={0}
-          outerRadius={activeIndex !== null ? 125 : 137}
+          outerRadius={140}
           paddingAngle={2}
           dataKey="value"
-          onMouseLeave={() => setActiveIndex(null)}
         >
           {data.map((entry, index) => (
             <Cell 
@@ -32,12 +36,12 @@ export function PieChart({ data }: PieChartProps) {
               style={{ 
                 cursor: "pointer",
                 outline: "none",
-                filter: activeIndex === index ? "brightness(1.15) drop-shadow(0 4px 8px rgba(0,0,0,0.2))" : "brightness(1)",
-                transform: activeIndex === index ? "scale(1.08)" : "scale(1)",
-                transformOrigin: "center",
-                transition: "all 0.2s ease"
+                filter: activeIndex === index 
+                  ? "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.3))" 
+                  : "brightness(1)",
+                transition: "filter 0.15s ease"
               }}
-              onMouseEnter={() => setActiveIndex(index)}
+              onClick={() => handleCellClick(index)}
             />
           ))}
         </Pie>
