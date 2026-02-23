@@ -527,10 +527,14 @@ export function ItemsPanel() {
     
     if (!editingItem) return;
     
-    // Set SKU immediately
-    handleFieldChange("sku", barcode);
+    // Clear name and set new SKU - this allows lookup to fill the name
+    setEditingItem(prev => {
+      if (!prev) return null;
+      return { ...prev, sku: barcode, name: "" };
+    });
+    setHasUnsavedChanges(true);
     
-    // Trigger lookup
+    // Trigger lookup after state update
     await lookupProductBySKU(barcode);
   };
 
