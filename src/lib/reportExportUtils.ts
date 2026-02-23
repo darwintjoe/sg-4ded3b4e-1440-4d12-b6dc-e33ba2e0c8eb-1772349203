@@ -11,6 +11,37 @@ export interface ShareResult {
 }
 
 /**
+ * Capture report element as high-resolution image blob
+ */
+async function captureReportAsBlob(
+  element: HTMLElement,
+  quality: number = 0.92
+): Promise<Blob> {
+  // Use scale 3 for high resolution (better zoom capability)
+  const canvas = await html2canvas(element, {
+    backgroundColor: "#ffffff",
+    scale: 3, // 3x resolution for crisp images that can zoom well
+    logging: false,
+    useCORS: true,
+    allowTaint: true,
+  });
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Failed to create image blob"));
+        }
+      },
+      "image/jpeg",
+      quality
+    );
+  });
+}
+
+/**
  * Share report as image using native Web Share API
  * Opens system share sheet (WhatsApp, Gmail, Save to Files, etc.)
  */
@@ -33,25 +64,8 @@ export async function shareReportAsImage(
   try {
     const { filename, title } = options;
 
-    // Capture entire report as image
-    const canvas = await html2canvas(reportRef, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-    });
-
-    // Convert to blob
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          resolve(blob);
-        } else {
-          reject(new Error("Failed to create image blob"));
-        }
-      }, "image/jpeg", 0.92);
-    });
+    // Capture report as high-res image
+    const blob = await captureReportAsBlob(reportRef);
 
     // Create file from blob
     const file = new File([blob], `${filename}.jpg`, { type: "image/jpeg" });
@@ -81,6 +95,48 @@ export async function shareReportAsImage(
     return {
       success: false,
       error: error instanceof Error ? error.message : "Share failed",
+    };
+  }
+}
+
+/**
+ * Download report as image directly to device
+ * Saves to Downloads folder (which syncs to Gallery on most devices)
+ */
+export async function downloadReportAsImage(
+  reportRef: HTMLElement | null,
+  options: ShareOptions
+): Promise<ShareResult> {
+  if (!reportRef) {
+    return { success: false, error: "Report element not found" };
+  }
+
+  try {
+    const { filename } = options;
+
+    // Capture report as high-res image
+    const blob = await captureReportAsBlob(reportRef);
+
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${filename}.jpg`;
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Cleanup
+    URL.revokeObjectURL(url);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Download failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Download failed",
     };
   }
 }

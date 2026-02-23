@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowUp, Sparkles, Share2 } from "lucide-react";
+import { ArrowUp, Sparkles, Share2, Download } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -16,7 +16,7 @@ import { LineChart } from "@/components/charts/LineChart";
 import { Heatmap } from "@/components/charts/Heatmap";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { useToast } from "@/hooks/use-toast";
-import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
+import { shareReportAsImage, downloadReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
 
 interface Message {
   role: "user" | "assistant";
@@ -36,6 +36,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -46,6 +47,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
 
   // Share handler for current active report
   const handleShare = async () => {
+    if (isSharing) return;
+    
     let targetRef: React.RefObject<HTMLDivElement | null>;
     let filename: string;
 
@@ -63,11 +66,6 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
         filename = generateExportFilename("attendance-report");
         break;
       default:
-        toast({
-          title: "Cannot share",
-          description: "Share is only available for report tabs",
-          variant: "destructive"
-        });
         return;
     }
 
@@ -80,14 +78,79 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       return;
     }
 
+    setIsSharing(true);
+    toast({
+      title: "Preparing image...",
+      description: "Please wait while we capture the report",
+    });
+
     const result = await shareReportAsImage(targetRef.current, {
       filename,
       title: `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Report`
     });
 
+    setIsSharing(false);
+
     if (!result.success && result.error) {
       toast({
         title: "Share failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Download handler for current active report (saves to device)
+  const handleDownload = async () => {
+    if (isSharing) return;
+    
+    let targetRef: React.RefObject<HTMLDivElement | null>;
+    let filename: string;
+
+    switch (activeTab) {
+      case "sales":
+        targetRef = salesReportRef;
+        filename = generateExportFilename("sales-report");
+        break;
+      case "items":
+        targetRef = itemsReportRef;
+        filename = generateExportFilename("items-report");
+        break;
+      case "attendance":
+        targetRef = attendanceReportRef;
+        filename = generateExportFilename("attendance-report");
+        break;
+      default:
+        return;
+    }
+
+    if (!targetRef.current) {
+      toast({
+        title: "Download failed",
+        description: "Report content not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSharing(true);
+    toast({
+      title: "Preparing image...",
+      description: "Saving to your device",
+    });
+
+    const result = await downloadReportAsImage(targetRef.current, { filename });
+
+    setIsSharing(false);
+
+    if (result.success) {
+      toast({
+        title: "Saved!",
+        description: "Image saved to your Downloads folder",
+      });
+    } else if (result.error) {
+      toast({
+        title: "Download failed",
         description: result.error,
         variant: "destructive"
       });
@@ -277,14 +340,28 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           <TabsTrigger value="ask" className="flex-1 text-xs">Ask Me</TabsTrigger>
         </TabsList>
         {activeTab !== "ask" && (
-          <Button
-            onClick={handleShare}
-            size="sm"
-            variant="ghost"
-            className="h-8 w-8 p-0 shrink-0"
-          >
-            <Share2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              onClick={handleDownload}
+              disabled={isSharing}
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 active:bg-primary/20 active:scale-95 transition-all"
+              title="Save to device"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button
+              onClick={handleShare}
+              disabled={isSharing}
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10 active:bg-primary/20 active:scale-95 transition-all"
+              title="Share"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
