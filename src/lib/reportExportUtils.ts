@@ -16,23 +16,31 @@ export interface ExportResult {
 }
 
 /**
- * Export report as PDF - Two-section approach:
- * 1. Chart section → Page 1 (title + stats + chart + buttons)
- * 2. Table section → Page 2+ (data table with pagination)
+ * Export report as PDF - Single-capture pagination:
+ * Capture entire report ONCE, then paginate cleanly across pages
  */
 export async function exportChartAsPDF(
-  chartRef: HTMLElement | null,
-  tableRef: HTMLElement | null,
+  reportRef: HTMLElement | null,
+  _unusedRef: HTMLElement | null,
   options: ExportOptions
 ): Promise<ExportResult> {
-  if (!chartRef) {
-    return { success: false, error: "Chart element not found" };
+  if (!reportRef) {
+    return { success: false, error: "Report element not found" };
   }
 
   try {
     const { filename, pageOrientation = "portrait" } = options;
 
-    // Create PDF with proper dimensions
+    // 1. Capture entire report content ONCE
+    const canvas = await html2canvas(reportRef, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      logging: false,
+      useCORS: true,
+      allowTaint: true,
+    });
+
+    // 2. Create PDF with proper dimensions
     const pdf = new jsPDF({
       orientation: pageOrientation,
       unit: "mm",
@@ -46,97 +54,61 @@ export async function exportChartAsPDF(
     const usableWidth = pageWidth - 2 * margin;
     const usableHeight = pageHeight - 2 * margin;
 
-    // 1. Capture and add chart section (page 1)
-    const chartCanvas = await html2canvas(chartRef, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-    });
+    // 3. Calculate image dimensions
+    const imgWidth = usableWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const pxPerMm = canvas.width / imgWidth;
 
-    const chartImgWidth = usableWidth;
-    const chartImgHeight = (chartCanvas.height * chartImgWidth) / chartCanvas.width;
-    const chartImgData = chartCanvas.toDataURL("image/jpeg", 0.92);
-
-    // Add chart to page 1 (scale down if needed to fit)
-    if (chartImgHeight <= usableHeight) {
-      pdf.addImage(chartImgData, "JPEG", margin, margin, chartImgWidth, chartImgHeight);
+    // 4. If content fits on one page, just add it
+    if (imgHeight <= usableHeight) {
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
     } else {
-      // Scale to fit page height
-      const scaledHeight = usableHeight;
-      const scaledWidth = (chartCanvas.width * scaledHeight) / chartCanvas.height;
-      pdf.addImage(chartImgData, "JPEG", margin, margin, scaledWidth, scaledHeight);
-    }
+      // 5. Content needs pagination - slice cleanly across pages
+      let remainingHeightPx = canvas.height;
+      let sourceYPx = 0;
+      let isFirstPage = true;
 
-    // 2. Capture and paginate table section (page 2+) if it exists
-    if (tableRef) {
-      const tableCanvas = await html2canvas(tableRef, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-      });
-
-      const tableImgWidth = usableWidth;
-      const tableImgHeight = (tableCanvas.height * tableImgWidth) / tableCanvas.width;
-      const pxPerMm = tableCanvas.width / tableImgWidth;
-
-      // Add new page for table
-      pdf.addPage();
-
-      // If table fits on one page, just add it
-      if (tableImgHeight <= usableHeight) {
-        const tableImgData = tableCanvas.toDataURL("image/jpeg", 0.92);
-        pdf.addImage(tableImgData, "JPEG", margin, margin, tableImgWidth, tableImgHeight);
-      } else {
-        // Table needs pagination - slice cleanly across pages
-        let remainingHeightPx = tableCanvas.height;
-        let sourceYPx = 0;
-        let isFirstTablePage = true;
-
-        while (remainingHeightPx > 0) {
-          if (!isFirstTablePage) {
-            pdf.addPage();
-          }
-
-          // Calculate how much content fits on this page
-          const sliceHeightMm = Math.min(remainingHeightPx / pxPerMm, usableHeight);
-          const sliceHeightPx = Math.ceil(sliceHeightMm * pxPerMm);
-
-          // Create canvas slice for this page
-          const sliceCanvas = document.createElement("canvas");
-          sliceCanvas.width = tableCanvas.width;
-          sliceCanvas.height = sliceHeightPx;
-          const sliceCtx = sliceCanvas.getContext("2d");
-
-          if (sliceCtx) {
-            // White background
-            sliceCtx.fillStyle = "#ffffff";
-            sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-            
-            // Draw the slice from table canvas
-            sliceCtx.drawImage(
-              tableCanvas,
-              0, sourceYPx,
-              tableCanvas.width, sliceHeightPx,
-              0, 0,
-              tableCanvas.width, sliceHeightPx
-            );
-
-            const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
-            pdf.addImage(sliceData, "JPEG", margin, margin, tableImgWidth, sliceHeightMm);
-          }
-
-          remainingHeightPx -= sliceHeightPx;
-          sourceYPx += sliceHeightPx;
-          isFirstTablePage = false;
+      while (remainingHeightPx > 0) {
+        if (!isFirstPage) {
+          pdf.addPage();
         }
+
+        // Calculate how much content fits on this page
+        const sliceHeightMm = Math.min(remainingHeightPx / pxPerMm, usableHeight);
+        const sliceHeightPx = Math.ceil(sliceHeightMm * pxPerMm);
+
+        // Create canvas slice for this page
+        const sliceCanvas = document.createElement("canvas");
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = sliceHeightPx;
+        const sliceCtx = sliceCanvas.getContext("2d");
+
+        if (sliceCtx) {
+          // White background
+          sliceCtx.fillStyle = "#ffffff";
+          sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          
+          // Draw the slice from original canvas
+          sliceCtx.drawImage(
+            canvas,
+            0, sourceYPx,
+            canvas.width, sliceHeightPx,
+            0, 0,
+            canvas.width, sliceHeightPx
+          );
+
+          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
+          pdf.addImage(sliceData, "JPEG", margin, margin, imgWidth, sliceHeightMm);
+        }
+
+        remainingHeightPx -= sliceHeightPx;
+        sourceYPx += sliceHeightPx;
+        isFirstPage = false;
       }
     }
 
-    // 3. Save PDF (mobile will show "Open with..." notification)
+    // 6. Save PDF (user will see download notification)
     pdf.save(`${filename}.pdf`);
 
     return { success: true };
