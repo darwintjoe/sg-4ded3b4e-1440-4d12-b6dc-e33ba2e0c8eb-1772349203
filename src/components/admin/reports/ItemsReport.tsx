@@ -389,27 +389,6 @@ export function ItemsReport({ language }: ItemsReportProps) {
         </Card>
       </div>
 
-      <div className="flex justify-center gap-2">
-        <Button 
-          onClick={exportItemsAsPDF} 
-          variant="outline" 
-          size="sm"
-          disabled={isExporting}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          {isExporting ? t.reports.exporting : t.reports.exportPDF}
-        </Button>
-        <Button 
-          onClick={exportItemsAsImage} 
-          variant="outline" 
-          size="sm"
-          disabled={isExporting}
-        >
-          <FileImage className="h-4 w-4 mr-2" />
-          {isExporting ? t.reports.exporting : t.reports.exportImage}
-        </Button>
-      </div>
-
       <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
         <Card className="border-0 shadow-none">
           <CardHeader className="px-0 pt-0">
