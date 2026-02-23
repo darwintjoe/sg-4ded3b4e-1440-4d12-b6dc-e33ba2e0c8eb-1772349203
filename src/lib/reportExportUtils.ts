@@ -4,9 +4,9 @@ import jsPDF from "jspdf";
 /**
  * Shared utility functions for exporting reports as PDF or images
  * - Captures content ONCE from reportRef
- * - PDF: Simple pagination across pages (no duplicate headers)
- * - Image: Single JPG export
- * - Auto-open after download
+ * - PDF: Clean pagination with no duplicate headers
+ * - Image: Single JPG export with auto-open
+ * - Auto-open after download for convenience
  */
 
 export interface ExportOptions {
@@ -24,13 +24,13 @@ export interface ExportResult {
 }
 
 /**
- * Export a report as PDF with proper pagination
- * Captures content ONCE, then paginates across pages
- * No duplicate headers - content already contains title
+ * Export a report as PDF with clean pagination
+ * Captures content ONCE, then paginates cleanly across pages
+ * No duplicate headers - content already contains all necessary titles
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
-  _unusedRef: HTMLElement | null, // Keep for API compatibility
+  _unusedRef: HTMLElement | null,
   options: ExportOptions
 ): Promise<ExportResult> {
   if (!reportRef) {
@@ -72,7 +72,7 @@ export async function exportChartAsPDF(
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
     } else {
-      // Content needs pagination - slice into pages
+      // Content needs pagination - slice into pages WITHOUT adding extra headers
       let remainingHeightPx = canvas.height;
       let sourceYPx = 0;
       let isFirstPage = true;
@@ -114,12 +114,12 @@ export async function exportChartAsPDF(
     // Save the PDF file (browser handles duplicate naming automatically)
     pdf.save(`${filename}.pdf`);
 
-    // Auto-open PDF after short delay
+    // Auto-open PDF after short delay for user convenience
     setTimeout(() => {
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
-    }, 300);
+    }, 500);
 
     return { success: true };
   } catch (error) {
@@ -132,7 +132,7 @@ export async function exportChartAsPDF(
 }
 
 /**
- * Export a report as JPG image (single capture)
+ * Export a report as JPG image (single capture) with auto-open
  */
 export async function exportChartAsImage(
   reportRef: HTMLElement | null,
@@ -166,10 +166,10 @@ export async function exportChartAsImage(
     link.click();
     document.body.removeChild(link);
 
-    // Auto-open image after short delay
+    // Auto-open image after short delay for user convenience
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
-    }, 300);
+    }, 500);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
@@ -271,7 +271,7 @@ export async function printReport(
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
-        }, 300);
+        }, 500);
       };
     }
 
