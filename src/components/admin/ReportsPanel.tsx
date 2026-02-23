@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { ArrowUp, Sparkles, MoreVertical, FileText, Image, FileSpreadsheet, Printer } from "lucide-react";
+import { ArrowUp, Sparkles, MoreVertical, FileText, Image, Printer, Loader2 } from "lucide-react";
 import { SalesReport } from "@/components/admin/reports/SalesReport";
 import { ItemsReport } from "@/components/admin/reports/ItemsReport";
 import { AttendanceReport } from "@/components/admin/reports/AttendanceReport";
@@ -19,7 +19,8 @@ import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Card, CardContent } from "@/components/ui/card";
 import type { QueryResult } from "@/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
+import { exportChartAsPDF, exportChartAsImage, printReport } from "@/lib/reportExportUtils";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   role: "user" | "assistant";
@@ -40,6 +41,8 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  const [isExporting, setIsExporting] = useState<"pdf" | "image" | "print" | null>(null);
   
   // Refs for export functionality
   const salesChartRef = useRef<HTMLDivElement>(null);
@@ -69,14 +72,32 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
     }
 
     if (chartEl && tableEl) {
+      setIsExporting("pdf");
+      toast({
+        title: "Generating PDF...",
+        description: "Please wait while we prepare your report.",
+      });
+
       const result = await exportChartAsPDF(chartEl, tableEl, {
         filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`,
         title,
         includeTimestamp: true,
         pageOrientation: "portrait"
       });
-      if (!result.success) {
-        alert(`Export failed: ${result.error}`);
+
+      setIsExporting(null);
+
+      if (result.success) {
+        toast({
+          title: "PDF Ready!",
+          description: "Your report has been downloaded and opened.",
+        });
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.error || "Could not generate PDF",
+          variant: "destructive",
+        });
       }
     }
   };
@@ -97,22 +118,71 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
     }
 
     if (chartEl && tableEl) {
+      setIsExporting("image");
+      toast({
+        title: "Generating Image...",
+        description: "Please wait while we prepare your image.",
+      });
+
       const result = await exportChartAsImage(chartEl, tableEl, {
         filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`
       });
-      if (!result.success) {
-        alert(`Export failed: ${result.error}`);
+
+      setIsExporting(null);
+
+      if (result.success) {
+        toast({
+          title: "Image Ready!",
+          description: "Your report image has been downloaded and opened.",
+        });
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.error || "Could not generate image",
+          variant: "destructive",
+        });
       }
     }
   };
 
-  const handleExportCSV = () => {
-    // TODO: Implement CSV export based on active tab data
-    alert("CSV export coming soon!");
-  };
+  const handlePrint = async () => {
+    let chartEl: HTMLDivElement | null = null;
+    let tableEl: HTMLDivElement | null = null;
+    let title = "Report";
 
-  const handlePrint = () => {
-    window.print();
+    if (activeTab === "sales") {
+      chartEl = salesChartRef.current;
+      tableEl = salesTableRef.current;
+      title = "Sales Report";
+    } else if (activeTab === "items") {
+      chartEl = itemsChartRef.current;
+      tableEl = itemsTableRef.current;
+      title = "Items Report";
+    } else if (activeTab === "attendance") {
+      chartEl = attendanceRef.current;
+      tableEl = attendanceRef.current;
+      title = "Attendance Report";
+    }
+
+    if (chartEl && tableEl) {
+      setIsExporting("print");
+      toast({
+        title: "Preparing Print...",
+        description: "Opening print dialog...",
+      });
+
+      const result = await printReport(chartEl, tableEl, title);
+
+      setIsExporting(null);
+
+      if (!result.success) {
+        toast({
+          title: "Print Failed",
+          description: result.error || "Could not open print dialog",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   // Auto-scroll to bottom when messages change or during streaming
@@ -303,26 +373,55 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  disabled={isExporting !== null}
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <MoreVertical className="h-4 w-4" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2" onClick={handleExportPDF}>
-                  <FileText className="h-4 w-4" />
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer" 
+                  onClick={handleExportPDF}
+                  disabled={isExporting !== null}
+                >
+                  {isExporting === "pdf" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileText className="h-4 w-4" />
+                  )}
                   Export as PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2" onClick={handleExportImage}>
-                  <Image className="h-4 w-4" />
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer" 
+                  onClick={handleExportImage}
+                  disabled={isExporting !== null}
+                >
+                  {isExporting === "image" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Image className="h-4 w-4" />
+                  )}
                   Export as Image
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2" onClick={handleExportCSV}>
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Export as CSV
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2" onClick={handlePrint}>
-                  <Printer className="h-4 w-4" />
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer" 
+                  onClick={handlePrint}
+                  disabled={isExporting !== null}
+                >
+                  {isExporting === "print" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="h-4 w-4" />
+                  )}
                   Print
                 </DropdownMenuItem>
               </DropdownMenuContent>

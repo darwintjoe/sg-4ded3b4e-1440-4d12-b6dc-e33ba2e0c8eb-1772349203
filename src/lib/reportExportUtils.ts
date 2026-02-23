@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility functions for exporting reports as PDF or images
+ * Optimized for efficient file sizes and proper pagination
  */
 
 export interface ExportOptions {
@@ -12,17 +13,32 @@ export interface ExportOptions {
   pageOrientation?: "portrait" | "landscape";
 }
 
+export interface ExportResult {
+  success: boolean;
+  error?: string;
+  blob?: Blob;
+  url?: string;
+}
+
 /**
- * Export a chart and table as PDF
- * @param chartRef - Reference to chart container element
- * @param tableRef - Reference to table container element
- * @param options - Export configuration options
+ * Compress image data by reducing quality
+ */
+function compressImage(canvas: HTMLCanvasElement, quality: number = 0.7): string {
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+/**
+ * Export a chart and table as PDF with smart pagination
+ * - Chart always fits on first page (never cut)
+ * - Table fits to page width with proper pagination
+ * - A4 paper size with proper margins
+ * - Compressed images for smaller file size
  */
 export async function exportChartAsPDF(
   chartRef: HTMLElement | null,
   tableRef: HTMLElement | null,
   options: ExportOptions
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ExportResult> {
   if (!chartRef) {
     return { success: false, error: "Chart element not found" };
   }
@@ -34,11 +50,13 @@ export async function exportChartAsPDF(
       orientation: pageOrientation,
       unit: "mm",
       format: "a4",
+      compress: true, // Enable PDF compression
     });
 
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 15;
+    const contentWidth = pageWidth - 2 * margin;
     let yOffset = margin;
 
     // Add title if provided
@@ -46,107 +64,133 @@ export async function exportChartAsPDF(
       pdf.setFontSize(16);
       pdf.setFont("helvetica", "bold");
       pdf.text(title, pageWidth / 2, yOffset, { align: "center" });
-      yOffset += 10;
+      yOffset += 8;
     }
 
     // Add timestamp if requested
     if (includeTimestamp) {
-      pdf.setFontSize(10);
+      pdf.setFontSize(9);
       pdf.setFont("helvetica", "normal");
-      pdf.setTextColor(100);
+      pdf.setTextColor(120);
       const timestamp = new Date().toLocaleString();
       pdf.text(`Generated: ${timestamp}`, pageWidth / 2, yOffset, { align: "center" });
+      pdf.setTextColor(0);
       yOffset += 10;
     }
 
-    // Capture chart
+    // Capture chart with lower scale for smaller file size
     const chartCanvas = await html2canvas(chartRef, {
       backgroundColor: "#ffffff",
-      scale: 2,
+      scale: 1.5, // Reduced from 2 for smaller file size
       logging: false,
+      useCORS: true,
     });
 
-    const chartImgData = chartCanvas.toDataURL("image/png");
-    const chartWidth = pageWidth - 2 * margin;
-    const chartHeight = (chartCanvas.height * chartWidth) / chartCanvas.width;
-
-    // Check if chart fits on first page
-    if (yOffset + chartHeight > pageHeight - margin) {
-      pdf.addPage();
-      yOffset = margin;
+    // Compress chart image
+    const chartImgData = compressImage(chartCanvas, 0.8);
+    
+    // Calculate chart dimensions to fit on first page
+    const chartAspectRatio = chartCanvas.width / chartCanvas.height;
+    let chartWidth = contentWidth;
+    let chartHeight = chartWidth / chartAspectRatio;
+    
+    // Ensure chart fits on first page (leave space for header)
+    const maxChartHeight = pageHeight - yOffset - margin - 5;
+    if (chartHeight > maxChartHeight) {
+      chartHeight = maxChartHeight;
+      chartWidth = chartHeight * chartAspectRatio;
     }
 
-    pdf.addImage(chartImgData, "PNG", margin, yOffset, chartWidth, chartHeight);
-    yOffset += chartHeight + 10;
+    // Center chart horizontally
+    const chartX = margin + (contentWidth - chartWidth) / 2;
+    
+    pdf.addImage(chartImgData, "JPEG", chartX, yOffset, chartWidth, chartHeight, undefined, "FAST");
 
-    // Capture table if provided
+    // Capture and add table on new page(s) if provided
     if (tableRef) {
-      // Check if we need a new page for table
-      if (yOffset + 50 > pageHeight - margin) {
-        pdf.addPage();
-        yOffset = margin;
-      }
+      pdf.addPage();
+      yOffset = margin;
+
+      // Add "Data Table" subtitle
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Data Table", margin, yOffset);
+      yOffset += 8;
 
       const tableCanvas = await html2canvas(tableRef, {
         backgroundColor: "#ffffff",
-        scale: 2,
+        scale: 1.5, // Reduced for smaller file size
         logging: false,
+        useCORS: true,
       });
 
-      const tableImgData = tableCanvas.toDataURL("image/png");
-      const tableWidth = pageWidth - 2 * margin;
-      const tableHeight = (tableCanvas.height * tableWidth) / tableCanvas.width;
+      const tableImgData = compressImage(tableCanvas, 0.75);
+      
+      // Calculate table dimensions - fit to page width
+      const tableAspectRatio = tableCanvas.width / tableCanvas.height;
+      const tableWidth = contentWidth;
+      const tableHeight = tableWidth / tableAspectRatio;
 
-      // If table is too tall, split across multiple pages
-      let remainingHeight = tableHeight;
-      let sourceY = 0; // in PDF units
+      // If table fits on one page, add it directly
+      const availableHeight = pageHeight - yOffset - margin;
+      
+      if (tableHeight <= availableHeight) {
+        pdf.addImage(tableImgData, "JPEG", margin, yOffset, tableWidth, tableHeight, undefined, "FAST");
+      } else {
+        // Split table across multiple pages
+        const pxPerMm = tableCanvas.width / tableWidth;
+        let remainingHeight = tableHeight;
+        let sourceY = 0;
 
-      while (remainingHeight > 0) {
-        const availableHeight = pageHeight - yOffset - margin;
-        
-        // If available space is too small (e.g. < 20mm), push to next page
-        if (availableHeight < 20 && sourceY === 0) {
-             pdf.addPage();
-             yOffset = margin;
-             continue;
-        }
+        while (remainingHeight > 0) {
+          const sliceHeight = Math.min(remainingHeight, availableHeight);
+          const sliceHeightPx = sliceHeight * pxPerMm;
 
-        const sliceHeight = Math.min(remainingHeight, availableHeight);
+          // Create temp canvas for slice
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = tableCanvas.width;
+          tempCanvas.height = Math.ceil(sliceHeightPx);
+          const ctx = tempCanvas.getContext("2d");
+          
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            ctx.drawImage(
+              tableCanvas,
+              0, sourceY * pxPerMm,
+              tableCanvas.width, sliceHeightPx,
+              0, 0,
+              tableCanvas.width, sliceHeightPx
+            );
+            
+            const sliceData = compressImage(tempCanvas, 0.75);
+            pdf.addImage(sliceData, "JPEG", margin, yOffset, tableWidth, sliceHeight, undefined, "FAST");
+          }
 
-        // Calculate pixel coordinates for slicing
-        // tableCanvas.width / tableWidth gives pixels per mm
-        const pdfToPx = tableCanvas.width / tableWidth;
-        const sX = 0;
-        const sY = sourceY * pdfToPx;
-        const sWidth = tableCanvas.width;
-        const sHeight = sliceHeight * pdfToPx;
+          remainingHeight -= sliceHeight;
+          sourceY += sliceHeight;
 
-        // Create temp canvas for slice
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = sWidth;
-        tempCanvas.height = sHeight;
-        const ctx = tempCanvas.getContext("2d");
-        
-        if (ctx) {
-             // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
-             ctx.drawImage(tableCanvas, sX, sY, sWidth, sHeight, 0, 0, sWidth, sHeight);
-             const sliceData = tempCanvas.toDataURL("image/png");
-             
-             pdf.addImage(sliceData, "PNG", margin, yOffset, tableWidth, sliceHeight, undefined, "FAST");
-        }
-
-        remainingHeight -= sliceHeight;
-        sourceY += sliceHeight;
-
-        if (remainingHeight > 0) {
-          pdf.addPage();
-          yOffset = margin;
+          if (remainingHeight > 0) {
+            pdf.addPage();
+            yOffset = margin;
+          }
         }
       }
     }
 
+    // Generate blob and create URL
+    const pdfBlob = pdf.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    // Download the file
     pdf.save(`${filename}.pdf`);
-    return { success: true };
+    
+    // Open in new tab after short delay
+    setTimeout(() => {
+      window.open(pdfUrl, "_blank");
+    }, 500);
+
+    return { success: true, blob: pdfBlob, url: pdfUrl };
   } catch (error) {
     console.error("PDF export failed:", error);
     return {
@@ -157,16 +201,13 @@ export async function exportChartAsPDF(
 }
 
 /**
- * Export a chart and table as PNG image
- * @param chartRef - Reference to chart container element
- * @param tableRef - Reference to table container element
- * @param options - Export configuration options
+ * Export a chart and table as JPG image (compressed)
  */
 export async function exportChartAsImage(
   chartRef: HTMLElement | null,
   tableRef: HTMLElement | null,
   options: ExportOptions
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ExportResult> {
   if (!chartRef) {
     return { success: false, error: "Chart element not found" };
   }
@@ -179,9 +220,11 @@ export async function exportChartAsImage(
     container.style.backgroundColor = "#ffffff";
     container.style.padding = "20px";
     container.style.fontFamily = "Arial, sans-serif";
+    container.style.display = "inline-block";
 
     // Clone and append chart
     const chartClone = chartRef.cloneNode(true) as HTMLElement;
+    chartClone.style.margin = "0";
     container.appendChild(chartClone);
 
     // Clone and append table if provided
@@ -191,37 +234,45 @@ export async function exportChartAsImage(
       container.appendChild(spacer);
 
       const tableClone = tableRef.cloneNode(true) as HTMLElement;
+      tableClone.style.margin = "0";
       container.appendChild(tableClone);
     }
 
     // Temporarily add to body for rendering
     container.style.position = "absolute";
     container.style.left = "-9999px";
+    container.style.top = "0";
     document.body.appendChild(container);
 
-    // Capture combined content
+    // Wait for styles to apply
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Capture combined content with lower scale for smaller file
     const canvas = await html2canvas(container, {
       backgroundColor: "#ffffff",
-      scale: 2,
+      scale: 1.5, // Reduced from 2
       logging: false,
+      useCORS: true,
     });
 
     // Clean up
     document.body.removeChild(container);
 
+    // Convert to JPG blob with compression
+    const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    
     // Download image
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${filename}.png`;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-    });
+    const link = document.createElement("a");
+    link.href = jpgDataUrl;
+    link.download = `${filename}.jpg`;
+    link.click();
 
-    return { success: true };
+    // Open in new tab
+    setTimeout(() => {
+      window.open(jpgDataUrl, "_blank");
+    }, 500);
+
+    return { success: true, url: jpgDataUrl };
   } catch (error) {
     console.error("Image export failed:", error);
     return {
@@ -232,13 +283,161 @@ export async function exportChartAsImage(
 }
 
 /**
+ * Print report using optimized PDF
+ */
+export async function printReport(
+  chartRef: HTMLElement | null,
+  tableRef: HTMLElement | null,
+  title: string
+): Promise<ExportResult> {
+  if (!chartRef) {
+    return { success: false, error: "Chart element not found" };
+  }
+
+  try {
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+      compress: true,
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - 2 * margin;
+    let yOffset = margin;
+
+    // Add title
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(title, pageWidth / 2, yOffset, { align: "center" });
+    yOffset += 8;
+
+    // Add timestamp
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(120);
+    pdf.text(`Printed: ${new Date().toLocaleString()}`, pageWidth / 2, yOffset, { align: "center" });
+    pdf.setTextColor(0);
+    yOffset += 10;
+
+    // Capture chart
+    const chartCanvas = await html2canvas(chartRef, {
+      backgroundColor: "#ffffff",
+      scale: 1.5,
+      logging: false,
+      useCORS: true,
+    });
+
+    const chartImgData = compressImage(chartCanvas, 0.8);
+    
+    // Calculate chart dimensions
+    const chartAspectRatio = chartCanvas.width / chartCanvas.height;
+    let chartWidth = contentWidth;
+    let chartHeight = chartWidth / chartAspectRatio;
+    
+    const maxChartHeight = pageHeight - yOffset - margin - 5;
+    if (chartHeight > maxChartHeight) {
+      chartHeight = maxChartHeight;
+      chartWidth = chartHeight * chartAspectRatio;
+    }
+
+    const chartX = margin + (contentWidth - chartWidth) / 2;
+    pdf.addImage(chartImgData, "JPEG", chartX, yOffset, chartWidth, chartHeight, undefined, "FAST");
+
+    // Add table on new page
+    if (tableRef) {
+      pdf.addPage();
+      yOffset = margin;
+
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Data Table", margin, yOffset);
+      yOffset += 8;
+
+      const tableCanvas = await html2canvas(tableRef, {
+        backgroundColor: "#ffffff",
+        scale: 1.5,
+        logging: false,
+        useCORS: true,
+      });
+
+      const tableImgData = compressImage(tableCanvas, 0.75);
+      const tableWidth = contentWidth;
+      const tableHeight = tableWidth / (tableCanvas.width / tableCanvas.height);
+      const availableHeight = pageHeight - yOffset - margin;
+
+      if (tableHeight <= availableHeight) {
+        pdf.addImage(tableImgData, "JPEG", margin, yOffset, tableWidth, tableHeight, undefined, "FAST");
+      } else {
+        // Split across pages
+        const pxPerMm = tableCanvas.width / tableWidth;
+        let remainingHeight = tableHeight;
+        let sourceY = 0;
+
+        while (remainingHeight > 0) {
+          const sliceHeight = Math.min(remainingHeight, availableHeight);
+          const sliceHeightPx = sliceHeight * pxPerMm;
+
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = tableCanvas.width;
+          tempCanvas.height = Math.ceil(sliceHeightPx);
+          const ctx = tempCanvas.getContext("2d");
+          
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            ctx.drawImage(
+              tableCanvas,
+              0, sourceY * pxPerMm,
+              tableCanvas.width, sliceHeightPx,
+              0, 0,
+              tableCanvas.width, sliceHeightPx
+            );
+            
+            const sliceData = compressImage(tempCanvas, 0.75);
+            pdf.addImage(sliceData, "JPEG", margin, yOffset, tableWidth, sliceHeight, undefined, "FAST");
+          }
+
+          remainingHeight -= sliceHeight;
+          sourceY += sliceHeight;
+
+          if (remainingHeight > 0) {
+            pdf.addPage();
+            yOffset = margin;
+          }
+        }
+      }
+    }
+
+    // Open print dialog
+    const pdfBlob = pdf.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    // Open PDF in new window and trigger print
+    const printWindow = window.open(pdfUrl, "_blank");
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+
+    return { success: true, url: pdfUrl };
+  } catch (error) {
+    console.error("Print failed:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Print failed",
+    };
+  }
+}
+
+/**
  * Generate a filename with timestamp
- * @param prefix - Filename prefix (e.g., "sales-report")
- * @returns Formatted filename with timestamp
  */
 export function generateExportFilename(prefix: string): string {
   const now = new Date();
   const dateStr = now.toISOString().split("T")[0];
-  const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "-");
-  return `${prefix}_${dateStr}_${timeStr}`;
+  return `${prefix}_${dateStr}`;
 }
