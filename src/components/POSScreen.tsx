@@ -1036,9 +1036,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             }}>
               {translate("common.cancel", language)}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handlePinVerify} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handlePinVerify} className="bg-blue-600 hover:bg-blue-700">
               {translate("common.verify", language)}
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
