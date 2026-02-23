@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { PieChart as RechartsPie, Pie, Cell, Sector } from "recharts";
+import { PieChart as RechartsPie, Pie, Cell } from "recharts";
 
 interface PieChartProps {
   data: Array<{
@@ -7,19 +7,6 @@ interface PieChartProps {
     value: number;
     color?: string;
   }>;
-}
-
-interface SectorProps {
-  cx: number;
-  cy: number;
-  innerRadius: number;
-  outerRadius: number;
-  startAngle: number;
-  endAngle: number;
-  fill: string;
-  name: string;
-  value: number;
-  index: number;
 }
 
 export function PieChart({ data }: PieChartProps) {
@@ -30,76 +17,18 @@ export function PieChart({ data }: PieChartProps) {
     setActiveIndex(prev => prev === index ? undefined : index);
   }, []);
 
-  const renderSlice = (props: SectorProps) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, index } = props;
-    const isActive = activeIndex === index;
-    const isInactive = activeIndex !== undefined && activeIndex !== index;
-
-    return (
-      <g 
-        key={`slice-${index}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          handleSliceClick(index);
-        }}
-        style={{ cursor: "pointer" }}
-      >
-        <Sector
-          cx={cx}
-          cy={cy}
-          innerRadius={innerRadius}
-          outerRadius={isActive ? outerRadius + 12 : outerRadius}
-          startAngle={startAngle}
-          endAngle={endAngle}
-          fill={fill}
-          style={{
-            filter: isActive ? "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.3))" : "none",
-            opacity: isInactive ? 0.5 : 1,
-            transition: "all 0.2s ease-out",
-          }}
-        />
-        {/* Tooltip for active slice */}
-        {isActive && (
-          <>
-            <text
-              x={cx}
-              y={cy - 10}
-              textAnchor="middle"
-              fill="#333"
-              fontSize={14}
-              fontWeight={600}
-              style={{ pointerEvents: "none" }}
-            >
-              {name}
-            </text>
-            <text
-              x={cx}
-              y={cy + 12}
-              textAnchor="middle"
-              fill="#666"
-              fontSize={13}
-              style={{ pointerEvents: "none" }}
-            >
-              {typeof value === "number" ? value.toLocaleString() : value}
-            </text>
-          </>
-        )}
-      </g>
-    );
-  };
-
   return (
     <div 
-      className="w-full h-full flex items-center justify-center"
+      className="w-full flex flex-col items-center"
       onClick={() => setActiveIndex(undefined)}
     >
-      <RechartsPie width={350} height={350}>
+      <RechartsPie width={300} height={300}>
         <Pie
           data={data}
           cx="50%"
           cy="50%"
           innerRadius={0}
-          outerRadius={140}
+          outerRadius={120}
           paddingAngle={2}
           dataKey="value"
           isAnimationActive={false}
@@ -115,8 +44,8 @@ export function PieChart({ data }: PieChartProps) {
               style={{
                 cursor: "pointer",
                 outline: "none",
-                opacity: activeIndex === undefined || activeIndex === index ? 1 : 0.5,
-                filter: activeIndex === index ? "brightness(1.15) drop-shadow(0 4px 12px rgba(0,0,0,0.3))" : "none",
+                opacity: activeIndex === undefined || activeIndex === index ? 1 : 0.4,
+                filter: activeIndex === index ? "brightness(1.1) drop-shadow(0 2px 8px rgba(0,0,0,0.25))" : "none",
                 transition: "all 0.2s ease-out",
               }}
             />
@@ -124,25 +53,28 @@ export function PieChart({ data }: PieChartProps) {
         </Pie>
       </RechartsPie>
       
-      {/* Center tooltip overlay */}
-      {activeIndex !== undefined && data[activeIndex] && (
-        <div 
-          className="absolute pointer-events-none text-center"
-          style={{ 
-            position: "absolute",
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {data[activeIndex].name}
+      {/* Tooltip below the pie chart */}
+      <div className="h-14 flex items-center justify-center mt-2">
+        {activeIndex !== undefined && data[activeIndex] && (
+          <div 
+            className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 shadow-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div 
+              className="w-3 h-3 rounded-full flex-shrink-0"
+              style={{ 
+                backgroundColor: data[activeIndex].color || `hsl(var(--chart-${(activeIndex % 5) + 1}))` 
+              }}
+            />
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              {data[activeIndex].name}
+            </div>
+            <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+              {data[activeIndex].value.toLocaleString()}
+            </div>
           </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            {data[activeIndex].value.toLocaleString()}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
