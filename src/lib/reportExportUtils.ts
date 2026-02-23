@@ -3,10 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility functions for exporting reports as PDF or images
- * - Captures content ONCE from reportRef
- * - PDF: Clean pagination with NO duplicate headers
- * - Image: Single JPG export with auto-open
- * - Auto-open after download for convenience
+ * CLEAN APPROACH: Capture content ONCE, paginate cleanly, NO extra headers
  */
 
 export interface ExportOptions {
@@ -24,9 +21,11 @@ export interface ExportResult {
 }
 
 /**
- * Export a report as PDF with clean pagination
- * Captures content ONCE, then paginates cleanly across pages
- * NO extra headers - content already has all necessary titles
+ * Export report as PDF with clean pagination
+ * - Captures content ONCE
+ * - Paginates cleanly across pages
+ * - NO duplicate headers/titles (content already has them)
+ * - Auto-opens after download
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
@@ -49,6 +48,7 @@ export async function exportChartAsPDF(
       allowTaint: true,
     });
 
+    // Create PDF
     const pdf = new jsPDF({
       orientation: pageOrientation,
       unit: "mm",
@@ -117,7 +117,7 @@ export async function exportChartAsPDF(
     // Save the PDF file
     pdf.save(`${filename}.pdf`);
 
-    // Auto-open PDF after short delay for user convenience
+    // Auto-open PDF in new tab after short delay
     setTimeout(() => {
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -135,7 +135,7 @@ export async function exportChartAsPDF(
 }
 
 /**
- * Export a report as JPG image (single capture) with auto-open
+ * Export report as JPG image with auto-open
  */
 export async function exportChartAsImage(
   reportRef: HTMLElement | null,
@@ -169,7 +169,7 @@ export async function exportChartAsImage(
     link.click();
     document.body.removeChild(link);
 
-    // Auto-open image after short delay for user convenience
+    // Auto-open image in new tab after short delay
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
     }, 300);
