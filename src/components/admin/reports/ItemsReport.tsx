@@ -75,7 +75,6 @@ export function ItemsReport({ language }: ItemsReportProps) {
     color: string;
   }>>([]);
   const [topItemsData, setTopItemsData] = useState<any[]>([]);
-  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadItemsReport();
@@ -226,45 +225,6 @@ export function ItemsReport({ language }: ItemsReportProps) {
       setTopItems([]);
       setTopItemsData([]);
     }
-  };
-
-  const exportItemsAsPDF = async () => {
-    if (!itemsChartRef.current || !itemsTableRef.current) return;
-    
-    setIsExporting(true);
-    const result = await exportChartAsPDF(
-      itemsChartRef.current,
-      itemsTableRef.current,
-      {
-        filename: `items-report-${new Date().toISOString().split('T')[0]}`,
-        title: t.reports.topItemsData,
-        includeTimestamp: true,
-        pageOrientation: "portrait"
-      }
-    );
-    
-    if (!result.success) {
-      alert(`Export failed: ${result.error}`);
-    }
-    setIsExporting(false);
-  };
-
-  const exportItemsAsImage = async () => {
-    if (!itemsChartRef.current || !itemsTableRef.current) return;
-    
-    setIsExporting(true);
-    const result = await exportChartAsImage(
-      itemsChartRef.current,
-      itemsTableRef.current,
-      {
-        filename: `items-report-${new Date().toISOString().split('T')[0]}`
-      }
-    );
-    
-    if (!result.success) {
-      alert(`Export failed: ${result.error}`);
-    }
-    setIsExporting(false);
   };
 
   const barChartData = topItems.map(item => ({

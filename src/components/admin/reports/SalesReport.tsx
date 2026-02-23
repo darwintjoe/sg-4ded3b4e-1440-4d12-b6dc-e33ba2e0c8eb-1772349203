@@ -74,7 +74,6 @@ export function SalesReport({ language }: SalesReportProps) {
   const [salesData, setSalesData] = useState<AggregatedSalesData[]>([]);
   const [salesDateRange, setSalesDateRange] = useState<string>("");
   const [salesPeriodLabel, setSalesPeriodLabel] = useState<string>("");
-  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     loadSalesReport();
@@ -310,45 +309,6 @@ export function SalesReport({ language }: SalesReportProps) {
       setSalesData([]);
       setSalesStats({ totalRevenue: 0, totalReceipts: 0, avgTransaction: 0 });
     }
-  };
-
-  const exportSalesAsPDF = async () => {
-    if (!salesChartRef.current || !salesTableRef.current) return;
-    
-    setIsExporting(true);
-    const result = await exportChartAsPDF(
-      salesChartRef.current,
-      salesTableRef.current,
-      {
-        filename: `sales-report-${new Date().toISOString().split('T')[0]}`,
-        title: t.reports.salesReport,
-        includeTimestamp: true,
-        pageOrientation: "portrait"
-      }
-    );
-    
-    if (!result.success) {
-      alert(`Export failed: ${result.error}`);
-    }
-    setIsExporting(false);
-  };
-
-  const exportSalesAsImage = async () => {
-    if (!salesChartRef.current || !salesTableRef.current) return;
-    
-    setIsExporting(true);
-    const result = await exportChartAsImage(
-      salesChartRef.current,
-      salesTableRef.current,
-      {
-        filename: `sales-report-${new Date().toISOString().split('T')[0]}`
-      }
-    );
-    
-    if (!result.success) {
-      alert(`Export failed: ${result.error}`);
-    }
-    setIsExporting(false);
   };
 
   const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
