@@ -389,6 +389,33 @@ class BluetoothPrinterService {
   }
 
   /**
+   * Convert string to raw bytes (ASCII only, no CP437 encoding)
+   */
+  private encodeTextRaw(text: string): Uint8Array {
+    const bytes: number[] = [];
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      if (code >= 32 && code <= 126) {
+        bytes.push(code);
+      } else if (code === 10 || code === 13) {
+        bytes.push(code);
+      } else {
+        bytes.push(63);
+      }
+    }
+    return new Uint8Array(bytes);
+  }
+
+  /**
+   * Send text to printer as raw ASCII bytes
+   */
+  private async sendText(text: string, align: "left" | "center" | "right" = "left"): Promise<void> {
+    await this.sendBytes(this.cmdAlign(align));
+    await this.sendBytes(this.encodeTextRaw(text));
+    await this.sendBytes(this.cmdLineFeed(1));
+  }
+
+  /**
    * Get fallback character for unsupported Unicode
    */
   private getFallbackChar(charCode: number): number {
@@ -586,141 +613,82 @@ class BluetoothPrinterService {
       }
 
       const width = settings.printerWidth === 58 ? 32 : 42;
-      const commands: Uint8Array[] = [];
+      const name = settings.businessName || "My Store";
 
-      // Initialize printer with proper encoding
-      await this.initializePrinter();
+      await this.sendBytes(this.cmdInit());
+      await new Promise((r) => setTimeout(r, 100));
 
-      // Business name (centered, bold, large)
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.cmdBold(true));
-      commands.push(this.cmdTextSize(2, 2));
-      commands.push(this.encodeText(settings.businessName || "My Store"));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendBytes(this.cmdAlign("center"));
+      await this.sendBytes(this.cmdBold(true));
+      await this.sendBytes(this.cmdTextSize(2, 2));
+      await this.sendBytes(this.encodeTextRaw(name));
+      await this.sendBytes(this.cmdLineFeed(1));
+      await this.sendBytes(this.cmdTextSize(1, 1));
+      await this.sendBytes(this.cmdBold(false));
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Reset size
-      commands.push(this.cmdTextSize(1, 1));
-      commands.push(this.cmdBold(false));
+      await this.sendText("TEST PRINT", "center");
+      await this.sendText(`Printer: ${settings.printerWidth}mm`, "left");
+      await this.sendText(`Date: ${new Date().toLocaleString()}`, "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Test message
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText("TEST PRINT"));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdAlign("left"));
-      commands.push(this.encodeText(`Printer Width: ${settings.printerWidth}mm`));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(`Date: ${new Date().toLocaleString()}`));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("-".repeat(width), "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Separator
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(this.separatorLine(width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("MOCK RECEIPT TEST", "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // === MOCK RECEIPT ITEMS TEST ===
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.cmdBold(true));
-      commands.push(this.encodeText("MOCK RECEIPT TEST"));
-      commands.push(this.cmdBold(false));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdAlign("left"));
+      await this.sendText("Kopi Susu", "left");
+      await this.sendText(this.padLine("2 x 15.000", "30.000", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Item 1
-      commands.push(this.encodeText("Kopi Susu"));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(this.padLine("2 x 15.000", "30.000", width)));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("Nasi Goreng Special", "left");
+      await this.sendText(this.padLine("1 x 25.000", "25.000", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Item 2
-      commands.push(this.encodeText("Nasi Goreng Special"));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(this.padLine("1 x 25.000", "25.000", width)));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("Teh Manis Dingin", "left");
+      await this.sendText(this.padLine("3 x 8.000", "24.000", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Item 3
-      commands.push(this.encodeText("Teh Manis Dingin"));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(this.padLine("3 x 8.000", "24.000", width)));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("Mie Goreng Seafood", "left");
+      await this.sendText(this.padLine("1 x 35.000", "35.000", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Item 4 - Long name
-      commands.push(this.encodeText("Mie Goreng Seafood Spesial"));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(this.padLine("1 x 35.000", "35.000", width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("-".repeat(width), "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Separator
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(this.separatorLine(width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText(this.padLine("Subtotal:", "114.000", width), "left");
+      await this.sendText(this.padLine("PPN (10%):", "11.400", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Subtotal
-      commands.push(this.cmdAlign("left"));
-      commands.push(this.encodeText(this.padLine("Subtotal:", "114.000", width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("-".repeat(width), "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Tax
-      commands.push(this.encodeText(this.padLine("PPN (10%):", "11.400", width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendBytes(this.cmdBold(true));
+      await this.sendBytes(this.cmdTextSize(2, 2));
+      await this.sendText(this.padLine("TOTAL:", "125.400", width - 8), "left");
+      await this.sendBytes(this.cmdTextSize(1, 1));
+      await this.sendBytes(this.cmdBold(false));
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Separator
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(this.separatorLine(width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("-".repeat(width), "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // TOTAL
-      commands.push(this.cmdBold(true));
-      commands.push(this.cmdTextSize(2, 2));
-      commands.push(this.encodeText(this.padLine("TOTAL:", "125.400", width - 10)));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.cmdTextSize(1, 1));
-      commands.push(this.cmdBold(false));
+      await this.sendText(this.padLine("Cash:", "150.000", width), "left");
+      await this.sendText(this.padLine("Change:", "24.600", width), "left");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Separator
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(this.separatorLine(width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText("-".repeat(width), "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Payment
-      commands.push(this.cmdAlign("left"));
-      commands.push(this.encodeText(this.padLine("Payment (Cash):", "150.000", width)));
-      commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(this.padLine("Change:", "24.600", width)));
-      commands.push(this.cmdLineFeed(1));
+      await this.sendText(settings.receiptFooter || "Thank you!", "center");
+      await this.sendText("Test OK", "center");
+      await new Promise((r) => setTimeout(r, 150));
 
-      // Separator
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(this.separatorLine(width)));
-      commands.push(this.cmdLineFeed(1));
-
-      // Footer
-      commands.push(this.cmdAlign("center"));
-      commands.push(this.encodeText(settings.receiptFooter || "Thank you!"));
-      commands.push(this.cmdLineFeed(2));
-      commands.push(this.encodeText("Test completed successfully"));
-      commands.push(this.cmdLineFeed(3));
-
-      // Cut paper
-      commands.push(this.cmdCut());
-
-      // Combine all commands
-      const totalLength = commands.reduce((sum, cmd) => sum + cmd.length, 0);
-      const buffer = new Uint8Array(totalLength);
-      let offset = 0;
-      for (const cmd of commands) {
-        buffer.set(cmd, offset);
-        offset += cmd.length;
-      }
-
-      // Send to printer in smaller chunks
-      await this.sendBytes(buffer);
+      await this.sendBytes(this.cmdCut());
 
       return { success: true };
     } catch (error) {
-      console.error("Print test error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Failed to print test",
