@@ -54,7 +54,7 @@ export function PieChart({ data }: PieChartProps) {
       </RechartsPie>
       
       {/* Tooltip below the pie chart */}
-      <div className="h-14 flex items-center justify-center">
+      <div className="-mt-4 h-14 flex items-center justify-center">
         {activeIndex !== undefined && data[activeIndex] && (
           <div 
             className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 shadow-sm"
