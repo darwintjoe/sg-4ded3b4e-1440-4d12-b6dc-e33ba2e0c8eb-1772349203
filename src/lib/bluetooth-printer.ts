@@ -496,6 +496,8 @@ class BluetoothPrinterService {
       
       img.onload = () => {
         try {
+          console.log("Logo image loaded:", img.width, "x", img.height);
+          
           // Create canvas
           const canvas = document.createElement("canvas");
           const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -506,11 +508,12 @@ class BluetoothPrinterService {
           }
 
           // Calculate target width (max 384 pixels for 58mm printer at 203 DPI)
-          // Scale proportionally
           const maxWidth = 384;
           const scale = Math.min(1, maxWidth / img.width);
           const width = Math.floor(img.width * scale);
           const height = Math.floor(img.height * scale);
+          
+          console.log("Resizing to:", width, "x", height);
           
           // Set canvas size
           canvas.width = width;
@@ -535,15 +538,12 @@ class BluetoothPrinterService {
             monochrome[y] = [];
             for (let x = 0; x < width; x++) {
               const idx = (y * width + x) * 4;
-              // Convert RGB to grayscale using luminance formula
               const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
-              // Black if below threshold
               monochrome[y][x] = gray < threshold;
             }
           }
           
           // ESC/POS bitmap command: ESC * m nL nH d1...dk
-          // Use mode 0 (8-dot single-density) for maximum compatibility
           const bytesPerLine = Math.ceil(width / 8);
           const commands: number[] = [];
           
@@ -551,8 +551,8 @@ class BluetoothPrinterService {
           for (let y = 0; y < height; y += 8) {
             // ESC * 0 nL nH - 8-dot single-density
             commands.push(ESC, 0x2a, 0x00);
-            commands.push(bytesPerLine & 0xff); // nL (low byte)
-            commands.push((bytesPerLine >> 8) & 0xff); // nH (high byte)
+            commands.push(bytesPerLine & 0xff);
+            commands.push((bytesPerLine >> 8) & 0xff);
             
             // Generate bitmap data for this strip
             for (let x = 0; x < width; x += 8) {
@@ -560,27 +560,29 @@ class BluetoothPrinterService {
               for (let bit = 0; bit < 8; bit++) {
                 const py = y + bit;
                 if (py < height && monochrome[py][x]) {
-                  byte |= (1 << (7 - bit)); // MSB first
+                  byte |= (1 << (7 - bit));
                 }
               }
               commands.push(byte);
             }
             
-            // Line feed after each strip
             commands.push(0x0a);
           }
           
-          resolve(new Uint8Array(commands));
+          const result = new Uint8Array(commands);
+          console.log("Bitmap generated:", result.length, "bytes");
+          resolve(result);
         } catch (error) {
+          console.error("Error in imageToBitmap:", error);
           reject(error);
         }
       };
       
-      img.onerror = () => {
+      img.onerror = (e) => {
+        console.error("Failed to load logo image:", e);
         reject(new Error("Failed to load logo image"));
       };
       
-      // Set src after handlers
       img.src = base64Image;
     });
   }
