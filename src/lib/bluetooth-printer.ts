@@ -599,6 +599,51 @@ class BluetoothPrinterService {
   }
 
   /**
+   * Print a test logo to verify bitmap printing works
+   */
+  async printLogoTest(settings: Settings): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.isConnected()) {
+        return { success: false, error: "Printer not connected" };
+      }
+
+      // Initialize printer
+      await this.sendBytes(this.cmdInit());
+      await new Promise((r) => setTimeout(r, 100));
+
+      // If there's a logo in settings, print it
+      if (settings.receiptLogoBase64 && settings.receiptLogoBase64.length > 100) {
+        try {
+          const logoBitmap = await this.imageToBitmap(settings.receiptLogoBase64);
+          if (logoBitmap && logoBitmap.length > 10) {
+            await this.sendBytes(this.cmdAlign("center"));
+            await this.sendBytes(logoBitmap);
+            await this.sendBytes(this.cmdLineFeed(2));
+          }
+        } catch (error) {
+          console.warn("Failed to print logo:", error);
+          await this.sendText("Logo print failed", "center");
+        }
+      } else {
+        await this.sendText("No logo configured", "center");
+        await this.sendText("Add logo in Settings > Business", "center");
+      }
+
+      // Feed and cut
+      await this.sendBytes(this.cmdLineFeed(5));
+      await this.sendBytes(this.cmdCut());
+
+      return { success: true };
+    } catch (error) {
+      console.error("Print logo test error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to print logo test",
+      };
+    }
+  }
+
+  /**
    * Print a test receipt
    */
   async printTest(settings: Settings): Promise<{ success: boolean; error?: string }> {
