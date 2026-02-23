@@ -44,7 +44,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   const { toast } = useToast();
   const [isExporting, setIsExporting] = useState<"pdf" | "image" | "print" | null>(null);
   
-  // Refs for export functionality
+  // Refs for export functionality - SEPARATE refs for chart and table
   const salesChartRef = useRef<HTMLDivElement>(null);
   const salesTableRef = useRef<HTMLDivElement>(null);
   const itemsChartRef = useRef<HTMLDivElement>(null);
