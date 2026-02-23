@@ -471,78 +471,78 @@ class BluetoothPrinterService {
   private async imageToBitmap(base64Image: string): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       
       img.onload = () => {
         try {
           // Create canvas
           const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
           
           if (!ctx) {
             reject(new Error("Failed to get canvas context"));
             return;
           }
 
-          // Set canvas size to image size
-          canvas.width = img.width;
-          canvas.height = img.height;
+          // Calculate target width (max 384 pixels for 58mm printer at 203 DPI)
+          // Scale proportionally
+          const maxWidth = 384;
+          const scale = Math.min(1, maxWidth / img.width);
+          const width = Math.floor(img.width * scale);
+          const height = Math.floor(img.height * scale);
+          
+          // Set canvas size
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Fill white background first (clear any transparency)
+          ctx.fillStyle = "white";
+          ctx.fillRect(0, 0, width, height);
           
           // Draw image
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0, width, height);
           
           // Get image data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, width, height);
           const data = imageData.data;
           
-          // Convert to monochrome bitmap
-          const width = canvas.width;
-          const height = canvas.height;
-          const bytesPerLine = Math.ceil(width / 8);
+          // Convert to monochrome using threshold
+          const threshold = 128;
+          const monochrome: boolean[][] = [];
+          
+          for (let y = 0; y < height; y++) {
+            monochrome[y] = [];
+            for (let x = 0; x < width; x++) {
+              const idx = (y * width + x) * 4;
+              // Convert RGB to grayscale using luminance formula
+              const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
+              // Black if below threshold
+              monochrome[y][x] = gray < threshold;
+            }
+          }
           
           // ESC/POS bitmap command: ESC * m nL nH d1...dk
-          // m=33 (24-dot double-density)
+          // Use mode 0 (8-dot single-density) for maximum compatibility
+          const bytesPerLine = Math.ceil(width / 8);
           const commands: number[] = [];
           
-          // Process image in 24-pixel vertical strips
-          for (let y = 0; y < height; y += 24) {
-            // ESC * 33 nL nH
-            commands.push(ESC, 0x2a, 0x21);
-            commands.push(width & 0xff); // nL
-            commands.push((width >> 8) & 0xff); // nH
+          // Process image in 8-pixel high strips
+          for (let y = 0; y < height; y += 8) {
+            // ESC * 0 nL nH - 8-dot single-density
+            commands.push(ESC, 0x2a, 0x00);
+            commands.push(bytesPerLine & 0xff); // nL (low byte)
+            commands.push((bytesPerLine >> 8) & 0xff); // nH (high byte)
             
-            // Process each column
-            for (let x = 0; x < width; x++) {
-              // 24 dots = 3 bytes
-              let byte1 = 0, byte2 = 0, byte3 = 0;
-              
+            // Generate bitmap data for this strip
+            for (let x = 0; x < width; x += 8) {
+              let byte = 0;
               for (let bit = 0; bit < 8; bit++) {
                 const py = y + bit;
-                if (py < height) {
-                  const idx = (py * width + x) * 4;
-                  const gray = data[idx]; // R channel (already grayscale)
-                  if (gray < 128) byte1 |= (1 << (7 - bit));
+                if (py < height && monochrome[py][x]) {
+                  byte |= (1 << (7 - bit)); // MSB first
                 }
               }
-              
-              for (let bit = 0; bit < 8; bit++) {
-                const py = y + 8 + bit;
-                if (py < height) {
-                  const idx = (py * width + x) * 4;
-                  const gray = data[idx];
-                  if (gray < 128) byte2 |= (1 << (7 - bit));
-                }
-              }
-              
-              for (let bit = 0; bit < 8; bit++) {
-                const py = y + 16 + bit;
-                if (py < height) {
-                  const idx = (py * width + x) * 4;
-                  const gray = data[idx];
-                  if (gray < 128) byte3 |= (1 << (7 - bit));
-                }
-              }
-              
-              commands.push(byte1, byte2, byte3);
+              commands.push(byte);
             }
             
             // Line feed after each strip
@@ -559,6 +559,7 @@ class BluetoothPrinterService {
         reject(new Error("Failed to load logo image"));
       };
       
+      // Set src after handlers
       img.src = base64Image;
     });
   }
