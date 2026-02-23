@@ -2,7 +2,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 /**
- * Shared utility functions for exporting reports as PDF or images
+ * Shared utility for exporting reports as PDF or images
  * Clean approach: Capture ONCE, paginate cleanly, NO extra headers
  */
 
