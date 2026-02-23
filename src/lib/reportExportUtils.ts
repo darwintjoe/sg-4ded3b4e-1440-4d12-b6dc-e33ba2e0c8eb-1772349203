@@ -4,7 +4,7 @@ import jsPDF from "jspdf";
 /**
  * Shared utility functions for exporting reports as PDF or images
  * - Captures content ONCE from reportRef
- * - PDF: Clean pagination with no duplicate headers
+ * - PDF: Clean pagination with NO duplicate headers
  * - Image: Single JPG export with auto-open
  * - Auto-open after download for convenience
  */
@@ -26,7 +26,7 @@ export interface ExportResult {
 /**
  * Export a report as PDF with clean pagination
  * Captures content ONCE, then paginates cleanly across pages
- * No duplicate headers - content already contains all necessary titles
+ * NO extra headers - content already has all necessary titles
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
@@ -59,11 +59,11 @@ export async function exportChartAsPDF(
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 10;
-    const contentWidth = pageWidth - 2 * margin;
+    const usableWidth = pageWidth - 2 * margin;
     const usableHeight = pageHeight - 2 * margin;
 
     // Calculate scaled dimensions
-    const imgWidth = contentWidth;
+    const imgWidth = usableWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pxPerMm = canvas.width / imgWidth;
 
@@ -72,7 +72,7 @@ export async function exportChartAsPDF(
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
     } else {
-      // Content needs pagination - slice into pages WITHOUT adding extra headers
+      // Content needs pagination - slice cleanly across pages
       let remainingHeightPx = canvas.height;
       let sourceYPx = 0;
       let isFirstPage = true;
@@ -93,8 +93,11 @@ export async function exportChartAsPDF(
         const sliceCtx = sliceCanvas.getContext("2d");
 
         if (sliceCtx) {
+          // White background
           sliceCtx.fillStyle = "#ffffff";
           sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          
+          // Draw the slice from main canvas
           sliceCtx.drawImage(
             canvas,
             0, sourceYPx, canvas.width, sliceHeightPx,
@@ -111,7 +114,7 @@ export async function exportChartAsPDF(
       }
     }
 
-    // Save the PDF file (browser handles duplicate naming automatically)
+    // Save the PDF file
     pdf.save(`${filename}.pdf`);
 
     // Auto-open PDF after short delay for user convenience
@@ -119,7 +122,7 @@ export async function exportChartAsPDF(
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true };
   } catch (error) {
@@ -158,7 +161,7 @@ export async function exportChartAsImage(
     // Convert to JPG data URL
     const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.92);
 
-    // Download image (browser handles duplicate naming automatically)
+    // Download image
     const link = document.createElement("a");
     link.href = jpgDataUrl;
     link.download = `${filename}.jpg`;
@@ -169,7 +172,7 @@ export async function exportChartAsImage(
     // Auto-open image after short delay for user convenience
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
-    }, 500);
+    }, 300);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
@@ -213,10 +216,10 @@ export async function printReport(
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 10;
-    const contentWidth = pageWidth - 2 * margin;
+    const usableWidth = pageWidth - 2 * margin;
     const usableHeight = pageHeight - 2 * margin;
 
-    const imgWidth = contentWidth;
+    const imgWidth = usableWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pxPerMm = canvas.width / imgWidth;
 
