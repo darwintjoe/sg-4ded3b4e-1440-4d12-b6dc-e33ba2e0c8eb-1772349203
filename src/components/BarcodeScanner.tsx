@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Minimize2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface BarcodeScannerProps {
@@ -12,32 +12,32 @@ interface BarcodeScannerProps {
 export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastScanTime, setLastScanTime] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [scanCooldown, setScanCooldown] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const scannerRef = useRef<any>(null);
+  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   const t = {
     en: {
       title: "Scan Barcode",
       ready: "Ready to scan",
-      processing: "Processing...",
+      scanned: "Scanned!",
       error: "Camera access denied",
       close: "Close"
     },
     id: {
       title: "Pindai Barcode",
       ready: "Siap memindai",
-      processing: "Memproses...",
+      scanned: "Terpindai!",
       error: "Akses kamera ditolak",
       close: "Tutup"
     },
     zh: {
       title: "扫描条形码",
       ready: "准备扫描",
-      processing: "处理中...",
+      scanned: "已扫描!",
       error: "相机访问被拒绝",
       close: "关闭"
     }
@@ -45,34 +45,56 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
 
   // Play ding sound on successful scan
   const playDingSound = () => {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.frequency.value = 880; // Higher pitch "ding" (A5)
-    oscillator.type = "sine";
-    
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 880;
+      oscillator.type = "sine";
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.1);
+    } catch (err) {
+      // Audio not supported, continue silently
+    }
   };
 
+  // Cleanup cooldown timer on unmount
   useEffect(() => {
-    if (!isOpen) return;
+    return () => {
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset state when closed
+      setLastScannedCode(null);
+      setScanCooldown(false);
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      return;
+    }
 
     let mounted = true;
+    let animationFrameId: number | null = null;
 
     const startScanner = async () => {
       try {
         setIsScanning(true);
         setError(null);
 
-        // Request camera access
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" }
         });
@@ -88,47 +110,44 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
           videoRef.current.srcObject = stream;
           videoRef.current.play();
 
-          // Use Barcode Detection API if available
-          if ('BarcodeDetector' in window) {
+          if ("BarcodeDetector" in window) {
             const barcodeDetector = new (window as any).BarcodeDetector({
-              formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e']
+              formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"]
             });
-            scannerRef.current = barcodeDetector;
 
             const detectBarcode = async () => {
-              if (!mounted || !videoRef.current || isProcessing) return;
+              if (!mounted || !videoRef.current) return;
 
               try {
                 const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0 && !isProcessing) {
-                  const now = Date.now();
-                  // 2-second debounce between scans
-                  if (now - lastScanTime > 2000) {
-                    setLastScanTime(now);
-                    setIsProcessing(true);
-                    
-                    const barcode = barcodes[0].rawValue;
-                    playDingSound();
-                    toast({
-                      title: "Scanned: " + barcode,
-                      duration: 1500,
-                    });
-                    onScan(barcode);
+                
+                if (barcodes.length > 0 && !scanCooldown) {
+                  const barcode = barcodes[0].rawValue;
+                  
+                  playDingSound();
+                  setLastScannedCode(barcode);
+                  setScanCooldown(true);
+                  
+                  onScan(barcode);
+                  
+                  toast({
+                    title: `✓ ${barcode}`,
+                    duration: 1500,
+                  });
 
-                    // Reset processing state after 2 seconds
-                    setTimeout(() => {
-                      if (mounted) {
-                        setIsProcessing(false);
-                      }
-                    }, 2000);
-                  }
+                  cooldownTimerRef.current = setTimeout(() => {
+                    if (mounted) {
+                      setScanCooldown(false);
+                      setLastScannedCode(null);
+                    }
+                  }, 2000);
                 }
               } catch (err) {
                 // Silently continue scanning
               }
 
               if (mounted) {
-                requestAnimationFrame(detectBarcode);
+                animationFrameId = requestAnimationFrame(detectBarcode);
               }
             };
 
@@ -147,28 +166,35 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
 
     return () => {
       mounted = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isOpen, onScan, lastScanTime, isProcessing, toast, t.error]);
+  }, [isOpen, onScan, toast, t.error, scanCooldown]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-[40vh] z-[100] bg-black shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex flex-col animate-in slide-in-from-bottom duration-300">
-      {/* Header Bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-t border-slate-800">
         <div className="flex items-center gap-2">
-          {isProcessing ? (
+          {scanCooldown ? (
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-              <span className="text-xs font-medium text-yellow-500">{t.processing}</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full" />
+              <span className="text-xs font-medium text-green-500">{t.scanned}</span>
+              {lastScannedCode && (
+                <span className="text-xs font-mono text-green-400 bg-green-500/20 px-2 py-0.5 rounded">
+                  {lastScannedCode}
+                </span>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-xs font-medium text-green-500">{t.ready}</span>
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+              <span className="text-xs font-medium text-blue-500">{t.ready}</span>
             </div>
           )}
         </div>
@@ -181,7 +207,6 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
         </button>
       </div>
 
-      {/* Video Area */}
       <div className="relative flex-1 bg-black overflow-hidden">
         <video
           ref={videoRef}
@@ -190,18 +215,32 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
           muted
         />
         
-        {/* Red Line Guide - Centered */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[80%] h-[1px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)] relative">
-             <div className="absolute top-1/2 left-0 w-2 h-2 bg-red-500 transform -translate-y-1/2 -translate-x-1/2" />
-             <div className="absolute top-1/2 right-0 w-2 h-2 bg-red-500 transform -translate-y-1/2 translate-x-1/2" />
+          <div 
+            className={`w-[80%] h-[2px] transition-all duration-300 ${
+              scanCooldown 
+                ? "bg-green-500 shadow-[0_0_12px_rgba(34,197,94,1)]" 
+                : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]"
+            }`}
+          >
+            <div className={`absolute top-1/2 left-0 w-2 h-2 transform -translate-y-1/2 -translate-x-1/2 ${
+              scanCooldown ? "bg-green-500" : "bg-red-500"
+            }`} />
+            <div className={`absolute top-1/2 right-0 w-2 h-2 transform -translate-y-1/2 translate-x-1/2 ${
+              scanCooldown ? "bg-green-500" : "bg-red-500"
+            }`} />
           </div>
-          <div className="absolute text-[10px] text-red-500/80 mt-6 font-mono tracking-wider">
-            SCAN
+          <div className={`absolute text-[10px] mt-8 font-mono tracking-wider transition-colors duration-300 ${
+            scanCooldown ? "text-green-500/80" : "text-red-500/80"
+          }`}>
+            {scanCooldown ? "✓ ADDED" : "SCAN"}
           </div>
         </div>
 
-        {/* Error Overlay */}
+        {scanCooldown && (
+          <div className="absolute inset-0 bg-green-500/10 animate-pulse pointer-events-none" />
+        )}
+
         {error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <p className="text-red-500 font-medium px-4 text-center">{error}</p>
