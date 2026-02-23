@@ -2,8 +2,11 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 /**
- * Shared utility for exporting reports as PDF or images
- * Clean approach: Capture ONCE, paginate cleanly, NO extra headers
+ * Export utilities for reports - Clean approach:
+ * 1. Capture content ONCE from reportRef
+ * 2. Paginate cleanly across pages (NO extra headers/titles)
+ * 3. Auto-open after download
+ * 4. Fast and simple
  */
 
 export interface ExportOptions {
@@ -23,8 +26,7 @@ export interface ExportResult {
 /**
  * Export report as PDF with clean pagination
  * - Captures content ONCE
- * - Paginates cleanly across pages
- * - NO extra headers (content already has them)
+ * - Paginates cleanly (NO duplicate headers)
  * - Auto-opens after download
  */
 export async function exportChartAsPDF(
@@ -100,8 +102,10 @@ export async function exportChartAsPDF(
           // Draw the slice from main canvas
           sliceCtx.drawImage(
             canvas,
-            0, sourceYPx, canvas.width, sliceHeightPx,
-            0, 0, canvas.width, sliceHeightPx
+            0, sourceYPx,
+            canvas.width, sliceHeightPx,
+            0, 0,
+            canvas.width, sliceHeightPx
           );
 
           const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
@@ -122,7 +126,7 @@ export async function exportChartAsPDF(
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
       window.open(pdfUrl, "_blank");
-    }, 300);
+    }, 500);
 
     return { success: true };
   } catch (error) {
@@ -172,7 +176,7 @@ export async function exportChartAsImage(
     // Auto-open image in new tab after short delay
     setTimeout(() => {
       window.open(jpgDataUrl, "_blank");
-    }, 300);
+    }, 500);
 
     return { success: true, url: jpgDataUrl };
   } catch (error) {
@@ -251,8 +255,10 @@ export async function printReport(
           sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
           sliceCtx.drawImage(
             canvas,
-            0, sourceYPx, canvas.width, sliceHeightPx,
-            0, 0, canvas.width, sliceHeightPx
+            0, sourceYPx,
+            canvas.width, sliceHeightPx,
+            0, 0,
+            canvas.width, sliceHeightPx
           );
 
           const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
