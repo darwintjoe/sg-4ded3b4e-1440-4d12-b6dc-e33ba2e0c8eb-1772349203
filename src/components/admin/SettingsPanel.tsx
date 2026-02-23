@@ -1053,7 +1053,7 @@ export function SettingsPanel() {
               backupStatus={backupStatus}
               startPreviewProcess={startPreviewProcess}
             />
-            <AccurateIntegrationSection />
+            <AccurateIntegrationSection language={language} />
           </TabsContent>
         </div>
       </Tabs>

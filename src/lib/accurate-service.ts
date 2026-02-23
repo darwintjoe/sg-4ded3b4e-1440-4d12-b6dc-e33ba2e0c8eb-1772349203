@@ -571,10 +571,15 @@ class AccurateService {
 
           switch (item.type) {
             case "sales_invoice":
-              result = await this.createSalesInvoice(item.payload as AccurateSalesInvoice);
+              result = await this.createSalesInvoice(item.payload as unknown as AccurateSalesInvoice);
               break;
             case "item":
-              result = await this.saveItem(item.payload as any);
+              result = await this.saveItem(item.payload as unknown as {
+                no?: string;
+                name: string;
+                unitPrice: number;
+                itemCategoryName?: string;
+              });
               break;
             default:
               result = { success: false, error: "Unknown sync type" };
