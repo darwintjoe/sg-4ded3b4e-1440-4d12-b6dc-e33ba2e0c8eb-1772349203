@@ -1,14 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyItemSales, MonthlyItemSales, Language } from "@/types";
 import { db } from "@/lib/db";
 import { translate } from "@/lib/translations";
-import { Download, Table2, FileImage, Package } from "lucide-react";
+import { Package } from "lucide-react";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
 
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type ChartView = "bar" | "pie";
@@ -38,8 +37,6 @@ const generateSpectrumColor = (index: number, total: number): string => {
 
 export function ItemsReport({ language }: ItemsReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
-  const itemsChartRef = useRef<HTMLDivElement>(null);
-  const itemsTableRef = useRef<HTMLDivElement>(null);
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -255,7 +252,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
 
   return (
     <div className="space-y-4">
-      <div ref={itemsChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
+      <div className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
         <Card className="border-0 shadow-none">
           <CardContent className="p-0">
             <div className="relative">
@@ -349,7 +346,7 @@ export function ItemsReport({ language }: ItemsReportProps) {
         </Card>
       </div>
 
-      <div ref={itemsTableRef} className="bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
+      <div className="bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
         <Card className="border-0 shadow-none">
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-sm font-medium flex items-center gap-2">

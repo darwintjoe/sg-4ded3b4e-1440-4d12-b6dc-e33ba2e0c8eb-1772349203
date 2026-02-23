@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DailyPaymentSales, MonthlySalesSummary } from "@/types";
 import { db } from "@/lib/db";
-import { Download, DollarSign, Receipt, TrendingUp, FileImage } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDateRange, formatBusinessDate, getYearMonth } from "@/lib/dateRangeUtils";
-import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
 import type { TimeRange } from "@/lib/dateRangeUtils";
 
 type SalesTimeRange = "MTD" | "30D" | "YTD" | "12M" | "5Y";
