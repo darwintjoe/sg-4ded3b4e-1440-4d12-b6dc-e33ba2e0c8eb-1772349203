@@ -1,14 +1,6 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-/**
- * Export utilities for reports - Clean approach:
- * 1. Capture content ONCE from reportRef
- * 2. Paginate cleanly across pages (NO extra headers/titles)
- * 3. Auto-open after download
- * 4. Fast and simple
- */
-
 export interface ExportOptions {
   filename: string;
   title?: string;
@@ -24,10 +16,10 @@ export interface ExportResult {
 }
 
 /**
- * Export report as PDF with clean pagination
- * - Captures content ONCE
- * - Paginates cleanly (NO duplicate headers)
- * - Auto-opens after download
+ * Export report as PDF - Ultra-simple clean implementation:
+ * - Capture content ONCE
+ * - Paginate cleanly (NO duplicate headers)
+ * - Auto-open after download
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
@@ -41,7 +33,7 @@ export async function exportChartAsPDF(
   try {
     const { filename, pageOrientation = "portrait" } = options;
 
-    // Capture entire report content ONCE
+    // 1. Capture entire report content ONCE
     const canvas = await html2canvas(reportRef, {
       backgroundColor: "#ffffff",
       scale: 2,
@@ -50,7 +42,7 @@ export async function exportChartAsPDF(
       allowTaint: true,
     });
 
-    // Create PDF
+    // 2. Create PDF with proper dimensions
     const pdf = new jsPDF({
       orientation: pageOrientation,
       unit: "mm",
@@ -64,17 +56,17 @@ export async function exportChartAsPDF(
     const usableWidth = pageWidth - 2 * margin;
     const usableHeight = pageHeight - 2 * margin;
 
-    // Calculate scaled dimensions
+    // 3. Calculate scaled dimensions
     const imgWidth = usableWidth;
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pxPerMm = canvas.width / imgWidth;
 
-    // If content fits on one page, just add it
+    // 4. If content fits on one page, just add it
     if (imgHeight <= usableHeight) {
       const imgData = canvas.toDataURL("image/jpeg", 0.92);
       pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
     } else {
-      // Content needs pagination - slice cleanly across pages
+      // 5. Content needs pagination - slice cleanly across pages
       let remainingHeightPx = canvas.height;
       let sourceYPx = 0;
       let isFirstPage = true;
@@ -118,10 +110,10 @@ export async function exportChartAsPDF(
       }
     }
 
-    // Save PDF
+    // 6. Save PDF
     pdf.save(`${filename}.pdf`);
 
-    // Auto-open PDF in new tab after short delay
+    // 7. Auto-open PDF in new tab after short delay
     setTimeout(() => {
       const pdfBlob = pdf.output("blob");
       const pdfUrl = URL.createObjectURL(pdfBlob);
