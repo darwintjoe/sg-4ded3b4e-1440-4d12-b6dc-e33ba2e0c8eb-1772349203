@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility functions for exporting reports as PDF or images
- * Simple approach: Capture ONCE, paginate cleanly, NO extra headers
+ * Clean approach: Capture ONCE, paginate cleanly, NO extra headers
  */
 
 export interface ExportOptions {
@@ -24,7 +24,7 @@ export interface ExportResult {
  * Export report as PDF with clean pagination
  * - Captures content ONCE
  * - Paginates cleanly across pages
- * - NO extra headers/titles (content already has them)
+ * - NO extra headers (content already has them)
  * - Auto-opens after download
  */
 export async function exportChartAsPDF(
@@ -114,7 +114,7 @@ export async function exportChartAsPDF(
       }
     }
 
-    // Save the PDF file
+    // Save PDF
     pdf.save(`${filename}.pdf`);
 
     // Auto-open PDF in new tab after short delay
