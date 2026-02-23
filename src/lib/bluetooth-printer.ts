@@ -295,20 +295,19 @@ class BluetoothPrinterService {
   }
 
   /**
-   * Send raw bytes to printer
+   * Send raw bytes to printer in small chunks with delays to prevent buffer overflow
    */
-  private async sendBytes(data: Uint8Array): Promise<void> {
+  private async sendBytes(data: Uint8Array, chunkSize: number = 256): Promise<void> {
     if (!this.characteristic) {
       throw new Error("Printer not connected");
     }
 
-    // Split large data into chunks (max 512 bytes per write for most printers)
-    const chunkSize = 512;
+    // Send data in small chunks with delays to prevent printer buffer overflow
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
       await this.characteristic.writeValue(chunk);
-      // Small delay between chunks
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Longer delay between chunks for thermal printer buffer to clear
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -716,7 +715,7 @@ class BluetoothPrinterService {
         offset += cmd.length;
       }
 
-      // Send to printer
+      // Send to printer in smaller chunks
       await this.sendBytes(buffer);
 
       return { success: true };
