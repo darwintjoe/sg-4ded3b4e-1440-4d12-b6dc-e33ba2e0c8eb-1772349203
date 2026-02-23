@@ -1,8 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
+import { Share2 } from "lucide-react";
+import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
+import { useToast } from "@/hooks/use-toast";
 
 type AttendanceTimeRange = "mtd" | "ytd";
 
@@ -11,6 +14,8 @@ interface AttendanceReportProps {
 }
 
 export function AttendanceReport({ language }: AttendanceReportProps) {
+  const reportContainerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const [attendanceTimeRange, setAttendanceTimeRange] = useState<AttendanceTimeRange>("mtd");
   const [attendanceData, setAttendanceData] = useState<Array<{
     employeeName: string;
@@ -61,8 +66,38 @@ export function AttendanceReport({ language }: AttendanceReportProps) {
     }
   };
 
+  const handleShare = async () => {
+    if (!reportContainerRef.current) return;
+
+    const filename = generateExportFilename("attendance-report");
+    const result = await shareReportAsImage(reportContainerRef.current, {
+      filename,
+      title: "Attendance Report"
+    });
+
+    if (!result.success && result.error) {
+      toast({
+        title: "Share failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div ref={reportContainerRef} className="space-y-4">
+      {/* Share button - absolute positioned in top right */}
+      <div className="fixed top-4 right-4 z-50 md:absolute md:top-2 md:right-2">
+        <Button
+          onClick={handleShare}
+          size="sm"
+          variant="default"
+          className="h-8 w-8 p-0 rounded-full shadow-lg"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
+      </div>
+
       <div className="flex justify-end gap-2">
         <Button
           variant={attendanceTimeRange === "mtd" ? "default" : "outline"}

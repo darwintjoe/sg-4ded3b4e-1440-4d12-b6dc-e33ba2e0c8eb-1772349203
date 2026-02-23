@@ -1,142 +1,39 @@
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
-export interface ExportOptions {
+export interface ShareOptions {
   filename: string;
   title?: string;
-  includeTimestamp?: boolean;
-  pageOrientation?: "portrait" | "landscape";
 }
 
-export interface ExportResult {
+export interface ShareResult {
   success: boolean;
   error?: string;
-  blob?: Blob;
-  url?: string;
 }
 
 /**
- * Export report as PDF - Single-capture pagination:
- * Capture entire report ONCE, then paginate cleanly across pages
+ * Share report as image using native Web Share API
+ * Opens system share sheet (WhatsApp, Gmail, Save to Files, etc.)
  */
-export async function exportChartAsPDF(
+export async function shareReportAsImage(
   reportRef: HTMLElement | null,
-  _unusedRef: HTMLElement | null,
-  options: ExportOptions
-): Promise<ExportResult> {
+  options: ShareOptions
+): Promise<ShareResult> {
   if (!reportRef) {
     return { success: false, error: "Report element not found" };
   }
 
-  try {
-    const { filename, pageOrientation = "portrait" } = options;
-
-    // 1. Capture entire report content ONCE
-    const canvas = await html2canvas(reportRef, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
-    });
-
-    // 2. Create PDF with proper dimensions
-    const pdf = new jsPDF({
-      orientation: pageOrientation,
-      unit: "mm",
-      format: "a4",
-      compress: true,
-    });
-
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const usableWidth = pageWidth - 2 * margin;
-    const usableHeight = pageHeight - 2 * margin;
-
-    // 3. Calculate image dimensions
-    const imgWidth = usableWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pxPerMm = canvas.width / imgWidth;
-
-    // 4. If content fits on one page, just add it
-    if (imgHeight <= usableHeight) {
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
-    } else {
-      // 5. Content needs pagination - slice cleanly across pages
-      let remainingHeightPx = canvas.height;
-      let sourceYPx = 0;
-      let isFirstPage = true;
-
-      while (remainingHeightPx > 0) {
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-
-        // Calculate how much content fits on this page
-        const sliceHeightMm = Math.min(remainingHeightPx / pxPerMm, usableHeight);
-        const sliceHeightPx = Math.ceil(sliceHeightMm * pxPerMm);
-
-        // Create canvas slice for this page
-        const sliceCanvas = document.createElement("canvas");
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceHeightPx;
-        const sliceCtx = sliceCanvas.getContext("2d");
-
-        if (sliceCtx) {
-          // White background
-          sliceCtx.fillStyle = "#ffffff";
-          sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-          
-          // Draw the slice from original canvas
-          sliceCtx.drawImage(
-            canvas,
-            0, sourceYPx,
-            canvas.width, sliceHeightPx,
-            0, 0,
-            canvas.width, sliceHeightPx
-          );
-
-          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
-          pdf.addImage(sliceData, "JPEG", margin, margin, imgWidth, sliceHeightMm);
-        }
-
-        remainingHeightPx -= sliceHeightPx;
-        sourceYPx += sliceHeightPx;
-        isFirstPage = false;
-      }
-    }
-
-    // 6. Save PDF (user will see download notification)
-    pdf.save(`${filename}.pdf`);
-
-    return { success: true };
-  } catch (error) {
-    console.error("PDF export failed:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Export failed",
+  // Check if Web Share API is supported
+  if (!navigator.share || !navigator.canShare) {
+    return { 
+      success: false, 
+      error: "Sharing is not supported on this device. Please use a modern mobile browser." 
     };
   }
-}
-
-/**
- * Export report as JPG image with auto-open
- */
-export async function exportChartAsImage(
-  reportRef: HTMLElement | null,
-  _unusedRef: HTMLElement | null,
-  options: ExportOptions
-): Promise<ExportResult> {
-  if (!reportRef) {
-    return { success: false, error: "Report element not found" };
-  }
 
   try {
-    const { filename } = options;
+    const { filename, title } = options;
 
-    // Capture entire report ONCE
+    // Capture entire report as image
     const canvas = await html2canvas(reportRef, {
       backgroundColor: "#ffffff",
       scale: 2,
@@ -145,129 +42,45 @@ export async function exportChartAsImage(
       allowTaint: true,
     });
 
-    // Convert to JPG data URL
-    const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.92);
-
-    // Download image
-    const link = document.createElement("a");
-    link.href = jpgDataUrl;
-    link.download = `${filename}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    return { success: true, url: jpgDataUrl };
-  } catch (error) {
-    console.error("Image export failed:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Export failed",
-    };
-  }
-}
-
-/**
- * Print report using browser print dialog
- */
-export async function printReport(
-  reportRef: HTMLElement | null,
-  _unusedRef: HTMLElement | null,
-  _title: string
-): Promise<ExportResult> {
-  if (!reportRef) {
-    return { success: false, error: "Report element not found" };
-  }
-
-  try {
-    // Capture entire report ONCE
-    const canvas = await html2canvas(reportRef, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      logging: false,
-      useCORS: true,
-      allowTaint: true,
+    // Convert to blob
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(blob);
+        } else {
+          reject(new Error("Failed to create image blob"));
+        }
+      }, "image/jpeg", 0.92);
     });
 
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-      compress: true,
-    });
+    // Create file from blob
+    const file = new File([blob], `${filename}.jpg`, { type: "image/jpeg" });
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const usableWidth = pageWidth - 2 * margin;
-    const usableHeight = pageHeight - 2 * margin;
-
-    const imgWidth = usableWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pxPerMm = canvas.width / imgWidth;
-
-    // If content fits on one page, just add it
-    if (imgHeight <= usableHeight) {
-      const imgData = canvas.toDataURL("image/jpeg", 0.92);
-      pdf.addImage(imgData, "JPEG", margin, margin, imgWidth, imgHeight);
-    } else {
-      // Content needs pagination
-      let remainingHeightPx = canvas.height;
-      let sourceYPx = 0;
-      let isFirstPage = true;
-
-      while (remainingHeightPx > 0) {
-        if (!isFirstPage) {
-          pdf.addPage();
-        }
-
-        const sliceHeightMm = Math.min(remainingHeightPx / pxPerMm, usableHeight);
-        const sliceHeightPx = Math.ceil(sliceHeightMm * pxPerMm);
-
-        const sliceCanvas = document.createElement("canvas");
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceHeightPx;
-        const sliceCtx = sliceCanvas.getContext("2d");
-
-        if (sliceCtx) {
-          sliceCtx.fillStyle = "#ffffff";
-          sliceCtx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-          sliceCtx.drawImage(
-            canvas,
-            0, sourceYPx,
-            canvas.width, sliceHeightPx,
-            0, 0,
-            canvas.width, sliceHeightPx
-          );
-
-          const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
-          pdf.addImage(sliceData, "JPEG", margin, margin, imgWidth, sliceHeightMm);
-        }
-
-        remainingHeightPx -= sliceHeightPx;
-        sourceYPx += sliceHeightPx;
-        isFirstPage = false;
-      }
-    }
-
-    // Open print dialog
-    const pdfBlob = pdf.output("blob");
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const printWindow = window.open(pdfUrl, "_blank");
-
-    if (printWindow) {
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
+    // Check if file can be shared
+    if (!navigator.canShare({ files: [file] })) {
+      return { 
+        success: false, 
+        error: "Image sharing is not supported on this device" 
       };
     }
 
-    return { success: true, url: pdfUrl };
+    // Open native share sheet
+    await navigator.share({
+      files: [file],
+      title: title || filename,
+    });
+
+    return { success: true };
   } catch (error) {
-    console.error("Print failed:", error);
+    // User cancelled share sheet
+    if (error instanceof Error && error.name === "AbortError") {
+      return { success: true }; // Not an error, user just cancelled
+    }
+
+    console.error("Share failed:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Print failed",
+      error: error instanceof Error ? error.message : "Share failed",
     };
   }
 }

@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DailyItemSales, MonthlyItemSales, Language } from "@/types";
 import { db } from "@/lib/db";
 import { translate } from "@/lib/translations";
-import { Package } from "lucide-react";
+import { Package, Share2 } from "lucide-react";
 import { HorizontalBarChart } from "@/components/charts/HorizontalBarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
+import { useToast } from "@/hooks/use-toast";
 
 type ItemsTimeRange = "1d" | "7d" | "1m" | "3m" | "6m" | "1y" | "3y" | "5y";
 type ChartView = "bar" | "pie";
@@ -37,6 +39,8 @@ const generateSpectrumColor = (index: number, total: number): string => {
 
 export function ItemsReport({ language }: ItemsReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
+  const reportContainerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -224,6 +228,24 @@ export function ItemsReport({ language }: ItemsReportProps) {
     }
   };
 
+  const handleShare = async () => {
+    if (!reportContainerRef.current) return;
+
+    const filename = generateExportFilename("items-report");
+    const result = await shareReportAsImage(reportContainerRef.current, {
+      filename,
+      title: "Top Items Report"
+    });
+
+    if (!result.success && result.error) {
+      toast({
+        title: "Share failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
+
   const barChartData = topItems.map(item => ({
     name: item.itemName,
     value: sortBy === "quantity" ? item.quantity : item.revenue,
@@ -251,7 +273,19 @@ export function ItemsReport({ language }: ItemsReportProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={reportContainerRef} className="space-y-4">
+      {/* Share button - absolute positioned in top right */}
+      <div className="fixed top-4 right-4 z-50 md:absolute md:top-2 md:right-2">
+        <Button
+          onClick={handleShare}
+          size="sm"
+          variant="default"
+          className="h-8 w-8 p-0 rounded-full shadow-lg"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
+      </div>
+
       <div className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-none md:rounded-lg shadow-sm">
         <Card className="border-0 shadow-none">
           <CardContent className="p-0">

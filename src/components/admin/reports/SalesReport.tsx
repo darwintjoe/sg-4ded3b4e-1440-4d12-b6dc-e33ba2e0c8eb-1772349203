@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DailyPaymentSales, MonthlySalesSummary } from "@/types";
 import { db } from "@/lib/db";
-import { DollarSign, Receipt, TrendingUp } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp, Share2 } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getDateRange, formatBusinessDate, getYearMonth } from "@/lib/dateRangeUtils";
 import type { TimeRange } from "@/lib/dateRangeUtils";
+import { shareReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
+import { useToast } from "@/hooks/use-toast";
 
 type SalesTimeRange = "MTD" | "30D" | "YTD" | "12M" | "5Y";
 
@@ -30,6 +32,8 @@ export function SalesReport({ language }: SalesReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
   const salesChartRef = useRef<HTMLDivElement>(null);
   const salesTableRef = useRef<HTMLDivElement>(null);
+  const reportContainerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const formatCurrency = (amount: number): string => {
     if (amount >= 1_000_000_000) {
@@ -310,6 +314,24 @@ export function SalesReport({ language }: SalesReportProps) {
     }
   };
 
+  const handleShare = async () => {
+    if (!reportContainerRef.current) return;
+
+    const filename = generateExportFilename("sales-report");
+    const result = await shareReportAsImage(reportContainerRef.current, {
+      filename,
+      title: "Sales Report"
+    });
+
+    if (!result.success && result.error) {
+      toast({
+        title: "Share failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
+
   const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
 
   // Pre-calculate table totals (memoized in render)
@@ -323,7 +345,19 @@ export function SalesReport({ language }: SalesReportProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div ref={reportContainerRef} className="space-y-4">
+      {/* Share button - absolute positioned in top right */}
+      <div className="fixed top-4 right-4 z-50 md:absolute md:top-2 md:right-2">
+        <Button
+          onClick={handleShare}
+          size="sm"
+          variant="default"
+          className="h-8 w-8 p-0 rounded-full shadow-lg"
+        >
+          <Share2 className="h-4 w-4" />
+        </Button>
+      </div>
+
       <div ref={salesChartRef} className="space-y-4 bg-white dark:bg-slate-950 p-4 rounded-lg">
         <div className="text-center space-y-1 pb-3 border-b">
           <h2 className="text-lg font-bold">{t.reports.salesReport}</h2>
