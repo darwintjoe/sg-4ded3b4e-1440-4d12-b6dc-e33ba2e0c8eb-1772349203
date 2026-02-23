@@ -19,6 +19,7 @@ import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { Card, CardContent } from "@/components/ui/card";
 import type { QueryResult } from "@/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { exportChartAsPDF, exportChartAsImage } from "@/lib/reportExportUtils";
 
 interface Message {
   role: "user" | "assistant";
@@ -32,12 +33,87 @@ interface ReportsPanelProps {
 }
 
 export function ReportsPanel({ language }: ReportsPanelProps) {
+  const [activeTab, setActiveTab] = useState("sales");
   const [chatInput, setChatInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  
+  // Refs for export functionality
+  const salesChartRef = useRef<HTMLDivElement>(null);
+  const salesTableRef = useRef<HTMLDivElement>(null);
+  const itemsChartRef = useRef<HTMLDivElement>(null);
+  const itemsTableRef = useRef<HTMLDivElement>(null);
+  const attendanceRef = useRef<HTMLDivElement>(null);
+
+  // Export handlers
+  const handleExportPDF = async () => {
+    let chartEl: HTMLDivElement | null = null;
+    let tableEl: HTMLDivElement | null = null;
+    let title = "Report";
+
+    if (activeTab === "sales") {
+      chartEl = salesChartRef.current;
+      tableEl = salesTableRef.current;
+      title = "Sales Report";
+    } else if (activeTab === "items") {
+      chartEl = itemsChartRef.current;
+      tableEl = itemsTableRef.current;
+      title = "Items Report";
+    } else if (activeTab === "attendance") {
+      chartEl = attendanceRef.current;
+      tableEl = attendanceRef.current;
+      title = "Attendance Report";
+    }
+
+    if (chartEl && tableEl) {
+      const result = await exportChartAsPDF(chartEl, tableEl, {
+        filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`,
+        title,
+        includeTimestamp: true,
+        pageOrientation: "portrait"
+      });
+      if (!result.success) {
+        alert(`Export failed: ${result.error}`);
+      }
+    }
+  };
+
+  const handleExportImage = async () => {
+    let chartEl: HTMLDivElement | null = null;
+    let tableEl: HTMLDivElement | null = null;
+
+    if (activeTab === "sales") {
+      chartEl = salesChartRef.current;
+      tableEl = salesTableRef.current;
+    } else if (activeTab === "items") {
+      chartEl = itemsChartRef.current;
+      tableEl = itemsTableRef.current;
+    } else if (activeTab === "attendance") {
+      chartEl = attendanceRef.current;
+      tableEl = attendanceRef.current;
+    }
+
+    if (chartEl && tableEl) {
+      const result = await exportChartAsImage(chartEl, tableEl, {
+        filename: `${activeTab}-report-${new Date().toISOString().split('T')[0]}`
+      });
+      if (!result.success) {
+        alert(`Export failed: ${result.error}`);
+      }
+    }
+  };
+
+  const handleExportCSV = () => {
+    // TODO: Implement CSV export based on active tab data
+    alert("CSV export coming soon!");
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   // Auto-scroll to bottom when messages change or during streaming
   useEffect(() => {
@@ -213,7 +289,7 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
   };
 
   return (
-    <Tabs defaultValue="sales" className="w-full">
+    <Tabs defaultValue="sales" value={activeTab} onValueChange={setActiveTab} className="w-full">
       <div className="flex flex-col gap-4">
         {/* Row 1: Tabs + Export + Print */}
         <div className="flex items-center justify-between gap-4">
@@ -232,20 +308,20 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handleExportPDF}>
                   <FileText className="h-4 w-4" />
                   Export as PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handleExportImage}>
                   <Image className="h-4 w-4" />
                   Export as Image
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handleExportCSV}>
                   <FileSpreadsheet className="h-4 w-4" />
                   Export as CSV
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2">
+                <DropdownMenuItem className="gap-2" onClick={handlePrint}>
                   <Printer className="h-4 w-4" />
                   Print
                 </DropdownMenuItem>
@@ -256,15 +332,25 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
       </div>
 
       <TabsContent value="sales" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <SalesReport language={language} />
+        <div ref={salesChartRef}>
+          <div ref={salesTableRef}>
+            <SalesReport language={language} />
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="items" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <ItemsReport language={language} />
+        <div ref={itemsChartRef}>
+          <div ref={itemsTableRef}>
+            <ItemsReport language={language} />
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="attendance" className="mt-4 h-[calc(100vh-150px)] overflow-y-auto">
-        <AttendanceReport language={language} />
+        <div ref={attendanceRef}>
+          <AttendanceReport language={language} />
+        </div>
       </TabsContent>
 
       <TabsContent 
