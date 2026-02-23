@@ -8,9 +8,17 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
+    // Initialize and play ka-ching sound
+    audioRef.current = new Audio("/ka-ching.mp3");
+    audioRef.current.volume = 0.7;
+    audioRef.current.play().catch((error) => {
+      console.log("Audio playback failed (likely due to browser autoplay policy):", error);
+    });
+
     const video = videoRef.current;
     if (!video) return;
 
@@ -51,6 +59,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     return () => {
       video.removeEventListener("ended", handleVideoEnd);
       video.removeEventListener("error", handleVideoError);
+      // Stop audio when component unmounts
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
   }, [onComplete]);
 
