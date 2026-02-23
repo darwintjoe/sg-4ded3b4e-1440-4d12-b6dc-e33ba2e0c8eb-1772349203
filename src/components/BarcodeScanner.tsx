@@ -10,13 +10,12 @@ interface BarcodeScannerProps {
 }
 
 export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeScannerProps) {
-  const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
   const [scanCooldown, setScanCooldown] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cooldownRef = useRef(false);
   const { toast } = useToast();
 
   const t = {
@@ -66,33 +65,24 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
     }
   };
 
-  // Cleanup cooldown timer on unmount
-  useEffect(() => {
-    return () => {
-      if (cooldownTimerRef.current) {
-        clearTimeout(cooldownTimerRef.current);
-      }
-    };
-  }, []);
-
+  // Reset state when scanner closes
   useEffect(() => {
     if (!isOpen) {
-      // Reset state when closed
       setLastScannedCode(null);
       setScanCooldown(false);
-      if (cooldownTimerRef.current) {
-        clearTimeout(cooldownTimerRef.current);
-        cooldownTimerRef.current = null;
-      }
-      return;
+      cooldownRef.current = false;
     }
+  }, [isOpen]);
+
+  // Main scanner effect - only depends on isOpen
+  useEffect(() => {
+    if (!isOpen) return;
 
     let mounted = true;
     let animationFrameId: number | null = null;
 
     const startScanner = async () => {
       try {
-        setIsScanning(true);
         setError(null);
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -121,13 +111,19 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
               try {
                 const barcodes = await barcodeDetector.detect(videoRef.current);
                 
-                if (barcodes.length > 0 && !scanCooldown) {
+                // Only process if not in cooldown (use ref for immediate check)
+                if (barcodes.length > 0 && !cooldownRef.current) {
                   const barcode = barcodes[0].rawValue;
                   
-                  playDingSound();
-                  setLastScannedCode(barcode);
-                  setScanCooldown(true);
+                  // Set cooldown immediately via ref (prevents duplicate scans)
+                  cooldownRef.current = true;
                   
+                  // Update UI state
+                  setScanCooldown(true);
+                  setLastScannedCode(barcode);
+                  
+                  // Play sound and notify
+                  playDingSound();
                   onScan(barcode);
                   
                   toast({
@@ -135,8 +131,10 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
                     duration: 1500,
                   });
 
-                  cooldownTimerRef.current = setTimeout(() => {
+                  // Reset cooldown after 2 seconds
+                  setTimeout(() => {
                     if (mounted) {
+                      cooldownRef.current = false;
                       setScanCooldown(false);
                       setLastScannedCode(null);
                     }
@@ -157,7 +155,6 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
       } catch (err) {
         if (mounted) {
           setError(t.error);
-          setIsScanning(false);
         }
       }
     };
@@ -171,9 +168,10 @@ export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeSca
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
-  }, [isOpen, onScan, toast, t.error, scanCooldown]);
+  }, [isOpen, onScan, toast, t.error]);
 
   if (!isOpen) return null;
 
