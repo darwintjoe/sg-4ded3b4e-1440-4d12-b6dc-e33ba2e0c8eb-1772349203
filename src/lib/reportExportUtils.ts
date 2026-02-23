@@ -3,7 +3,7 @@ import jsPDF from "jspdf";
 
 /**
  * Shared utility for exporting reports as PDF or images
- * Simple approach: Capture ONCE, paginate cleanly, NO extra headers
+ * Clean approach: Capture ONCE, paginate cleanly, NO extra headers
  */
 
 export interface ExportOptions {
@@ -114,7 +114,7 @@ export async function exportChartAsPDF(
       }
     }
 
-    // Save PDF
+    // Save PDF (browser handles duplicate filenames automatically)
     pdf.save(`${filename}.pdf`);
 
     // Auto-open PDF in new tab after short delay
@@ -161,7 +161,7 @@ export async function exportChartAsImage(
     // Convert to JPG data URL
     const jpgDataUrl = canvas.toDataURL("image/jpeg", 0.92);
 
-    // Download image
+    // Download image (browser handles duplicate filenames automatically)
     const link = document.createElement("a");
     link.href = jpgDataUrl;
     link.download = `${filename}.jpg`;
