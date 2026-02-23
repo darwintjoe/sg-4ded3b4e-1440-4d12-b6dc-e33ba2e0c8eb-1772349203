@@ -34,6 +34,27 @@ export function PrinterSettingsSection({ language, settings, onUpdate }: Printer
     }
   }, []);
 
+  // Auto-reconnect to previously paired printer on mount
+  useEffect(() => {
+    const attemptAutoReconnect = async () => {
+      // Only try if not already connected and printer ID is stored
+      if (!bluetoothPrinter.isConnected() && settings.bluetoothPrinterId) {
+        console.log("Attempting auto-reconnect to printer:", settings.bluetoothPrinterId);
+        const result = await bluetoothPrinter.autoReconnect();
+        
+        if (result.success) {
+          setPrinterConnected(true);
+          setPrinterName(result.printerName || "Unknown Printer");
+          console.log("Auto-reconnect successful:", result.printerName);
+        } else {
+          console.log("Auto-reconnect failed:", result.error);
+        }
+      }
+    };
+
+    attemptAutoReconnect();
+  }, [settings.bluetoothPrinterId]);
+
   const handleConnectPrinter = async () => {
     setPrinterConnecting(true);
     setPrinterError(null);
