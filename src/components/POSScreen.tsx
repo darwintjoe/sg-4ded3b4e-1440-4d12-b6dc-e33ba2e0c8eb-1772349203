@@ -62,6 +62,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const newItemNameRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const router = useRouter();
@@ -303,17 +304,25 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
     
     if (pinInput === currentUser.pin) {
+      // Blur current input to dismiss keyboard
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
       
-      // Open create item dialog with SKU pre-filled
-      setNewItemData({ name: "", price: 0, sku: notFoundBarcode });
-      setNewItemPriceDisplay("");
-      setCreateItemOpen(true);
-      
-      // Try to lookup product name
-      lookupProductName(notFoundBarcode);
+      // Small delay to let keyboard dismiss, then open modal
+      setTimeout(() => {
+        // Open create item dialog with SKU pre-filled
+        setNewItemData({ name: "", price: 0, sku: notFoundBarcode });
+        setNewItemPriceDisplay("");
+        setCreateItemOpen(true);
+        
+        // Try to lookup product name
+        lookupProductName(notFoundBarcode);
+      }, 300);
     } else {
       // Don't close modal - just show error
       setPinError(translate("pos.incorrectPin", language));
@@ -571,6 +580,17 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       // Final: Alphabetical by name
       return aName.localeCompare(bName);
     });
+
+  // Focus name input when create item dialog opens
+  useEffect(() => {
+    if (createItemOpen && newItemNameRef.current) {
+      // Delay to ensure modal is fully rendered and keyboard is dismissed
+      const timer = setTimeout(() => {
+        newItemNameRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [createItemOpen]);
 
   // Automatically show dropdown when user types
   useEffect(() => {
@@ -1068,10 +1088,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                 {translate("items.itemName", language)} <span className="text-red-500">*</span>
               </Label>
               <Input
+                ref={newItemNameRef}
                 value={newItemData.name}
                 onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder={translate("items.itemNamePlaceholder", language)}
-                autoFocus
               />
             </div>
 
