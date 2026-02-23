@@ -661,33 +661,23 @@ class BluetoothPrinterService {
       }
 
       const width = settings.printerWidth === 58 ? 32 : 42;
-      const commands: Uint8Array[] = [];
 
-      // Initialize printer with proper encoding
+      // Initialize printer first
       await this.initializePrinter();
 
-      // Logo (if exists and is not explicitly removed/empty)
-      if (settings.receiptLogoBase64 && settings.receiptLogoBase64.length > 0) {
+      const commands: Uint8Array[] = [];
+
+      // Logo (skip if problematic - simpler approach for now)
+      if (settings.receiptLogoBase64 && settings.receiptLogoBase64.length > 100) {
         try {
           const logoBitmap = await this.imageToBitmap(settings.receiptLogoBase64);
-          if (logoBitmap.length > 0) {
+          if (logoBitmap && logoBitmap.length > 10) {
             commands.push(this.cmdAlign("center"));
             commands.push(logoBitmap);
-            commands.push(this.cmdLineFeed(1));
-          }
-        } catch (error) {
-          console.warn("Failed to print logo, continuing without it:", error);
-          // Silent skip - continue printing receipt without logo
-        }
-      } else if (settings.businessLogo && !settings.receiptLogoBase64) {
-        // Fallback to businessLogo if receiptLogoBase64 is undefined (legacy support)
-        // But if receiptLogoBase64 is "" (empty string), it means explicitly removed, so don't print
-        try {
-          const logoBitmap = await this.imageToBitmap(settings.businessLogo);
-          if (logoBitmap.length > 0) {
-            commands.push(this.cmdAlign("center"));
-            commands.push(logoBitmap);
-            commands.push(this.cmdLineFeed(1));
+            commands.push(this.cmdLineFeed(2));
+            // Reset after logo
+            commands.push(this.cmdInit());
+            commands.push(this.cmdSelectCodePage());
           }
         } catch (error) {
           console.warn("Failed to print logo, continuing without it:", error);
@@ -722,7 +712,7 @@ class BluetoothPrinterService {
 
       // Receipt info (left aligned)
       commands.push(this.cmdAlign("left"));
-      commands.push(this.encodeText(`Date: ${new Date(transaction.timestamp).toLocaleString()}`));
+      commands.push(this.encodeText(`Date: ${new Date(transaction.timestamp).toLocaleString("id-ID")}`));
       commands.push(this.cmdLineFeed(1));
       commands.push(this.encodeText(`Receipt: #${transaction.id}`));
       commands.push(this.cmdLineFeed(1));
@@ -734,18 +724,26 @@ class BluetoothPrinterService {
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
 
-      // Items (2-row format)
+      // Items (2-row format with proper spacing)
       commands.push(this.cmdAlign("left"));
-      for (const item of transaction.items) {
-        // Row 1: Item name
-        commands.push(this.encodeText(item.name));
+      for (let i = 0; i < transaction.items.length; i++) {
+        const item = transaction.items[i];
+        
+        // Row 1: Item name (truncate if too long)
+        const name = item.name.length > width ? item.name.substring(0, width - 3) + "..." : item.name;
+        commands.push(this.encodeText(name));
         commands.push(this.cmdLineFeed(1));
 
         // Row 2: Qty x Base Price -> Total Price
         const qtyPrice = `${item.quantity} x ${this.formatCurrency(item.basePrice)}`;
         const total = this.formatCurrency(item.totalPrice);
         commands.push(this.encodeText(this.padLine(qtyPrice, total, width)));
-        commands.push(this.cmdLineFeed(2));
+        commands.push(this.cmdLineFeed(1));
+        
+        // Add extra line between items except after last
+        if (i < transaction.items.length - 1) {
+          commands.push(this.cmdLineFeed(1));
+        }
       }
 
       // Separator
@@ -844,7 +842,7 @@ class BluetoothPrinterService {
       }
 
       // Feed and cut
-      commands.push(this.cmdLineFeed(3));
+      commands.push(this.cmdLineFeed(5));
       commands.push(this.cmdCut());
 
       // Combine all commands
@@ -856,7 +854,7 @@ class BluetoothPrinterService {
         offset += cmd.length;
       }
 
-      // Send to printer
+      // Send to printer in smaller chunks
       await this.sendBytes(buffer);
 
       return { success: true };
