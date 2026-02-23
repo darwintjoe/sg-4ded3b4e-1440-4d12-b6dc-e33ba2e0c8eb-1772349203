@@ -16,10 +16,10 @@ export interface ExportResult {
 }
 
 /**
- * Export report as PDF - Ultra-simple clean implementation:
- * - Capture content ONCE
- * - Paginate cleanly (NO duplicate headers)
- * - Auto-open after download
+ * Export report as PDF - Simple clean implementation:
+ * 1. Capture content ONCE
+ * 2. Paginate cleanly (no duplicate headers)
+ * 3. Auto-open after download
  */
 export async function exportChartAsPDF(
   reportRef: HTMLElement | null,
