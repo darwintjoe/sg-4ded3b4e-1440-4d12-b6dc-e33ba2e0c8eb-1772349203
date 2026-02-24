@@ -273,6 +273,23 @@ export function PaymentDialog({
     onClose();
   };
 
+  // WhatsApp share handler
+  const handleShareWhatsApp = () => {
+    if (!whatsAppNumber) return;
+    
+    // Format number: remove spaces, dashes, and any existing + prefix
+    let cleanNumber = whatsAppNumber.replace(/[\s\-]/g, "").replace(/^\+/, "");
+    
+    // Remove leading 0 if present
+    if (cleanNumber.startsWith("0")) {
+      cleanNumber = cleanNumber.substring(1);
+    }
+    
+    const fullNumber = "+62" + cleanNumber;
+    const waUrl = `https://wa.me/${fullNumber}`;
+    window.open(waUrl, "_blank");
+  };
+
   // Tax calculations for display
   const tax1Amount = settings?.tax1Enabled ? 
     (settings.tax1Inclusive ? 
