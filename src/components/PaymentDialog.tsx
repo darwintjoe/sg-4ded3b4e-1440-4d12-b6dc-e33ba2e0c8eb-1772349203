@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2 } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2 } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
