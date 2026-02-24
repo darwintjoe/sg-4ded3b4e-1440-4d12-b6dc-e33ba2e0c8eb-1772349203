@@ -470,7 +470,15 @@ class BluetoothPrinterService {
         this.connected = false;
         console.log("Printer disconnected");
         this.onDisconnectCallback?.();
+        
+        // Attempt reconnection after short delay
+        setTimeout(() => {
+          this.attemptReconnect();
+        }, 2000);
       });
+
+      // Notify connected
+      this.onConnectCallback?.(this.device.name || "Unknown Printer");
 
       return {
         success: true,
