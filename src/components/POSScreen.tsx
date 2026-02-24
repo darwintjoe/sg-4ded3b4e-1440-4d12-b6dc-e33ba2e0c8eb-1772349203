@@ -619,6 +619,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             <Badge variant="outline" className="text-xs">
               {translate(`pos.mode.${mode}`, language)}
             </Badge>
+            
+            {/* Printer Connection LED Indicator */}
+            <div
+              className={`w-2.5 h-2.5 rounded-full ml-2 transition-all duration-300 ${printerConnected ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
+              title={printerConnected ? "Printer connected" : "Printer not connected"}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Button
