@@ -57,6 +57,23 @@ export function PaymentDialog({
   const [showQrisDynamicModal, setShowQrisDynamicModal] = useState(false);
   const [qrisLoading, setQrisLoading] = useState(false);
   const [dynamicQrUrl, setDynamicQrUrl] = useState<string | null>(null);
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+  const [connectingPrinter, setConnectingPrinter] = useState(false);
+  const [whatsAppNumber, setWhatsAppNumber] = useState("");
+
+  // Check printer connection status
+  useEffect(() => {
+    const checkConnection = () => {
+      setIsPrinterConnected(bluetoothPrinter.isConnected());
+    };
+    
+    checkConnection();
+    
+    // Check periodically
+    const interval = setInterval(checkConnection, 2000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Reset payment state when dialog closes
   useEffect(() => {
