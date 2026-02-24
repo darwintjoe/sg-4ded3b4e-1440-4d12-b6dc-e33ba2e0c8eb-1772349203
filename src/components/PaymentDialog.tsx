@@ -285,7 +285,7 @@ export function PaymentDialog({
       cleanNumber = cleanNumber.substring(1);
     }
     
-    const fullNumber = "+62" + cleanNumber;
+    const fullNumber = "62" + cleanNumber;
     const waUrl = `https://wa.me/${fullNumber}`;
     window.open(waUrl, "_blank");
   };
