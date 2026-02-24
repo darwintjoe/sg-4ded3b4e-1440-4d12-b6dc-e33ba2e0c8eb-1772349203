@@ -290,6 +290,7 @@ export function PaymentDialog({
     window.open(waUrl, "_blank");
   };
 
+  // Manual connect to Bluetooth printer
   const handleConnectPrinter = async () => {
     setConnectingPrinter(true);
     try {
