@@ -210,6 +210,22 @@ class BluetoothPrinterService {
   }
 
   /**
+   * Save printer ID to settings for auto-reconnect
+   */
+  private savePrinterId(id: string): void {
+    if (typeof window === "undefined") return;
+    try {
+      const settingsJson = localStorage.getItem("sellmore_settings");
+      const settings = settingsJson ? JSON.parse(settingsJson) : {};
+      settings.bluetoothPrinterId = id;
+      localStorage.setItem("sellmore_settings", JSON.stringify(settings));
+      console.log("Bluetooth printer ID saved:", id);
+    } catch (e) {
+      console.error("Error saving printer ID:", e);
+    }
+  }
+
+  /**
    * Get stored printer ID from settings
    */
   private getStoredPrinterId(): string | null {
@@ -224,6 +240,24 @@ class BluetoothPrinterService {
       console.error("Error reading stored printer ID:", e);
     }
     return null;
+  }
+
+  /**
+   * Clear stored printer ID (called on manual disconnect)
+   */
+  private clearPrinterId(): void {
+    if (typeof window === "undefined") return;
+    try {
+      const settingsJson = localStorage.getItem("sellmore_settings");
+      if (settingsJson) {
+        const settings = JSON.parse(settingsJson);
+        delete settings.bluetoothPrinterId;
+        localStorage.setItem("sellmore_settings", JSON.stringify(settings));
+        console.log("Bluetooth printer ID cleared");
+      }
+    } catch (e) {
+      console.error("Error clearing printer ID:", e);
+    }
   }
 
   /**
@@ -289,6 +323,9 @@ class BluetoothPrinterService {
       this.characteristic = await service.getCharacteristic(this.CHARACTERISTIC_UUID);
 
       this.connected = true;
+
+      // Save printer ID for future auto-reconnect
+      this.savePrinterId(device.id);
 
       // Handle disconnection
       device.addEventListener("gattserverdisconnected", () => {
@@ -425,10 +462,14 @@ class BluetoothPrinterService {
 
       this.connected = true;
 
+      // Save printer ID for future auto-reconnect
+      this.savePrinterId(this.device.id);
+
       // Handle disconnection
       this.device.addEventListener("gattserverdisconnected", () => {
         this.connected = false;
         console.log("Printer disconnected");
+        this.onDisconnectCallback?.();
       });
 
       return {
@@ -453,6 +494,7 @@ class BluetoothPrinterService {
     if (this.device?.gatt?.connected) {
       this.device.gatt.disconnect();
     }
+    this.clearPrinterId();
     this.device = null;
     this.characteristic = null;
     this.connected = false;
