@@ -290,6 +290,35 @@ export function PaymentDialog({
     window.open(waUrl, "_blank");
   };
 
+  const handleConnectPrinter = async () => {
+    setConnectingPrinter(true);
+    try {
+      const result = await bluetoothPrinter.connect();
+      if (result.success) {
+        setIsPrinterConnected(true);
+        toast({
+          title: "Printer connected",
+          description: "Bluetooth printer connected successfully",
+        });
+      } else {
+        toast({
+          title: "Connection failed",
+          description: result.error || "Could not connect to printer",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to connect printer:", error);
+      toast({
+        title: "Connection failed",
+        description: "An error occurred while connecting",
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingPrinter(false);
+    }
+  };
+
   // Tax calculations for display
   const tax1Amount = settings?.tax1Enabled ? 
     (settings.tax1Inclusive ? 
