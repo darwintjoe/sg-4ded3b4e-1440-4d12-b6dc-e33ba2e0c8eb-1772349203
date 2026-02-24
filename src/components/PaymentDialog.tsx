@@ -276,7 +276,8 @@ export function PaymentDialog({
   // WhatsApp share handler
   const handleShareWhatsApp = () => {
     if (!whatsAppNumber) return;
-    
+    if (!lastTransaction || !settings) return;
+
     // Format number: remove spaces, dashes, and any existing + prefix
     let cleanNumber = whatsAppNumber.replace(/[\s\-]/g, "").replace(/^\+/, "");
     
@@ -286,7 +287,41 @@ export function PaymentDialog({
     }
     
     const fullNumber = "62" + cleanNumber;
-    const waUrl = `https://wa.me/${fullNumber}`;
+
+    // Build receipt message
+    const lines: string[] = [];
+    lines.push(`*${settings.businessName}*`);
+    lines.push("");
+    lines.push(`Date: ${new Date(lastTransaction.timestamp).toLocaleString()}`);
+    lines.push(`Cashier: ${lastTransaction.cashierName}`);
+    lines.push("");
+    lines.push("*Items:*");
+    lastTransaction.items.forEach((item) => {
+      lines.push(`${item.name}`);
+      lines.push(`${item.quantity} x ${item.basePrice.toLocaleString()} = ${item.totalPrice.toLocaleString()}`);
+    });
+    lines.push("");
+    lines.push(`*Subtotal: ${subtotal.toLocaleString()}*`);
+    if (settings.tax1Enabled) {
+      lines.push(`${settings.tax1Label}: ${Math.round(tax1Amount).toLocaleString()}`);
+    }
+    if (settings.tax2Enabled) {
+      lines.push(`${settings.tax2Label}: ${Math.round(tax2Amount).toLocaleString()}`);
+    }
+    lines.push(`*Total: ${total.toLocaleString()}*`);
+    lines.push("");
+    lines.push("*Payment:*");
+    payments.forEach((p) => {
+      lines.push(`${p.method.replace("-", " ")}: ${p.amount.toLocaleString()}`);
+    });
+    if (change > 0) {
+      lines.push(`Change: ${change.toLocaleString()}`);
+    }
+    lines.push("");
+    lines.push(settings.receiptFooter || "Thank you for your purchase!");
+
+    const message = encodeURIComponent(lines.join("\n"));
+    const waUrl = `https://wa.me/${fullNumber}?text=${message}`;
     window.open(waUrl, "_blank");
   };
 
