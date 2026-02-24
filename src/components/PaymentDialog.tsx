@@ -493,69 +493,68 @@ export function PaymentDialog({
             {/* Print Buttons */}
             <div className="flex flex-col gap-3 w-full">
               
-              {/* Manual Connect Button - only show if not connected */}
-              {!isPrinterConnected && (
+              {/* Connect + Print Row - side by side */}
+              <div className="flex gap-2 w-full">
+                {/* Manual Connect Button - only show if not connected */}
+                {!isPrinterConnected && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="flex-1 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50" 
+                    onClick={handleConnectPrinter}
+                    disabled={connectingPrinter}
+                  >
+                    {connectingPrinter ? (
+                      <Bluetooth className="h-4 w-4 animate-pulse" />
+                    ) : (
+                      <Bluetooth className="h-4 w-4" />
+                    )}
+                    <span className="ml-1 text-xs">Connect</span>
+                  </Button>
+                )}
+                
+                {/* Bluetooth Print - always visible */}
                 <Button 
-                  variant="outline" 
-                  className="w-full border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50" 
-                  onClick={handleConnectPrinter}
-                  disabled={connectingPrinter}
+                  size="sm"
+                  className={`flex-1 ${isPrinterConnected 
+                    ? "bg-blue-600 hover:bg-blue-700" 
+                    : "bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200"
+                  }`} 
+                  onClick={handlePrintBluetooth}
+                  disabled={printing || !isPrinterConnected}
                 >
-                  {connectingPrinter ? (
+                  {printing ? (
                     <>
-                      <Bluetooth className="mr-2 h-4 w-4 animate-pulse" />
-                      Connecting...
+                      <Printer className="h-4 w-4 animate-pulse" />
+                      <span className="ml-1 text-xs">...</span>
                     </>
                   ) : (
                     <>
-                      <Bluetooth className="mr-2 h-4 w-4" />
-                      Connect Bluetooth Printer
+                      <Printer className="h-4 w-4" />
+                      <span className="ml-1 text-xs">Print</span>
                     </>
                   )}
                 </Button>
-              )}
+              </div>
               
-              {/* Bluetooth Print - always visible, disabled when not connected */}
-              <Button 
-                className={`w-full ${isPrinterConnected 
-                  ? "bg-blue-600 hover:bg-blue-700" 
-                  : "bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200"
-                }`} 
-                onClick={handlePrintBluetooth}
-                disabled={printing || !isPrinterConnected}
-              >
-                {printing ? (
-                  <>
-                    <Printer className="mr-2 h-4 w-4 animate-pulse" />
-                    Printing...
-                  </>
-                ) : (
-                  <>
-                    <Bluetooth className="mr-2 h-4 w-4" />
-                    Print via Bluetooth
-                    {!isPrinterConnected && (
-                      <span className="ml-1 text-xs">(Not Connected)</span>
-                    )}
-                  </>
-                )}
-              </Button>
-              
-              {/* Browser Print */}
+              {/* Browser Print - full width below */}
               <Button 
                 variant="outline" 
+                size="sm"
                 className="w-full border-gray-300 hover:bg-gray-100" 
                 onClick={handlePrint}
               >
-                <Printer className="mr-2 h-4 w-4" />
-                Browser Print
+                <Printer className="h-4 w-4 mr-1" />
+                <span className="text-xs">Browser Print</span>
               </Button>
               
               {/* WhatsApp Share */}
               <div className="flex gap-2 w-full mt-2">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">+62</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">+62</span>
                   <Input
                     type="tel"
+                    size="sm"
                     placeholder="8123456789"
                     value={whatsAppNumber}
                     onChange={(e) => {
@@ -563,21 +562,22 @@ export function PaymentDialog({
                       const value = e.target.value.replace(/\D/g, "");
                       setWhatsAppNumber(value);
                     }}
-                    className="pl-12"
+                    className="pl-10 h-8 text-sm"
                   />
                 </div>
                 <Button 
                   variant="outline" 
+                  size="sm"
                   onClick={handleShareWhatsApp}
                   disabled={!whatsAppNumber}
-                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800"
+                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 px-3"
                 >
-                  <Share2 className="h-4 w-4 mr-1" />
-                  Share
+                  <Share2 className="h-4 w-4" />
                 </Button>
               </div>
               
               <Button 
+                size="sm"
                 className="w-full mt-2 bg-green-600 hover:bg-green-700" 
                 onClick={handleNewSale}
               >
