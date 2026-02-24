@@ -549,7 +549,7 @@ export function PaymentDialog({
               </Button>
               
               {/* WhatsApp Share */}
-              <div className="flex gap-2 w-full mt-2">
+              <div className="flex gap-2 w-full">
                 <div className="relative flex-1">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">+62</span>
                   <Input
@@ -561,17 +561,17 @@ export function PaymentDialog({
                       const value = e.target.value.replace(/\D/g, "");
                       setWhatsAppNumber(value);
                     }}
-                    className="pl-10 h-8 text-sm"
+                    className="pl-10 h-9 text-sm"
                   />
                 </div>
                 <Button 
-                  variant="outline" 
                   size="sm"
                   onClick={handleShareWhatsApp}
                   disabled={!whatsAppNumber}
-                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800 px-3"
+                  className="bg-[#25D366] hover:bg-[#128C7E] text-white border-none px-4 h-9"
                 >
-                  <Share2 className="h-4 w-4" />
+                  <Share2 className="h-4 w-4 mr-1" />
+                  <span className="text-xs font-medium">WhatsApp</span>
                 </Button>
               </div>
               

@@ -606,6 +606,48 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
   }, [searchQuery]);
 
+  // Bluetooth connection management
+  useEffect(() => {
+    // Set up connection callbacks
+    bluetoothPrinter.setOnConnect((name) => {
+      setPrinterConnected(true);
+      toast({
+        title: translate("pos.printerConnected", language),
+        description: name,
+      });
+    });
+
+    bluetoothPrinter.setOnDisconnect(() => {
+      setPrinterConnected(false);
+      toast({
+        title: translate("pos.printerDisconnected", language),
+        variant: "destructive",
+      });
+    });
+
+    // Check initial connection status
+    setPrinterConnected(bluetoothPrinter.isConnected());
+
+    // Attempt auto-reconnect if not already connected
+    if (!bluetoothPrinter.isConnected() && !autoReconnectAttempted) {
+      setAutoReconnectAttempted(true);
+      bluetoothPrinter.autoReconnect().then((result) => {
+        if (result.success) {
+          setPrinterConnected(true);
+        }
+      });
+    }
+
+    // Poll connection status periodically
+    const interval = setInterval(() => {
+      setPrinterConnected(bluetoothPrinter.isConnected());
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [language, autoReconnectAttempted, toast]);
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
       {/* Fixed Top Header */}
