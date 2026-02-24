@@ -456,11 +456,13 @@ export function PaymentDialog({
             </div>
 
             {/* Print Buttons */}
-            <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-col gap-3 w-full">
+              
+              {/* Manual Connect Button - only show if not connected */}
               {!isPrinterConnected && (
                 <Button 
                   variant="outline" 
-                  className="w-full" 
+                  className="w-full border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50" 
                   onClick={handleConnectPrinter}
                   disabled={connectingPrinter}
                 >
@@ -472,17 +474,20 @@ export function PaymentDialog({
                   ) : (
                     <>
                       <Bluetooth className="mr-2 h-4 w-4" />
-                      Connect Printer
+                      Connect Bluetooth Printer
                     </>
                   )}
                 </Button>
               )}
               
+              {/* Bluetooth Print - always visible, disabled when not connected */}
               <Button 
-                variant={isPrinterConnected ? "default" : "outline"} 
-                className={`w-full ${isPrinterConnected ? "bg-blue-600 hover:bg-blue-700" : "opacity-50 cursor-not-allowed"}`} 
+                className={`w-full ${isPrinterConnected 
+                  ? "bg-blue-600 hover:bg-blue-700" 
+                  : "bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200"
+                }`} 
                 onClick={handlePrintBluetooth}
-                disabled={!isPrinterConnected || printing}
+                disabled={printing || !isPrinterConnected}
               >
                 {printing ? (
                   <>
@@ -493,40 +498,54 @@ export function PaymentDialog({
                   <>
                     <Bluetooth className="mr-2 h-4 w-4" />
                     Print via Bluetooth
-                    {!isPrinterConnected && " (Not Connected)"}
+                    {!isPrinterConnected && (
+                      <span className="ml-1 text-xs">(Not Connected)</span>
+                    )}
                   </>
                 )}
               </Button>
               
-              <Button variant="outline" className="w-full" onClick={handlePrint}>
+              {/* Browser Print */}
+              <Button 
+                variant="outline" 
+                className="w-full border-gray-300 hover:bg-gray-100" 
+                onClick={handlePrint}
+              >
                 <Printer className="mr-2 h-4 w-4" />
                 Browser Print
               </Button>
               
               {/* WhatsApp Share */}
-              <div className="flex gap-2 w-full">
+              <div className="flex gap-2 w-full mt-2">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">+62</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">+62</span>
                   <Input
                     type="tel"
                     placeholder="8123456789"
                     value={whatsAppNumber}
-                    onChange={(e) => setWhatsAppNumber(e.target.value.replace(/\D/g, ""))}
-                    className="pl-10"
+                    onChange={(e) => {
+                      // Only allow numbers, remove any non-digit
+                      const value = e.target.value.replace(/\D/g, "");
+                      setWhatsAppNumber(value);
+                    }}
+                    className="pl-12"
                   />
                 </div>
                 <Button 
                   variant="outline" 
                   onClick={handleShareWhatsApp}
                   disabled={!whatsAppNumber}
-                  className="bg-green-50 hover:bg-green-100 border-green-200"
+                  className="bg-green-50 hover:bg-green-100 border-green-200 text-green-700 hover:text-green-800"
                 >
                   <Share2 className="h-4 w-4 mr-1" />
-                  WA
+                  Share
                 </Button>
               </div>
               
-              <Button className="w-full" onClick={handleNewSale}>
+              <Button 
+                className="w-full mt-2 bg-green-600 hover:bg-green-700" 
+                onClick={handleNewSale}
+              >
                 New Sale
               </Button>
             </div>
