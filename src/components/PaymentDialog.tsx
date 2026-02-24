@@ -554,7 +554,6 @@ export function PaymentDialog({
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">+62</span>
                   <Input
                     type="tel"
-                    size="sm"
                     placeholder="8123456789"
                     value={whatsAppNumber}
                     onChange={(e) => {
