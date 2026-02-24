@@ -49,6 +49,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [isLoading, setIsLoading] = useState(false);
   const [subscriptionInfo, setSubscriptionInfo] = useState(getSubscriptionInfo());
   
+  // Printer connection state
+  const [printerConnected, setPrinterConnected] = useState(false);
+  const [autoReconnectAttempted, setAutoReconnectAttempted] = useState(false);
+  
   // Item not found flow states
   const [itemNotFoundOpen, setItemNotFoundOpen] = useState(false);
   const [notFoundBarcode, setNotFoundBarcode] = useState("");
