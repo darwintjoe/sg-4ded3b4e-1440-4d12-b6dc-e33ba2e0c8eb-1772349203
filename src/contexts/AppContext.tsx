@@ -23,6 +23,7 @@ import {
   runStartupCleanup
 } from "@/lib/data-rollup-service";
 import { appLog } from "@/lib/logger";
+import { playBeepSound } from "@/lib/utils";
 
 interface AppContextType {
   mode: POSMode;
