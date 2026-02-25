@@ -35,12 +35,12 @@ export const ReceiptPreview = forwardRef<HTMLDivElement, ReceiptPreviewProps>(
         className={`w-full bg-white text-black p-4 text-xs border border-gray-200 shadow-sm relative ${className}`}
         style={{ fontFamily: "'Roboto Condensed', 'Arial Narrow', sans-serif" }}
       >
-        {/* REPRINTED Watermark */}
+        {/* REPRINTED Watermark - Black color, 60% opacity for printing */}
         {(isReprint || showWatermark) && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-20">
             <div 
-              className="text-5xl font-black text-red-500 transform -rotate-45 select-none whitespace-nowrap"
-              style={{ letterSpacing: "0.15em", opacity: 0.5 }}
+              className="text-5xl font-black text-black transform -rotate-45 select-none whitespace-nowrap"
+              style={{ letterSpacing: "0.15em", opacity: 0.6 }}
             >
               REPRINTED
             </div>
@@ -56,7 +56,6 @@ export const ReceiptPreview = forwardRef<HTMLDivElement, ReceiptPreviewProps>(
                 src={settings.receiptLogoBase64} 
                 alt="Logo" 
                 className="h-10 mx-auto mb-2" 
-                style={{ filter: "grayscale(100%)" }}
               />
             )}
             <div className="font-bold text-sm tracking-tight">{settings.businessName}</div>
@@ -77,9 +76,12 @@ export const ReceiptPreview = forwardRef<HTMLDivElement, ReceiptPreviewProps>(
             </span>
           </div>
           
-          {/* Cashier */}
+          {/* Cashier + REPRINTED text fallback for printing */}
           <div className="text-[10px] text-gray-600 mb-2">
-            Kasir: {transaction.cashierName}
+            <div>Kasir: {transaction.cashierName}</div>
+            {(isReprint || showWatermark) && (
+              <div className="font-bold text-black mt-1">*** REPRINTED ***</div>
+            )}
           </div>
 
           {/* Items */}
