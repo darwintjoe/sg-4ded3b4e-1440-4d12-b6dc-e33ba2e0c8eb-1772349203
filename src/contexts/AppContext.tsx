@@ -637,6 +637,9 @@ PAYMENT BREAKDOWN:
       lateMinutes: lateMinutes > 0 ? lateMinutes : undefined
     });
 
+    // Play clock-in beep sound
+    playBeepSound("clockIn");
+
     return { success: true, message: "attendance.clockedIn" };
   };
 
@@ -694,6 +697,9 @@ PAYMENT BREAKDOWN:
     };
 
     await db.upsert("dailyAttendance", ["date", "employeeId"], dailyAttendance);
+
+    // Play clock-out beep sound
+    playBeepSound("clockOut");
 
     return { success: true, message: "attendance.clockedOut" };
   };
