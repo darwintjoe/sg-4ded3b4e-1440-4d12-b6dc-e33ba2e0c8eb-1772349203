@@ -351,7 +351,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
       {/* Attendance Card Modal */}
       <Dialog open={cardModalOpen} onOpenChange={setCardModalOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
+        <DialogContent className="max-w-md max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 [&>button]:hidden">
           {/* Fixed Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-background shrink-0">
             <DialogTitle className="text-base font-semibold">
@@ -375,13 +375,12 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
               </div>
             ) : selectedCard && selectedCard.dailyRecords.length > 0 ? (
               <div>
-                {/* Table Header */}
-                <div className="grid grid-cols-[55px_52px_52px_58px_1fr] gap-1 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 sticky top-0">
+                {/* Table Header - solid background */}
+                <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-0 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted sticky top-0 z-10">
                   <div>Date</div>
                   <div className="text-center">In</div>
                   <div className="text-center">Out</div>
                   <div className="text-right">Hours</div>
-                  <div className="text-right pr-1">Status</div>
                 </div>
 
                 {/* Records */}
@@ -390,35 +389,31 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                   const dayOfWeek = new Date(record.date).toLocaleDateString("en-US", {
                     weekday: "short",
                   });
-                  const hasIssue = record.isLate || (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0);
+                  const isLate = record.isLate;
+                  const isEarlyLeave = record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0;
 
                   return (
                     <div
                       key={record.id || record.date}
-                      className={`grid grid-cols-[55px_52px_52px_58px_1fr] gap-1 px-4 py-2.5 text-sm border-b border-muted/30 ${
-                        hasIssue ? "bg-red-50 dark:bg-red-950/20" : ""
-                      }`}
+                      className="grid grid-cols-[70px_1fr_1fr_1fr] gap-0 px-4 py-2.5 text-sm border-b border-muted/30 bg-background"
                     >
                       <div className="font-medium">
                         {day} {dayOfWeek}
                       </div>
-                      <div className={`text-center ${record.isLate ? "text-red-500 font-semibold" : ""}`}>
+                      <div className={`text-center ${isLate ? "text-red-500 font-semibold" : ""}`}>
                         {formatTime(record.clockIn)}
-                      </div>
-                      <div className={`text-center ${record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? "text-red-500 font-semibold" : ""}`}>
-                        {formatTime(record.clockOut)}
-                      </div>
-                      <div className="text-right text-xs">
-                        {formatHoursMinutes(record.hoursWorked)}
-                      </div>
-                      <div className="text-right pr-1 text-xs">
-                        {record.isLate && record.lateMinutes ? (
-                          <span className="text-red-500">Late {record.lateMinutes}m</span>
-                        ) : record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? (
-                          <span className="text-orange-500">Early {record.earlyLeaveMinutes}m</span>
-                        ) : (
-                          <span className="text-green-600">OK</span>
+                        {isLate && record.lateMinutes && (
+                          <span className="text-[10px] ml-0.5">+{record.lateMinutes}m</span>
                         )}
+                      </div>
+                      <div className={`text-center ${isEarlyLeave ? "text-red-500 font-semibold" : ""}`}>
+                        {formatTime(record.clockOut)}
+                        {isEarlyLeave && (
+                          <span className="text-[10px] ml-0.5">-{record.earlyLeaveMinutes}m</span>
+                        )}
+                      </div>
+                      <div className="text-right text-xs flex items-center justify-end">
+                        {formatHoursMinutes(record.hoursWorked)}
                       </div>
                     </div>
                   );
