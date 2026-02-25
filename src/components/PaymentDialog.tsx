@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2 } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2, Check } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
 
 // Success sound using audio file
 const playSuccessSound = () => {
@@ -62,6 +63,7 @@ export function PaymentDialog({
   
   // Print animation state
   const [printAnimating, setPrintAnimating] = useState(false);
+  const [printCompleted, setPrintCompleted] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
   
   // Check printer connection status
@@ -90,6 +92,7 @@ export function PaymentDialog({
       setQrisLoading(false);
       setDynamicQrUrl(null);
       setPrintAnimating(false);
+      setPrintCompleted(false);
     }
   }, [open]);
 
@@ -111,12 +114,6 @@ export function PaymentDialog({
       setAmount(remaining.toString());
     }
   }, [selectedMethod]);
-
-  // Generate receipt number from timestamp
-  const generateReceiptNumber = (timestamp: number): string => {
-    const seq = Math.floor((timestamp % 100000) / 10);
-    return `#${String(seq).padStart(5, "0")}`;
-  };
 
   const initiatePayment = async () => {
     const paymentAmount = parseFloat(amount);
@@ -191,7 +188,10 @@ export function PaymentDialog({
     };
 
     try {
-      await db.add("transactions", transaction);
+      const txId = await db.add("transactions", transaction);
+
+      // Update transaction with the assigned ID for receipt display
+      const savedTransaction = { ...transaction, id: txId as number };
 
       for (const item of cart) {
         const dailyItem: Omit<DailyItemSales, "id"> = {
@@ -216,7 +216,7 @@ export function PaymentDialog({
         await db.upsertDailyPaymentSales(dailyPayment);
       }
 
-      setLastTransaction(transaction);
+      setLastTransaction(savedTransaction);
       setCompleted(true);
       clearCart();
       
@@ -240,8 +240,11 @@ export function PaymentDialog({
   const handlePrintBluetooth = async () => {
     if (!lastTransaction || !settings || !currentUser) return;
 
+    // Start slow animation
     setPrintAnimating(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Wait for slow animation (3.5 seconds for receipt to scroll up)
+    await new Promise(resolve => setTimeout(resolve, 3500));
 
     setPrinting(true);
     try {
@@ -252,22 +255,33 @@ export function PaymentDialog({
       );
 
       if (!result.success) {
+        // Animation failed, reset
+        setPrintAnimating(false);
         alert(`Bluetooth print failed: ${result.error}\n\nTry:\n1. Reconnect printer in Settings\n2. Use Browser Print instead`);
+      } else {
+        // Print successful - show "PRINTED" stamp
+        setPrintCompleted(true);
       }
     } catch (error) {
       console.error("Bluetooth print error:", error);
+      setPrintAnimating(false);
       alert("Failed to print via Bluetooth. Use Browser Print instead.");
     } finally {
       setPrinting(false);
-      setTimeout(() => setPrintAnimating(false), 300);
     }
   };
 
   const handlePrint = async () => {
+    // Start slow animation
     setPrintAnimating(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Wait for animation
+    await new Promise(resolve => setTimeout(resolve, 3500));
+    
     window.print();
-    setTimeout(() => setPrintAnimating(false), 500);
+    
+    // Show printed stamp
+    setPrintCompleted(true);
   };
 
   const handleNewSale = () => {
@@ -387,19 +401,6 @@ export function PaymentDialog({
 
   // ============ COMPLETED STATE - Transaction Success Screen ============
   if (completed && lastTransaction && settings) {
-    const receiptNumber = generateReceiptNumber(lastTransaction.timestamp);
-    const receiptTimestamp = new Date(lastTransaction.timestamp);
-    
-    // Calculate tax from transaction data (not props)
-    const displayTax1 = settings.tax1Enabled ? 
-      (settings.tax1Inclusive ? 
-        lastTransaction.items.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0)
-        : lastTransaction.subtotal * (settings.tax1Rate / 100)) 
-      : 0;
-    const displayTax2 = settings.tax2Enabled ? 
-      (lastTransaction.subtotal * (settings.tax2Rate / 100))
-      : 0;
-    
     return (
       <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
         <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
@@ -407,121 +408,54 @@ export function PaymentDialog({
             <CheckCircle2 className="h-14 w-14 text-green-500" />
             <DialogTitle className="text-xl">Transaction Successful!</DialogTitle>
             
-            {/* Receipt Preview Container - overflow hidden for animation */}
-            <div className="w-full overflow-hidden relative" style={{ minHeight: printAnimating ? "20px" : "auto" }}>
-              {/* Digital Receipt Preview - matches printed receipt exactly */}
-              <div 
-                ref={receiptRef}
-                className={`w-full bg-white text-black p-4 text-xs font-mono border border-gray-200 shadow-sm transition-all duration-700 ease-in-out ${
-                  printAnimating 
-                    ? "-translate-y-[120%] opacity-0 scale-95" 
-                    : "translate-y-0 opacity-100 scale-100"
-                }`}
-              >
-                {/* Header */}
-                <div className="text-center mb-2 space-y-0.5">
-                  {settings.receiptLogoBase64 && (
-                    <img src={settings.receiptLogoBase64} alt="Logo" className="h-10 mx-auto mb-2 grayscale" />
-                  )}
-                  <div className="font-bold text-sm">{settings.businessName}</div>
-                  {settings.businessAddress && (
-                    <div className="whitespace-pre-line text-[10px] text-gray-600">{settings.businessAddress}</div>
-                  )}
-                  {settings.taxId && (
-                    <div className="text-[10px] text-gray-500">{settings.taxId}</div>
-                  )}
+            {/* Receipt Preview Container */}
+            <div 
+              className="w-full overflow-hidden relative"
+              style={{ minHeight: printCompleted ? "120px" : "auto" }}
+            >
+              {/* Receipt Preview - scrolls up when printing */}
+              {!printCompleted && (
+                <div
+                  ref={receiptRef}
+                  className={`transition-all ${
+                    printAnimating 
+                      ? "duration-[3500ms] ease-linear -translate-y-full opacity-0" 
+                      : "duration-300 translate-y-0 opacity-100"
+                  }`}
+                >
+                  <ReceiptPreview
+                    transaction={lastTransaction}
+                    settings={settings}
+                    isReprint={false}
+                    showWatermark={false}
+                  />
                 </div>
-                
-                {/* Receipt Info Line */}
-                <div className="flex justify-between text-[10px] text-gray-500 border-b border-dashed border-gray-300 pb-2 mb-2">
-                  <span className="font-medium">{receiptNumber}</span>
-                  <span>
-                    {receiptTimestamp.toLocaleDateString(language === "id" ? "id-ID" : "en-US", { day: "numeric", month: "numeric", year: "numeric" })}, {receiptTimestamp.toLocaleTimeString(language === "id" ? "id-ID" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                </div>
-                
-                {/* Cashier */}
-                <div className="text-[10px] text-gray-600 mb-2">
-                  Cashier: {lastTransaction.cashierName}
-                </div>
-
-                {/* Items */}
-                <div className="border-t border-dashed border-gray-300 py-2 space-y-1.5">
-                  {lastTransaction.items.map((item, idx) => (
-                    <div key={idx} className="flex flex-col">
-                      <div className="font-medium text-[11px]">{item.name}</div>
-                      <div className="flex justify-between text-[10px] text-gray-700">
-                        <span>{item.quantity} x {item.basePrice.toLocaleString()}</span>
-                        <span>{item.totalPrice.toLocaleString()}</span>
-                      </div>
-                      {(item.variant || (item.modifiers && item.modifiers.length > 0)) && (
-                        <div className="text-[9px] text-gray-500 pl-2">
-                          {item.variant && <div>• {item.variant}</div>}
-                          {item.modifiers?.map(m => <div key={m}>+ {m}</div>)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Totals */}
-                <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span>Subtotal</span>
-                    <span>{lastTransaction.subtotal.toLocaleString()}</span>
-                  </div>
-                  {settings.tax1Enabled && (
-                    <div className="flex justify-between text-[10px] text-gray-600">
-                      <span>{settings.tax1Label} ({settings.tax1Rate}%)</span>
-                      <span>{Math.round(displayTax1).toLocaleString()}</span>
-                    </div>
-                  )}
-                  {settings.tax2Enabled && (
-                    <div className="flex justify-between text-[10px] text-gray-600">
-                      <span>{settings.tax2Label} ({settings.tax2Rate}%)</span>
-                      <span>{Math.round(displayTax2).toLocaleString()}</span>
-                    </div>
-                  )}
-                  
-                  {/* TOTAL - Double height simulation with larger font */}
-                  <div className="flex justify-between font-black text-base border-t border-gray-400 border-b-2 border-double pt-2 pb-2 mt-2 mb-1">
-                    <span className="text-lg">TOTAL</span>
-                    <span className="text-lg">{lastTransaction.total.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Payment & Change */}
-                <div className="pt-2 space-y-1">
-                  {lastTransaction.payments.map((p, i) => (
-                    <div key={i} className="flex justify-between text-[11px]">
-                      <span className="capitalize">{p.method.replace("-", " ")}</span>
-                      <span>{p.amount.toLocaleString()}</span>
-                    </div>
-                  ))}
-                  {lastTransaction.change && lastTransaction.change > 0 && (
-                    <div className="flex justify-between font-bold text-[12px] border-t border-gray-300 pt-1 mt-1">
-                      <span>Change</span>
-                      <span>{lastTransaction.change.toLocaleString()}</span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Footer */}
-                <div className="text-center text-[10px] whitespace-pre-line mt-4 pt-2 border-t border-dashed border-gray-300 text-gray-600">
-                  {settings.receiptFooter || "Thank you for your purchase!"}
-                </div>
-                
-                {settings.tax1Inclusive && settings.tax1Enabled && (
-                  <div className="text-center text-[9px] italic mt-1 text-gray-400">
-                    Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%
-                  </div>
-                )}
-              </div>
+              )}
               
               {/* Print animation indicator */}
-              {printAnimating && (
+              {printAnimating && !printCompleted && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-xs text-gray-400 animate-pulse">Sending to printer...</div>
+                  <div className="flex flex-col items-center gap-2 text-gray-500">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <span className="text-sm">Printing...</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* PRINTED stamp after completion */}
+              {printCompleted && (
+                <div className="flex flex-col items-center justify-center py-8 animate-in fade-in zoom-in duration-300">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full border-4 border-green-500 flex items-center justify-center bg-green-50">
+                      <Check className="h-12 w-12 text-green-500" />
+                    </div>
+                  </div>
+                  <div className="mt-3 text-lg font-bold text-green-600 tracking-wider">
+                    PRINTED
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    Receipt sent to printer
+                  </div>
                 </div>
               )}
             </div>
@@ -537,7 +471,7 @@ export function PaymentDialog({
                     size="sm"
                     className="flex-1 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50" 
                     onClick={handleConnectPrinter}
-                    disabled={connectingPrinter}
+                    disabled={connectingPrinter || printAnimating}
                   >
                     {connectingPrinter ? (
                       <Bluetooth className="h-4 w-4 animate-pulse" />

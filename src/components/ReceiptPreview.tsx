@@ -40,7 +40,7 @@ export const ReceiptPreview = forwardRef<HTMLDivElement, ReceiptPreviewProps>(
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-20">
             <div 
               className="text-5xl font-black text-red-500 transform -rotate-45 select-none whitespace-nowrap"
-              style={{ letterSpacing: "0.15em", opacity: 0.3 }}
+              style={{ letterSpacing: "0.15em", opacity: 0.5 }}
             >
               REPRINTED
             </div>

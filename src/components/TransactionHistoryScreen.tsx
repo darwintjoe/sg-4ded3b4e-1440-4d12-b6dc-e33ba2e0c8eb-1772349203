@@ -7,7 +7,8 @@ import { useApp } from "@/contexts/AppContext";
 import { db } from "@/lib/db";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { translate } from "@/lib/translations";
-import type { Transaction, Settings } from "@/types";
+import { ReceiptPreview } from "@/components/ReceiptPreview";
+import type { Transaction } from "@/types";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -257,109 +258,22 @@ export function TransactionHistoryScreen({ onBack }: TransactionHistoryScreenPro
         )}
       </div>
 
-      {/* Transaction Detail Modal */}
+      {/* Transaction Detail Modal - Uses shared ReceiptPreview */}
       <Dialog open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>{translate("pos.receiptDetails", language)}</span>
-              <span className="font-mono text-base">#{selectedTransaction && formatReceiptNumber(selectedTransaction)}</span>
-            </DialogTitle>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto [&>button]:hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{translate("pos.receiptDetails", language)}</DialogTitle>
           </DialogHeader>
           
-          {selectedTransaction && (
+          {selectedTransaction && settings && (
             <div className="relative">
-              {/* REPRINTED Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-                <div 
-                  className="text-6xl font-black text-red-500/10 dark:text-red-400/10 transform -rotate-45 select-none whitespace-nowrap"
-                  style={{ letterSpacing: "0.1em" }}
-                >
-                  REPRINTED
-                </div>
-              </div>
-              
-              {/* Receipt Content */}
-              <div className="space-y-4 relative z-10">
-                {/* Header Info */}
-                <div className="text-center border-b border-slate-200 dark:border-slate-700 pb-3">
-                  <p className="font-bold text-lg">{settings?.businessName || "Store"}</p>
-                  {settings?.businessAddress && (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{settings.businessAddress}</p>
-                  )}
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                    {new Date(selectedTransaction.timestamp).toLocaleString("id-ID")}
-                  </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {translate("pos.cashier", language)}: {selectedTransaction.cashierName}
-                  </p>
-                </div>
-                
-                {/* Items */}
-                <div className="space-y-2">
-                  {selectedTransaction.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-slate-500 dark:text-slate-400">
-                          {item.quantity} x {formatCurrency(item.basePrice)}
-                        </p>
-                        {item.variant && (
-                          <p className="text-xs text-blue-600 dark:text-blue-400">{item.variant}</p>
-                        )}
-                        {item.modifiers && item.modifiers.length > 0 && (
-                          <p className="text-xs text-green-600 dark:text-green-400">
-                            + {item.modifiers.join(", ")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="font-medium text-right">
-                        {formatCurrency(item.totalPrice)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Totals */}
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
-                    <span>{formatCurrency(selectedTransaction.subtotal)}</span>
-                  </div>
-                  {selectedTransaction.tax > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">{translate("pos.tax", language)}</span>
-                      <span>{formatCurrency(selectedTransaction.tax)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <span>{translate("pos.total", language)}</span>
-                    <span>{formatCurrency(selectedTransaction.total)}</span>
-                  </div>
-                </div>
-                
-                {/* Payment Info */}
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-1">
-                  {selectedTransaction.payments.map((payment, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">
-                        {payment.method === "cash" ? translate("pos.cash", language) :
-                         payment.method === "qris-static" ? "QRIS" :
-                         payment.method === "qris-dynamic" ? "QRIS (Dynamic)" :
-                         payment.method === "voucher" ? translate("pos.voucher", language) :
-                         payment.method}
-                      </span>
-                      <span>{formatCurrency(payment.amount)}</span>
-                    </div>
-                  ))}
-                  {selectedTransaction.change && selectedTransaction.change > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500 dark:text-slate-400">{translate("pos.change", language)}</span>
-                      <span>{formatCurrency(selectedTransaction.change)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+              {/* Receipt Preview with REPRINTED watermark */}
+              <ReceiptPreview
+                transaction={selectedTransaction}
+                settings={settings}
+                isReprint={true}
+                showWatermark={true}
+              />
             </div>
           )}
           
