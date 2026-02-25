@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { PaymentMethod, PaymentRecord, Transaction, DailyItemSales, DailyPaymentSales, Settings } from "@/types";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2, Check } from "lucide-react";
+import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2 } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
@@ -61,11 +61,6 @@ export function PaymentDialog({
   const [connectingPrinter, setConnectingPrinter] = useState(false);
   const [whatsAppNumber, setWhatsAppNumber] = useState("");
   
-  // Print animation state
-  const [printAnimating, setPrintAnimating] = useState(false);
-  const [printCompleted, setPrintCompleted] = useState(false);
-  const receiptRef = useRef<HTMLDivElement>(null);
-  
   // Check printer connection status
   useEffect(() => {
     const checkConnection = () => {
@@ -91,8 +86,6 @@ export function PaymentDialog({
       setShowQrisDynamicModal(false);
       setQrisLoading(false);
       setDynamicQrUrl(null);
-      setPrintAnimating(false);
-      setPrintCompleted(false);
     }
   }, [open]);
 
@@ -240,48 +233,41 @@ export function PaymentDialog({
   const handlePrintBluetooth = async () => {
     if (!lastTransaction || !settings || !currentUser) return;
 
-    // Start slow animation
-    setPrintAnimating(true);
-    
-    // Wait for slow animation (3.5 seconds for receipt to scroll up)
-    await new Promise(resolve => setTimeout(resolve, 3500));
-
     setPrinting(true);
     try {
       const result = await bluetoothPrinter.printReceipt(
         lastTransaction,
         settings,
-        currentUser.name
+        currentUser.name,
+        false
       );
 
       if (!result.success) {
-        // Animation failed, reset
-        setPrintAnimating(false);
-        alert(`Bluetooth print failed: ${result.error}\n\nTry:\n1. Reconnect printer in Settings\n2. Use Browser Print instead`);
+        toast({
+          title: "Print failed",
+          description: result.error || "Could not print receipt",
+          variant: "destructive"
+        });
       } else {
-        // Print successful - show "PRINTED" stamp
-        setPrintCompleted(true);
+        toast({
+          title: "Printed",
+          description: "Receipt sent to printer",
+        });
       }
     } catch (error) {
       console.error("Bluetooth print error:", error);
-      setPrintAnimating(false);
-      alert("Failed to print via Bluetooth. Use Browser Print instead.");
+      toast({
+        title: "Print error",
+        description: "Failed to print via Bluetooth",
+        variant: "destructive"
+      });
     } finally {
       setPrinting(false);
     }
   };
 
-  const handlePrint = async () => {
-    // Start slow animation
-    setPrintAnimating(true);
-    
-    // Wait for animation
-    await new Promise(resolve => setTimeout(resolve, 3500));
-    
+  const handlePrint = () => {
     window.print();
-    
-    // Show printed stamp
-    setPrintCompleted(true);
   };
 
   const handleNewSale = () => {
@@ -408,56 +394,14 @@ export function PaymentDialog({
             <CheckCircle2 className="h-14 w-14 text-green-500" />
             <DialogTitle className="text-xl">Transaction Successful!</DialogTitle>
             
-            {/* Receipt Preview Container */}
-            <div 
-              className="w-full overflow-hidden relative"
-              style={{ minHeight: printCompleted ? "120px" : "auto" }}
-            >
-              {/* Receipt Preview - scrolls up when printing */}
-              {!printCompleted && (
-                <div
-                  ref={receiptRef}
-                  className={`transition-all ${
-                    printAnimating 
-                      ? "duration-[3500ms] ease-linear -translate-y-full opacity-0" 
-                      : "duration-300 translate-y-0 opacity-100"
-                  }`}
-                >
-                  <ReceiptPreview
-                    transaction={lastTransaction}
-                    settings={settings}
-                    isReprint={false}
-                    showWatermark={false}
-                  />
-                </div>
-              )}
-              
-              {/* Print animation indicator */}
-              {printAnimating && !printCompleted && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-2 text-gray-500">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="text-sm">Printing...</span>
-                  </div>
-                </div>
-              )}
-              
-              {/* PRINTED stamp after completion */}
-              {printCompleted && (
-                <div className="flex flex-col items-center justify-center py-8 animate-in fade-in zoom-in duration-300">
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full border-4 border-green-500 flex items-center justify-center bg-green-50">
-                      <Check className="h-12 w-12 text-green-500" />
-                    </div>
-                  </div>
-                  <div className="mt-3 text-lg font-bold text-green-600 tracking-wider">
-                    PRINTED
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    Receipt sent to printer
-                  </div>
-                </div>
-              )}
+            {/* Receipt Preview */}
+            <div className="w-full">
+              <ReceiptPreview
+                transaction={lastTransaction}
+                settings={settings}
+                isReprint={false}
+                showWatermark={false}
+              />
             </div>
 
             {/* Print Buttons */}
@@ -471,7 +415,7 @@ export function PaymentDialog({
                     size="sm"
                     className="flex-1 border-dashed border-blue-300 hover:border-blue-500 hover:bg-blue-50" 
                     onClick={handleConnectPrinter}
-                    disabled={connectingPrinter || printAnimating}
+                    disabled={connectingPrinter}
                   >
                     {connectingPrinter ? (
                       <Bluetooth className="h-4 w-4 animate-pulse" />
@@ -489,11 +433,11 @@ export function PaymentDialog({
                     : "bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200"
                   }`} 
                   onClick={handlePrintBluetooth}
-                  disabled={printing || !isPrinterConnected || printAnimating}
+                  disabled={printing || !isPrinterConnected}
                 >
                   {printing ? (
                     <>
-                      <Printer className="h-4 w-4 animate-pulse" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       <span className="ml-1 text-xs">Printing...</span>
                     </>
                   ) : (
@@ -511,7 +455,6 @@ export function PaymentDialog({
                 size="sm"
                 className="w-full border-gray-300 hover:bg-gray-100" 
                 onClick={handlePrint}
-                disabled={printAnimating}
               >
                 <Printer className="h-4 w-4 mr-1" />
                 <span className="text-xs">Browser Print</span>

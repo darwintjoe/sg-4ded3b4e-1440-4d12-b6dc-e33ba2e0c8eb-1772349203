@@ -690,8 +690,12 @@ class BluetoothPrinterService {
       
       // REPRINTED marker (if reprint)
       if (isReprint) {
+        commands.push(this.cmdAlign("center"));
+        commands.push(this.cmdBold(true));
         commands.push(this.encodeText("*** REPRINTED ***"));
         commands.push(this.cmdLineFeed(1));
+        commands.push(this.cmdBold(false));
+        commands.push(this.cmdAlign("left"));
       }
       
       commands.push(this.cmdAlign("center"));
