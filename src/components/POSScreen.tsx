@@ -648,6 +648,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
   }, [searchQuery]);
 
+  const [showHistory, setShowHistory] = useState(false);
+
+  if (showHistory) {
+    return <TransactionHistoryScreen onBack={() => setShowHistory(false)} />;
+  }
+
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden">
       {/* Fixed Top Header */}
@@ -702,6 +708,16 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           >
             <Clock className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{translate("pos.attendance", language)}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowHistory(true)}
+            className="flex items-center gap-1.5"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{translate("pos.history", language)}</span>
           </Button>
 
           <Button
@@ -1037,7 +1053,16 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       </AlertDialog>
 
       {/* Item Not Found Dialog */}
-      <AlertDialog open={itemNotFoundOpen} onOpenChange={setItemNotFoundOpen}>
+      <AlertDialog open={itemNotFoundOpen} onOpenChange={(open) => {
+        if (!open) {
+          setItemNotFoundOpen(false);
+          setNotFoundBarcode("");
+          // Reopen scanner after brief delay
+          setTimeout(() => {
+            setScannerOpen(true);
+          }, 500);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.itemNotFound", language)}</AlertDialogTitle>
@@ -1050,7 +1075,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleItemNotFoundNo}>
+            <AlertDialogCancel onClick={() => {
+              setItemNotFoundOpen(false);
+              setNotFoundBarcode("");
+              // Reopen scanner after brief delay
+              setTimeout(() => {
+                setScannerOpen(true);
+              }, 500);
+            }}>
               {translate("common.no", language)}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleItemNotFoundYes} className="bg-blue-600 hover:bg-blue-700">
@@ -1066,7 +1098,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           setPinVerifyOpen(false);
           setPinInput("");
           setPinError("");
-          setTimeout(() => setScannerOpen(true), 500);
+          // Reopen scanner after brief delay
+          setTimeout(() => {
+            setScannerOpen(true);
+          }, 500);
         }
       }}>
         <AlertDialogContent className="pb-36">
@@ -1106,7 +1141,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               setPinVerifyOpen(false);
               setPinInput("");
               setPinError("");
-              setTimeout(() => setScannerOpen(true), 500);
+              // Reopen scanner after brief delay
+              setTimeout(() => {
+                setScannerOpen(true);
+              }, 500);
             }}>
               {translate("common.cancel", language)}
             </AlertDialogCancel>
