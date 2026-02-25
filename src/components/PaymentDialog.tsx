@@ -415,6 +415,13 @@ export function PaymentDialog({
 
   const isBluetoothConnected = bluetoothPrinter.isConnected();
 
+  // Generate receipt number from timestamp
+  const generateReceiptNumber = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const seq = Math.floor((timestamp % 100000) / 10); // Last 4-5 digits for sequence
+    return `#${String(seq).padStart(5, "0")}`;
+  };
+
   if (completed) {
     // Use values from lastTransaction for accuracy
     const receiptSubtotal = lastTransaction?.subtotal ?? 0;
