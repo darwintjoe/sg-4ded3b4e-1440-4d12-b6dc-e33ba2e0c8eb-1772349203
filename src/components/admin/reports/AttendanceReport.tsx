@@ -16,6 +16,8 @@ import { MonthlyAttendanceSummary, DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
 import { X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface AttendanceReportProps {
   language: string;
@@ -208,115 +210,124 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     if (attendanceData.length === 0) return;
 
     const monthName = getMonthName(selectedMonth);
-    const title = `Attendance Report - ${monthName} ${selectedYear}`;
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a4",
+    });
 
-    // Create print-friendly HTML
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            padding: 15px;
-          }
-          h1 {
-            font-size: 16px;
-            margin-bottom: 15px;
-            text-align: center;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-          }
-          th, td {
-            border: 1px solid #333;
-            padding: 6px 4px;
-            text-align: center;
-          }
-          th {
-            background-color: #f0f0f0;
-            font-weight: bold;
-            font-size: 10px;
-          }
-          td:first-child {
-            text-align: left;
-          }
-          th:first-child {
-            text-align: left;
-            width: 20%;
-          }
-          .late {
-            color: #dc2626;
-          }
-          .early {
-            color: #ea580c;
-          }
-          @media print {
-            body {
-              padding: 10px;
-            }
-            @page {
-              size: landscape;
-              margin: 10mm;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <h1>${title}</h1>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Days</th>
-              <th>Avg Hours</th>
-              <th>Total Hours</th>
-              <th>Late Count</th>
-              <th>Late Min</th>
-              <th>Er Leave Count</th>
-              <th>Er Leave Min</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${attendanceData.map(record => {
-              const avgHours = record.daysWorked > 0 ? record.totalHours / record.daysWorked : 0;
-              return `
-                <tr>
-                  <td>${record.employeeName}</td>
-                  <td>${record.daysWorked}</td>
-                  <td>${formatHoursMinutes(avgHours)}</td>
-                  <td>${formatHoursMinutes(record.totalHours)}</td>
-                  <td class="${record.lateCount > 0 ? 'late' : ''}">${record.lateCount > 0 ? record.lateCount : '-'}</td>
-                  <td class="${record.totalLateMinutes && record.totalLateMinutes > 0 ? 'late' : ''}">${record.totalLateMinutes && record.totalLateMinutes > 0 ? record.totalLateMinutes : '-'}</td>
-                  <td class="${record.earlyLeaveCount && record.earlyLeaveCount > 0 ? 'early' : ''}">${record.earlyLeaveCount && record.earlyLeaveCount > 0 ? record.earlyLeaveCount : '-'}</td>
-                  <td class="${record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? 'early' : ''}">${record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? record.totalEarlyLeaveMinutes : '-'}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
 
-    // Open print dialog
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        printWindow.print();
-      };
-    }
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("Attendance Report", pageWidth / 2, margin, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`${monthName} ${selectedYear}`, pageWidth / 2, margin + 8, { align: "center" });
+
+    // Generated date
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(
+      `Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`,
+      pageWidth / 2,
+      margin + 14,
+      { align: "center" }
+    );
+    doc.setTextColor(0);
+
+    // Table data
+    const tableData = attendanceData.map((record) => {
+      const avgHours = record.daysWorked > 0 ? record.totalHours / record.daysWorked : 0;
+      return [
+        record.employeeName,
+        record.daysWorked.toString(),
+        formatHoursMinutes(avgHours),
+        formatHoursMinutes(record.totalHours),
+        record.lateCount > 0 ? record.lateCount.toString() : "-",
+        record.totalLateMinutes && record.totalLateMinutes > 0 ? record.totalLateMinutes.toString() : "-",
+        record.earlyLeaveCount && record.earlyLeaveCount > 0 ? record.earlyLeaveCount.toString() : "-",
+        record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? record.totalEarlyLeaveMinutes.toString() : "-",
+      ];
+    });
+
+    // Generate table
+    autoTable(doc, {
+      startY: margin + 20,
+      head: [[
+        "Employee Name",
+        "Days\nWorked",
+        "Avg\nHours",
+        "Total\nHours",
+        "Late\nCount",
+        "Late\nMinutes",
+        "Early Lv\nCount",
+        "Early Lv\nMinutes",
+      ]],
+      body: tableData,
+      theme: "grid",
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: "bold",
+        halign: "center",
+        valign: "middle",
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      bodyStyles: {
+        fontSize: 9,
+        cellPadding: 3,
+        valign: "middle",
+      },
+      columnStyles: {
+        0: { halign: "left", cellWidth: 50 },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "center", cellWidth: 25 },
+        3: { halign: "center", cellWidth: 25 },
+        4: { halign: "center", cellWidth: 20 },
+        5: { halign: "center", cellWidth: 25 },
+        6: { halign: "center", cellWidth: 25 },
+        7: { halign: "center", cellWidth: 25 },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      margin: { left: margin, right: margin },
+      didParseCell: (data) => {
+        // Color late counts/minutes in red
+        if (data.section === "body") {
+          const value = data.cell.raw as string;
+          if ((data.column.index === 4 || data.column.index === 5) && value !== "-") {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = "bold";
+          }
+          // Color early leave in orange
+          if ((data.column.index === 6 || data.column.index === 7) && value !== "-") {
+            data.cell.styles.textColor = [234, 88, 12];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    });
+
+    // Footer
+    const finalY = (doc as any).lastAutoTable?.finalY || pageHeight - 20;
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(
+      `Page 1 of 1`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: "center" }
+    );
+
+    // Download
+    doc.save(`attendance-${yearMonth}.pdf`);
   };
 
   return (
