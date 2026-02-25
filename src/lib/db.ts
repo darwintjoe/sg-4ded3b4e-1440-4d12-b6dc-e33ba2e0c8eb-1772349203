@@ -620,7 +620,7 @@ export class Database {
 
   // Settings
   async getSettings(): Promise<Settings> {
-    const settings = await this.getById<Settings>("settings", "default");
+    const settings = await this.getById<Settings>("settings", "settings");
     if (!settings) {
       const defaultSettings: Settings = {
         key: "settings",
