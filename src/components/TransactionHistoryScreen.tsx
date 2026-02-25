@@ -101,16 +101,11 @@ export function TransactionHistoryScreen({ onBack }: TransactionHistoryScreenPro
 
     setIsPrinting(true);
     try {
-      // Create a copy with reprint flag
-      const reprintTransaction = {
-        ...selectedTransaction,
-        isReprint: true
-      };
-      
       const result = await bluetoothPrinter.printReceipt(
-        reprintTransaction,
+        selectedTransaction,
         settings,
-        selectedTransaction.cashierName || currentUser?.name || "Cashier"
+        selectedTransaction.cashierName || currentUser?.name || "Cashier",
+        true // isReprint = true
       );
       
       if (!result.success) {
