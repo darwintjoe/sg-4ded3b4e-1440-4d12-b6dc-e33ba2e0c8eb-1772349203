@@ -40,6 +40,8 @@ export interface AttendanceRecord {
   assignedShift?: string;
   scheduledStart?: string;
   scheduledEnd?: string;
+  isLate?: boolean;
+  lateMinutes?: number;
 }
 
 export interface Item {
@@ -214,6 +216,8 @@ export interface MonthlyAttendanceSummary {
   daysWorked: number;
   lateCount: number;
   totalLateMinutes?: number;
+  earlyLeaveCount?: number;
+  totalEarlyLeaveMinutes?: number;
 }
 
 // ==========================================

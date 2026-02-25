@@ -10,7 +10,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MonthlyAttendanceSummary, DailyAttendance } from "@/types";
@@ -30,6 +29,16 @@ interface AttendanceCardData {
   dailyRecords: DailyAttendance[];
 }
 
+// Format hours as "XXXh YYm"
+function formatHoursMinutes(totalHours: number): string {
+  const hours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - hours) * 60);
+  if (minutes === 0) {
+    return `${hours}h`;
+  }
+  return `${hours}h ${minutes}m`;
+}
+
 export function AttendanceReport({ language, containerRef }: AttendanceReportProps) {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -47,10 +56,8 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
   // Calculate if selected month is within 60-day window (details available)
   const isDetailsAvailable = useMemo(() => {
-    const selectedDate = new Date(selectedYear, selectedMonth - 1, 1);
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 60);
-    // Details available if the selected month's last day is within 60 days
     const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0);
     return lastDayOfMonth >= cutoffDate;
   }, [selectedYear, selectedMonth]);
@@ -111,6 +118,8 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
           daysWorked: number;
           lateCount: number;
           totalLateMinutes: number;
+          earlyLeaveCount: number;
+          totalEarlyLeaveMinutes: number;
         }>();
 
         filtered.forEach(record => {
@@ -121,11 +130,17 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
             daysWorked: 0,
             lateCount: 0,
             totalLateMinutes: 0,
+            earlyLeaveCount: 0,
+            totalEarlyLeaveMinutes: 0,
           };
           existing.totalHours += record.hoursWorked;
           existing.daysWorked += 1;
           if (record.isLate) existing.lateCount += 1;
           if (record.lateMinutes) existing.totalLateMinutes += record.lateMinutes;
+          if (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0) {
+            existing.earlyLeaveCount += 1;
+            existing.totalEarlyLeaveMinutes += record.earlyLeaveMinutes;
+          }
           employeeMap.set(record.employeeId, existing);
         });
 
@@ -137,6 +152,8 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
           daysWorked: e.daysWorked,
           lateCount: e.lateCount,
           totalLateMinutes: e.totalLateMinutes,
+          earlyLeaveCount: e.earlyLeaveCount,
+          totalEarlyLeaveMinutes: e.totalEarlyLeaveMinutes,
         }));
 
         setAttendanceData(summaries);
@@ -180,15 +197,6 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  const formatHours = (hours: number): string => {
-    return hours.toFixed(1);
-  };
-
-  const formatLateMinutes = (minutes: number | undefined): string => {
-    if (!minutes || minutes === 0) return "-";
-    return `${minutes}m`;
   };
 
   const getMonthName = (month: number): string => {
@@ -241,17 +249,39 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
             </div>
           ) : attendanceData.length > 0 ? (
             <div className="overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
-              <table className="w-full text-sm min-w-[600px]">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium sticky left-0 bg-muted/50 z-10 min-w-[120px]">
+                    <th className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[100px]">
                       Name
                     </th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[60px]">Days</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Avg. Hours</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[90px]">Total Hours</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[60px]">Late</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Late Min</th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[45px]">
+                      Days
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[70px]">
+                      <div className="leading-tight">Avg</div>
+                      <div className="leading-tight">Hours</div>
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[70px]">
+                      <div className="leading-tight">Total</div>
+                      <div className="leading-tight">Hours</div>
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[45px]">
+                      <div className="leading-tight">Late</div>
+                      <div className="leading-tight">Count</div>
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[50px]">
+                      <div className="leading-tight">Late</div>
+                      <div className="leading-tight">Min</div>
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[55px]">
+                      <div className="leading-tight">Er Lv</div>
+                      <div className="leading-tight">Count</div>
+                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[55px]">
+                      <div className="leading-tight">Er Lv</div>
+                      <div className="leading-tight">Min</div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -271,22 +301,36 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                         }`}
                         onClick={() => canTap && openAttendanceCard(record.employeeId, record.employeeName)}
                       >
-                        <td className="py-3 px-4 sticky left-0 bg-background z-10 font-medium">
+                        <td className="py-2.5 px-3 sticky left-0 bg-background z-10 font-medium">
                           {record.employeeName}
                         </td>
-                        <td className="text-right py-3 px-4">{record.daysWorked}</td>
-                        <td className="text-right py-3 px-4">{formatHours(avgHours)}h</td>
-                        <td className="text-right py-3 px-4">{formatHours(record.totalHours)}h</td>
-                        <td className="text-right py-3 px-4">
+                        <td className="text-center py-2.5 px-2">{record.daysWorked}</td>
+                        <td className="text-center py-2.5 px-2 text-xs">{formatHoursMinutes(avgHours)}</td>
+                        <td className="text-center py-2.5 px-2 text-xs">{formatHoursMinutes(record.totalHours)}</td>
+                        <td className="text-center py-2.5 px-2">
                           {record.lateCount > 0 ? (
-                            <span className="text-red-500">{record.lateCount}×</span>
+                            <span className="text-red-500 font-medium">{record.lateCount}</span>
                           ) : (
                             "-"
                           )}
                         </td>
-                        <td className="text-right py-3 px-4">
+                        <td className="text-center py-2.5 px-2">
                           {record.totalLateMinutes && record.totalLateMinutes > 0 ? (
-                            <span className="text-red-500">{record.totalLateMinutes}m</span>
+                            <span className="text-red-500">{record.totalLateMinutes}</span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="text-center py-2.5 px-2">
+                          {record.earlyLeaveCount && record.earlyLeaveCount > 0 ? (
+                            <span className="text-orange-500 font-medium">{record.earlyLeaveCount}</span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="text-center py-2.5 px-2">
+                          {record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? (
+                            <span className="text-orange-500">{record.totalEarlyLeaveMinutes}</span>
                           ) : (
                             "-"
                           )}
@@ -309,7 +353,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
       <Dialog open={cardModalOpen} onOpenChange={setCardModalOpen}>
         <DialogContent className="max-w-md max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
           {/* Fixed Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-background shrink-0">
             <DialogTitle className="text-base font-semibold">
               {selectedCard?.employeeName} - {getMonthName(selectedMonth)} {selectedYear}
             </DialogTitle>
@@ -324,15 +368,15 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 py-2">
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
             {cardLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Loading...
               </div>
             ) : selectedCard && selectedCard.dailyRecords.length > 0 ? (
-              <div className="space-y-0">
-                {/* Header Row */}
-                <div className="grid grid-cols-[60px_50px_50px_50px_1fr] gap-1 py-2 text-xs font-medium text-muted-foreground border-b">
+              <div>
+                {/* Table Header */}
+                <div className="grid grid-cols-[55px_52px_52px_58px_1fr] gap-1 px-4 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/30 sticky top-0">
                   <div>Date</div>
                   <div className="text-center">In</div>
                   <div className="text-center">Out</div>
@@ -346,32 +390,32 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                   const dayOfWeek = new Date(record.date).toLocaleDateString("en-US", {
                     weekday: "short",
                   });
-                  const isLateOrEarly = record.isLate || (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0);
+                  const hasIssue = record.isLate || (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0);
 
                   return (
                     <div
                       key={record.id || record.date}
-                      className={`grid grid-cols-[60px_50px_50px_50px_1fr] gap-1 py-2 text-sm border-b border-muted/30 ${
-                        isLateOrEarly ? "bg-red-50 dark:bg-red-950/20" : ""
+                      className={`grid grid-cols-[55px_52px_52px_58px_1fr] gap-1 px-4 py-2.5 text-sm border-b border-muted/30 ${
+                        hasIssue ? "bg-red-50 dark:bg-red-950/20" : ""
                       }`}
                     >
                       <div className="font-medium">
                         {day} {dayOfWeek}
                       </div>
-                      <div className={`text-center ${record.isLate ? "text-red-500 font-medium" : ""}`}>
+                      <div className={`text-center ${record.isLate ? "text-red-500 font-semibold" : ""}`}>
                         {formatTime(record.clockIn)}
                       </div>
-                      <div className={`text-center ${record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? "text-red-500 font-medium" : ""}`}>
+                      <div className={`text-center ${record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? "text-red-500 font-semibold" : ""}`}>
                         {formatTime(record.clockOut)}
                       </div>
-                      <div className="text-right">
-                        {formatHours(record.hoursWorked)}h
+                      <div className="text-right text-xs">
+                        {formatHoursMinutes(record.hoursWorked)}
                       </div>
                       <div className="text-right pr-1 text-xs">
                         {record.isLate && record.lateMinutes ? (
                           <span className="text-red-500">Late {record.lateMinutes}m</span>
                         ) : record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? (
-                          <span className="text-red-500">Early {record.earlyLeaveMinutes}m</span>
+                          <span className="text-orange-500">Early {record.earlyLeaveMinutes}m</span>
                         ) : (
                           <span className="text-green-600">OK</span>
                         )}
@@ -389,22 +433,28 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
           {/* Fixed Footer */}
           {selectedCard && selectedCard.dailyRecords.length > 0 && (
-            <div className="border-t px-4 py-3 bg-background">
-              <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="border-t px-4 py-3 bg-background shrink-0">
+              <div className="grid grid-cols-4 gap-2 text-sm">
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Days</div>
                   <div className="font-semibold">{selectedCard.dailyRecords.length}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Total Hours</div>
-                  <div className="font-semibold">
-                    {formatHours(selectedCard.dailyRecords.reduce((sum, r) => sum + r.hoursWorked, 0))}h
+                  <div className="font-semibold text-xs">
+                    {formatHoursMinutes(selectedCard.dailyRecords.reduce((sum, r) => sum + r.hoursWorked, 0))}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-muted-foreground text-xs">Late Count</div>
+                  <div className="text-muted-foreground text-xs">Late</div>
                   <div className="font-semibold text-red-500">
                     {selectedCard.dailyRecords.filter(r => r.isLate).length}×
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground text-xs">Er Leave</div>
+                  <div className="font-semibold text-orange-500">
+                    {selectedCard.dailyRecords.filter(r => r.earlyLeaveMinutes && r.earlyLeaveMinutes > 0).length}×
                   </div>
                 </div>
               </div>

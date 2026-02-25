@@ -608,6 +608,22 @@ PAYMENT BREAKDOWN:
     // Smart shift detection using current settings
     const detectedShift = detectShift(clockInTime, settings);
 
+    // Calculate if late at clock-in time
+    let isLate = false;
+    let lateMinutes = 0;
+
+    if (detectedShift?.start) {
+      const [scheduledHour, scheduledMin] = detectedShift.start.split(":").map(Number);
+      const clockInDate = new Date(clockInTime);
+      const scheduledStartTime = new Date(clockInDate);
+      scheduledStartTime.setHours(scheduledHour, scheduledMin, 0, 0);
+
+      if (clockInTime > scheduledStartTime.getTime()) {
+        isLate = true;
+        lateMinutes = Math.round((clockInTime - scheduledStartTime.getTime()) / (1000 * 60));
+      }
+    }
+
     await db.add("attendance", {
       employeeId: employee.id!,
       employeeName: employee.name,
@@ -615,7 +631,9 @@ PAYMENT BREAKDOWN:
       date: today,
       assignedShift: detectedShift?.name,
       scheduledStart: detectedShift?.start,
-      scheduledEnd: detectedShift?.end
+      scheduledEnd: detectedShift?.end,
+      isLate,
+      lateMinutes: lateMinutes > 0 ? lateMinutes : undefined
     });
 
     return { success: true, message: "attendance.clockedIn" };
@@ -640,33 +658,19 @@ PAYMENT BREAKDOWN:
     const clockOutTime = Date.now();
     const hoursWorked = (clockOutTime - activeRecord.clockIn) / (1000 * 60 * 60);
 
-    // Calculate late status
-    let isLate = false;
-    let lateMinutes = 0;
+    // Get late status from clock-in record (already calculated at clock-in)
+    const isLate = activeRecord.isLate || false;
+    const lateMinutes = activeRecord.lateMinutes || 0;
+
+    // Calculate early leave at clock-out time
     let earlyLeaveMinutes = 0;
 
-    if (activeRecord.scheduledStart) {
-      // Parse scheduled start time (HH:MM format)
-      const [scheduledHour, scheduledMin] = activeRecord.scheduledStart.split(":").map(Number);
-      const clockInDate = new Date(activeRecord.clockIn);
-      const scheduledStartTime = new Date(clockInDate);
-      scheduledStartTime.setHours(scheduledHour, scheduledMin, 0, 0);
-
-      // If clock in is after scheduled start, employee is late
-      if (activeRecord.clockIn > scheduledStartTime.getTime()) {
-        isLate = true;
-        lateMinutes = Math.round((activeRecord.clockIn - scheduledStartTime.getTime()) / (1000 * 60));
-      }
-    }
-
     if (activeRecord.scheduledEnd) {
-      // Parse scheduled end time (HH:MM format)
       const [scheduledHour, scheduledMin] = activeRecord.scheduledEnd.split(":").map(Number);
       const clockOutDate = new Date(clockOutTime);
       const scheduledEndTime = new Date(clockOutDate);
       scheduledEndTime.setHours(scheduledHour, scheduledMin, 0, 0);
 
-      // If clock out is before scheduled end, employee left early
       if (clockOutTime < scheduledEndTime.getTime()) {
         earlyLeaveMinutes = Math.round((scheduledEndTime.getTime() - clockOutTime) / (1000 * 60));
       }
