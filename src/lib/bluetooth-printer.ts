@@ -599,8 +599,8 @@ class BluetoothPrinterService {
       await this.sendText(this.padLine("PPN (10%):", "11.400", width), "left");
       await this.sendText("-".repeat(width), "center");
       await this.sendBytes(this.cmdBold(true));
-      await this.sendBytes(this.cmdTextSize(2, 2));
-      await this.sendText(this.padLine("TOTAL:", "125.400", width - 8), "left");
+      await this.sendBytes(this.cmdTextSize(1, 2));
+      await this.sendText(this.padLine("TOTAL:", "125.400", width), "left");
       await this.sendBytes(this.cmdTextSize(1, 1));
       await this.sendBytes(this.cmdBold(false));
       await this.sendText("-".repeat(width), "center");
