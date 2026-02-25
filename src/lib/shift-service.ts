@@ -8,8 +8,7 @@ import type {
   Shift, 
   Transaction, 
   DailyShiftSummary, 
-  Settings,
-  ShiftConfig
+  Settings
 } from "@/types";
 
 interface ShiftDetectionResult {
@@ -26,7 +25,33 @@ interface PaymentBreakdown {
 }
 
 /**
+ * Convert "HH:MM" to minutes since midnight
+ */
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+/**
+ * Calculate circular distance between two times (handles midnight wrap-around)
+ * Returns the shortest distance considering the 24-hour cycle
+ */
+function circularTimeDistance(timeA: number, timeB: number): number {
+  const MINUTES_IN_DAY = 24 * 60; // 1440 minutes
+  const directDistance = Math.abs(timeA - timeB);
+  const wrapDistance = MINUTES_IN_DAY - directDistance;
+  return Math.min(directDistance, wrapDistance);
+}
+
+/**
  * Detect which shift a clock-in time belongs to based on proximity
+ * Uses circular distance to handle midnight wrap-around correctly
+ * 
+ * Examples:
+ * - Clock in 07:45, Shift1 08:00, Shift2 15:00 → Shift1 (15 min closer)
+ * - Clock in 09:30, Shift1 08:00, Shift2 15:00 → Shift1 (90 min vs 330 min)
+ * - Clock in 12:00, Shift1 08:00, Shift2 15:00 → Shift2 (180 min vs 240 min)
+ * - Clock in 23:00, Shift1 14:00, Shift2 00:00 → Shift2 (60 min vs 540 min)
  */
 export function detectShift(
   clockInTime: number, 
@@ -49,19 +74,13 @@ export function detectShift(
   const clockInDate = new Date(clockInTime);
   const clockInMinutes = clockInDate.getHours() * 60 + clockInDate.getMinutes();
 
-  // Helper to convert "HH:MM" to minutes
-  const timeToMinutes = (time: string): number => {
-    const [hours, minutes] = time.split(":").map(Number);
-    return hours * 60 + minutes;
-  };
-
-  // Find closest shift by start time
+  // Find closest shift by start time using circular distance
   let closestShift = enabledShifts[0];
   let smallestDistance = Infinity;
 
   for (const shift of enabledShifts) {
     const shiftStartMinutes = timeToMinutes(shift.startTime);
-    const distance = Math.abs(clockInMinutes - shiftStartMinutes);
+    const distance = circularTimeDistance(clockInMinutes, shiftStartMinutes);
 
     if (distance < smallestDistance) {
       smallestDistance = distance;
