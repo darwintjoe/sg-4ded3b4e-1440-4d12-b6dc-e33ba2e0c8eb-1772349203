@@ -19,7 +19,8 @@ import {
 import { 
   cleanupOldDailyRecords, 
   archiveColdData, 
-  checkAndRollupMonthly 
+  checkAndRollupMonthly,
+  runStartupCleanup
 } from "@/lib/data-rollup-service";
 import { appLog } from "@/lib/logger";
 
@@ -99,9 +100,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         await initializeApp();
         
-        // Run daily cleanup in background (non-blocking)
-        cleanupOldDailyRecords().catch(err => {
-          console.error("Background cleanup failed (non-fatal):", err);
+        // Run startup cleanup (replaces old cleanupOldDailyRecords call)
+        runStartupCleanup().catch(err => {
+          console.error("Startup cleanup failed (non-fatal):", err);
         });
         
         setIsInitialized(true);

@@ -11,20 +11,62 @@ import type {
   MonthlyItemSales,
   MonthlySalesSummary,
   MonthlyAttendanceSummary,
-  AttendanceRecord
+  AttendanceRecord,
+  Transaction
 } from "@/types";
 
 /**
- * Clean up daily records older than specified days
+ * Clean up old transactions (incremental: day 61 only)
+ * RETENTION POLICY: 60 days
  */
-export async function cleanupOldDailyRecords(daysToKeep: number = 30): Promise<number> {
+export async function cleanupOldTransactions(): Promise<number> {
   try {
     const today = new Date();
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - daysToKeep);
-    const cutoffString = cutoffDate.toISOString().split("T")[0];
+    const day61 = new Date(today);
+    day61.setDate(today.getDate() - 61);
+    const day61String = day61.toISOString().split("T")[0];
 
-    console.log(`🧹 Cleaning up daily records older than ${cutoffString}...`);
+    console.log(`🧹 Cleaning up transactions from ${day61String}...`);
+
+    const allTransactions = await db.getAll<Transaction>("transactions");
+    const transactionsToDelete = allTransactions.filter(t => {
+      const txDate = new Date(t.timestamp).toISOString().split("T")[0];
+      return txDate === day61String;
+    });
+
+    let deletedCount = 0;
+    for (const tx of transactionsToDelete) {
+      if (tx.id) {
+        await db.delete("transactions", tx.id);
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      console.log(`🧹 Deleted ${deletedCount} transactions from day 61 (${day61String})`);
+    } else {
+      console.log(`🧹 No transactions to clean up from day 61`);
+    }
+
+    return deletedCount;
+  } catch (error) {
+    console.error("Error cleaning up old transactions:", error);
+    throw error;
+  }
+}
+
+/**
+ * Clean up daily records older than specified days (incremental: day N+1 only)
+ * RETENTION POLICY: 60 days for daily summaries
+ */
+export async function cleanupOldDailyRecords(daysToKeep: number = 60): Promise<number> {
+  try {
+    const today = new Date();
+    const dayToDelete = new Date(today);
+    dayToDelete.setDate(today.getDate() - (daysToKeep + 1));
+    const deleteString = dayToDelete.toISOString().split("T")[0];
+
+    console.log(`🧹 Cleaning up daily records from ${deleteString}...`);
 
     let dailyItems: DailyItemSales[] = [];
     let dailyPayments: DailyPaymentSales[] = [];
@@ -51,30 +93,30 @@ export async function cleanupOldDailyRecords(daysToKeep: number = 30): Promise<n
     let deletedCount = 0;
     
     for (const record of dailyItems) {
-      if (record.businessDate < cutoffString && record.id) {
+      if (record.businessDate === deleteString && record.id) {
         await db.delete("dailyItemSales", record.id);
         deletedCount++;
       }
     }
     
     for (const record of dailyPayments) {
-      if (record.businessDate < cutoffString && record.id) {
+      if (record.businessDate === deleteString && record.id) {
         await db.delete("dailyPaymentSales", record.id);
         deletedCount++;
       }
     }
     
     for (const record of dailyAttendance) {
-      if (record.date < cutoffString && record.id) {
+      if (record.date === deleteString && record.id) {
         await db.delete("dailyAttendance", record.id);
         deletedCount++;
       }
     }
 
     if (deletedCount > 0) {
-      console.log(`🧹 Deleted ${deletedCount} old daily records`);
+      console.log(`🧹 Deleted ${deletedCount} daily records from day ${daysToKeep + 1} (${deleteString})`);
     } else {
-      console.log("🧹 No old records to clean up");
+      console.log(`🧹 No daily records to clean up from day ${daysToKeep + 1}`);
     }
 
     return deletedCount;
@@ -86,39 +128,11 @@ export async function cleanupOldDailyRecords(daysToKeep: number = 30): Promise<n
 
 /**
  * Archive cold data (records older than retention period)
+ * DEPRECATED: Use cleanupOldDailyRecords instead
  */
-export async function archiveColdData(daysToKeep: number = 30): Promise<number> {
-  try {
-    const today = new Date().toISOString().split("T")[0];
-    const cutoffDate = new Date(today);
-    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    const cutoffString = cutoffDate.toISOString().split("T")[0];
-
-    const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
-    const dailyPayments = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-
-    let deletedCount = 0;
-
-    for (const item of dailyItems) {
-      if (item.businessDate < cutoffString && item.id) {
-        await db.delete("dailyItemSales", item.id);
-        deletedCount++;
-      }
-    }
-
-    for (const payment of dailyPayments) {
-      if (payment.businessDate < cutoffString && payment.id) {
-        await db.delete("dailyPaymentSales", payment.id);
-        deletedCount++;
-      }
-    }
-
-    console.log(`✅ Archived cold data: Deleted ${deletedCount} records older than ${cutoffString}`);
-    return deletedCount;
-  } catch (error) {
-    console.error("Error archiving cold data:", error);
-    return 0;
-  }
+export async function archiveColdData(daysToKeep: number = 60): Promise<number> {
+  console.warn("archiveColdData is deprecated, use cleanupOldDailyRecords instead");
+  return cleanupOldDailyRecords(daysToKeep);
 }
 
 /**
@@ -134,6 +148,7 @@ export async function checkAndRollupMonthly(): Promise<void> {
 
     if (lastMonth && lastMonth !== currentMonth) {
       // Month changed, rollup previous month
+      console.log(`📊 Month changed: ${lastMonth} → ${currentMonth}, triggering rollup...`);
       await rollupMonthlyData(lastMonth);
     }
 
@@ -150,6 +165,8 @@ export async function checkAndRollupMonthly(): Promise<void> {
  */
 export async function rollupMonthlyData(month: string): Promise<void> {
   try {
+    console.log(`📊 Rolling up data for ${month}...`);
+
     // Rollup item sales
     const dailyItems = await db.getAll<DailyItemSales>("dailyItemSales");
     const monthlyItemsMap = new Map<number, { 
@@ -254,8 +271,31 @@ export async function rollupMonthlyData(month: string): Promise<void> {
       await db.upsert("monthlyAttendanceSummary", ["yearMonth", "employeeId"], monthlyAttendance);
     }
 
-    console.log(`Monthly rollup completed for ${month}`);
+    console.log(`✅ Monthly rollup completed for ${month}`);
   } catch (error) {
     console.error("Error rolling up monthly data:", error);
+  }
+}
+
+/**
+ * Master cleanup function - runs all cleanup tasks
+ * Called on app startup
+ */
+export async function runStartupCleanup(): Promise<void> {
+  try {
+    console.log("🚀 Running startup cleanup...");
+    
+    // 1. Clean up old transactions (day 61)
+    await cleanupOldTransactions();
+    
+    // 2. Clean up old daily summaries (day 61)
+    await cleanupOldDailyRecords(60);
+    
+    // 3. Check and trigger monthly rollup if month changed
+    await checkAndRollupMonthly();
+    
+    console.log("✅ Startup cleanup complete");
+  } catch (error) {
+    console.error("❌ Startup cleanup failed (non-fatal):", error);
   }
 }
