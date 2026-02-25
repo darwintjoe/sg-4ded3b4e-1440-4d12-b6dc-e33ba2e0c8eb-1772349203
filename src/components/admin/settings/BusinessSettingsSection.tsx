@@ -14,6 +14,10 @@ interface BusinessSettingsSectionProps {
   language: Language;
 }
 
+// Max width for thermal printers: 58mm = 384 dots, 80mm = 576 dots
+// Use 384 as safe maximum for both
+const THERMAL_PRINTER_WIDTH = 384;
+
 export function BusinessSettingsSection({
   settings,
   onUpdate,
@@ -21,21 +25,21 @@ export function BusinessSettingsSection({
 }: BusinessSettingsSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [grayscalePreview, setGrayscalePreview] = useState<string | null>(null);
+  const [monochromePreview, setMonochromePreview] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // If logo is set (non-empty string), show it
+    // If logo is set (non-empty string), generate preview from it
     if (settings.receiptLogoBase64) {
-      setGrayscalePreview(settings.receiptLogoBase64);
+      generateMonochromePreview(settings.receiptLogoBase64);
       setIsInitializing(false);
     } 
-    // If logo is undefined (first load/not set), load default
-    // If logo is "" (empty string), it means user explicitly removed it, so do nothing
+    // If logo is undefined (first load/not set), load default SellMore logo
     else if (settings.receiptLogoBase64 === undefined) {
       loadDefaultLogo();
     } else {
-      setGrayscalePreview(null);
+      // Empty string means user explicitly removed it
+      setMonochromePreview(null);
       setIsInitializing(false);
     }
   }, [settings.receiptLogoBase64]);
@@ -49,10 +53,14 @@ export function BusinessSettingsSection({
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const processed = processImage(img);
+          const processed = processImageForThermalPrinter(img);
           if (processed) {
             onUpdate({ receiptLogoBase64: processed });
           }
+          setIsInitializing(false);
+        };
+        img.onerror = () => {
+          console.error("Failed to load default logo image");
           setIsInitializing(false);
         };
         img.src = e.target?.result as string;
@@ -65,61 +73,96 @@ export function BusinessSettingsSection({
     }
   };
 
-  const processImage = (img: HTMLImageElement): string | null => {
+  /**
+   * Process image for thermal printer:
+   * 1. Resize to max 384px width (fits 58mm and 80mm printers)
+   * 2. Convert to 1-bit monochrome using Floyd-Steinberg dithering
+   * 3. Output as PNG with only black/white pixels
+   */
+  const processImageForThermalPrinter = (img: HTMLImageElement): string | null => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    const targetWidth = 512;
-    const scale = targetWidth / img.width;
-    canvas.width = targetWidth;
-    canvas.height = img.height * scale;
+    // Calculate dimensions - max width 384px for thermal printers
+    const scale = Math.min(1, THERMAL_PRINTER_WIDTH / img.width);
+    const width = Math.floor(img.width * scale);
+    const height = Math.floor(img.height * scale);
 
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.width = width;
+    canvas.height = height;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // Draw image with white background
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      const level = Math.floor(gray / 16);
-      const grayscale16 = level * 16;
-      
-      data[i] = grayscale16;
-      data[i + 1] = grayscale16;
-      data[i + 2] = grayscale16;
+    // Convert to grayscale array for dithering
+    const grayscale: number[][] = [];
+    for (let y = 0; y < height; y++) {
+      grayscale[y] = [];
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        // Luminance formula
+        grayscale[y][x] = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      }
+    }
+
+    // Apply Floyd-Steinberg dithering for better 1-bit output
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const oldPixel = grayscale[y][x];
+        const newPixel = oldPixel < 128 ? 0 : 255;
+        grayscale[y][x] = newPixel;
+        const error = oldPixel - newPixel;
+
+        // Distribute error to neighbors
+        if (x + 1 < width) {
+          grayscale[y][x + 1] += error * 7 / 16;
+        }
+        if (y + 1 < height) {
+          if (x > 0) {
+            grayscale[y + 1][x - 1] += error * 3 / 16;
+          }
+          grayscale[y + 1][x] += error * 5 / 16;
+          if (x + 1 < width) {
+            grayscale[y + 1][x + 1] += error * 1 / 16;
+          }
+        }
+      }
+    }
+
+    // Write back to image data as pure black/white
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const value = grayscale[y][x] < 128 ? 0 : 255;
+        data[idx] = value;     // R
+        data[idx + 1] = value; // G
+        data[idx + 2] = value; // B
+        data[idx + 3] = 255;   // A (fully opaque)
+      }
     }
 
     ctx.putImageData(imageData, 0, 0);
     return canvas.toDataURL("image/png");
   };
 
-  const convertToGrayscale = (base64Image: string) => {
+  /**
+   * Generate monochrome preview that simulates thermal print output
+   */
+  const generateMonochromePreview = (base64Image: string) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        const level = Math.floor(gray / 16);
-        const grayscale16 = level * 16;
-        
-        data[i] = grayscale16;
-        data[i + 1] = grayscale16;
-        data[i + 2] = grayscale16;
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      setGrayscalePreview(canvas.toDataURL());
+      // The stored image should already be processed, just show it
+      setMonochromePreview(base64Image);
+    };
+    img.onerror = () => {
+      setMonochromePreview(null);
     };
     img.src = base64Image;
   };
@@ -139,7 +182,7 @@ export function BusinessSettingsSection({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        const processed = processImage(img);
+        const processed = processImageForThermalPrinter(img);
         if (processed) {
           onUpdate({ receiptLogoBase64: processed });
         }
@@ -157,7 +200,7 @@ export function BusinessSettingsSection({
   const handleRemoveLogo = () => {
     // Set to empty string to indicate explicit removal
     onUpdate({ receiptLogoBase64: "" });
-    setGrayscalePreview(null);
+    setMonochromePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -179,13 +222,20 @@ export function BusinessSettingsSection({
             <HelpTooltip content={translate("settings.business.uploadLogoHelp", language)} />
           </Label>
           
-          {grayscalePreview && (
+          {monochromePreview && (
             <div className="relative inline-block">
-              <img
-                src={grayscalePreview}
-                alt="Receipt Logo Preview (16-level grayscale)"
-                className="max-w-[200px] border rounded-lg p-2 bg-white"
-              />
+              {/* Simulate thermal paper with slightly off-white background */}
+              <div className="border rounded-lg p-3 bg-[#f5f5f0] shadow-inner">
+                <img
+                  src={monochromePreview}
+                  alt="Receipt Logo Preview (thermal print simulation)"
+                  className="max-w-[200px]"
+                  style={{ imageRendering: "pixelated" }}
+                />
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Thermal print preview
+                </p>
+              </div>
               <Button
                 variant="destructive"
                 size="icon"
@@ -209,11 +259,14 @@ export function BusinessSettingsSection({
             <Button
               variant="outline"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isProcessing}
+              disabled={isProcessing || isInitializing}
             >
               {isProcessing ? translate("settings.business.processing", language) : translate("settings.business.uploadLogo", language)}
             </Button>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Image will be resized to max {THERMAL_PRINTER_WIDTH}px and converted to black/white for thermal printing
+          </p>
         </div>
 
         <div className="space-y-2">
