@@ -548,7 +548,7 @@ class BluetoothPrinterService {
           if (logoBitmap && logoBitmap.length > 10) {
             await this.sendBytes(this.cmdAlign("center"));
             await this.sendBytes(logoBitmap);
-            await this.sendBytes(this.cmdLineFeed(2));
+            await this.sendBytes(this.cmdLineFeed(1));
           }
         } catch (error) {
           await this.sendText("Logo print failed", "center");
@@ -634,7 +634,7 @@ class BluetoothPrinterService {
           if (logoBitmap && logoBitmap.length > 10) {
             commands.push(this.cmdAlign("center"));
             commands.push(logoBitmap);
-            commands.push(this.cmdLineFeed(2));
+            commands.push(this.cmdLineFeed(1));
             commands.push(this.cmdInit());
             commands.push(this.cmdSelectCodePage());
           }
