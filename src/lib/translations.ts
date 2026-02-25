@@ -68,6 +68,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.info": "Info",
     "common.active": "Active",
     "common.inactive": "Inactive",
+    "common.verify": "Verify",
 
     // ===== LOGIN =====
     "login.title": "Staff Login",
@@ -150,6 +151,22 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "pos.overrideEnabled": "Override enabled",
     "pos.mode.live": "Live",
     "pos.mode.training": "Practice",
+    "pos.history": "History",
+    "pos.transactionHistory": "Transaction History",
+    "pos.noTransactions": "No transactions yet",
+    "pos.endOfHistory": "End of transaction history",
+    "pos.receiptDetails": "Receipt Details",
+    "pos.printing": "Printing...",
+    "pos.reprintReceipt": "Reprint Receipt",
+    "pos.printerNotConnected": "Printer not connected",
+    "pos.printerConnected": "Printer connected",
+    "pos.printerDisconnected": "Printer disconnected",
+    "pos.noPinSet": "No PIN set for this employee",
+    "pos.incorrectPin": "Incorrect PIN",
+    "pos.createNewItem": "Create new item",
+    "pos.enterPin": "Enter PIN",
+    "pos.enterPinToCreateItem": "Enter your PIN to create a new item",
+    "pos.tax": "Tax",
 
     // ===== PAYMENT =====
     "payment.title": "Payment",
@@ -177,6 +194,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.editItem": "Edit Item",
     "items.deleteItem": "Delete Item",
     "items.itemName": "Item Name",
+    "items.itemNamePlaceholder": "Enter item name",
     "items.name": "Name",
     "items.sku": "SKU",
     "items.skuLabel": "SKU / Barcode",
@@ -201,6 +219,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.noResults": "No items found",
     "items.activeStatus": "Active Status",
     "items.activeHelp": "Inactive items won't appear in POS",
+    "items.validationError": "Please fill in all required fields",
+    "items.itemCreated": "Item created successfully",
+    "items.createError": "Failed to create item",
 
     // ===== EMPLOYEES =====
     "employees.title": "Employees Management",
@@ -245,6 +266,8 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "attendance.hoursWorked": "Hours Worked",
     "attendance.checkInTime": "Check-in Time",
     "attendance.checkOutTime": "Check-out Time",
+    "attendance.clockedIn": "Clocked In Successfully",
+    "attendance.clockedOut": "Clocked Out Successfully",
 
     // ===== REPORTS =====
     "reports.title": "Reports",
@@ -470,6 +493,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.info": "Info",
     "common.active": "Aktif",
     "common.inactive": "Nonaktif",
+    "common.verify": "Verifikasi",
 
     // Login
     "login.title": "Login Karyawan",
@@ -584,6 +608,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.noResults": "Produk tidak ditemukan",
     "items.activeStatus": "Status Aktif",
     "items.activeHelp": "Item nonaktif tidak muncul di POS",
+    "items.validationError": "Harap isi semua field yang diperlukan",
+    "items.itemCreated": "Item berhasil dibuat",
+    "items.createError": "Gagal membuat item",
 
     // Employees
     "employees.title": "Manajemen Karyawan",
@@ -628,6 +655,8 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "attendance.hoursWorked": "Jam Kerja",
     "attendance.checkInTime": "Waktu Masuk",
     "attendance.checkOutTime": "Waktu Keluar",
+    "attendance.clockedIn": "Masuk berhasil",
+    "attendance.clockedOut": "Keluar berhasil",
 
     // Reports
     "reports.title": "Laporan",
@@ -843,6 +872,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "common.info": "信息",
     "common.active": "激活",
     "common.inactive": "停用",
+    "common.verify": "验证",
 
     // Login
     "login.title": "员工登录",
@@ -957,6 +987,9 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.noResults": "未找到商品",
     "items.activeStatus": "激活状态",
     "items.activeHelp": "停用商品不会出现在POS",
+    "items.validationError": "请填写所有必填字段",
+    "items.itemCreated": "商品创建成功",
+    "items.createError": "创建商品失败",
 
     // Employees
     "employees.title": "员工管理",
@@ -1001,6 +1034,8 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "attendance.hoursWorked": "工作时长",
     "attendance.checkInTime": "签到时间",
     "attendance.checkOutTime": "签退时间",
+    "attendance.clockedIn": "签到成功",
+    "attendance.clockedOut": "签退成功",
 
     // Reports
     "reports.title": "报表",
