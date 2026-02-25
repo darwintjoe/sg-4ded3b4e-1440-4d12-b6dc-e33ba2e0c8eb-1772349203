@@ -303,7 +303,23 @@ class BluetoothPrinterService {
     if (!this.characteristic) {
       throw new Error("Printer not connected");
     }
-    await this.characteristic.writeValue(data);
+    
+    // Web Bluetooth has 512-byte limit per write
+    // Use 256 bytes to be safe with BLE overhead
+    const CHUNK_SIZE = 256;
+    
+    if (data.length <= CHUNK_SIZE) {
+      await this.characteristic.writeValue(data);
+      return;
+    }
+    
+    // Split into chunks and send sequentially
+    for (let offset = 0; offset < data.length; offset += CHUNK_SIZE) {
+      const chunk = data.slice(offset, Math.min(offset + CHUNK_SIZE, data.length));
+      await this.characteristic.writeValue(chunk);
+      // Small delay between chunks to prevent buffer overflow
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
   }
 
   private cmdInit(): Uint8Array {
