@@ -212,7 +212,9 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     const monthName = getMonthName(selectedMonth);
     
     // Auto-select orientation based on employee count
-    const usePortrait = attendanceData.length <= 15;
+    // <=15 employees: landscape (fewer rows, show columns wider)
+    // >15 employees: portrait (more rows need vertical space)
+    const usePortrait = attendanceData.length > 15;
     const orientation = usePortrait ? "portrait" : "landscape";
     
     const doc = new jsPDF({
