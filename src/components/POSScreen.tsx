@@ -783,8 +783,33 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         {showItemPicker && (
           <div className="absolute left-3 right-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg mt-2 max-h-64 overflow-y-auto z-50">
             {filteredItems.length === 0 ? (
-              <div className="p-4 text-center text-slate-500 dark:text-slate-400">
-                {searchQuery.trim() === "" ? translate("pos.search", language) : "No items found"}
+              <div className="p-4 text-center">
+                {searchQuery.trim() === "" ? (
+                  <span className="text-slate-500 dark:text-slate-400">{translate("pos.search", language)}</span>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-slate-500 dark:text-slate-400">
+                      {translate("pos.itemNotFound", language)}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Use search query as potential SKU
+                        setNotFoundBarcode(searchQuery.trim());
+                        setShowItemPicker(false);
+                        setSearchQuery("");
+                        // Go directly to PIN verification (same as barcode flow)
+                        setPinInput("");
+                        setPinError("");
+                        setPinVerifyOpen(true);
+                      }}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                    >
+                      {translate("pos.createNewItem", language)} →
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="py-1">
