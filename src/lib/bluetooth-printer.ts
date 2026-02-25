@@ -619,29 +619,41 @@ class BluetoothPrinterService {
   async printReceipt(
     transaction: Transaction,
     settings: Settings,
-    cashierName: string
+    cashierName: string,
+    isReprint: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     try {
       if (!this.isConnected()) {
         return { success: false, error: "Printer not connected" };
       }
       const width = settings.printerWidth === 58 ? 32 : 42;
+      
+      // ========== CHUNK 1: Initialize + Logo ==========
       await this.initializePrinter();
-      const commands: Uint8Array[] = [];
+      await new Promise(r => setTimeout(r, 50));
+      
       if (settings.receiptLogoBase64 && settings.receiptLogoBase64.length > 100) {
         try {
           const logoBitmap = await this.imageToBitmap(settings.receiptLogoBase64);
           if (logoBitmap && logoBitmap.length > 10) {
-            commands.push(this.cmdAlign("center"));
-            commands.push(logoBitmap);
-            commands.push(this.cmdLineFeed(1));
-            commands.push(this.cmdInit());
-            commands.push(this.cmdSelectCodePage());
+            await this.sendBytes(this.cmdAlign("center"));
+            await this.sendBytes(logoBitmap);
+            await this.sendBytes(this.cmdLineFeed(1));
+            // Wait for printer to process logo before sending text
+            await new Promise(r => setTimeout(r, 200));
+            // Re-initialize after logo to reset text mode
+            await this.sendBytes(this.cmdInit());
+            await this.sendBytes(this.cmdSelectCodePage());
           }
         } catch (error) {
           console.warn("Failed to print logo, continuing without it:", error);
         }
       }
+      
+      // ========== CHUNK 2: Text Content ==========
+      const commands: Uint8Array[] = [];
+      
+      // Store name (header)
       commands.push(this.cmdAlign("center"));
       commands.push(this.cmdBold(true));
       commands.push(this.cmdTextSize(2, 2));
@@ -649,6 +661,7 @@ class BluetoothPrinterService {
       commands.push(this.cmdLineFeed(1));
       commands.push(this.cmdTextSize(1, 1));
       commands.push(this.cmdBold(false));
+      
       if (settings.businessAddress) {
         commands.push(this.encodeText(settings.businessAddress));
         commands.push(this.cmdLineFeed(1));
@@ -657,22 +670,35 @@ class BluetoothPrinterService {
         commands.push(this.encodeText(settings.taxId));
         commands.push(this.cmdLineFeed(1));
       }
+      
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Transaction info
       commands.push(this.cmdAlign("left"));
       commands.push(this.encodeText(`Date: ${new Date(transaction.timestamp).toLocaleString("id-ID")}`));
       commands.push(this.cmdLineFeed(1));
-      // Generate transaction number: use id if available, otherwise format from timestamp
+      
       const txnNumber = transaction.id 
-        ? transaction.id.toString().slice(-5).padStart(5, "0")
+        ? transaction.id.toString().padStart(5, "0")
         : new Date(transaction.timestamp).getTime().toString().slice(-10);
       commands.push(this.encodeText(`Receipt: #${txnNumber}`));
       commands.push(this.cmdLineFeed(1));
+      
       commands.push(this.encodeText(`Cashier: ${cashierName}`));
       commands.push(this.cmdLineFeed(1));
+      
+      // REPRINTED marker (if reprint)
+      if (isReprint) {
+        commands.push(this.encodeText("*** REPRINTED ***"));
+        commands.push(this.cmdLineFeed(1));
+      }
+      
       commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Items
       commands.push(this.cmdAlign("left"));
       for (let i = 0; i < transaction.items.length; i++) {
         const item = transaction.items[i];
@@ -687,12 +713,16 @@ class BluetoothPrinterService {
           commands.push(this.cmdLineFeed(1));
         }
       }
+      
       commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Totals
       commands.push(this.cmdAlign("left"));
       commands.push(this.encodeText(this.padLine("Subtotal:", this.formatCurrency(transaction.subtotal), width)));
       commands.push(this.cmdLineFeed(1));
+      
       if (transaction.tax > 0) {
         const taxLabel = settings.tax1Enabled && settings.tax1Inclusive 
           ? `${settings.tax1Label} (included)` 
@@ -700,9 +730,12 @@ class BluetoothPrinterService {
         commands.push(this.encodeText(this.padLine(`${taxLabel}:`, this.formatCurrency(transaction.tax), width)));
         commands.push(this.cmdLineFeed(1));
       }
+      
       commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Grand total
       commands.push(this.cmdAlign("left"));
       commands.push(this.cmdBold(true));
       commands.push(this.cmdTextSize(1, 2));
@@ -710,9 +743,12 @@ class BluetoothPrinterService {
       commands.push(this.cmdLineFeed(1));
       commands.push(this.cmdTextSize(1, 1));
       commands.push(this.cmdBold(false));
+      
       commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Payments
       commands.push(this.cmdAlign("left"));
       for (const payment of transaction.payments) {
         const methodLabel = payment.method === "qris-static" ? "QRIS" 
@@ -722,24 +758,32 @@ class BluetoothPrinterService {
         commands.push(this.encodeText(this.padLine(`Payment (${methodLabel}):`, this.formatCurrency(payment.amount), width)));
         commands.push(this.cmdLineFeed(1));
       }
+      
       if (transaction.change && transaction.change > 0) {
         commands.push(this.encodeText(this.padLine("Change:", this.formatCurrency(transaction.change), width)));
         commands.push(this.cmdLineFeed(1));
       }
+      
       commands.push(this.cmdAlign("center"));
       commands.push(this.encodeText(this.separatorLine(width)));
       commands.push(this.cmdLineFeed(1));
+      
+      // Footer
       if (settings.receiptFooter) {
         commands.push(this.encodeText(settings.receiptFooter));
         commands.push(this.cmdLineFeed(1));
       }
+      
       if (settings.tax1Enabled && settings.tax1Inclusive) {
         commands.push(this.cmdLineFeed(1));
-        commands.push(this.encodeText(`i Prices inclusive of ${settings.tax1Label}`));
+        commands.push(this.encodeText(`* Prices inclusive of ${settings.tax1Label}`));
         commands.push(this.cmdLineFeed(1));
       }
+      
       commands.push(this.cmdLineFeed(5));
       commands.push(this.cmdCut());
+      
+      // Combine text commands and send
       const totalLength = commands.reduce((sum, cmd) => sum + cmd.length, 0);
       const buffer = new Uint8Array(totalLength);
       let offset = 0;
@@ -748,6 +792,7 @@ class BluetoothPrinterService {
         offset += cmd.length;
       }
       await this.sendBytes(buffer);
+      
       return { success: true };
     } catch (error) {
       console.error("Print receipt error:", error);
