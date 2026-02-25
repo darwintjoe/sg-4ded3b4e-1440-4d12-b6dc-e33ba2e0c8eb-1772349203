@@ -640,18 +640,52 @@ PAYMENT BREAKDOWN:
     const clockOutTime = Date.now();
     const hoursWorked = (clockOutTime - activeRecord.clockIn) / (1000 * 60 * 60);
 
+    // Calculate late status
+    let isLate = false;
+    let lateMinutes = 0;
+    let earlyLeaveMinutes = 0;
+
+    if (activeRecord.scheduledStart) {
+      // Parse scheduled start time (HH:MM format)
+      const [scheduledHour, scheduledMin] = activeRecord.scheduledStart.split(":").map(Number);
+      const clockInDate = new Date(activeRecord.clockIn);
+      const scheduledStartTime = new Date(clockInDate);
+      scheduledStartTime.setHours(scheduledHour, scheduledMin, 0, 0);
+
+      // If clock in is after scheduled start, employee is late
+      if (activeRecord.clockIn > scheduledStartTime.getTime()) {
+        isLate = true;
+        lateMinutes = Math.round((activeRecord.clockIn - scheduledStartTime.getTime()) / (1000 * 60));
+      }
+    }
+
+    if (activeRecord.scheduledEnd) {
+      // Parse scheduled end time (HH:MM format)
+      const [scheduledHour, scheduledMin] = activeRecord.scheduledEnd.split(":").map(Number);
+      const clockOutDate = new Date(clockOutTime);
+      const scheduledEndTime = new Date(clockOutDate);
+      scheduledEndTime.setHours(scheduledHour, scheduledMin, 0, 0);
+
+      // If clock out is before scheduled end, employee left early
+      if (clockOutTime < scheduledEndTime.getTime()) {
+        earlyLeaveMinutes = Math.round((scheduledEndTime.getTime() - clockOutTime) / (1000 * 60));
+      }
+    }
+
     activeRecord.clockOut = clockOutTime;
     await db.put("attendance", activeRecord);
 
     // Update dailyAttendance summary (upsert pattern)
-    const dailyAttendance: any = {
+    const dailyAttendance: DailyAttendance = {
       employeeId: employee.id!,
       employeeName: employee.name,
       date: today,
       clockIn: activeRecord.clockIn,
       clockOut: clockOutTime,
       hoursWorked,
-      isLate: false
+      isLate,
+      lateMinutes: lateMinutes > 0 ? lateMinutes : undefined,
+      earlyLeaveMinutes: earlyLeaveMinutes > 0 ? earlyLeaveMinutes : undefined
     };
 
     await db.upsert("dailyAttendance", ["date", "employeeId"], dailyAttendance);

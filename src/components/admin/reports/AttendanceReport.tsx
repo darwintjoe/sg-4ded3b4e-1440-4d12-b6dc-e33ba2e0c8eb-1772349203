@@ -186,10 +186,9 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     return hours.toFixed(1);
   };
 
-  const formatLateHours = (minutes: number | undefined): string => {
+  const formatLateMinutes = (minutes: number | undefined): string => {
     if (!minutes || minutes === 0) return "-";
-    const hours = minutes / 60;
-    return hours.toFixed(1);
+    return `${minutes}m`;
   };
 
   const getMonthName = (month: number): string => {
@@ -252,7 +251,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                     <th className="text-right py-3 px-4 font-medium min-w-[80px]">Avg. Hours</th>
                     <th className="text-right py-3 px-4 font-medium min-w-[90px]">Total Hours</th>
                     <th className="text-right py-3 px-4 font-medium min-w-[60px]">Late</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Late Hour</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Late Min</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -287,9 +286,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                         </td>
                         <td className="text-right py-3 px-4">
                           {record.totalLateMinutes && record.totalLateMinutes > 0 ? (
-                            <span className="text-red-500">
-                              {formatLateHours(record.totalLateMinutes)}h
-                            </span>
+                            <span className="text-red-500">{record.totalLateMinutes}m</span>
                           ) : (
                             "-"
                           )}
