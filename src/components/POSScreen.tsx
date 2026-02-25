@@ -12,6 +12,7 @@ import { ReportsDialog } from "@/components/ReportsDialog";
 import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
+import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
