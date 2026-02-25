@@ -701,8 +701,8 @@ class BluetoothPrinterService {
       commands.push(this.cmdLineFeed(1));
       commands.push(this.cmdAlign("left"));
       commands.push(this.cmdBold(true));
-      commands.push(this.cmdTextSize(2, 2));
-      commands.push(this.encodeText(this.padLine("TOTAL:", this.formatCurrency(transaction.total), width - 10)));
+      commands.push(this.cmdTextSize(1, 2));
+      commands.push(this.encodeText(this.padLine("TOTAL:", this.formatCurrency(transaction.total), width)));
       commands.push(this.cmdLineFeed(1));
       commands.push(this.cmdTextSize(1, 1));
       commands.push(this.cmdBold(false));
