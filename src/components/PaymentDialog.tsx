@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,6 @@ import { db } from "@/lib/db";
 import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCard, Wallet, Loader2, Share2 } from "lucide-react";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
-import { useRef } from "react";
 
 // Success sound using audio file
 const playSuccessSound = () => {
@@ -73,10 +71,7 @@ export function PaymentDialog({
     };
     
     checkConnection();
-    
-    // Check periodically
     const interval = setInterval(checkConnection, 2000);
-    
     return () => clearInterval(interval);
   }, []);
 
@@ -101,24 +96,27 @@ export function PaymentDialog({
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);
   
-  // Calculate change whenever totalPaid updates
   useEffect(() => {
     setChange(Math.max(0, totalPaid - total));
   }, [totalPaid, total]);
 
-  // Auto-fill amount with remaining balance
   useEffect(() => {
     if (remaining > 0) {
       setAmount(remaining.toString());
     }
   }, [remaining]);
 
-  // Reset amount when payment method changes
   useEffect(() => {
     if (remaining > 0) {
       setAmount(remaining.toString());
     }
   }, [selectedMethod]);
+
+  // Generate receipt number from timestamp
+  const generateReceiptNumber = (timestamp: number): string => {
+    const seq = Math.floor((timestamp % 100000) / 10);
+    return `#${String(seq).padStart(5, "0")}`;
+  };
 
   const initiatePayment = async () => {
     const paymentAmount = parseFloat(amount);
@@ -139,15 +137,10 @@ export function PaymentDialog({
     setShowQrisDynamicModal(true);
 
     try {
-      // Simulation of API call
-      // In production, use settings.qrisDynamicEndpoint, apiKey, merchantId
       await new Promise(resolve => setTimeout(resolve, 1500)); 
-      
-      // Mock QR Generation
       setDynamicQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAY_${Date.now()}_${paymentAmount}`);
       setQrisLoading(false);
 
-      // Simulate webhook confirmation after 3 seconds
       setTimeout(() => {
         addPayment(paymentAmount);
         setShowQrisDynamicModal(false);
@@ -198,10 +191,8 @@ export function PaymentDialog({
     };
 
     try {
-      // 1. Add to hot transactions
       await db.add("transactions", transaction);
 
-      // 2. Update Daily Item Sales
       for (const item of cart) {
         const dailyItem: Omit<DailyItemSales, "id"> = {
           itemId: item.itemId,
@@ -215,7 +206,6 @@ export function PaymentDialog({
         await db.upsertDailyItemSales(dailyItem);
       }
 
-      // 3. Update Daily Payment Sales
       for (const p of payments) {
         const dailyPayment: Omit<DailyPaymentSales, "id"> = {
           method: p.method,
@@ -230,14 +220,12 @@ export function PaymentDialog({
       setCompleted(true);
       clearCart();
       
-      // Success feedback
       const isTraining = mode === "cafe" || mode === "retail" ? false : true;
       toast({
         title: isTraining ? "Practice sale completed" : "Sale completed",
         description: `Transaction saved successfully`,
       });
       
-      // Play success sound
       playSuccessSound();
     } catch (error) {
       console.error("Error saving transaction:", error);
@@ -252,11 +240,8 @@ export function PaymentDialog({
   const handlePrintBluetooth = async () => {
     if (!lastTransaction || !settings || !currentUser) return;
 
-    // Start animation
     setPrintAnimating(true);
-    
-    // Wait for animation to complete before printing
-    await new Promise(resolve => setTimeout(resolve, 600));
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     setPrinting(true);
     try {
@@ -274,21 +259,14 @@ export function PaymentDialog({
       alert("Failed to print via Bluetooth. Use Browser Print instead.");
     } finally {
       setPrinting(false);
-      // Reset animation after a delay
       setTimeout(() => setPrintAnimating(false), 300);
     }
   };
 
   const handlePrint = async () => {
-    // Start animation
     setPrintAnimating(true);
-    
-    // Wait for animation to complete before printing
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
+    await new Promise(resolve => setTimeout(resolve, 800));
     window.print();
-    
-    // Reset animation after print dialog
     setTimeout(() => setPrintAnimating(false), 500);
   };
 
@@ -296,22 +274,15 @@ export function PaymentDialog({
     onClose();
   };
 
-  // WhatsApp share handler
   const handleShareWhatsApp = () => {
-    if (!whatsAppNumber) return;
-    if (!lastTransaction || !settings) return;
+    if (!whatsAppNumber || !lastTransaction || !settings) return;
 
-    // Format number: remove spaces, dashes, and any existing + prefix
     let cleanNumber = whatsAppNumber.replace(/[\s\-]/g, "").replace(/^\+/, "");
-    
-    // Remove leading 0 if present
     if (cleanNumber.startsWith("0")) {
       cleanNumber = cleanNumber.substring(1);
     }
-    
     const fullNumber = "62" + cleanNumber;
 
-    // Build receipt message
     const lines: string[] = [];
     lines.push(`*${settings.businessName}*`);
     lines.push("");
@@ -324,21 +295,25 @@ export function PaymentDialog({
       lines.push(`${item.quantity} x ${item.basePrice.toLocaleString()} = ${item.totalPrice.toLocaleString()}`);
     });
     lines.push("");
-    lines.push(`*Subtotal: ${subtotal.toLocaleString()}*`);
+    lines.push(`*Subtotal: ${lastTransaction.subtotal.toLocaleString()}*`);
     if (settings.tax1Enabled) {
-      lines.push(`${settings.tax1Label}: ${Math.round(tax1Amount).toLocaleString()}`);
+      const t1 = settings.tax1Inclusive 
+        ? lastTransaction.items.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0)
+        : lastTransaction.subtotal * (settings.tax1Rate / 100);
+      lines.push(`${settings.tax1Label}: ${Math.round(t1).toLocaleString()}`);
     }
     if (settings.tax2Enabled) {
-      lines.push(`${settings.tax2Label}: ${Math.round(tax2Amount).toLocaleString()}`);
+      const t2 = lastTransaction.subtotal * (settings.tax2Rate / 100);
+      lines.push(`${settings.tax2Label}: ${Math.round(t2).toLocaleString()}`);
     }
-    lines.push(`*Total: ${total.toLocaleString()}*`);
+    lines.push(`*Total: ${lastTransaction.total.toLocaleString()}*`);
     lines.push("");
     lines.push("*Payment:*");
-    payments.forEach((p) => {
+    lastTransaction.payments.forEach((p) => {
       lines.push(`${p.method.replace("-", " ")}: ${p.amount.toLocaleString()}`);
     });
-    if (change > 0) {
-      lines.push(`Change: ${change.toLocaleString()}`);
+    if (lastTransaction.change && lastTransaction.change > 0) {
+      lines.push(`Change: ${lastTransaction.change.toLocaleString()}`);
     }
     lines.push("");
     lines.push(settings.receiptFooter || "Thank you for your purchase!");
@@ -348,7 +323,6 @@ export function PaymentDialog({
     window.open(waUrl, "_blank");
   };
 
-  // Manual connect to Bluetooth printer
   const handleConnectPrinter = async () => {
     setConnectingPrinter(true);
     try {
@@ -378,7 +352,7 @@ export function PaymentDialog({
     }
   };
 
-  // Tax calculations for display (used in payment entry view)
+  // Tax calculations for payment entry view
   const tax1Amount = settings?.tax1Enabled ? 
     (settings.tax1Inclusive ? 
       cart.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0) 
@@ -387,11 +361,11 @@ export function PaymentDialog({
     
   const tax2Amount = settings?.tax2Enabled ? 
     (settings.tax1Inclusive ? 
-      (subtotal * (settings.tax2Rate / 100)) // Base on net subtotal
+      (subtotal * (settings.tax2Rate / 100))
       : subtotal * (settings.tax2Rate / 100))
     : 0;
 
-  const allPaymentMethods: { method: PaymentMethod; label: string; icon: any }[] = [
+  const allPaymentMethods: { method: PaymentMethod; label: string; icon: React.ElementType }[] = [
     { method: "cash", label: translate("payment.cash", language), icon: DollarSign },
     { method: "qris-static", label: translate("payment.qrisStatic", language), icon: QrCode },
     { method: "qris-dynamic", label: translate("payment.qrisDynamic", language), icon: QrCode },
@@ -400,163 +374,163 @@ export function PaymentDialog({
     { method: "transfer", label: translate("payment.transfer", language), icon: Wallet }
   ];
 
-  // Filter enabled payment methods based on settings
   const enabledPaymentMethods = allPaymentMethods.filter(m => {
-    const methodKey = m.method.replace('-', '') as keyof typeof settings.paymentMethods;
-    // Handle qris-static and qris-dynamic mapping
-    if (m.method === 'qris-static') {
+    if (m.method === "qris-static") {
       return settings?.paymentMethods?.qrisStatic !== false;
     }
-    if (m.method === 'qris-dynamic') {
+    if (m.method === "qris-dynamic") {
       return settings?.paymentMethods?.qrisDynamic === true;
     }
-    return settings?.paymentMethods?.[methodKey as keyof typeof settings.paymentMethods] !== false;
+    const methodKey = m.method as keyof typeof settings.paymentMethods;
+    return settings?.paymentMethods?.[methodKey] !== false;
   });
 
-  const isBluetoothConnected = bluetoothPrinter.isConnected();
-
-  // Generate receipt number from timestamp
-  const generateReceiptNumber = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const seq = Math.floor((timestamp % 100000) / 10); // Last 4-5 digits for sequence
-    return `#${String(seq).padStart(5, "0")}`;
-  };
-
-  if (completed) {
-    // Use values from lastTransaction for accuracy
-    const receiptSubtotal = lastTransaction?.subtotal ?? 0;
-    const receiptTax = lastTransaction?.tax ?? 0;
-    const receiptTotal = lastTransaction?.total ?? 0;
-    const receiptChange = lastTransaction?.change ?? 0;
-    const receiptNumber = lastTransaction ? generateReceiptNumber(lastTransaction.timestamp) : "";
-    const receiptTimestamp = lastTransaction ? new Date(lastTransaction.timestamp) : new Date();
+  // ============ COMPLETED STATE - Transaction Success Screen ============
+  if (completed && lastTransaction && settings) {
+    const receiptNumber = generateReceiptNumber(lastTransaction.timestamp);
+    const receiptTimestamp = new Date(lastTransaction.timestamp);
     
-    // Calculate tax breakdown from transaction
-    const displayTax1 = settings?.tax1Enabled ? 
+    // Calculate tax from transaction data (not props)
+    const displayTax1 = settings.tax1Enabled ? 
       (settings.tax1Inclusive ? 
-        (lastTransaction?.items.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0) ?? 0)
-        : receiptSubtotal * (settings.tax1Rate / 100)) 
+        lastTransaction.items.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0)
+        : lastTransaction.subtotal * (settings.tax1Rate / 100)) 
       : 0;
-    const displayTax2 = settings?.tax2Enabled ? 
-      (receiptSubtotal * (settings.tax2Rate / 100))
+    const displayTax2 = settings.tax2Enabled ? 
+      (lastTransaction.subtotal * (settings.tax2Rate / 100))
       : 0;
     
     return (
       <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
         <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
-          <div className="flex flex-col items-center justify-center py-6 space-y-4">
-            <CheckCircle2 className="h-16 w-16 text-green-500" />
+          <div className="flex flex-col items-center justify-center py-4 space-y-3">
+            <CheckCircle2 className="h-14 w-14 text-green-500" />
             <DialogTitle className="text-xl">Transaction Successful!</DialogTitle>
             
-            {/* Digital Receipt Preview - matches printed receipt */}
-            <div 
-              ref={receiptRef}
-              className={`w-full bg-white text-black p-4 text-xs font-mono border border-gray-200 shadow-sm my-4 transition-all duration-500 ease-in-out ${
-                printAnimating ? "-translate-y-[150%] opacity-0" : "translate-y-0 opacity-100"
-              }`}
-              style={{ overflow: "hidden" }}
-            >
-              {/* Header */}
-              <div className="text-center mb-3 space-y-0.5">
-                {settings?.receiptLogoBase64 && (
-                  <img src={settings.receiptLogoBase64} alt="Logo" className="h-10 mx-auto mb-2 grayscale" />
-                )}
-                <div className="font-bold text-sm">{settings?.businessName}</div>
-                {settings?.businessAddress && (
-                  <div className="whitespace-pre-line text-[10px]">{settings.businessAddress}</div>
-                )}
-                {settings?.taxId && (
-                  <div className="text-[10px]">{settings.taxId}</div>
-                )}
-              </div>
-              
-              {/* Receipt Info Line */}
-              <div className="flex justify-between text-[10px] text-gray-600 border-b border-dashed border-gray-300 pb-2 mb-2">
-                <span>{receiptNumber}</span>
-                <span>{receiptTimestamp.toLocaleDateString(language === "id" ? "id-ID" : "en-US")}, {receiptTimestamp.toLocaleTimeString(language === "id" ? "id-ID" : "en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-              </div>
-              <div className="text-[10px] text-gray-600 mb-2">
-                Cashier: {lastTransaction?.cashierName}
-              </div>
+            {/* Receipt Preview Container - overflow hidden for animation */}
+            <div className="w-full overflow-hidden relative" style={{ minHeight: printAnimating ? "20px" : "auto" }}>
+              {/* Digital Receipt Preview - matches printed receipt exactly */}
+              <div 
+                ref={receiptRef}
+                className={`w-full bg-white text-black p-4 text-xs font-mono border border-gray-200 shadow-sm transition-all duration-700 ease-in-out ${
+                  printAnimating 
+                    ? "-translate-y-[120%] opacity-0 scale-95" 
+                    : "translate-y-0 opacity-100 scale-100"
+                }`}
+              >
+                {/* Header */}
+                <div className="text-center mb-2 space-y-0.5">
+                  {settings.receiptLogoBase64 && (
+                    <img src={settings.receiptLogoBase64} alt="Logo" className="h-10 mx-auto mb-2 grayscale" />
+                  )}
+                  <div className="font-bold text-sm">{settings.businessName}</div>
+                  {settings.businessAddress && (
+                    <div className="whitespace-pre-line text-[10px] text-gray-600">{settings.businessAddress}</div>
+                  )}
+                  {settings.taxId && (
+                    <div className="text-[10px] text-gray-500">{settings.taxId}</div>
+                  )}
+                </div>
+                
+                {/* Receipt Info Line */}
+                <div className="flex justify-between text-[10px] text-gray-500 border-b border-dashed border-gray-300 pb-2 mb-2">
+                  <span className="font-medium">{receiptNumber}</span>
+                  <span>
+                    {receiptTimestamp.toLocaleDateString(language === "id" ? "id-ID" : "en-US", { day: "numeric", month: "numeric", year: "numeric" })}, {receiptTimestamp.toLocaleTimeString(language === "id" ? "id-ID" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+                
+                {/* Cashier */}
+                <div className="text-[10px] text-gray-600 mb-2">
+                  Cashier: {lastTransaction.cashierName}
+                </div>
 
-              {/* Items */}
-              <div className="border-t border-dashed border-gray-300 py-2 space-y-1.5">
-                {lastTransaction?.items.map((item, idx) => (
-                  <div key={idx} className="flex flex-col">
-                    <div className="font-medium">{item.name}</div>
-                    <div className="flex justify-between text-[10px]">
-                      <span>{item.quantity} x {item.basePrice.toLocaleString()}</span>
-                      <span>{item.totalPrice.toLocaleString()}</span>
-                    </div>
-                    {(item.variant || (item.modifiers && item.modifiers.length > 0)) && (
-                      <div className="text-[9px] text-gray-500 pl-2">
-                        {item.variant && <div>• {item.variant}</div>}
-                        {item.modifiers?.map(m => <div key={m}>+ {m}</div>)}
+                {/* Items */}
+                <div className="border-t border-dashed border-gray-300 py-2 space-y-1.5">
+                  {lastTransaction.items.map((item, idx) => (
+                    <div key={idx} className="flex flex-col">
+                      <div className="font-medium text-[11px]">{item.name}</div>
+                      <div className="flex justify-between text-[10px] text-gray-700">
+                        <span>{item.quantity} x {item.basePrice.toLocaleString()}</span>
+                        <span>{item.totalPrice.toLocaleString()}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Totals */}
-              <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>{receiptSubtotal.toLocaleString()}</span>
+                      {(item.variant || (item.modifiers && item.modifiers.length > 0)) && (
+                        <div className="text-[9px] text-gray-500 pl-2">
+                          {item.variant && <div>• {item.variant}</div>}
+                          {item.modifiers?.map(m => <div key={m}>+ {m}</div>)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                {settings?.tax1Enabled && (
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>{settings.tax1Label} ({settings.tax1Rate}%)</span>
-                    <span>{Math.round(displayTax1).toLocaleString()}</span>
-                  </div>
-                )}
-                {settings?.tax2Enabled && (
-                  <div className="flex justify-between text-[10px] text-gray-600">
-                    <span>{settings.tax2Label} ({settings.tax2Rate}%)</span>
-                    <span>{Math.round(displayTax2).toLocaleString()}</span>
-                  </div>
-                )}
-                {/* TOTAL - Double height simulation */}
-                <div className="flex justify-between font-black text-base border-t border-gray-400 border-b border-double pt-1 pb-1 mt-1 mb-1">
-                  <span>TOTAL</span>
-                  <span>{receiptTotal.toLocaleString()}</span>
-                </div>
-              </div>
 
-              {/* Payment & Change */}
-              <div className="pt-2 space-y-1">
-                {lastTransaction?.payments.map((p, i) => (
-                  <div key={i} className="flex justify-between text-[10px]">
-                    <span className="capitalize">{p.method.replace("-", " ")}</span>
-                    <span>{p.amount.toLocaleString()}</span>
+                {/* Totals */}
+                <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span>Subtotal</span>
+                    <span>{lastTransaction.subtotal.toLocaleString()}</span>
                   </div>
-                ))}
-                {receiptChange > 0 && (
-                  <div className="flex justify-between font-bold">
-                    <span>Change</span>
-                    <span>{receiptChange.toLocaleString()}</span>
+                  {settings.tax1Enabled && (
+                    <div className="flex justify-between text-[10px] text-gray-600">
+                      <span>{settings.tax1Label} ({settings.tax1Rate}%)</span>
+                      <span>{Math.round(displayTax1).toLocaleString()}</span>
+                    </div>
+                  )}
+                  {settings.tax2Enabled && (
+                    <div className="flex justify-between text-[10px] text-gray-600">
+                      <span>{settings.tax2Label} ({settings.tax2Rate}%)</span>
+                      <span>{Math.round(displayTax2).toLocaleString()}</span>
+                    </div>
+                  )}
+                  
+                  {/* TOTAL - Double height simulation with larger font */}
+                  <div className="flex justify-between font-black text-base border-t border-gray-400 border-b-2 border-double pt-2 pb-2 mt-2 mb-1">
+                    <span className="text-lg">TOTAL</span>
+                    <span className="text-lg">{lastTransaction.total.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Payment & Change */}
+                <div className="pt-2 space-y-1">
+                  {lastTransaction.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between text-[11px]">
+                      <span className="capitalize">{p.method.replace("-", " ")}</span>
+                      <span>{p.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                  {lastTransaction.change && lastTransaction.change > 0 && (
+                    <div className="flex justify-between font-bold text-[12px] border-t border-gray-300 pt-1 mt-1">
+                      <span>Change</span>
+                      <span>{lastTransaction.change.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Footer */}
+                <div className="text-center text-[10px] whitespace-pre-line mt-4 pt-2 border-t border-dashed border-gray-300 text-gray-600">
+                  {settings.receiptFooter || "Thank you for your purchase!"}
+                </div>
+                
+                {settings.tax1Inclusive && settings.tax1Enabled && (
+                  <div className="text-center text-[9px] italic mt-1 text-gray-400">
+                    Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%
                   </div>
                 )}
               </div>
               
-              {/* Footer */}
-              <div className="text-center text-[10px] whitespace-pre-line mt-4 pt-2 border-t border-dashed border-gray-300">
-                {settings?.receiptFooter || "Thank you for your purchase!"}
-              </div>
-              
-              {settings?.tax1Inclusive && settings.tax1Enabled && (
-                <div className="text-center text-[9px] italic mt-1 text-gray-400">
-                  Prices inclusive of {settings.tax1Label} {settings.tax1Rate}%
+              {/* Print animation indicator */}
+              {printAnimating && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-xs text-gray-400 animate-pulse">Sending to printer...</div>
                 </div>
               )}
             </div>
 
             {/* Print Buttons */}
-            <div className="flex flex-col gap-3 w-full">
+            <div className="flex flex-col gap-2 w-full pt-2">
               
-              {/* Connect + Print Row - side by side */}
+              {/* Connect + Print Row */}
               <div className="flex gap-2 w-full">
-                {/* Manual Connect Button - only show if not connected */}
                 {!isPrinterConnected && (
                   <Button 
                     variant="outline" 
@@ -574,7 +548,6 @@ export function PaymentDialog({
                   </Button>
                 )}
                 
-                {/* Bluetooth Print - always visible */}
                 <Button 
                   size="sm"
                   className={`flex-1 ${isPrinterConnected 
@@ -582,12 +555,12 @@ export function PaymentDialog({
                     : "bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200"
                   }`} 
                   onClick={handlePrintBluetooth}
-                  disabled={printing || !isPrinterConnected}
+                  disabled={printing || !isPrinterConnected || printAnimating}
                 >
                   {printing ? (
                     <>
                       <Printer className="h-4 w-4 animate-pulse" />
-                      <span className="ml-1 text-xs">...</span>
+                      <span className="ml-1 text-xs">Printing...</span>
                     </>
                   ) : (
                     <>
@@ -598,12 +571,13 @@ export function PaymentDialog({
                 </Button>
               </div>
               
-              {/* Browser Print - full width below */}
+              {/* Browser Print */}
               <Button 
                 variant="outline" 
                 size="sm"
                 className="w-full border-gray-300 hover:bg-gray-100" 
                 onClick={handlePrint}
+                disabled={printAnimating}
               >
                 <Printer className="h-4 w-4 mr-1" />
                 <span className="text-xs">Browser Print</span>
@@ -618,7 +592,6 @@ export function PaymentDialog({
                     placeholder="8123456789"
                     value={whatsAppNumber}
                     onChange={(e) => {
-                      // Only allow numbers, remove any non-digit
                       const value = e.target.value.replace(/\D/g, "");
                       setWhatsAppNumber(value);
                     }}
@@ -638,7 +611,7 @@ export function PaymentDialog({
               
               <Button 
                 size="sm"
-                className="w-full mt-2 bg-green-600 hover:bg-green-700" 
+                className="w-full mt-1 bg-green-600 hover:bg-green-700" 
                 onClick={handleNewSale}
               >
                 New Sale
@@ -650,7 +623,7 @@ export function PaymentDialog({
     );
   }
 
-  // Payment Entry View
+  // ============ PAYMENT ENTRY VIEW ============
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -748,7 +721,7 @@ export function PaymentDialog({
                     setAmount(value);
                   }
                 }}
-                onFocus={(e) => {
+                onFocus={() => {
                   setAmount("");
                 }}
                 className="text-3xl text-center font-bold h-16"
