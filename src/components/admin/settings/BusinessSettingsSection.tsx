@@ -80,24 +80,89 @@ export function BusinessSettingsSection({
    * 3. Output as PNG with only black/white pixels
    */
   const processImageForThermalPrinter = (img: HTMLImageElement): string | null => {
+    // Calculate dimensions - max width 384px for thermal printers
+    const scale = Math.min(1, THERMAL_PRINTER_WIDTH / img.width);
+    const tempWidth = Math.floor(img.width * scale);
+    const tempHeight = Math.floor(img.height * scale);
+
+    // First pass: draw to temp canvas to analyze whitespace
+    const tempCanvas = document.createElement("canvas");
+    const tempCtx = tempCanvas.getContext("2d");
+    if (!tempCtx) return null;
+
+    tempCanvas.width = tempWidth;
+    tempCanvas.height = tempHeight;
+
+    // Draw with white background
+    tempCtx.fillStyle = "white";
+    tempCtx.fillRect(0, 0, tempWidth, tempHeight);
+    tempCtx.drawImage(img, 0, 0, tempWidth, tempHeight);
+
+    // Get image data to find content bounds
+    const tempData = tempCtx.getImageData(0, 0, tempWidth, tempHeight);
+    const pixels = tempData.data;
+
+    // Find top row with non-white content
+    let topRow = 0;
+    for (let y = 0; y < tempHeight; y++) {
+      let hasContent = false;
+      for (let x = 0; x < tempWidth; x++) {
+        const idx = (y * tempWidth + x) * 4;
+        const gray = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+        if (gray < 250) { // Not pure white
+          hasContent = true;
+          break;
+        }
+      }
+      if (hasContent) {
+        topRow = y;
+        break;
+      }
+    }
+
+    // Find bottom row with non-white content
+    let bottomRow = tempHeight - 1;
+    for (let y = tempHeight - 1; y >= 0; y--) {
+      let hasContent = false;
+      for (let x = 0; x < tempWidth; x++) {
+        const idx = (y * tempWidth + x) * 4;
+        const gray = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2];
+        if (gray < 250) { // Not pure white
+          hasContent = true;
+          break;
+        }
+      }
+      if (hasContent) {
+        bottomRow = y;
+        break;
+      }
+    }
+
+    // Add small padding (2px) around content
+    const padding = 2;
+    topRow = Math.max(0, topRow - padding);
+    bottomRow = Math.min(tempHeight - 1, bottomRow + padding);
+    const croppedHeight = bottomRow - topRow + 1;
+
+    // Now create final canvas with cropped dimensions
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
 
-    // Calculate dimensions - max width 384px for thermal printers
-    const scale = Math.min(1, THERMAL_PRINTER_WIDTH / img.width);
-    const width = Math.floor(img.width * scale);
-    const height = Math.floor(img.height * scale);
+    const width = tempWidth;
+    const height = croppedHeight;
 
     canvas.width = width;
     canvas.height = height;
 
-    // Draw image with white background
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, width, height);
-    ctx.drawImage(img, 0, 0, width, height);
+    // Draw cropped region
+    ctx.drawImage(
+      tempCanvas,
+      0, topRow, tempWidth, croppedHeight,  // source
+      0, 0, width, height                    // destination
+    );
 
-    // Get image data
+    // Get image data for dithering
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
 
