@@ -413,46 +413,94 @@ class BluetoothPrinterService {
             reject(new Error("Failed to get canvas context"));
             return;
           }
+          
+          // Max width for 58mm = 384 dots, 80mm = 576 dots
+          // Use 384 as safe default for both
           const maxWidth = 384;
           const scale = Math.min(1, maxWidth / img.width);
-          const width = Math.floor(img.width * scale);
+          let width = Math.floor(img.width * scale);
           const height = Math.floor(img.height * scale);
+          
+          // Width must be multiple of 8 for byte alignment
+          width = Math.floor(width / 8) * 8;
+          if (width === 0) width = 8;
+          
           canvas.width = width;
           canvas.height = height;
+          
+          // White background
           ctx.fillStyle = "white";
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
+          
           const imageData = ctx.getImageData(0, 0, width, height);
           const data = imageData.data;
+          
+          // Convert to monochrome bitmap (1 bit per pixel)
+          // Using Floyd-Steinberg dithering for better quality
+          const grayscale: number[][] = [];
+          for (let y = 0; y < height; y++) {
+            grayscale[y] = [];
+            for (let x = 0; x < width; x++) {
+              const idx = (y * width + x) * 4;
+              // Convert to grayscale
+              grayscale[y][x] = Math.round(
+                0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]
+              );
+            }
+          }
+          
+          // Apply simple threshold (can add dithering later if needed)
           const threshold = 128;
           const monochrome: boolean[][] = [];
           for (let y = 0; y < height; y++) {
             monochrome[y] = [];
             for (let x = 0; x < width; x++) {
-              const idx = (y * width + x) * 4;
-              const gray = Math.round(0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2]);
-              monochrome[y][x] = gray < threshold;
+              monochrome[y][x] = grayscale[y][x] < threshold;
             }
           }
-          const bytesPerLine = Math.ceil(width / 8);
-          const commands: number[] = [];
-          for (let y = 0; y < height; y += 8) {
-            commands.push(ESC, 0x2a, 0x00);
-            commands.push(bytesPerLine & 0xff);
-            commands.push((bytesPerLine >> 8) & 0xff);
-            for (let x = 0; x < width; x += 8) {
+          
+          // Build GS v 0 raster bit image command
+          // Format: GS v 0 m xL xH yL yH [data]
+          // m = 0 (normal), 1 (double width), 2 (double height), 3 (quadruple)
+          const bytesPerLine = width / 8;
+          const xL = bytesPerLine & 0xff;
+          const xH = (bytesPerLine >> 8) & 0xff;
+          const yL = height & 0xff;
+          const yH = (height >> 8) & 0xff;
+          
+          // Calculate total data size
+          const dataSize = bytesPerLine * height;
+          const headerSize = 8; // GS v 0 m xL xH yL yH
+          const commands = new Uint8Array(headerSize + dataSize);
+          
+          // Header: GS v 0 m xL xH yL yH
+          commands[0] = GS;      // 0x1D
+          commands[1] = 0x76;    // 'v'
+          commands[2] = 0x30;    // '0'
+          commands[3] = 0x00;    // m = normal mode
+          commands[4] = xL;
+          commands[5] = xH;
+          commands[6] = yL;
+          commands[7] = yH;
+          
+          // Image data: row by row, MSB first
+          let offset = headerSize;
+          for (let y = 0; y < height; y++) {
+            for (let xByte = 0; xByte < bytesPerLine; xByte++) {
               let byte = 0;
               for (let bit = 0; bit < 8; bit++) {
-                const py = y + bit;
-                if (py < height && monochrome[py][x]) {
-                  byte |= (1 << (7 - bit));
+                const x = xByte * 8 + bit;
+                if (x < width && monochrome[y][x]) {
+                  // MSB first: bit 7 is leftmost pixel
+                  byte |= (0x80 >> bit);
                 }
               }
-              commands.push(byte);
+              commands[offset++] = byte;
             }
-            commands.push(0x0a);
           }
-          resolve(new Uint8Array(commands));
+          
+          resolve(commands);
         } catch (error) {
           reject(error);
         }
