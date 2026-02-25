@@ -662,7 +662,11 @@ class BluetoothPrinterService {
       commands.push(this.cmdAlign("left"));
       commands.push(this.encodeText(`Date: ${new Date(transaction.timestamp).toLocaleString("id-ID")}`));
       commands.push(this.cmdLineFeed(1));
-      commands.push(this.encodeText(`Receipt: #${transaction.id}`));
+      // Generate transaction number: use id if available, otherwise format from timestamp
+      const txnNumber = transaction.id 
+        ? transaction.id.toString().slice(-5).padStart(5, "0")
+        : new Date(transaction.timestamp).toISOString().replace(/[-:T.Z]/g, "").slice(2, 14);
+      commands.push(this.encodeText(`Receipt: #${txnNumber}`));
       commands.push(this.cmdLineFeed(1));
       commands.push(this.encodeText(`Cashier: ${cashierName}`));
       commands.push(this.cmdLineFeed(1));
