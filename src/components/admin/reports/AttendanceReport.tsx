@@ -210,8 +210,13 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     if (attendanceData.length === 0) return;
 
     const monthName = getMonthName(selectedMonth);
+    
+    // Auto-select orientation based on employee count
+    const usePortrait = attendanceData.length <= 15;
+    const orientation = usePortrait ? "portrait" : "landscape";
+    
     const doc = new jsPDF({
-      orientation: "landscape",
+      orientation: orientation,
       unit: "mm",
       format: "a4",
     });
@@ -219,6 +224,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
+    const contentWidth = pageWidth - (margin * 2);
 
     // Header
     doc.setFontSize(18);
@@ -255,18 +261,23 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
       ];
     });
 
-    // Generate table
+    // Calculate column widths to fit page (auto-fit)
+    // Name column gets more space, others are equal
+    const numericColWidth = contentWidth * 0.1; // 10% each for 7 numeric columns = 70%
+    const nameColWidth = contentWidth - (numericColWidth * 7); // Remaining 30% for name
+
+    // Generate table with auto-fit columns
     autoTable(doc, {
       startY: margin + 20,
       head: [[
         "Employee Name",
-        "Days\nWorked",
-        "Avg\nHours",
-        "Total\nHours",
-        "Late\nCount",
-        "Late\nMinutes",
-        "Early Lv\nCount",
-        "Early Lv\nMinutes",
+        "Days",
+        "Avg Hrs",
+        "Total Hrs",
+        "Late",
+        "Late Min",
+        "Early",
+        "Early Min",
       ]],
       body: tableData,
       theme: "grid",
@@ -285,19 +296,20 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
         valign: "middle",
       },
       columnStyles: {
-        0: { halign: "left", cellWidth: 50 },
-        1: { halign: "center", cellWidth: 20 },
-        2: { halign: "center", cellWidth: 25 },
-        3: { halign: "center", cellWidth: 25 },
-        4: { halign: "center", cellWidth: 20 },
-        5: { halign: "center", cellWidth: 25 },
-        6: { halign: "center", cellWidth: 25 },
-        7: { halign: "center", cellWidth: 25 },
+        0: { halign: "left", cellWidth: nameColWidth },
+        1: { halign: "center", cellWidth: numericColWidth },
+        2: { halign: "center", cellWidth: numericColWidth },
+        3: { halign: "center", cellWidth: numericColWidth },
+        4: { halign: "center", cellWidth: numericColWidth },
+        5: { halign: "center", cellWidth: numericColWidth },
+        6: { halign: "center", cellWidth: numericColWidth },
+        7: { halign: "center", cellWidth: numericColWidth },
       },
       alternateRowStyles: {
         fillColor: [248, 250, 252],
       },
       margin: { left: margin, right: margin },
+      tableWidth: contentWidth,
       didParseCell: (data) => {
         // Color late counts/minutes in red
         if (data.section === "body") {
@@ -316,7 +328,6 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     });
 
     // Footer
-    const finalY = (doc as any).lastAutoTable?.finalY || pageHeight - 20;
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(
@@ -368,12 +379,12 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
         <Button
           variant="outline"
-          size="icon"
+          size="sm"
           onClick={exportToPDF}
           disabled={attendanceData.length === 0}
-          title="Export PDF"
         >
-          <FileDown className="h-4 w-4" />
+          <FileDown className="h-4 w-4 mr-2" />
+          Export PDF
         </Button>
       </div>
 
