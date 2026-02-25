@@ -131,6 +131,8 @@ export interface DailyAttendance {
   clockOut: number;
   hoursWorked: number;
   isLate: boolean;
+  lateMinutes?: number;
+  earlyLeaveMinutes?: number;
 }
 
 export interface DailyItemSales {
@@ -211,6 +213,7 @@ export interface MonthlyAttendanceSummary {
   totalHours: number;
   daysWorked: number;
   lateCount: number;
+  totalLateMinutes?: number;
 }
 
 // ==========================================
