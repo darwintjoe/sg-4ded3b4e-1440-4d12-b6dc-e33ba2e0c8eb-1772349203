@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { MonthlyAttendanceSummary, DailyAttendance } from "@/types";
 import { db } from "@/lib/db";
-import { X } from "lucide-react";
+import { X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AttendanceReportProps {
@@ -167,6 +167,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   };
 
   const openAttendanceCard = async (employeeId: number, employeeName: string) => {
+    // Silently ignore click if details not available
     if (!isDetailsAvailable) return;
 
     setCardLoading(true);
@@ -203,10 +204,125 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     return monthOptions.find(m => m.value === month)?.label || "";
   };
 
+  const exportToPDF = async () => {
+    if (attendanceData.length === 0) return;
+
+    const monthName = getMonthName(selectedMonth);
+    const title = `Attendance Report - ${monthName} ${selectedYear}`;
+
+    // Create print-friendly HTML
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            padding: 15px;
+          }
+          h1 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-align: center;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+          th, td {
+            border: 1px solid #333;
+            padding: 6px 4px;
+            text-align: center;
+          }
+          th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 10px;
+          }
+          td:first-child {
+            text-align: left;
+          }
+          th:first-child {
+            text-align: left;
+            width: 20%;
+          }
+          .late {
+            color: #dc2626;
+          }
+          .early {
+            color: #ea580c;
+          }
+          @media print {
+            body {
+              padding: 10px;
+            }
+            @page {
+              size: landscape;
+              margin: 10mm;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Days</th>
+              <th>Avg Hours</th>
+              <th>Total Hours</th>
+              <th>Late Count</th>
+              <th>Late Min</th>
+              <th>Er Leave Count</th>
+              <th>Er Leave Min</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${attendanceData.map(record => {
+              const avgHours = record.daysWorked > 0 ? record.totalHours / record.daysWorked : 0;
+              return `
+                <tr>
+                  <td>${record.employeeName}</td>
+                  <td>${record.daysWorked}</td>
+                  <td>${formatHoursMinutes(avgHours)}</td>
+                  <td>${formatHoursMinutes(record.totalHours)}</td>
+                  <td class="${record.lateCount > 0 ? 'late' : ''}">${record.lateCount > 0 ? record.lateCount : '-'}</td>
+                  <td class="${record.totalLateMinutes && record.totalLateMinutes > 0 ? 'late' : ''}">${record.totalLateMinutes && record.totalLateMinutes > 0 ? record.totalLateMinutes : '-'}</td>
+                  <td class="${record.earlyLeaveCount && record.earlyLeaveCount > 0 ? 'early' : ''}">${record.earlyLeaveCount && record.earlyLeaveCount > 0 ? record.earlyLeaveCount : '-'}</td>
+                  <td class="${record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? 'early' : ''}">${record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? record.totalEarlyLeaveMinutes : '-'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // Open print dialog
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   return (
     <div ref={containerRef} className="space-y-4">
       {/* Filters */}
-      <div className="flex gap-3 justify-end">
+      <div className="flex gap-3 items-center justify-end">
         <Select
           value={String(selectedYear)}
           onValueChange={(val) => setSelectedYear(Number(val))}
@@ -238,6 +354,16 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={exportToPDF}
+          disabled={attendanceData.length === 0}
+          title="Export PDF"
+        >
+          <FileDown className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Table */}
@@ -297,9 +423,9 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                         className={`border-b transition-colors ${
                           canTap
                             ? "hover:bg-muted/30 cursor-pointer active:bg-muted/50"
-                            : "opacity-50 cursor-default"
+                            : ""
                         }`}
-                        onClick={() => canTap && openAttendanceCard(record.employeeId, record.employeeName)}
+                        onClick={() => openAttendanceCard(record.employeeId, record.employeeName)}
                       >
                         <td className="py-2.5 px-3 sticky left-0 bg-background z-10 font-medium">
                           {record.employeeName}
