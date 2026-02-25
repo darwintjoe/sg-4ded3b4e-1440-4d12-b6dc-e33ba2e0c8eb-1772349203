@@ -393,6 +393,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.revert": "Revert Restore",
     "settings.backup.advancedHint": "PIN required for security",
     "settings.dataBackup": "Data Backup",
+    "settings.subscription": "Subscription",
 
     // ===== SETTINGS - SECURITY =====
     "settings.security.title": "Security & Access",
@@ -557,6 +558,24 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "pos.priceOverrideWarning": "Override harga diterapkan",
     "pos.priceOverrideDisabled": "Override harga dinonaktifkan",
     "pos.overrideEnabled": "Override aktif",
+    "pos.mode.live": "Langsung",
+    "pos.mode.training": "Latihan",
+    "pos.history": "Riwayat",
+    "pos.transactionHistory": "Riwayat Transaksi",
+    "pos.noTransactions": "Belum ada transaksi",
+    "pos.endOfHistory": "Akhir riwayat transaksi",
+    "pos.receiptDetails": "Detail Struk",
+    "pos.printing": "Mencetak...",
+    "pos.reprintReceipt": "Cetak Ulang Struk",
+    "pos.printerNotConnected": "Printer tidak terhubung",
+    "pos.printerConnected": "Printer terhubung",
+    "pos.printerDisconnected": "Printer terputus",
+    "pos.noPinSet": "PIN belum diatur untuk karyawan ini",
+    "pos.incorrectPin": "PIN salah",
+    "pos.createNewItem": "Buat item baru",
+    "pos.enterPin": "Masukkan PIN",
+    "pos.enterPinToCreateItem": "Masukkan PIN Anda untuk membuat item baru",
+    "pos.tax": "Pajak",
 
     // Payment
     "payment.title": "Pembayaran",
@@ -584,6 +603,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.editItem": "Edit Produk",
     "items.deleteItem": "Hapus Produk",
     "items.itemName": "Nama Produk",
+    "items.itemNamePlaceholder": "Masukkan nama produk",
     "items.name": "Nama",
     "items.sku": "SKU",
     "items.skuLabel": "SKU / Barcode",
@@ -655,8 +675,8 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "attendance.hoursWorked": "Jam Kerja",
     "attendance.checkInTime": "Waktu Masuk",
     "attendance.checkOutTime": "Waktu Keluar",
-    "attendance.clockedIn": "Masuk berhasil",
-    "attendance.clockedOut": "Keluar berhasil",
+    "attendance.clockedIn": "Berhasil Masuk",
+    "attendance.clockedOut": "Berhasil Keluar",
 
     // Reports
     "reports.title": "Laporan",
@@ -778,6 +798,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.revert": "Kembalikan Restore",
     "settings.backup.advancedHint": "PIN diperlukan untuk keamanan",
     "settings.dataBackup": "Backup Data",
+    "settings.subscription": "Langganan",
 
     // Settings - Security
     "settings.security.title": "Keamanan & Akses",
@@ -936,6 +957,24 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "pos.priceOverrideWarning": "已应用价格修改",
     "pos.priceOverrideDisabled": "价格修改已禁用",
     "pos.overrideEnabled": "修改已启用",
+    "pos.mode.live": "实时",
+    "pos.mode.training": "练习",
+    "pos.history": "历史",
+    "pos.transactionHistory": "交易记录",
+    "pos.noTransactions": "暂无交易记录",
+    "pos.endOfHistory": "交易记录结束",
+    "pos.receiptDetails": "收据详情",
+    "pos.printing": "打印中...",
+    "pos.reprintReceipt": "重新打印收据",
+    "pos.printerNotConnected": "打印机未连接",
+    "pos.printerConnected": "打印机已连接",
+    "pos.printerDisconnected": "打印机已断开",
+    "pos.noPinSet": "该员工未设置PIN码",
+    "pos.incorrectPin": "PIN码错误",
+    "pos.createNewItem": "创建新商品",
+    "pos.enterPin": "输入PIN码",
+    "pos.enterPinToCreateItem": "输入您的PIN码以创建新商品",
+    "pos.tax": "税",
 
     // Payment
     "payment.title": "支付",
@@ -963,6 +1002,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "items.editItem": "编辑商品",
     "items.deleteItem": "删除商品",
     "items.itemName": "商品名称",
+    "items.itemNamePlaceholder": "输入商品名称",
     "items.name": "名称",
     "items.sku": "SKU",
     "items.skuLabel": "SKU / 条码",
@@ -1157,6 +1197,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.backup.revert": "撤销恢复",
     "settings.backup.advancedHint": "需要输入PIN码",
     "settings.dataBackup": "数据备份",
+    "settings.subscription": "订阅",
 
     // Settings - Security
     "settings.security.title": "安全与访问",
