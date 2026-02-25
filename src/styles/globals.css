@@ -114,6 +114,16 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Hide scrollbar completely but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Remove black border from Recharts tooltips */
 .recharts-tooltip-wrapper {
   outline: none !important;

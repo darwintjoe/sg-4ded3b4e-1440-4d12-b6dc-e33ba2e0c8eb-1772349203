@@ -241,18 +241,18 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
               Loading...
             </div>
           ) : attendanceData.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
               <table className="w-full text-sm min-w-[600px]">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium sticky left-0 bg-muted/50 z-10 min-w-[150px]">
+                    <th className="text-left py-3 px-4 font-medium sticky left-0 bg-muted/50 z-10 min-w-[120px]">
                       Name
                     </th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[70px]">Days</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[90px]">Avg. Hours</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[100px]">Total Hours</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[70px]">Late</th>
-                    <th className="text-right py-3 px-4 font-medium min-w-[90px]">Late Hour</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[60px]">Days</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Avg. Hours</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[90px]">Total Hours</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[60px]">Late</th>
+                    <th className="text-right py-3 px-4 font-medium min-w-[80px]">Late Hour</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -267,8 +267,8 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                         key={record.employeeId}
                         className={`border-b transition-colors ${
                           canTap
-                            ? "hover:bg-muted/30 cursor-pointer"
-                            : "opacity-60 cursor-default"
+                            ? "hover:bg-muted/30 cursor-pointer active:bg-muted/50"
+                            : "opacity-50 cursor-default"
                         }`}
                         onClick={() => canTap && openAttendanceCard(record.employeeId, record.employeeName)}
                       >
@@ -310,37 +310,37 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
       {/* Attendance Card Modal */}
       <Dialog open={cardModalOpen} onOpenChange={setCardModalOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <DialogTitle>
-                {selectedCard?.employeeName} - {getMonthName(selectedMonth)} {selectedYear}
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setCardModalOpen(false)}
-                className="h-8 w-8"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
+        <DialogContent className="max-w-md max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
+          {/* Fixed Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+            <DialogTitle className="text-base font-semibold">
+              {selectedCard?.employeeName} - {getMonthName(selectedMonth)} {selectedYear}
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCardModalOpen(false)}
+              className="h-8 w-8 -mr-2"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
 
-          <div className="flex-1 overflow-y-auto">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-4 py-2">
             {cardLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 Loading...
               </div>
             ) : selectedCard && selectedCard.dailyRecords.length > 0 ? (
-              <div className="space-y-1">
-                {/* Header */}
-                <div className="grid grid-cols-5 gap-2 py-2 px-3 bg-muted/50 rounded text-xs font-medium text-muted-foreground sticky top-0">
+              <div className="space-y-0">
+                {/* Header Row */}
+                <div className="grid grid-cols-[60px_50px_50px_50px_1fr] gap-1 py-2 text-xs font-medium text-muted-foreground border-b">
                   <div>Date</div>
                   <div className="text-center">In</div>
                   <div className="text-center">Out</div>
                   <div className="text-right">Hours</div>
-                  <div className="text-right">Status</div>
+                  <div className="text-right pr-1">Status</div>
                 </div>
 
                 {/* Records */}
@@ -349,13 +349,13 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                   const dayOfWeek = new Date(record.date).toLocaleDateString("en-US", {
                     weekday: "short",
                   });
-                  const hasIssue = record.isLate || (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0);
+                  const isLateOrEarly = record.isLate || (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0);
 
                   return (
                     <div
                       key={record.id || record.date}
-                      className={`grid grid-cols-5 gap-2 py-2 px-3 rounded text-sm ${
-                        hasIssue ? "bg-red-50 dark:bg-red-950/20" : ""
+                      className={`grid grid-cols-[60px_50px_50px_50px_1fr] gap-1 py-2 text-sm border-b border-muted/30 ${
+                        isLateOrEarly ? "bg-red-50 dark:bg-red-950/20" : ""
                       }`}
                     >
                       <div className="font-medium">
@@ -370,7 +370,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                       <div className="text-right">
                         {formatHours(record.hoursWorked)}h
                       </div>
-                      <div className="text-right text-xs">
+                      <div className="text-right pr-1 text-xs">
                         {record.isLate && record.lateMinutes ? (
                           <span className="text-red-500">Late {record.lateMinutes}m</span>
                         ) : record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0 ? (
@@ -385,14 +385,14 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No daily records found for this month
+                No daily records found
               </div>
             )}
           </div>
 
-          {/* Summary Footer */}
+          {/* Fixed Footer */}
           {selectedCard && selectedCard.dailyRecords.length > 0 && (
-            <div className="flex-shrink-0 border-t pt-3 mt-3">
+            <div className="border-t px-4 py-3 bg-background">
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Days</div>
