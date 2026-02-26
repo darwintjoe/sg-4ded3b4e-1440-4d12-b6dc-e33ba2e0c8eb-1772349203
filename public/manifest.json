@@ -9,8 +9,6 @@
   "orientation": "portrait",
   "scope": "/",
   "id": "/",
-  "lang": "en",
-  "dir": "ltr",
   "icons": [
     {
       "src": "/logowotext.png",
@@ -44,21 +42,8 @@
       "description": "Open POS screen",
       "url": "/",
       "icons": [{ "src": "/logowotext.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Admin",
-      "short_name": "Admin",
-      "description": "Open admin dashboard",
-      "url": "/?admin=true",
-      "icons": [{ "src": "/logowotext.png", "sizes": "192x192" }]
     }
   ],
   "categories": ["business", "productivity", "finance"],
-  "prefer_related_applications": false,
-  "screenshots": [],
-  "related_applications": [],
-  "handle_links": "preferred",
-  "launch_handler": {
-    "client_mode": "focus-existing"
-  }
+  "prefer_related_applications": false
 }

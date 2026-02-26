@@ -12,6 +12,17 @@ function registerServiceWorker() {
   if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     window.addEventListener("load", async () => {
       try {
+        // Unregister any old service workers first to ensure clean state
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          // Check if this is an old/different service worker
+          if (registration.active && !registration.active.scriptURL.endsWith("/sw.js")) {
+            console.log("[PWA] Unregistering old service worker:", registration.active.scriptURL);
+            await registration.unregister();
+          }
+        }
+
+        // Register our service worker
         const registration = await navigator.serviceWorker.register("/sw.js", {
           scope: "/",
         });
@@ -24,8 +35,10 @@ function registerServiceWorker() {
           if (newWorker) {
             newWorker.addEventListener("statechange", () => {
               if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                // New content available, can notify user if needed
+                // New content available, prompt for refresh
                 console.log("[PWA] New content available, refresh to update");
+                // Optionally auto-update
+                newWorker.postMessage({ type: "SKIP_WAITING" });
               }
             });
           }
