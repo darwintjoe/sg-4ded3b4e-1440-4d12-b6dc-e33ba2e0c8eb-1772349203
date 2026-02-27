@@ -263,20 +263,57 @@ export class BackupService {
   /**
    * Export essential data only (not full transactions)
    * SIMPLIFIED: No date filtering - backup all daily/attendance data as-is
+   * 
+   * ┌─────────────────────────────────────────────────────────────────────┐
+   * │                     BACKUP DATA LIFECYCLE                          │
+   * ├─────────────────────────────────────────────────────────────────────┤
+   * │ DATA TYPE              │ BACKUP │ RETENTION    │ CLEANUP           │
+   * │------------------------│--------│--------------│-------------------│
+   * │ items (master)         │ ✅ Yes │ Permanent    │ User manages      │
+   * │ employees (master)     │ ✅ Yes │ Permanent    │ User manages      │
+   * │ categories (master)    │ ✅ Yes │ Permanent    │ User manages      │
+   * │ settings               │ ✅ Yes │ Permanent    │ User manages      │
+   * │ shifts                 │ ✅ Yes │ Temporary    │ Delete after backup│
+   * │ dailyItemSales         │ ✅ Yes │ Until rollup │ Monthly rollup    │
+   * │ dailyPaymentSales      │ ✅ Yes │ Until rollup │ Monthly rollup    │
+   * │ attendance             │ ✅ Yes │ Until rollup │ Monthly rollup    │
+   * │ monthlyItemSales       │ ✅ Yes │ Permanent    │ Historical data   │
+   * │ monthlySalesSummary    │ ✅ Yes │ Permanent    │ Historical data   │
+   * │ monthlyAttendanceSummary│ ✅ Yes│ Permanent    │ Historical data   │
+   * │ transactions           │ ❌ No  │ 60 days      │ data-rollup-service│
+   * └─────────────────────────────────────────────────────────────────────┘
+   * 
+   * WHY NO TRANSACTION BACKUP:
+   * - Transactions exported to Google Sheets on shift close (permanent user backup)
+   * - 60-day local retention for offline viewing (data-rollup-service.ts)
+   * - Reduces backup size significantly
+   * 
+   * WHY NO DATE FILTERING:
+   * - Daily data naturally cleaned up by monthly rollup process
+   * - Simpler logic = fewer bugs
+   * - Backup size remains manageable (daily records are small)
    */
   public async exportEssentialData(): Promise<BackupData> {
     try {
-      // Master data (always small)
+      // ═══════════════════════════════════════════════════════════════════
+      // MASTER DATA - Always backed up, user manages lifecycle
+      // ═══════════════════════════════════════════════════════════════════
       const items = await db.getAll("items") as Item[];
       const employees = await db.getAll("employees") as Employee[];
       const categories = await db.getAll("categories") as string[];
       const settingsArray = await db.getAll("settings") as Settings[];
       const settings = settingsArray.find((s) => s.id === 1 || s.key === "settings") || settingsArray[0];
 
-      // Shifts - backup as-is (will be cleaned up after backup)
+      // ═══════════════════════════════════════════════════════════════════
+      // SHIFTS - Backup as-is, will be deleted after backup initiation
+      // Shift lifecycle: open → transactions → close → backup → DELETE
+      // ═══════════════════════════════════════════════════════════════════
       const shifts = await db.getAll("shifts") as Shift[];
 
-      // Daily summaries - backup ALL (no date filtering)
+      // ═══════════════════════════════════════════════════════════════════
+      // DAILY SUMMARIES - Backup ALL (no date filtering)
+      // Cleaned up automatically by monthly rollup process
+      // ═══════════════════════════════════════════════════════════════════
       let dailyItemSales: any[] = [];
       let dailyPaymentSales: any[] = [];
 
@@ -292,7 +329,10 @@ export class BackupService {
         console.warn("dailyPaymentSales store not found, skipping");
       }
 
-      // Attendance - backup ALL (no date filtering)
+      // ═══════════════════════════════════════════════════════════════════
+      // ATTENDANCE - Backup ALL (no date filtering)
+      // Cleaned up automatically by monthly rollup process
+      // ═══════════════════════════════════════════════════════════════════
       let attendance: any[] = [];
       try {
         attendance = await db.getAll("attendance");
@@ -300,7 +340,10 @@ export class BackupService {
         console.warn("attendance store not found, skipping");
       }
 
-      // Monthly summaries - Keep ALL (historical data)
+      // ═══════════════════════════════════════════════════════════════════
+      // MONTHLY SUMMARIES - Keep ALL (historical data, never deleted)
+      // These are the permanent aggregated records
+      // ═══════════════════════════════════════════════════════════════════
       let monthlyItemSales: any[] = [];
       let monthlySalesSummary: any[] = [];
       let monthlyAttendanceSummary: any[] = [];
@@ -323,6 +366,9 @@ export class BackupService {
         console.warn("monthlyAttendanceSummary store not found, skipping");
       }
 
+      // ═══════════════════════════════════════════════════════════════════
+      // GENERATE CHECKSUM & METADATA
+      // ═══════════════════════════════════════════════════════════════════
       const jsonString = JSON.stringify({
         items,
         employees,
