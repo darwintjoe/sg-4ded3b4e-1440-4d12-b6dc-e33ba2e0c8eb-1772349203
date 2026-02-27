@@ -12,7 +12,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MonthlyAttendanceSummary, DailyAttendance } from "@/types";
+import { MonthlyAttendanceSummary, AttendanceRecord } from "@/types";
 import { db } from "@/lib/db";
 import { X, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ interface AttendanceCardData {
   employeeId: number;
   employeeName: string;
   yearMonth: string;
-  dailyRecords: DailyAttendance[];
+  dailyRecords: AttendanceRecord[];
 }
 
 // Format hours as "XXXh YYm"
@@ -56,12 +56,21 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   const [selectedCard, setSelectedCard] = useState<AttendanceCardData | null>(null);
   const [cardLoading, setCardLoading] = useState(false);
 
-  // Calculate if selected month is within 60-day window (details available)
+  // Current month in YYYY-MM format
+  const currentYearMonth = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+
+  // Check if selected month is current month (use raw attendance) or past (use monthly summary)
+  const isCurrentMonth = useMemo(() => {
+    const selectedYearMonth = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
+    return selectedYearMonth === currentYearMonth;
+  }, [selectedYear, selectedMonth, currentYearMonth]);
+
+  // Calculate if selected month is within 3-month window (details available for employee cards)
   const isDetailsAvailable = useMemo(() => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 60);
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const lastDayOfMonth = new Date(selectedYear, selectedMonth, 0);
-    return lastDayOfMonth >= cutoffDate;
+    return lastDayOfMonth >= threeMonthsAgo;
   }, [selectedYear, selectedMonth]);
 
   // Generate year options (last 5 years)
@@ -97,21 +106,17 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
   useEffect(() => {
     loadAttendanceReport();
-  }, [yearMonth]);
+  }, [yearMonth, isCurrentMonth]);
 
   const loadAttendanceReport = async () => {
     setLoading(true);
     try {
-      // Try to get from monthly summaries first
-      const allMonthlySummaries = await db.getAll<MonthlyAttendanceSummary>("monthlyAttendanceSummary");
-      const filteredSummaries = allMonthlySummaries.filter(s => s.yearMonth === yearMonth);
-
-      if (filteredSummaries.length > 0) {
-        setAttendanceData(filteredSummaries);
-      } else {
-        // Fall back to computing from dailyAttendance for current/recent months
-        const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
-        const filtered = allDaily.filter(d => d.date.startsWith(yearMonth));
+      if (isCurrentMonth) {
+        // CURRENT MONTH: Compute from raw attendance table (not yet rolled up)
+        const allAttendance = await db.getAll<AttendanceRecord>("attendance");
+        const filtered = allAttendance.filter(
+          (record) => record.date.startsWith(yearMonth) && record.clockOut
+        );
 
         const employeeMap = new Map<number, {
           employeeId: number;
@@ -124,7 +129,11 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
           totalEarlyLeaveMinutes: number;
         }>();
 
-        filtered.forEach(record => {
+        filtered.forEach((record) => {
+          const hours = record.clockOut
+            ? (record.clockOut - record.clockIn) / (1000 * 60 * 60)
+            : 0;
+
           const existing = employeeMap.get(record.employeeId) || {
             employeeId: record.employeeId,
             employeeName: record.employeeName,
@@ -135,18 +144,17 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
             earlyLeaveCount: 0,
             totalEarlyLeaveMinutes: 0,
           };
-          existing.totalHours += record.hoursWorked;
+
+          existing.totalHours += hours;
           existing.daysWorked += 1;
-          if (record.isLate) existing.lateCount += 1;
-          if (record.lateMinutes) existing.totalLateMinutes += record.lateMinutes;
-          if (record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0) {
-            existing.earlyLeaveCount += 1;
-            existing.totalEarlyLeaveMinutes += record.earlyLeaveMinutes;
+          if (record.isLate) {
+            existing.lateCount += 1;
+            existing.totalLateMinutes += record.lateMinutes || 0;
           }
           employeeMap.set(record.employeeId, existing);
         });
 
-        const summaries: MonthlyAttendanceSummary[] = Array.from(employeeMap.values()).map(e => ({
+        const summaries: MonthlyAttendanceSummary[] = Array.from(employeeMap.values()).map((e) => ({
           employeeId: e.employeeId,
           employeeName: e.employeeName,
           yearMonth: yearMonth,
@@ -159,6 +167,11 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
         }));
 
         setAttendanceData(summaries);
+      } else {
+        // PAST MONTHS: Use monthly summaries (already rolled up)
+        const allMonthlySummaries = await db.getAll<MonthlyAttendanceSummary>("monthlyAttendanceSummary");
+        const filteredSummaries = allMonthlySummaries.filter((s) => s.yearMonth === yearMonth);
+        setAttendanceData(filteredSummaries);
       }
     } catch (error) {
       console.error("Error loading attendance report:", error);
@@ -169,16 +182,22 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   };
 
   const openAttendanceCard = async (employeeId: number, employeeName: string) => {
-    // Silently ignore click if details not available
+    // Silently ignore click if details not available (older than 3 months)
     if (!isDetailsAvailable) return;
 
     setCardLoading(true);
     setCardModalOpen(true);
 
     try {
-      const allDaily = await db.getAll<DailyAttendance>("dailyAttendance");
-      const filtered = allDaily
-        .filter(d => d.employeeId === employeeId && d.date.startsWith(yearMonth))
+      // Always load from raw attendance table (kept for 3 months)
+      const allAttendance = await db.getAll<AttendanceRecord>("attendance");
+      const filtered = allAttendance
+        .filter(
+          (record) =>
+            record.employeeId === employeeId &&
+            record.date.startsWith(yearMonth) &&
+            record.clockOut
+        )
         .sort((a, b) => a.date.localeCompare(b.date));
 
       setSelectedCard({
@@ -203,20 +222,20 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   };
 
   const getMonthName = (month: number): string => {
-    return monthOptions.find(m => m.value === month)?.label || "";
+    return monthOptions.find((m) => m.value === month)?.label || "";
   };
 
   const exportToPDF = async () => {
     if (attendanceData.length === 0) return;
 
     const monthName = getMonthName(selectedMonth);
-    
+
     // Auto-select orientation based on employee count
     // <=15 employees: landscape (fewer rows, show columns wider)
     // >15 employees: portrait (more rows need vertical space)
     const usePortrait = attendanceData.length > 15;
     const orientation = usePortrait ? "portrait" : "landscape";
-    
+
     const doc = new jsPDF({
       orientation: orientation,
       unit: "mm",
@@ -226,7 +245,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
-    const contentWidth = pageWidth - (margin * 2);
+    const contentWidth = pageWidth - margin * 2;
 
     // Header
     doc.setFontSize(18);
@@ -241,7 +260,11 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     doc.setFontSize(9);
     doc.setTextColor(100);
     doc.text(
-      `Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`,
+      `Generated: ${new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })}`,
       pageWidth / 2,
       margin + 14,
       { align: "center" }
@@ -257,30 +280,38 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
         formatHoursMinutes(avgHours),
         formatHoursMinutes(record.totalHours),
         record.lateCount > 0 ? record.lateCount.toString() : "-",
-        record.totalLateMinutes && record.totalLateMinutes > 0 ? record.totalLateMinutes.toString() : "-",
-        record.earlyLeaveCount && record.earlyLeaveCount > 0 ? record.earlyLeaveCount.toString() : "-",
-        record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? record.totalEarlyLeaveMinutes.toString() : "-",
+        record.totalLateMinutes && record.totalLateMinutes > 0
+          ? record.totalLateMinutes.toString()
+          : "-",
+        record.earlyLeaveCount && record.earlyLeaveCount > 0
+          ? record.earlyLeaveCount.toString()
+          : "-",
+        record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0
+          ? record.totalEarlyLeaveMinutes.toString()
+          : "-",
       ];
     });
 
     // Calculate column widths to fit page (auto-fit)
     // Name column gets more space, others are equal
     const numericColWidth = contentWidth * 0.1; // 10% each for 7 numeric columns = 70%
-    const nameColWidth = contentWidth - (numericColWidth * 7); // Remaining 30% for name
+    const nameColWidth = contentWidth - numericColWidth * 7; // Remaining 30% for name
 
     // Generate table with auto-fit columns
     autoTable(doc, {
       startY: margin + 20,
-      head: [[
-        "Employee Name",
-        "Days",
-        "Avg Hrs",
-        "Total Hrs",
-        "Late",
-        "Late Min",
-        "Early",
-        "Early Min",
-      ]],
+      head: [
+        [
+          "Employee Name",
+          "Days",
+          "Avg Hrs",
+          "Total Hrs",
+          "Late",
+          "Late Min",
+          "Early",
+          "Early Min",
+        ],
+      ],
       body: tableData,
       theme: "grid",
       headStyles: {
@@ -332,15 +363,16 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     // Footer
     doc.setFontSize(8);
     doc.setTextColor(150);
-    doc.text(
-      `Page 1 of 1`,
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: "center" }
-    );
+    doc.text(`Page 1 of 1`, pageWidth / 2, pageHeight - 10, { align: "center" });
 
     // Download
     doc.save(`attendance-${yearMonth}.pdf`);
+  };
+
+  // Calculate hours worked from raw attendance record
+  const getHoursWorked = (record: AttendanceRecord): number => {
+    if (!record.clockOut) return 0;
+    return (record.clockOut - record.clockIn) / (1000 * 60 * 60);
   };
 
   return (
@@ -394,20 +426,19 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading...
-            </div>
+            <div className="text-center py-12 text-muted-foreground">Loading...</div>
           ) : attendanceData.length > 0 ? (
-            <div className="overflow-x-auto scrollbar-hide" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div
+              className="overflow-x-auto scrollbar-hide"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
               <table className="w-full text-sm min-w-[700px]">
                 <thead className="bg-muted/50">
                   <tr className="border-b">
                     <th className="text-left py-2 px-3 font-medium sticky left-0 bg-muted/50 z-10 min-w-[100px]">
                       Name
                     </th>
-                    <th className="text-center py-2 px-2 font-medium min-w-[45px]">
-                      Days
-                    </th>
+                    <th className="text-center py-2 px-2 font-medium min-w-[45px]">Days</th>
                     <th className="text-center py-2 px-2 font-medium min-w-[70px]">
                       <div className="leading-tight">Avg</div>
                       <div className="leading-tight">Hours</div>
@@ -436,9 +467,8 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                 </thead>
                 <tbody>
                   {attendanceData.map((record) => {
-                    const avgHours = record.daysWorked > 0
-                      ? record.totalHours / record.daysWorked
-                      : 0;
+                    const avgHours =
+                      record.daysWorked > 0 ? record.totalHours / record.daysWorked : 0;
                     const canTap = isDetailsAvailable;
 
                     return (
@@ -449,14 +479,20 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                             ? "hover:bg-muted/30 cursor-pointer active:bg-muted/50"
                             : ""
                         }`}
-                        onClick={() => openAttendanceCard(record.employeeId, record.employeeName)}
+                        onClick={() =>
+                          openAttendanceCard(record.employeeId, record.employeeName)
+                        }
                       >
                         <td className="py-2.5 px-3 sticky left-0 bg-background z-10 font-medium">
                           {record.employeeName}
                         </td>
                         <td className="text-center py-2.5 px-2">{record.daysWorked}</td>
-                        <td className="text-center py-2.5 px-2 text-xs">{formatHoursMinutes(avgHours)}</td>
-                        <td className="text-center py-2.5 px-2 text-xs">{formatHoursMinutes(record.totalHours)}</td>
+                        <td className="text-center py-2.5 px-2 text-xs">
+                          {formatHoursMinutes(avgHours)}
+                        </td>
+                        <td className="text-center py-2.5 px-2 text-xs">
+                          {formatHoursMinutes(record.totalHours)}
+                        </td>
                         <td className="text-center py-2.5 px-2">
                           {record.lateCount > 0 ? (
                             <span className="text-red-500 font-medium">{record.lateCount}</span>
@@ -473,14 +509,18 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                         </td>
                         <td className="text-center py-2.5 px-2">
                           {record.earlyLeaveCount && record.earlyLeaveCount > 0 ? (
-                            <span className="text-orange-500 font-medium">{record.earlyLeaveCount}</span>
+                            <span className="text-orange-500 font-medium">
+                              {record.earlyLeaveCount}
+                            </span>
                           ) : (
                             "-"
                           )}
                         </td>
                         <td className="text-center py-2.5 px-2">
                           {record.totalEarlyLeaveMinutes && record.totalEarlyLeaveMinutes > 0 ? (
-                            <span className="text-orange-500">{record.totalEarlyLeaveMinutes}</span>
+                            <span className="text-orange-500">
+                              {record.totalEarlyLeaveMinutes}
+                            </span>
                           ) : (
                             "-"
                           )}
@@ -520,9 +560,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             {cardLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading...
-              </div>
+              <div className="text-center py-8 text-muted-foreground">Loading...</div>
             ) : selectedCard && selectedCard.dailyRecords.length > 0 ? (
               <div>
                 {/* Table Header - solid background */}
@@ -540,7 +578,7 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                     weekday: "short",
                   });
                   const isLate = record.isLate;
-                  const isEarlyLeave = record.earlyLeaveMinutes && record.earlyLeaveMinutes > 0;
+                  const hoursWorked = getHoursWorked(record);
 
                   return (
                     <div
@@ -556,14 +594,11 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                           <span className="text-[10px] ml-0.5">+{record.lateMinutes}m</span>
                         )}
                       </div>
-                      <div className={`text-center ${isEarlyLeave ? "text-red-500 font-semibold" : ""}`}>
-                        {formatTime(record.clockOut)}
-                        {isEarlyLeave && (
-                          <span className="text-[10px] ml-0.5">-{record.earlyLeaveMinutes}m</span>
-                        )}
+                      <div className="text-center">
+                        {record.clockOut ? formatTime(record.clockOut) : "-"}
                       </div>
                       <div className="text-right text-xs flex items-center justify-end">
-                        {formatHoursMinutes(record.hoursWorked)}
+                        {formatHoursMinutes(hoursWorked)}
                       </div>
                     </div>
                   );
@@ -587,20 +622,20 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Total Hours</div>
                   <div className="font-semibold text-xs">
-                    {formatHoursMinutes(selectedCard.dailyRecords.reduce((sum, r) => sum + r.hoursWorked, 0))}
+                    {formatHoursMinutes(
+                      selectedCard.dailyRecords.reduce((sum, r) => sum + getHoursWorked(r), 0)
+                    )}
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Late</div>
                   <div className="font-semibold text-red-500">
-                    {selectedCard.dailyRecords.filter(r => r.isLate).length}×
+                    {selectedCard.dailyRecords.filter((r) => r.isLate).length}×
                   </div>
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground text-xs">Er Leave</div>
-                  <div className="font-semibold text-orange-500">
-                    {selectedCard.dailyRecords.filter(r => r.earlyLeaveMinutes && r.earlyLeaveMinutes > 0).length}×
-                  </div>
+                  <div className="font-semibold text-orange-500">0×</div>
                 </div>
               </div>
             </div>

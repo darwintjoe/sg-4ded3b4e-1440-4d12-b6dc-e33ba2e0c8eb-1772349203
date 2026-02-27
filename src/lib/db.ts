@@ -576,14 +576,12 @@ export class Database {
       "attendance",
       "dailyItemSales",
       "dailyPaymentSales",
-      "dailyShiftSummary",
       "monthlyItemSales",
       "monthlySalesSummary",
       "monthlyAttendanceSummary",
       "monthlyPaymentSales",
       "cashierSession",
-      "pauseState",
-      "dailyAttendance"
+      "pauseState"
     ], "readwrite");
 
     await Promise.all([
@@ -594,14 +592,12 @@ export class Database {
       tx.objectStore("attendance").clear(),
       tx.objectStore("dailyItemSales").clear(),
       tx.objectStore("dailyPaymentSales").clear(),
-      tx.objectStore("dailyShiftSummary").clear(),
       tx.objectStore("monthlyItemSales").clear(),
       tx.objectStore("monthlySalesSummary").clear(),
       tx.objectStore("monthlyAttendanceSummary").clear(),
       tx.objectStore("monthlyPaymentSales").clear(),
       tx.objectStore("cashierSession").clear(),
-      tx.objectStore("pauseState").clear(),
-      tx.objectStore("dailyAttendance").clear()
+      tx.objectStore("pauseState").clear()
     ]);
   }
 
@@ -805,11 +801,8 @@ export class Database {
 
   async clearAttendance(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const tx = this.db!.transaction(["attendance", "dailyAttendance"], "readwrite");
+      const tx = this.db!.transaction(["attendance"], "readwrite");
       tx.objectStore("attendance").clear();
-      if (this.db!.objectStoreNames.contains("dailyAttendance")) {
-        tx.objectStore("dailyAttendance").clear();
-      }
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
