@@ -10,7 +10,7 @@ import {
   UserRole,
   DailyItemSales,
   MonthlyItemSales,
-  DailyAttendance,
+  AttendanceRecord,
   MonthlyAttendanceSummary
 } from "@/types";
 
@@ -18,7 +18,8 @@ import {
  * Generate comprehensive sample data for new users
  * Following Two-Tier Summary Architecture:
  * - Transactions: Last 60 days only
- * - Daily summaries: Last 60 days only
+ * - Daily summaries: Until rolled up to monthly
+ * - Attendance: Last 3 months for employee cards
  * - Monthly summaries: Full 26 months (2023-12 to 2026-01)
  * 
  * Total: ~10,000 records (optimized for performance)
@@ -516,14 +517,15 @@ export function generateSampleEmployees(): Employee[] {
 /**
  * Generate sample data following Two-Tier Summary Architecture
  * - Transactions: Last 60 days only
- * - Daily summaries: Last 60 days only  
+ * - Daily summaries: Current month (not rolled up yet)
+ * - Attendance: Last 3 months for employee detail cards
  * - Monthly summaries: Full 26 months (2023-12 to 2026-01)
  */
 export function generateSampleTransactions(items: Item[], employees: Employee[], businessType: BusinessType = "convenience-store"): {
   transactions: Transaction[];
   dailySummaries: DailyPaymentSales[];
   dailyItemSales: DailyItemSales[];
-  dailyAttendance: DailyAttendance[];
+  attendance: AttendanceRecord[];
   monthlyItemSales: MonthlyItemSales[];
   monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
   monthlyAttendanceSummaries: MonthlyAttendanceSummary[];
@@ -531,12 +533,12 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
   const transactions: Transaction[] = [];
   const dailyMap = new Map<string, Map<string, number>>();
   const dailyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>();
-  const dailyAttendanceMap = new Map<string, Map<number, { checkIn: number; checkOut: number | null; hoursWorked: number }>>();
+  const attendanceRecords: AttendanceRecord[] = [];
   
   // Monthly maps for 26 months of synthetic data
   const monthlyItemMap = new Map<string, Map<number, { quantity: number; revenue: number; count: number; itemName: string; sku: string }>>();
   const monthlyPaymentMap = new Map<string, Map<string, number>>();
-  const monthlyAttendanceMap = new Map<string, Map<number, { totalHours: number; daysWorked: number }>>();
+  const monthlyAttendanceMap = new Map<string, Map<number, { totalHours: number; daysWorked: number; lateCount: number }>>();
   
   const paymentMethods = ["cash", "qris-static", "qris-dynamic", "voucher"];
   
@@ -564,7 +566,12 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
   const sixtyDaysAgo = new Date(today);
   sixtyDaysAgo.setDate(today.getDate() - 59);
   
+  // Generate attendance for LAST 3 MONTHS (90 days)
+  const threeMonthsAgo = new Date(today);
+  threeMonthsAgo.setMonth(today.getMonth() - 3);
+  
   let transactionId = 1;
+  let attendanceId = 1;
   
   for (let d = new Date(sixtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split("T")[0];
@@ -652,30 +659,44 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
       const dayMap = dailyMap.get(dateStr)!;
       dayMap.set(paymentMethod, (dayMap.get(paymentMethod) || 0) + subtotal);
     }
+  }
+  
+  // Generate raw attendance records for last 3 MONTHS
+  for (let d = new Date(threeMonthsAgo); d <= today; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split("T")[0];
     
-    // Track daily attendance
-    if (!dailyAttendanceMap.has(dateStr)) {
-      dailyAttendanceMap.set(dateStr, new Map());
-    }
-    const attendanceMap = dailyAttendanceMap.get(dateStr)!;
-    
+    // 5-7 employees work each day
     const workingEmployees = [...employees]
       .sort(() => Math.random() - 0.5)
       .slice(0, 5 + Math.floor(Math.random() * 3));
     
     for (const emp of workingEmployees) {
       const checkInHour = 7 + Math.floor(Math.random() * 2);
+      const checkInMinute = Math.floor(Math.random() * 60);
       const checkIn = new Date(d);
-      checkIn.setHours(checkInHour, Math.floor(Math.random() * 60), 0, 0);
+      checkIn.setHours(checkInHour, checkInMinute, 0, 0);
       
       const workHours = 7 + Math.floor(Math.random() * 3);
       const checkOut = new Date(checkIn);
       checkOut.setHours(checkIn.getHours() + workHours);
       
-      attendanceMap.set(emp.id || 0, {
-        checkIn: checkIn.getTime(),
-        checkOut: checkOut.getTime(),
-        hoursWorked: workHours
+      // Determine if late (scheduled start at 7:00 or 14:00)
+      const scheduledHour = checkInHour < 12 ? 7 : 14;
+      const isLate = checkInHour > scheduledHour || (checkInHour === scheduledHour && checkInMinute > 15);
+      const lateMinutes = isLate ? (checkInHour - scheduledHour) * 60 + checkInMinute : 0;
+      
+      attendanceRecords.push({
+        id: attendanceId++,
+        employeeId: emp.id || 0,
+        employeeName: emp.name,
+        clockIn: checkIn.getTime(),
+        clockOut: checkOut.getTime(),
+        date: dateStr,
+        assignedShift: checkInHour < 12 ? "Morning Shift" : "Afternoon Shift",
+        scheduledStart: checkInHour < 12 ? "07:00" : "14:00",
+        scheduledEnd: checkInHour < 12 ? "14:00" : "21:00",
+        isLate,
+        lateMinutes: lateMinutes > 0 ? lateMinutes : undefined
       });
     }
   }
@@ -737,10 +758,12 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
       const daysWorked = 20 + Math.floor(Math.random() * 6); // 20-25 days
       const avgHoursPerDay = 7 + Math.random() * 2;
       const totalHours = Math.floor(daysWorked * avgHoursPerDay);
+      const lateCount = Math.floor(Math.random() * 4); // 0-3 late days
       
       monthAttendanceMap.set(emp.id || 0, {
         totalHours,
-        daysWorked
+        daysWorked,
+        lateCount
       });
     }
   }
@@ -770,24 +793,6 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
         totalRevenue: stats.revenue,
         transactionCount: stats.count
       });
-    }
-  }
-  
-  const dailyAttendance: DailyAttendance[] = [];
-  for (const [date, attendanceMap] of dailyAttendanceMap.entries()) {
-    for (const [employeeId, record] of attendanceMap.entries()) {
-      const employee = employees.find(e => e.id === employeeId);
-      if (employee) {
-        dailyAttendance.push({
-          date: date,
-          employeeId,
-          employeeName: employee.name,
-          clockIn: record.checkIn,
-          clockOut: record.checkOut || 0,
-          hoursWorked: record.hoursWorked,
-          isLate: false
-        });
-      }
     }
   }
   
@@ -853,7 +858,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
           employeeName: employee.name,
           totalHours: stats.totalHours,
           daysWorked: stats.daysWorked,
-          lateCount: Math.floor(Math.random() * 3)
+          lateCount: stats.lateCount
         });
       }
     }
@@ -863,7 +868,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
     transactions,
     dailySummaries,
     dailyItemSales,
-    dailyAttendance,
+    attendance: attendanceRecords,
     monthlyItemSales,
     monthlySummaries: {
       payments: monthlyPayments,
@@ -932,7 +937,7 @@ export function generateSampleStoreData(businessType: BusinessType = "convenienc
   transactions: Transaction[];
   dailySummaries: DailyPaymentSales[];
   dailyItemSales: DailyItemSales[];
-  dailyAttendance: DailyAttendance[];
+  attendance: AttendanceRecord[];
   monthlyItemSales: MonthlyItemSales[];
   monthlySummaries: { payments: MonthlyPaymentSales[]; summary: MonthlySalesSummary[] };
   monthlyAttendanceSummaries: MonthlyAttendanceSummary[];
