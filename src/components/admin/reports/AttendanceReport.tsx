@@ -1,3 +1,32 @@
+/**
+ * Attendance Report Component
+ * ===========================
+ * 
+ * Displays employee attendance summaries with drill-down capability.
+ * 
+ * DATA SOURCE STRATEGY:
+ * ┌─────────────────────────────────────────────────────────────────┐
+ * │ Selected Month          │ Data Source                          │
+ * ├─────────────────────────┼───────────────────────────────────────┤
+ * │ Current month (running) │ Raw `attendance` table (aggregated)  │
+ * │ Previous months         │ `monthlyAttendanceSummary` (rolled)  │
+ * └─────────────────────────┴───────────────────────────────────────┘
+ * 
+ * Why different sources?
+ * - Current month data hasn't been rolled up yet (happens on month change)
+ * - Previous months have already been aggregated into monthly summaries
+ * - This matches the data-rollup-service.ts retention policies
+ * 
+ * EMPLOYEE DETAIL CARDS:
+ * - Available for last 3 months only (attendance table retention policy)
+ * - Shows daily clock in/out times from raw `attendance` records
+ * - Older months: summary row is not clickable (no detail data available)
+ * 
+ * RETENTION AWARENESS:
+ * - isCurrentMonth: determines which data source to query
+ * - isDetailsAvailable: determines if employee cards are clickable (3-month window)
+ */
+
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -59,13 +88,24 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   // Current month in YYYY-MM format
   const currentYearMonth = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
 
-  // Check if selected month is current month (use raw attendance) or past (use monthly summary)
+  // ============================================================
+  // DATA SOURCE SELECTION
+  // ============================================================
+  // Current month: Raw attendance table (not yet rolled up)
+  // Previous months: Monthly summaries (already rolled up)
+  // ============================================================
   const isCurrentMonth = useMemo(() => {
     const selectedYearMonth = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
     return selectedYearMonth === currentYearMonth;
   }, [selectedYear, selectedMonth, currentYearMonth]);
 
-  // Calculate if selected month is within 3-month window (details available for employee cards)
+  // ============================================================
+  // EMPLOYEE DETAIL CARD AVAILABILITY
+  // ============================================================
+  // Raw attendance data is kept for 3 months (retention policy)
+  // Older months: user cannot view daily clock in/out details
+  // The row becomes non-clickable for data outside this window
+  // ============================================================
   const isDetailsAvailable = useMemo(() => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
@@ -112,7 +152,12 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
     setLoading(true);
     try {
       if (isCurrentMonth) {
-        // CURRENT MONTH: Compute from raw attendance table (not yet rolled up)
+        // ============================================================
+        // CURRENT MONTH: Compute from raw attendance table
+        // ============================================================
+        // Data hasn't been rolled up yet (rollup happens on month change)
+        // We aggregate the raw attendance records into employee summaries
+        // ============================================================
         const allAttendance = await db.getAll<AttendanceRecord>("attendance");
         const filtered = allAttendance.filter(
           (record) => record.date.startsWith(yearMonth) && record.clockOut
@@ -168,7 +213,12 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
 
         setAttendanceData(summaries);
       } else {
-        // PAST MONTHS: Use monthly summaries (already rolled up)
+        // ============================================================
+        // PREVIOUS MONTHS: Use pre-rolled monthly summaries
+        // ============================================================
+        // Data was rolled up by data-rollup-service on month change
+        // Much faster than aggregating raw records
+        // ============================================================
         const allMonthlySummaries = await db.getAll<MonthlyAttendanceSummary>("monthlyAttendanceSummary");
         const filteredSummaries = allMonthlySummaries.filter((s) => s.yearMonth === yearMonth);
         setAttendanceData(filteredSummaries);
@@ -182,14 +232,24 @@ export function AttendanceReport({ language, containerRef }: AttendanceReportPro
   };
 
   const openAttendanceCard = async (employeeId: number, employeeName: string) => {
+    // ============================================================
+    // DETAIL CARD GUARD
+    // ============================================================
     // Silently ignore click if details not available (older than 3 months)
+    // Raw attendance data has been cleaned up per retention policy
+    // ============================================================
     if (!isDetailsAvailable) return;
 
     setCardLoading(true);
     setCardModalOpen(true);
 
     try {
-      // Always load from raw attendance table (kept for 3 months)
+      // ============================================================
+      // EMPLOYEE DETAIL CARD DATA
+      // ============================================================
+      // Always loads from raw attendance table (kept for 3 months)
+      // Shows individual clock in/out times, late status, hours worked
+      // ============================================================
       const allAttendance = await db.getAll<AttendanceRecord>("attendance");
       const filtered = allAttendance
         .filter(

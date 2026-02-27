@@ -1,12 +1,63 @@
 /**
  * Data Rollup & Cleanup Service
+ * =============================
  * 
- * RETENTION POLICIES:
- * - transactions: 60 days (daily cleanup of day 61)
- * - attendance: 3 months (cleanup after rollup, keep for employee detail cards)
- * - dailyItemSales: Until rollup (cleanup after successful monthly rollup)
- * - dailyPaymentSales: Until rollup (cleanup after successful monthly rollup)
- * - monthly summaries: Forever (historical reporting)
+ * This service manages data lifecycle for Sell More POS system.
+ * It handles monthly rollups and enforces retention policies to keep
+ * the IndexedDB database size manageable while preserving historical data.
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │                        DATA RETENTION POLICIES                          │
+ * ├─────────────────────────┬───────────────┬───────────────────────────────┤
+ * │ Table                   │ Retention     │ Cleanup Trigger               │
+ * ├─────────────────────────┼───────────────┼───────────────────────────────┤
+ * │ transactions            │ 60 days       │ Daily (incremental, day 61)   │
+ * │ attendance              │ 3 months      │ After monthly rollup          │
+ * │ dailyItemSales          │ Until rollup  │ After monthly rollup          │
+ * │ dailyPaymentSales       │ Until rollup  │ After monthly rollup          │
+ * │ monthlyItemSales        │ Forever       │ Never (historical reporting)  │
+ * │ monthlySalesSummary     │ Forever       │ Never (historical reporting)  │
+ * │ monthlyAttendanceSummary│ Forever       │ Never (historical reporting)  │
+ * └─────────────────────────┴───────────────┴───────────────────────────────┘
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │                         MONTHLY ROLLUP FLOW                             │
+ * │                                                                         │
+ * │   App Startup (1st day of new month)                                    │
+ * │   │                                                                     │
+ * │   ├─► 1. Detect month change (e.g., Jan → Feb)                         │
+ * │   │                                                                     │
+ * │   ├─► 2. Rollup previous month (Jan) to monthly summaries:             │
+ * │   │      • dailyItemSales → monthlyItemSales                           │
+ * │   │      • dailyPaymentSales → monthlySalesSummary                     │
+ * │   │      • attendance → monthlyAttendanceSummary                       │
+ * │   │                                                                     │
+ * │   ├─► 3. Clean up daily summaries for rolled-up month (Jan)            │
+ * │   │      (ONLY after successful rollup)                                │
+ * │   │                                                                     │
+ * │   ├─► 4. Clean up attendance older than 3 months                       │
+ * │   │      (keeps data for employee detail cards)                        │
+ * │   │                                                                     │
+ * │   └─► 5. Clean up transactions from day 61                             │
+ * │          (60-day retention, incremental cleanup)                       │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ * 
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │                      REPORT DATA SOURCES                                │
+ * ├─────────────────┬──────────────────────┬────────────────────────────────┤
+ * │ Report          │ Previous Months      │ Current Month (Running)        │
+ * ├─────────────────┼──────────────────────┼────────────────────────────────┤
+ * │ Sales Report    │ monthlySalesSummary  │ dailyPaymentSales              │
+ * │ Items Report    │ monthlyItemSales     │ dailyItemSales                 │
+ * │ Attendance      │ monthlyAttendance    │ attendance (raw, aggregated)   │
+ * │                 │ Summary              │                                │
+ * └─────────────────┴──────────────────────┴────────────────────────────────┘
+ * 
+ * IMPORTANT NOTES:
+ * - Rollup MUST complete successfully before cleanup runs
+ * - If rollup fails, daily data is preserved (no data loss)
+ * - Employee detail cards require raw attendance data (3-month retention)
+ * - Monthly summaries are never deleted (historical reporting)
  */
 
 import { db } from "@/lib/db";
@@ -22,6 +73,9 @@ import type {
 
 /**
  * Get previous month in YYYY-MM format
+ * Used to determine which month to clean up after rollup
+ * 
+ * @example getPreviousMonth("2026-03") returns "2026-02"
  */
 function getPreviousMonth(yearMonth: string): string {
   const [year, month] = yearMonth.split("-").map(Number);
@@ -31,7 +85,14 @@ function getPreviousMonth(yearMonth: string): string {
 
 /**
  * Clean up old transactions (incremental: day 61 only)
+ * 
  * RETENTION POLICY: 60 days
+ * 
+ * Why incremental? Instead of scanning all transactions to find those >60 days old,
+ * we only delete transactions from exactly day 61. This runs daily, so over time
+ * all old transactions get cleaned up with minimal database overhead.
+ * 
+ * @returns Number of transactions deleted
  */
 export async function cleanupOldTransactions(): Promise<number> {
   try {
@@ -71,8 +132,16 @@ export async function cleanupOldTransactions(): Promise<number> {
 
 /**
  * Clean up attendance records older than 3 months
+ * 
  * RETENTION POLICY: 3 months (for employee detail cards)
- * Called after successful monthly rollup
+ * 
+ * Why 3 months? The Attendance Report shows monthly summaries for historical data,
+ * but when users tap on an employee row, they see a detail card with daily clock
+ * in/out times. This raw data is only available for the last 3 months.
+ * 
+ * Called AFTER successful monthly rollup to ensure data is preserved in summaries.
+ * 
+ * @returns Number of attendance records deleted
  */
 export async function cleanupOldAttendance(): Promise<number> {
   try {
@@ -109,7 +178,18 @@ export async function cleanupOldAttendance(): Promise<number> {
 
 /**
  * Clean up daily summaries for a specific month after successful rollup
- * Only cleans up data that has been rolled up to monthly summaries
+ * 
+ * RETENTION POLICY: Until rollup (then deleted)
+ * 
+ * This function cleans up:
+ * - dailyItemSales for the specified month
+ * - dailyPaymentSales for the specified month
+ * 
+ * CRITICAL: Only call this AFTER successful rollupMonthlyData() for the same month!
+ * If rollup fails, this should NOT be called to prevent data loss.
+ * 
+ * @param yearMonth - Month to clean up in YYYY-MM format (e.g., "2026-02")
+ * @returns Number of records deleted
  */
 export async function cleanupDailySummariesForMonth(yearMonth: string): Promise<number> {
   try {
@@ -158,7 +238,19 @@ export async function cleanupDailySummariesForMonth(yearMonth: string): Promise<
 
 /**
  * Check if monthly rollup is needed and perform it
- * Rollup happens when month changes (first access of new month)
+ * 
+ * This is the main entry point for the rollup system. It:
+ * 1. Checks if the month has changed since last rollup
+ * 2. If yes, triggers rollup for the previous month
+ * 3. Cleans up daily summaries for the rolled-up month
+ * 4. Cleans up old attendance records
+ * 5. Updates settings to prevent duplicate rollups
+ * 
+ * The function uses two tracking fields in settings:
+ * - lastMonthlyRollup: The month when rollup was last performed
+ * - lastCleanupMonth: Safety net to ensure cleanup runs even if missed
+ * 
+ * @returns true if rollup was performed, false otherwise
  */
 export async function checkAndRollupMonthly(): Promise<boolean> {
   try {
@@ -223,6 +315,25 @@ export async function checkAndRollupMonthly(): Promise<boolean> {
 
 /**
  * Rollup daily data into monthly summaries
+ * 
+ * This function aggregates daily data into monthly summaries:
+ * 
+ * 1. ITEM SALES ROLLUP:
+ *    dailyItemSales → monthlyItemSales
+ *    Aggregates: totalQuantity, totalRevenue, transactionCount per item
+ * 
+ * 2. PAYMENT SALES ROLLUP:
+ *    dailyPaymentSales → monthlySalesSummary
+ *    Aggregates: totalRevenue, totalReceipts, amounts by payment method
+ * 
+ * 3. ATTENDANCE ROLLUP:
+ *    attendance → monthlyAttendanceSummary
+ *    Aggregates: totalHours, daysWorked, lateCount, lateMinutes per employee
+ * 
+ * Uses db.upsert() to handle both insert and update scenarios (idempotent).
+ * If this function throws, the calling code should NOT proceed with cleanup.
+ * 
+ * @param month - Month to rollup in YYYY-MM format (e.g., "2026-02")
  */
 export async function rollupMonthlyData(month: string): Promise<void> {
   try {
@@ -363,13 +474,20 @@ export async function rollupMonthlyData(month: string): Promise<void> {
 
 /**
  * Master cleanup function - runs all cleanup tasks
- * Called on app startup
  * 
- * ORDER IS CRITICAL:
- * 1. Monthly rollup (if month changed)
- * 2. Clean up daily summaries (AFTER rollup)
- * 3. Clean up old attendance (AFTER rollup) 
- * 4. Clean up old transactions (60-day rule)
+ * Called on app startup via AppContext. This is the single entry point
+ * for all data lifecycle management.
+ * 
+ * EXECUTION ORDER IS CRITICAL:
+ * 1. Monthly rollup (if month changed) - aggregates data first
+ * 2. Clean up daily summaries (AFTER rollup) - removes aggregated data
+ * 3. Clean up old attendance (AFTER rollup) - keeps 3 months for detail cards
+ * 4. Clean up old transactions (60-day rule) - independent of rollup
+ * 
+ * Why this order?
+ * - Data must be rolled up BEFORE it's deleted
+ * - If any step fails, subsequent steps should still run (fail-safe)
+ * - Transaction cleanup is independent and always runs
  */
 export async function runStartupCleanup(): Promise<void> {
   try {
@@ -394,6 +512,14 @@ export async function runStartupCleanup(): Promise<void> {
 
 /**
  * Manual rollup trigger for testing/admin purposes
+ * 
+ * WARNING: This bypasses the normal month-change detection.
+ * Use only for:
+ * - Testing rollup logic
+ * - Recovery from failed rollups
+ * - Admin data management
+ * 
+ * @param yearMonth - Month to force rollup in YYYY-MM format
  */
 export async function forceRollupMonth(yearMonth: string): Promise<void> {
   console.log(`🔧 Force rollup triggered for ${yearMonth}`);
