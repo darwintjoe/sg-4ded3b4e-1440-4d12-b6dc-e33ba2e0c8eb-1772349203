@@ -262,15 +262,10 @@ export class BackupService {
 
   /**
    * Export essential data only (not full transactions)
-   * FIXED: Daily summaries now limited to last 60 days
+   * SIMPLIFIED: No date filtering - backup all daily/attendance data as-is
    */
   public async exportEssentialData(): Promise<BackupData> {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const sixtyDaysAgo = new Date();
-      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-      const cutoffDate = sixtyDaysAgo.toISOString().split("T")[0];
-
       // Master data (always small)
       const items = await db.getAll("items") as Item[];
       const employees = await db.getAll("employees") as Employee[];
@@ -278,40 +273,29 @@ export class BackupService {
       const settingsArray = await db.getAll("settings") as Settings[];
       const settings = settingsArray.find((s) => s.id === 1 || s.key === "settings") || settingsArray[0];
 
-      // Recent shifts (last 60 days only)
-      const allShifts = await db.getAll("shifts") as Shift[];
-      const shifts = allShifts.filter((s) => {
-        const shiftDate = new Date(s.shiftStart).toISOString().split("T")[0];
-        return shiftDate >= cutoffDate;
-      });
+      // Shifts - backup as-is (will be cleaned up after backup)
+      const shifts = await db.getAll("shifts") as Shift[];
 
-      // Daily summaries - Last 60 days only
+      // Daily summaries - backup ALL (no date filtering)
       let dailyItemSales: any[] = [];
       let dailyPaymentSales: any[] = [];
 
       try {
-        const allDailyItems = await db.getAll("dailyItemSales");
-        dailyItemSales = allDailyItems.filter((d: any) => d.businessDate >= cutoffDate);
+        dailyItemSales = await db.getAll("dailyItemSales");
       } catch (e) {
         console.warn("dailyItemSales store not found, skipping");
       }
 
       try {
-        const allDailyPayments = await db.getAll("dailyPaymentSales");
-        dailyPaymentSales = allDailyPayments.filter((d: any) => d.businessDate >= cutoffDate);
+        dailyPaymentSales = await db.getAll("dailyPaymentSales");
       } catch (e) {
         console.warn("dailyPaymentSales store not found, skipping");
       }
 
-      // Attendance - Last 3 months (90 days) for employee detail cards
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      const attendanceCutoff = threeMonthsAgo.toISOString().split("T")[0];
-      
+      // Attendance - backup ALL (no date filtering)
       let attendance: any[] = [];
       try {
-        const allAttendance = await db.getAll("attendance");
-        attendance = allAttendance.filter((d: any) => d.date >= attendanceCutoff);
+        attendance = await db.getAll("attendance");
       } catch (e) {
         console.warn("attendance store not found, skipping");
       }

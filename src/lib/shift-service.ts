@@ -1,27 +1,23 @@
 /**
  * Shift Management Service
- * Handles shift detection, closing, and summary generation
+ * 
+ * Handles shift detection and cleanup.
+ * Shifts are temporary - deleted immediately after backup initiation.
+ * 
+ * Data Lifecycle:
+ * - Shift created on clock-in/shift open
+ * - Transactions linked via shiftId
+ * - On shift close: backup initiated (fire-and-forget), shift deleted
+ * - Shift data preserved in: Google Sheets (transactions), Calendar (summary)
  */
 
 import { db } from "@/lib/db";
-import type { 
-  Shift, 
-  Transaction, 
-  DailyShiftSummary, 
-  Settings
-} from "@/types";
+import type { Shift, Settings } from "@/types";
 
 interface ShiftDetectionResult {
   name: string;
   start: string;
   end: string;
-}
-
-interface PaymentBreakdown {
-  cash: number;
-  qrisStatic: number;
-  qrisDynamic: number;
-  voucher: number;
 }
 
 /**
@@ -112,120 +108,34 @@ export function getBusinessDate(): string {
 }
 
 /**
- * Generate daily shift summary after shift closes
+ * Delete shift after backup initiation (fire-and-forget cleanup)
+ * Called immediately after backup is initiated, regardless of backup success
  */
-export async function generateDailyShiftSummary(shift: Shift): Promise<void> {
+export async function deleteShiftAfterBackup(shiftId: string): Promise<void> {
   try {
-    const shiftTransactions = await db.searchByIndex<Transaction>(
-      "transactions", 
-      "shiftId", 
-      shift.shiftId
-    );
-
-    const paymentBreakdown: PaymentBreakdown = {
-      cash: 0,
-      qrisStatic: 0,
-      qrisDynamic: 0,
-      voucher: 0
-    };
-
-    let totalRevenue = 0;
-
-    shiftTransactions.forEach((t) => {
-      totalRevenue += t.total;
-      t.payments.forEach((p) => {
-        if (p.method === "cash") paymentBreakdown.cash += p.amount;
-        else if (p.method === "qris-static") paymentBreakdown.qrisStatic += p.amount;
-        else if (p.method === "qris-dynamic") paymentBreakdown.qrisDynamic += p.amount;
-        else if (p.method === "voucher") paymentBreakdown.voucher += p.amount;
-      });
-    });
-
-    const hoursWorked = shift.shiftEnd 
-      ? (shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60) 
-      : 0;
-
-    const summary: DailyShiftSummary = {
-      shiftId: shift.shiftId,
-      businessDate: shift.businessDate,
-      cashierId: shift.cashierId,
-      cashierName: shift.cashierName,
-      totalRevenue,
-      totalReceipts: shiftTransactions.length,
-      paymentBreakdown,
-      hoursWorked
-    };
-
-    await db.add("dailyShiftSummary", summary);
+    await db.delete("shifts", shiftId);
   } catch (error) {
-    console.error("Error generating daily shift summary:", error);
+    // Silent failure - shift cleanup is non-critical
+    console.warn("Shift cleanup failed (non-blocking):", error);
   }
 }
 
 /**
- * Get shift report data for calendar/export
+ * Delete all closed shifts (cleanup utility)
+ * Can be called periodically to clean up any orphaned shifts
  */
-export async function getShiftReportData(shift: Shift): Promise<{
-  totalRevenue: number;
-  transactionCount: number;
-  paymentBreakdown: {
-    cash: number;
-    qrisStatic: number;
-    qrisDynamic: number;
-    voucher: number;
-    cashCount: number;
-    qrisStaticCount: number;
-    qrisDynamicCount: number;
-    voucherCount: number;
-  };
-  hoursWorked: number;
-}> {
-  const shiftTransactions = await db.searchByIndex<Transaction>(
-    "transactions", 
-    "shiftId", 
-    shift.shiftId
-  );
-
-  const paymentBreakdown = {
-    cash: 0,
-    qrisStatic: 0,
-    qrisDynamic: 0,
-    voucher: 0,
-    cashCount: 0,
-    qrisStaticCount: 0,
-    qrisDynamicCount: 0,
-    voucherCount: 0
-  };
-
-  let totalRevenue = 0;
-
-  shiftTransactions.forEach((t) => {
-    totalRevenue += t.total;
-    t.payments.forEach((p) => {
-      if (p.method === "cash") {
-        paymentBreakdown.cash += p.amount;
-        paymentBreakdown.cashCount++;
-      } else if (p.method === "qris-static") {
-        paymentBreakdown.qrisStatic += p.amount;
-        paymentBreakdown.qrisStaticCount++;
-      } else if (p.method === "qris-dynamic") {
-        paymentBreakdown.qrisDynamic += p.amount;
-        paymentBreakdown.qrisDynamicCount++;
-      } else if (p.method === "voucher") {
-        paymentBreakdown.voucher += p.amount;
-        paymentBreakdown.voucherCount++;
-      }
-    });
-  });
-
-  const hoursWorked = shift.shiftEnd 
-    ? (shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60) 
-    : 0;
-
-  return {
-    totalRevenue,
-    transactionCount: shiftTransactions.length,
-    paymentBreakdown,
-    hoursWorked
-  };
+export async function cleanupClosedShifts(): Promise<number> {
+  try {
+    const allShifts = await db.getAll("shifts") as Shift[];
+    const closedShifts = allShifts.filter(s => s.status === "closed");
+    
+    for (const shift of closedShifts) {
+      await db.delete("shifts", shift.shiftId);
+    }
+    
+    return closedShifts.length;
+  } catch (error) {
+    console.warn("Shift cleanup failed:", error);
+    return 0;
+  }
 }
