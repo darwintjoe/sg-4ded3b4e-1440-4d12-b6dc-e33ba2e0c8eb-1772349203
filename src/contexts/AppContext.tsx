@@ -12,9 +12,8 @@ import { sheetsExport } from "@/lib/sheets-export";
 import { 
   detectShift, 
   generateShiftId, 
-  getBusinessDate, 
-  generateDailyShiftSummary,
-  getShiftReportData 
+  getBusinessDate,
+  deleteShiftAfterBackup
 } from "@/lib/shift-service";
 import { 
   checkAndRollupMonthly,
@@ -411,14 +410,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       await db.put("shifts", updatedShift);
 
-      // Generate daily shift summary
-      await generateDailyShiftSummary(updatedShift);
-
       // Check if month changed, trigger monthly rollup
       await checkAndRollupMonthly();
 
       // Trigger backup to Google Drive (fire-and-forget)
       triggerBackupToGoogleDrive();
+
+      // Delete shift after backup initiation (fire-and-forget)
+      deleteShiftAfterBackup(updatedShift.shiftId).catch(() => {
+        // Silent failure - non-critical
+      });
 
       // Send shift report as calendar event (fire-and-forget)
       sendShiftReportToCalendar(updatedShift);

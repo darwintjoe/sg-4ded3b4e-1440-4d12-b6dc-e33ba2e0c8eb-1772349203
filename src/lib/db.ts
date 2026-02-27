@@ -373,7 +373,7 @@ export class Database {
     return this.put(storeName, data);
   }
 
-  async delete(storeName: string, id: number): Promise<void> {
+  async delete(storeName: string, id: number | string): Promise<void> {
     // BLOCK: Read-only mode
     if (this.isPreviewMode()) {
       throw new Error("Cannot delete data in Preview Mode");
