@@ -110,8 +110,8 @@ export class SheetsExportService {
         receiptNumber: `${tx.shiftId}-${index + 1}`,
         timestamp: new Date(tx.timestamp).toISOString(),
         description,
-        tax: tx.tax,
-        service: 0, // No service charge field in Transaction type
+        tax1: tx.tax1 || 0,
+        tax2: tx.tax2 || 0,
         total: tx.total,
         paymentMethod: primaryMethod,
         cashAmount,
@@ -350,7 +350,7 @@ export class SheetsExportService {
 
       // Header labels row 2
       const headers = [
-        "No", "Waktu", "Deskripsi", "Pajak", "Servis", "Total",
+        "No", "Waktu", "Deskripsi", "Tax1", "Tax2", "Total",
         "Tunai", "QRIS", "Transfer"
       ];
 
@@ -374,8 +374,8 @@ export class SheetsExportService {
       // Add SUM formulas to row 1 (D1:I1)
       const formulas = [
         "", "", "", // A, B, C empty
-        "=SUM(D3:D)",    // D: Pajak sum
-        "=SUM(E3:E)",    // E: Servis sum
+        "=SUM(D3:D)",    // D: Tax1 sum
+        "=SUM(E3:E)",    // E: Tax2 sum
         "=SUM(F3:F)",    // F: Total sum
         "=SUM(G3:G)",    // G: Tunai sum
         "=SUM(H3:H)",    // H: QRIS sum
@@ -485,12 +485,12 @@ export class SheetsExportService {
         startRow - 2 + index, // Auto-increment number
         this.formatTime(tx.timestamp),
         tx.description.substring(0, 100), // Limit description length
-        tx.tax,
-        tx.service,
+        tx.tax1,
+        tx.tax2,
         tx.total,
-        tx.paymentMethod === "cash" ? tx.total : 0,
-        tx.paymentMethod === "qris" ? tx.total : 0,
-        tx.paymentMethod === "transfer" ? tx.total : 0,
+        tx.cashAmount,
+        tx.qrisAmount,
+        tx.transferAmount,
       ]);
 
       // Append rows

@@ -93,6 +93,8 @@ export interface Transaction {
   mode: POSMode;
   items: CartItem[];
   subtotal: number;
+  tax1: number;
+  tax2: number;
   tax: number;
   total: number;
   payments: PaymentRecord[];
@@ -443,8 +445,8 @@ export interface TransactionRow {
   receiptNumber: string;
   timestamp: string;
   description: string;
-  tax: number;
-  service: number;
+  tax1: number;
+  tax2: number;
   total: number;
   paymentMethod: "cash" | "qris" | "transfer" | string;
   cashAmount: number;
