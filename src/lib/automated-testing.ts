@@ -259,6 +259,8 @@ export class AutomatedTester {
             }
           ],
           subtotal: 50000,
+          tax1: 0,
+          tax2: 0,
           tax: 0,
           total: 50000,
           payments: [{ method: "cash", amount: 50000 }],
@@ -375,6 +377,8 @@ export class AutomatedTester {
             totalPrice: 50000 
           }],
           subtotal: 50000,
+          tax1: 0,
+          tax2: 0,
           tax: 0,
           total: 50000,
           payments: [{ method: "cash", amount: 50000 }],
@@ -413,6 +417,8 @@ export class AutomatedTester {
             totalPrice: 100000 
           }],
           subtotal: 100000,
+          tax1: 0,
+          tax2: 0,
           tax: 0,
           total: 100000,
           payments: [
@@ -455,6 +461,8 @@ export class AutomatedTester {
             totalPrice: 50000 
           }],
           subtotal: 50000,
+          tax1: 0,
+          tax2: 0,
           tax: 0,
           total: 50000,
           payments: [{ method: "cash", amount: 100000 }],
@@ -548,6 +556,8 @@ export class AutomatedTester {
             totalPrice: testItem.price 
           }],
           subtotal: testItem.price,
+          tax1: 0,
+          tax2: 0,
           tax: 0,
           total: testItem.price,
           payments: [{ method: "cash", amount: testItem.price }],
@@ -706,6 +716,8 @@ export class AutomatedTester {
               totalPrice: item.price 
             }],
             subtotal: item.price,
+            tax1: 0,
+            tax2: 0,
             tax: 0,
             total: item.price,
             payments: [{ method: "cash", amount: item.price }],
@@ -803,6 +815,8 @@ export class AutomatedTester {
               totalPrice: item.price 
             }],
             subtotal: item.price,
+            tax1: 0,
+            tax2: 0,
             tax: 0,
             total: item.price,
             payments: [{ method: "cash", amount: item.price }],

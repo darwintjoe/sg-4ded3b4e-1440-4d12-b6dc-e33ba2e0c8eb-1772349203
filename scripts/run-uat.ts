@@ -146,6 +146,8 @@ class BackupRestoreUATRunner {
               totalPrice: items[0].price
             }],
             subtotal: items[0].price,
+            tax1: 0,
+            tax2: 0,
             tax: 0,
             total: items[0].price,
             payments: [{ method: "cash", amount: items[0].price }],
@@ -216,6 +218,8 @@ class BackupRestoreUATRunner {
               totalPrice: items[0].price
             }],
             subtotal: items[0].price,
+            tax1: 0,
+            tax2: 0,
             tax: 0,
             total: items[0].price,
             payments: [{ method: "cash", amount: items[0].price }],
