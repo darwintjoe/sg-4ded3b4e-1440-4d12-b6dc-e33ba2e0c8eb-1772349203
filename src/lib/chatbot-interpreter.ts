@@ -335,8 +335,18 @@ async function handleTransactionDetail(query: ParsedQuery): Promise<QueryResult>
     text += `Subtotal: ${formatCurrency(transaction.subtotal)}\n`;
   }
 
-  // Add tax if applicable
-  if (transaction.tax && transaction.tax > 0) {
+  // Add tax1 if applicable
+  if (transaction.tax1 && transaction.tax1 > 0) {
+    text += `Tax1: ${formatCurrency(transaction.tax1)}\n`;
+  }
+  
+  // Add tax2 if applicable
+  if (transaction.tax2 && transaction.tax2 > 0) {
+    text += `Tax2: ${formatCurrency(transaction.tax2)}\n`;
+  }
+  
+  // Fallback: show combined tax if no separate values (backward compat)
+  if ((!transaction.tax1 && !transaction.tax2) && transaction.tax && transaction.tax > 0) {
     text += `Tax: ${formatCurrency(transaction.tax)}\n`;
   }
 

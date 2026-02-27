@@ -727,10 +727,24 @@ class BluetoothPrinterService {
       commands.push(this.encodeText(this.padLine("Subtotal:", this.formatCurrency(transaction.subtotal), width)));
       commands.push(this.cmdLineFeed(1));
       
-      if (transaction.tax > 0) {
-        const taxLabel = settings.tax1Enabled && settings.tax1Inclusive 
-          ? `${settings.tax1Label} (included)` 
-          : settings.tax1Label || "Tax";
+      // Tax1 (if applicable)
+      if (transaction.tax1 && transaction.tax1 > 0) {
+        const tax1Label = settings.tax1Label || "Tax1";
+        const inclusiveNote = settings.tax1Inclusive ? " (incl)" : "";
+        commands.push(this.encodeText(this.padLine(`${tax1Label}${inclusiveNote}:`, this.formatCurrency(transaction.tax1), width)));
+        commands.push(this.cmdLineFeed(1));
+      }
+      
+      // Tax2 (if applicable)
+      if (transaction.tax2 && transaction.tax2 > 0) {
+        const tax2Label = settings.tax2Label || "Tax2";
+        commands.push(this.encodeText(this.padLine(`${tax2Label}:`, this.formatCurrency(transaction.tax2), width)));
+        commands.push(this.cmdLineFeed(1));
+      }
+      
+      // Fallback: show combined tax if no separate values (backward compat)
+      if ((!transaction.tax1 && !transaction.tax2) && transaction.tax > 0) {
+        const taxLabel = settings.tax1Label || "Tax";
         commands.push(this.encodeText(this.padLine(`${taxLabel}:`, this.formatCurrency(transaction.tax), width)));
         commands.push(this.cmdLineFeed(1));
       }
