@@ -18,16 +18,9 @@ export const ReceiptPreview = forwardRef<HTMLDivElement, ReceiptPreviewProps>(
     
     const receiptDate = new Date(transaction.timestamp);
     
-    // Calculate taxes from transaction data
-    const tax1Amount = settings.tax1Enabled ? 
-      (settings.tax1Inclusive ? 
-        transaction.items.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0)
-        : transaction.subtotal * (settings.tax1Rate / 100)) 
-      : 0;
-    
-    const tax2Amount = settings.tax2Enabled ? 
-      (transaction.subtotal * (settings.tax2Rate / 100))
-      : 0;
+    // Use stored tax values from transaction (no longer recalculating)
+    const tax1Amount = transaction.tax1 || 0;
+    const tax2Amount = transaction.tax2 || 0;
 
     return (
       <div 

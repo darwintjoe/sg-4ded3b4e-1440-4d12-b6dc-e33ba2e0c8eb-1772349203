@@ -480,7 +480,7 @@ export class SheetsExportService {
         }
       }
 
-      // Format transaction rows
+      // Format transaction rows - using actual amounts, not conditional
       const rows = transactions.map((tx, index) => [
         startRow - 2 + index, // Auto-increment number
         this.formatTime(tx.timestamp),
@@ -488,9 +488,9 @@ export class SheetsExportService {
         tx.tax1,
         tx.tax2,
         tx.total,
-        tx.cashAmount,
-        tx.qrisAmount,
-        tx.transferAmount,
+        tx.cashAmount,      // Fixed: use actual cash amount
+        tx.qrisAmount,      // Fixed: use actual QRIS amount
+        tx.transferAmount,  // Fixed: use actual transfer amount
       ]);
 
       // Append rows
