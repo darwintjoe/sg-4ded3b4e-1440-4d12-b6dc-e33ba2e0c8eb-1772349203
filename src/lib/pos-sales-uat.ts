@@ -238,6 +238,8 @@ export class POSSalesUAT {
               totalPrice: item.price * item.quantity
             })),
             subtotal: tx.total,
+            tax1: 0,
+            tax2: 0,
             tax: 0,
             total: tx.total,
             payments: payments,

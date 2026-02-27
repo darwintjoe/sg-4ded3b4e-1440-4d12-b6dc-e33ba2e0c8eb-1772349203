@@ -165,6 +165,17 @@ export function PaymentDialog({
   const completeSale = async () => {
     if (remaining > 0 || !currentUser || !currentShift || !settings) return;
 
+    // Calculate tax1 and tax2 separately
+    const calculatedTax1 = settings.tax1Enabled 
+      ? (settings.tax1Inclusive 
+          ? cart.reduce((sum, item) => sum + (item.totalPrice - (item.totalPrice / (1 + settings.tax1Rate / 100))), 0)
+          : subtotal * (settings.tax1Rate / 100))
+      : 0;
+    
+    const calculatedTax2 = settings.tax2Enabled 
+      ? subtotal * (settings.tax2Rate / 100)
+      : 0;
+
     const transaction: Transaction = {
       timestamp: Date.now(),
       businessDate: currentShift.businessDate,
@@ -174,6 +185,8 @@ export function PaymentDialog({
       mode,
       items: cart,
       subtotal,
+      tax1: Math.round(calculatedTax1),
+      tax2: Math.round(calculatedTax2),
       tax,
       total,
       payments,

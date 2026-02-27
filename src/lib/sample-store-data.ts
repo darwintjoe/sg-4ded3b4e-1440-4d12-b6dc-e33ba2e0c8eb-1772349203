@@ -640,6 +640,8 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
         mode: "retail",
         items: transactionItems,
         subtotal,
+        tax1: 0,
+        tax2: 0,
         tax: 0,
         total: subtotal,
         payments: [{
