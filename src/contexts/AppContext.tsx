@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, DailyAttendance, ShiftTransactions, BackupStatus, GoogleUser } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, ShiftTransactions, BackupStatus, GoogleUser } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -17,8 +17,6 @@ import {
   getShiftReportData 
 } from "@/lib/shift-service";
 import { 
-  cleanupOldDailyRecords, 
-  archiveColdData, 
   checkAndRollupMonthly,
   runStartupCleanup
 } from "@/lib/data-rollup-service";
@@ -419,9 +417,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Check if month changed, trigger monthly rollup
       await checkAndRollupMonthly();
 
-      // Move cold data (older than 30 days - updated from 7 days)
-      await archiveColdData();
-
       // Trigger backup to Google Drive (fire-and-forget)
       triggerBackupToGoogleDrive();
 
@@ -660,43 +655,10 @@ PAYMENT BREAKDOWN:
     }
 
     const clockOutTime = Date.now();
-    const hoursWorked = (clockOutTime - activeRecord.clockIn) / (1000 * 60 * 60);
 
-    // Get late status from clock-in record (already calculated at clock-in)
-    const isLate = activeRecord.isLate || false;
-    const lateMinutes = activeRecord.lateMinutes || 0;
-
-    // Calculate early leave at clock-out time
-    let earlyLeaveMinutes = 0;
-
-    if (activeRecord.scheduledEnd) {
-      const [scheduledHour, scheduledMin] = activeRecord.scheduledEnd.split(":").map(Number);
-      const clockOutDate = new Date(clockOutTime);
-      const scheduledEndTime = new Date(clockOutDate);
-      scheduledEndTime.setHours(scheduledHour, scheduledMin, 0, 0);
-
-      if (clockOutTime < scheduledEndTime.getTime()) {
-        earlyLeaveMinutes = Math.round((scheduledEndTime.getTime() - clockOutTime) / (1000 * 60));
-      }
-    }
-
+    // Update the attendance record with clock out time
     activeRecord.clockOut = clockOutTime;
     await db.put("attendance", activeRecord);
-
-    // Update dailyAttendance summary (upsert pattern)
-    const dailyAttendance: DailyAttendance = {
-      employeeId: employee.id!,
-      employeeName: employee.name,
-      date: today,
-      clockIn: activeRecord.clockIn,
-      clockOut: clockOutTime,
-      hoursWorked,
-      isLate,
-      lateMinutes: lateMinutes > 0 ? lateMinutes : undefined,
-      earlyLeaveMinutes: earlyLeaveMinutes > 0 ? earlyLeaveMinutes : undefined
-    };
-
-    await db.upsert("dailyAttendance", ["date", "employeeId"], dailyAttendance);
 
     // Play clock-out beep sound
     playBeepSound("clockOut");

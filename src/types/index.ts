@@ -376,7 +376,7 @@ export interface BackupData {
   shifts: Shift[];
   dailyItemSales: DailyItemSales[];
   dailyPaymentSales: DailyPaymentSales[];
-  dailyAttendance: DailyAttendance[];
+  attendance: AttendanceRecord[];
   monthlyItemSales: MonthlyItemSales[];
   monthlySalesSummary: MonthlySalesSummary[];
   monthlyAttendanceSummary: MonthlyAttendanceSummary[];
