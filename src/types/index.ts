@@ -124,19 +124,6 @@ export interface ShiftTransactions {
 // Daily Aggregates
 // ==========================================
 
-export interface DailyAttendance {
-  id?: number;
-  employeeId: number;
-  employeeName: string;
-  date: string;
-  clockIn: number;
-  clockOut: number;
-  hoursWorked: number;
-  isLate: boolean;
-  lateMinutes?: number;
-  earlyLeaveMinutes?: number;
-}
-
 export interface DailyItemSales {
   id?: number;
   itemId: number;
