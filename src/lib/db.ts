@@ -164,15 +164,9 @@ export class Database {
           console.log("  ✅ Created: dailyPaymentSales");
         }
 
-        if (!db.objectStoreNames.contains("dailyAttendance")) {
-          const dailyAttendanceStore = db.createObjectStore("dailyAttendance", {
-            keyPath: "id",
-            autoIncrement: true,
-          });
-          dailyAttendanceStore.createIndex("businessDate", "businessDate", { unique: false });
-          dailyAttendanceStore.createIndex("employeeId", "employeeId", { unique: false });
-          console.log("  ✅ Created: dailyAttendance");
-        }
+        // REMOVED: dailyAttendance table - no longer needed
+        // Raw attendance records are used directly for current month reporting
+        // and rolled up to monthlyAttendanceSummary for historical data
 
         // Version 2+: Create monthly summary stores
         if (!db.objectStoreNames.contains("monthlyItemSales")) {
