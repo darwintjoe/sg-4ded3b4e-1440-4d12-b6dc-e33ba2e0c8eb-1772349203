@@ -285,10 +285,9 @@ export class BackupService {
         return shiftDate >= cutoffDate;
       });
 
-      // Daily summaries - FIXED: Last 60 days only
+      // Daily summaries - Last 60 days only
       let dailyItemSales: any[] = [];
       let dailyPaymentSales: any[] = [];
-      let dailyAttendance: any[] = [];
 
       try {
         const allDailyItems = await db.getAll("dailyItemSales");
@@ -304,11 +303,17 @@ export class BackupService {
         console.warn("dailyPaymentSales store not found, skipping");
       }
 
+      // Attendance - Last 3 months (90 days) for employee detail cards
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const attendanceCutoff = threeMonthsAgo.toISOString().split("T")[0];
+      
+      let attendance: any[] = [];
       try {
-        const allDailyAttendance = await db.getAll("dailyAttendance");
-        dailyAttendance = allDailyAttendance.filter((d: any) => d.date >= cutoffDate);
+        const allAttendance = await db.getAll("attendance");
+        attendance = allAttendance.filter((d: any) => d.date >= attendanceCutoff);
       } catch (e) {
-        console.warn("dailyAttendance store not found, skipping");
+        console.warn("attendance store not found, skipping");
       }
 
       // Monthly summaries - Keep ALL (historical data)
@@ -342,7 +347,7 @@ export class BackupService {
         shifts,
         dailyItemSales,
         dailyPaymentSales,
-        dailyAttendance,
+        attendance,
         monthlyItemSales,
         monthlySalesSummary,
         monthlyAttendanceSummary
@@ -370,7 +375,7 @@ export class BackupService {
         shifts,
         dailyItemSales,
         dailyPaymentSales,
-        dailyAttendance,
+        attendance,
         monthlyItemSales,
         monthlySalesSummary,
         monthlyAttendanceSummary
@@ -581,7 +586,7 @@ export class BackupService {
         shifts: backupData.shifts,
         dailyItemSales: backupData.dailyItemSales,
         dailyPaymentSales: backupData.dailyPaymentSales,
-        dailyAttendance: backupData.dailyAttendance,
+        attendance: backupData.attendance,
         monthlyItemSales: backupData.monthlyItemSales,
         monthlySalesSummary: backupData.monthlySalesSummary,
         monthlyAttendanceSummary: backupData.monthlyAttendanceSummary
@@ -653,7 +658,7 @@ export class BackupService {
         shifts: backupData.shifts,
         dailyItemSales: backupData.dailyItemSales,
         dailyPaymentSales: backupData.dailyPaymentSales,
-        dailyAttendance: backupData.dailyAttendance,
+        attendance: backupData.attendance,
         monthlyItemSales: backupData.monthlyItemSales,
         monthlySalesSummary: backupData.monthlySalesSummary,
         monthlyAttendanceSummary: backupData.monthlyAttendanceSummary
@@ -786,7 +791,7 @@ export class BackupService {
       await db.clear("shifts");
       await db.clear("dailyItemSales");
       await db.clear("dailyPaymentSales");
-      await db.clear("dailyAttendance");
+      await db.clear("attendance");
       await db.clear("monthlyItemSales");
       await db.clear("monthlySalesSummary");
       await db.clear("monthlyAttendanceSummary");
@@ -818,8 +823,8 @@ export class BackupService {
       for (const record of backupData.dailyPaymentSales) {
         await db.add("dailyPaymentSales", record);
       }
-      for (const record of backupData.dailyAttendance) {
-        await db.add("dailyAttendance", record);
+      for (const record of backupData.attendance) {
+        await db.add("attendance", record);
       }
 
       this.restoreState.progress = 80;
@@ -889,7 +894,7 @@ export class BackupService {
       await db.clear("shifts");
       await db.clear("dailyItemSales");
       await db.clear("dailyPaymentSales");
-      await db.clear("dailyAttendance");
+      await db.clear("attendance");
       await db.clear("monthlyItemSales");
       await db.clear("monthlySalesSummary");
       await db.clear("monthlyAttendanceSummary");
@@ -916,8 +921,8 @@ export class BackupService {
       for (const record of backupData.dailyPaymentSales) {
         await db.add("dailyPaymentSales", record);
       }
-      for (const record of backupData.dailyAttendance) {
-        await db.add("dailyAttendance", record);
+      for (const record of backupData.attendance) {
+        await db.add("attendance", record);
       }
       for (const record of backupData.monthlyItemSales) {
         await db.add("monthlyItemSales", record);

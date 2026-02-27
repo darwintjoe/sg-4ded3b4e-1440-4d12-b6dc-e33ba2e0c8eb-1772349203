@@ -179,8 +179,8 @@ export function RestorePreviewDialog({
                 <span className="font-medium">{backupData.dailyPaymentSales.length} days</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Daily Attendance:</span>
-                <span className="font-medium">{backupData.dailyAttendance.length} days</span>
+                <span className="text-muted-foreground">Attendance Records:</span>
+                <span className="font-medium">{backupData.attendance.length} records (last 3 months)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Monthly Item Sales:</span>

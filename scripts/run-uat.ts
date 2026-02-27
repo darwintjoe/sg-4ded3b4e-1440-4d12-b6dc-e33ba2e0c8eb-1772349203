@@ -340,7 +340,7 @@ class BackupRestoreUATRunner {
       shifts: [],
       dailyItemSales: [],
       dailyPaymentSales: [],
-      dailyAttendance: [],
+      attendance: [],
       monthlyItemSales: [],
       monthlySalesSummary: [],
       monthlyAttendanceSummary: [],

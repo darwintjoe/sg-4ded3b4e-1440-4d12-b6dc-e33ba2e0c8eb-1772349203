@@ -324,9 +324,9 @@ export function SettingsPanel() {
         }
       }
 
-      if (data.dailyAttendance) {
-        for (const record of data.dailyAttendance) {
-          await db.add("dailyAttendance", record);
+      if (data.attendance) {
+        for (const record of data.attendance) {
+          await db.add("attendance", record);
         }
       }
 
