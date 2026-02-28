@@ -678,7 +678,7 @@ export function generateSampleTransactions(items: Item[], employees: Employee[],
       const checkIn = new Date(d);
       checkIn.setHours(checkInHour, checkInMinute, 0, 0);
       
-      const workHours = 7 + Math.floor(Math.random() * 3);
+      const workHours = 7 + Math.floor(Math.random() * 2);
       const checkOut = new Date(checkIn);
       checkOut.setHours(checkIn.getHours() + workHours);
       
@@ -898,6 +898,7 @@ export function getDefaultSettings(): Settings {
     businessLogo: undefined,
     receiptLogoBase64: undefined,
     businessAddress: "",
+    businessPhone: "",
     taxId: "",
     businessTaxId: "",
     receiptFooter: "Thank you for your purchase!",
