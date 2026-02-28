@@ -10,7 +10,7 @@
  * GPS location is optional - if unavailable, server keeps last known location.
  */
 
-import { appLog } from "./logger";
+import { logger } from "./logger";
 
 const WORKER_URL = "https://pos-coverage.applocator.workers.dev";
 const API_KEY = "applocatordevice123";
@@ -41,7 +41,7 @@ class POSPingerService {
    */
   start(config: PingerConfig): void {
     if (!config.deviceId) {
-      appLog("pinger", "warn", "Cannot start pinger - no Business ID configured");
+      logger.warn("Pinger", "Cannot start pinger - no Business ID configured");
       return;
     }
 
@@ -66,7 +66,7 @@ class POSPingerService {
     };
     document.addEventListener("visibilitychange", this.visHandler);
 
-    appLog("pinger", "info", `Started - Device: ${this.deviceId}, Store: ${this.storeName}`);
+    logger.info("Pinger", `Started - Device: ${this.deviceId}, Store: ${this.storeName}`);
   }
 
   /**
@@ -82,7 +82,7 @@ class POSPingerService {
       document.removeEventListener("visibilitychange", this.visHandler);
       this.visHandler = null;
     }
-    appLog("pinger", "info", "Stopped");
+    logger.info("Pinger", "Stopped");
   }
 
   /**
@@ -147,9 +147,9 @@ class POSPingerService {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      appLog("pinger", "debug", "Ping OK");
+      logger.debug("Pinger", "Ping OK");
     } catch (err) {
-      appLog("pinger", "warn", `Ping failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      logger.warn("Pinger", `Ping failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   }
 

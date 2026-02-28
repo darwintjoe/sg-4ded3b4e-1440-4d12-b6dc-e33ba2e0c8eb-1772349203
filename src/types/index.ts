@@ -278,6 +278,7 @@ export interface Settings {
   language: Language;
   printerWidth: number;
   businessName: string;
+  businessId?: string;  // Unique ID for pinger/monitoring
   businessLogo?: string;
   receiptLogoBase64?: string;
   businessAddress?: string;
