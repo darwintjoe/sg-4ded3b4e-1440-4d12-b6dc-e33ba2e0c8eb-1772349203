@@ -135,13 +135,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLanguageState(loadedSettings.language as Language);
       console.log("✅ Settings loaded");
 
-      // Start pinger service with business settings
-      if (loadedSettings.businessId) {
-        pingerService.start({
-          deviceId: loadedSettings.businessId,
-          storeName: loadedSettings.businessName || "",
-        });
-      }
+      // Start pinger service with business name
+      pingerService.start(loadedSettings.businessName || "");
 
       // Check for active cashier session
       const activeSession = await db.getById<CashierSession>("cashierSession", 1);
@@ -179,11 +174,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setModeState(newSettings.mode);
     setLanguageState(newSettings.language as Language);
     
-    // Update pinger with new business settings
-    pingerService.updateConfig({
-      deviceId: newSettings.businessId || "",
-      storeName: newSettings.businessName || "",
-    });
+    // Update pinger with new business name
+    pingerService.updateBusinessName(newSettings.businessName || "");
   };
 
   const saveSessionState = async () => {
