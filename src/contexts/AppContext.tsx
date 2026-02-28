@@ -21,6 +21,7 @@ import {
 } from "@/lib/data-rollup-service";
 import { appLog } from "@/lib/logger";
 import { playBeepSound } from "@/lib/utils";
+import { pingerService } from "@/lib/pinger-service";
 
 interface AppContextType {
   mode: POSMode;
@@ -134,6 +135,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLanguageState(loadedSettings.language as Language);
       console.log("✅ Settings loaded");
 
+      // Start pinger service with business settings
+      if (loadedSettings.businessId) {
+        pingerService.start({
+          deviceId: loadedSettings.businessId,
+          storeName: loadedSettings.businessName || "",
+        });
+      }
+
       // Check for active cashier session
       const activeSession = await db.getById<CashierSession>("cashierSession", 1);
       if (activeSession && activeSession.shiftActive) {
@@ -169,6 +178,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSettingsState(newSettings);
     setModeState(newSettings.mode);
     setLanguageState(newSettings.language as Language);
+    
+    // Update pinger with new business settings
+    pingerService.updateConfig({
+      deviceId: newSettings.businessId || "",
+      storeName: newSettings.businessName || "",
+    });
   };
 
   const saveSessionState = async () => {
