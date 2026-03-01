@@ -1,185 +1,146 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
-import { CheckCircle2, Clock, X, UserCheck, UserX } from "lucide-react";
 import { translate } from "@/lib/translations";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { ArrowLeft, Clock } from "lucide-react";
+import { LanguageSelector } from "./LanguageSelector";
 
-export function AttendanceScreen({ onBack }: { onBack: () => void }) {
+interface AttendanceScreenProps {
+  onBack: () => void;
+}
+
+export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
   const { clockIn, clockOut, language } = useApp();
-  const [mode, setMode] = useState<"clockIn" | "clockOut">("clockIn");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
-
-  const handlePinInput = (digit: string) => {
-    if (pin.length < 6) {
-      setPin(pin + digit);
-    }
-  };
-
-  const handleBackspace = () => {
-    setPin(pin.slice(0, -1));
-    setError("");
-  };
+  const [success, setSuccess] = useState("");
+  const [mode, setMode] = useState<"clockIn" | "clockOut">("clockIn");
 
   const handleSubmit = async () => {
     if (pin.length < 4) {
-      setError(translate("login.invalid", language));
+      setError(translate("login.pinRequired", language));
       return;
     }
 
-    const result = mode === "clockIn" ? await clockIn(pin) : await clockOut(pin);
-    
+    setError("");
+    setSuccess("");
+
+    const result = mode === "clockIn" 
+      ? await clockIn(pin)
+      : await clockOut(pin);
+
     if (result.success) {
-      setSuccessMessage(translate(result.message, language));
-      setShowSuccess(true);
+      setSuccess(translate(result.message, language));
       setPin("");
-      setError("");
-      setTimeout(() => {
-        setShowSuccess(false);
-        setPin("");
-      }, 2000);
+      setTimeout(() => setSuccess(""), 3000);
     } else {
       setError(translate(result.message, language));
-      setPin("");
     }
   };
 
-  if (showSuccess) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-green-600 to-emerald-700 p-4 overflow-hidden">
-        <div className="text-center space-y-8 animate-in fade-in zoom-in duration-500">
-          <CheckCircle2 className="h-32 w-32 mx-auto text-white animate-pulse" strokeWidth={2} />
-          <p className="text-3xl font-black text-white px-4">
-            {successMessage}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-900 via-cyan-900 to-teal-900 p-4 overflow-hidden relative">
-      {/* Top Bar */}
-      <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-10">
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={onBack} 
-          className="h-10 w-10 rounded-lg shadow-lg hover:shadow-xl transition-all bg-white/10 backdrop-blur border-white/20 hover:bg-white/20"
-        >
-          <X className="h-4 w-4 text-white" />
-        </Button>
+    <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-teal-100 dark:from-gray-900 dark:to-gray-800 p-6">
+      <div className="absolute top-6 right-6">
         <LanguageSelector />
       </div>
 
-      {/* Error Message - Absolute positioned */}
-      {error && (
-        <div className="absolute top-20 left-4 right-4 z-20 animate-in fade-in slide-in-from-top-2">
-          <div className="bg-red-500/20 border-2 border-red-400 rounded-xl px-4 py-2 max-w-md mx-auto">
-            <p className="text-center text-sm text-red-200 font-semibold">
-              {error}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content - Fixed position layout */}
-      <div className="w-full max-w-sm flex flex-col items-center">
-        {/* Clock Icon */}
-        <div className="flex justify-center mb-3">
-          <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-4 rounded-2xl shadow-2xl">
-            <Clock className="h-12 w-12 text-white" />
-          </div>
-        </div>
+      <div className="w-full max-w-md space-y-8">
+        {/* Back button */}
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span>{translate("common.back", language)}</span>
+        </button>
 
         {/* Title */}
-        <h1 className="text-3xl font-black tracking-tight text-white text-center mb-1">
-          ATTENDANCE
-        </h1>
-        <p className="text-sm text-cyan-200 font-medium text-center mb-3">
-          {translate("attendance.subtitle", language)}
-        </p>
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center shadow-lg">
+              <Clock className="w-10 h-10 text-white" />
+            </div>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+            {translate("attendance.title", language)}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            {translate("attendance.subtitle", language)}
+          </p>
+        </div>
 
-        {/* Mode Selector - Compact */}
-        <div className="w-full grid grid-cols-2 gap-2 mb-4">
+        {/* Mode Toggle */}
+        <div className="flex gap-2 p-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
           <button
             onClick={() => setMode("clockIn")}
-            className={`h-14 rounded-lg text-xs font-bold transition-all shadow-lg hover:shadow-xl ${
+            className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
               mode === "clockIn"
-                ? "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 scale-105 text-white"
-                : "bg-white/10 backdrop-blur hover:bg-green-500/30 border border-white/20 text-white"
+                ? "bg-green-500 text-white shadow-md"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
-            <div className="flex flex-col items-center gap-1">
-              <UserCheck className="h-5 w-5" />
-              <span>{translate("login.clockIn", language)}</span>
-            </div>
+            {translate("login.clockIn", language)}
           </button>
           <button
             onClick={() => setMode("clockOut")}
-            className={`h-14 rounded-lg text-xs font-bold transition-all shadow-lg hover:shadow-xl ${
+            className={`flex-1 py-3 px-4 rounded-md font-medium transition-all ${
               mode === "clockOut"
-                ? "bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 scale-105 text-white"
-                : "bg-white/10 backdrop-blur hover:bg-red-500/30 border border-white/20 text-white"
+                ? "bg-teal-500 text-white shadow-md"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
-            <div className="flex flex-col items-center gap-1">
-              <UserX className="h-5 w-5" />
-              <span>{translate("login.clockOut", language)}</span>
-            </div>
+            {translate("login.clockOut", language)}
           </button>
         </div>
 
-        {/* PIN Display */}
-        <div className="flex justify-center gap-3 mb-6">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className={`h-2.5 w-2.5 rounded-full border-2 transition-all duration-300 ${
-                i < pin.length
-                  ? "bg-cyan-400 border-cyan-400 scale-125 shadow-lg shadow-cyan-300/50"
-                  : "bg-white/20 border-white/40"
-              }`}
+        {/* PIN Input */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              {translate("login.enterPin", language)}
+            </label>
+            <Input
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit();
+              }}
+              placeholder="••••"
+              className="text-2xl text-center tracking-widest h-14"
+              maxLength={6}
+              autoFocus
             />
-          ))}
-        </div>
+          </div>
 
-        {/* Number Pad - Standardized circular buttons (EXACT SAME as LoginScreen) */}
-        <div className="w-full max-w-[280px]">
-          <div className="grid grid-cols-3 gap-4 mb-3">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                onClick={() => handlePinInput(num.toString())}
-                className="h-14 w-14 mx-auto rounded-full text-xl font-bold bg-white/10 backdrop-blur hover:bg-cyan-500/30 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-white/20 text-white"
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <button
-              onClick={handleBackspace}
-              className="h-14 w-14 mx-auto rounded-full text-lg bg-white/10 backdrop-blur hover:bg-red-500/30 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-white/20 text-white"
-            >
-              ←
-            </button>
-            <button
-              onClick={() => handlePinInput("0")}
-              className="h-14 w-14 mx-auto rounded-full text-xl font-bold bg-white/10 backdrop-blur hover:bg-cyan-500/30 hover:scale-105 active:scale-95 transition-all shadow-md hover:shadow-xl border border-white/20 text-white"
-            >
-              0
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="h-14 w-14 mx-auto rounded-full text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-500 hover:to-blue-600 hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-xl text-zinc-900"
-            >
-              ✓
-            </button>
-          </div>
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400 text-center">
+                {error}
+              </p>
+            </div>
+          )}
+
+          {success && (
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <p className="text-sm text-green-600 dark:text-green-400 text-center">
+                {success}
+              </p>
+            </div>
+          )}
+
+          <Button
+            onClick={handleSubmit}
+            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700"
+            disabled={pin.length < 4}
+          >
+            {mode === "clockIn" 
+              ? translate("login.clockIn", language)
+              : translate("login.clockOut", language)
+            }
+          </Button>
         </div>
       </div>
     </div>

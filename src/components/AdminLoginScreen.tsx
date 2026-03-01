@@ -1,17 +1,19 @@
 import { useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
-import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
-import { Settings, X } from "lucide-react";
 import { translate } from "@/lib/translations";
-import { LanguageSelector } from "@/components/LanguageSelector";
+import { ArrowLeft } from "lucide-react";
+import { LanguageSelector } from "./LanguageSelector";
 
-export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
-  const { loginAdmin, loginAdminViaGoogle, language } = useApp();
-  const { signIn, isSignedIn, signOut } = useGoogleAuth();
+interface AdminLoginScreenProps {
+  onBack: () => void;
+}
+
+export function AdminLoginScreen({ onBack }: AdminLoginScreenProps) {
+  const { loginAdmin, language } = useApp();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -37,33 +39,6 @@ export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    setError("");
-    
-    try {
-      // 1. Trigger Google Sign In
-      const result = await signIn();
-      
-      if (result.success && result.user?.email) {
-        // 2. Attempt to login as admin with this email
-        const success = await loginAdminViaGoogle(result.user.email);
-        
-        if (!success) {
-          setError("This Google account is not linked to Admin access.");
-          // Optional: Sign them out if not authorized
-          signOut();
-        }
-      } else {
-        setError(result.error || "Google sign-in failed");
-      }
-    } catch (e) {
-      setError("An error occurred during sign in");
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-amber-900 via-orange-900 to-yellow-900 p-4 overflow-hidden relative">
       {/* Top Bar */}
@@ -74,7 +49,7 @@ export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
           onClick={onBack} 
           className="h-10 w-10 rounded-lg shadow-lg hover:shadow-xl transition-all bg-white/10 backdrop-blur border-white/20 hover:bg-white/20"
         >
-          <X className="h-4 w-4 text-white" />
+          <ArrowLeft className="h-4 w-4 text-white" />
         </Button>
         <LanguageSelector />
       </div>
