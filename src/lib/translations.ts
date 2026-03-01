@@ -858,7 +858,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.admin": "行政",
     "employees.allRoles": "所有角色",
     "employees.cashier": "出纳员",
-    "employees.createRole": "创建"{role}"",
+    "employees.createRole": "创建\"{role}\"",
     "employees.deleteEmployee": "删除员工",
     "employees.editEmployee": "编辑员工",
     "employees.employee": "员工",
