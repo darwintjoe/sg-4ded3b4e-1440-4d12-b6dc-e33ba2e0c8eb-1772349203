@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "tsx scripts/check-and-translate.ts && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "translate": "tsx scripts/translate.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
