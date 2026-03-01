@@ -122,10 +122,10 @@ function parseTranslationsFile(content: string): {
 
   const translationsContent = translationsMatch[1];
 
-  // Extract each language section
-  const enMatch = translationsContent.match(/en:\s*\{([\s\S]*?)\n\s*\},?\s*(?=\n\s*(?:id:|zh:|$))/);
-  const idMatch = translationsContent.match(/id:\s*\{([\s\S]*?)\n\s*\},?\s*(?=\n\s*(?:zh:|$))/);
-  const zhMatch = translationsContent.match(/zh:\s*\{([\s\S]*?)\n\s*\},?\s*$/);
+  // Extract each language section - more flexible pattern
+  const enMatch = translationsContent.match(/en:\s*\{([\s\S]*?)\n\s*\},\s*\n/);
+  const idMatch = translationsContent.match(/id:\s*\{([\s\S]*?)\n\s*\},\s*\n/);
+  const zhMatch = translationsContent.match(/zh:\s*\{([\s\S]*?)\n\s*\},?\s*\n/);
 
   if (!enMatch) {
     throw new Error("Could not find English translations in file");
@@ -133,17 +133,29 @@ function parseTranslationsFile(content: string): {
 
   const parseObject = (str: string): Record<string, string> => {
     const result: Record<string, string> = {};
-    // Match "key": "value" patterns (with proper quote handling)
-    const regex = /"([^"]+)":\s*"((?:[^"\\]|\\.)*)"/g;
-    let match;
-    while ((match = regex.exec(str)) !== null) {
-      // Unescape the value
-      result[match[1]] = match[2]
-        .replace(/\\"/g, '"')
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\t/g, '\t')
-        .replace(/\\\\/g, '\\');
+    // Match "key": "value" patterns (with proper quote handling and multiline support)
+    const lines = str.split('\n');
+    let currentKey = '';
+    let currentValue = '';
+    let inValue = false;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      
+      // Skip comments and empty lines
+      if (trimmed.startsWith('//') || trimmed === '') continue;
+      
+      // Match key: "value" pattern
+      const match = trimmed.match(/"([^"]+)":\s*"(.*?)"\s*,?$/);
+      if (match) {
+        const [, key, value] = match;
+        result[key] = value
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t')
+          .replace(/\\\\/g, '\\');
+      }
     }
     return result;
   };
@@ -170,7 +182,7 @@ function generateTranslationObject(
 ): string {
   const entries = Object.entries(translations)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${indent}${key}: "${escapeForTypeScript(value)}"`)
+    .map(([key, value]) => `${indent}"${key}": "${escapeForTypeScript(value)}"`)
     .join(",\n");
   
   return entries;
