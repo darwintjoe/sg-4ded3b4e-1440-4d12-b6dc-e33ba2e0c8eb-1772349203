@@ -14,10 +14,10 @@ export function AdminDashboard() {
 
   const getPageTitle = () => {
     switch(activeTab) {
-      case "settings": return "Settings";
-      case "items": return "Items";
-      case "employees": return "Employees";
-      case "reports": return "Reports";
+      case "settings": return translate("admin.settings", language);
+      case "items": return translate("admin.items", language);
+      case "employees": return translate("admin.employees", language);
+      case "reports": return translate("admin.reports", language);
       default: return "Admin";
     }
   };
@@ -61,7 +61,7 @@ export function AdminDashboard() {
               }`}
             >
               <Settings className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Settings</span>
+              <span className="text-xs font-medium">{translate("admin.settings", language)}</span>
             </button>
 
             <button
@@ -73,7 +73,7 @@ export function AdminDashboard() {
               }`}
             >
               <Package className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Items</span>
+              <span className="text-xs font-medium">{translate("admin.items", language)}</span>
             </button>
 
             <button
@@ -85,7 +85,7 @@ export function AdminDashboard() {
               }`}
             >
               <Users className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Employees</span>
+              <span className="text-xs font-medium">{translate("admin.employees", language)}</span>
             </button>
 
             <button
@@ -97,7 +97,7 @@ export function AdminDashboard() {
               }`}
             >
               <BarChart3 className="h-5 w-5 mb-1" />
-              <span className="text-xs font-medium">Reports</span>
+              <span className="text-xs font-medium">{translate("admin.reports", language)}</span>
             </button>
           </div>
         </div>

@@ -91,6 +91,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loadingStatus, setLoadingStatus] = useState("Initializing system...");
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Derived state for language
+  const language: Language = (settings?.language as Language) || "en";
+
   // Google Auth integration
   const googleAuth = useGoogleAuth();
 
@@ -133,7 +136,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const loadedSettings = await db.getSettings();
       setSettingsState(loadedSettings);
       setModeState(loadedSettings.mode);
-      setLanguageState(loadedSettings.language as Language);
       console.log("✅ Settings loaded");
 
       // Start pinger service with business name
@@ -174,11 +176,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
-    
-    // Sync language state if language changed
-    if (newSettings.language) {
-      setLanguageState(newSettings.language as Language);
-    }
     
     // Sync mode state if mode changed
     if (newSettings.mode) {
@@ -301,10 +298,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const setLanguage = async (lang: Language) => {
-    setLanguageState(lang);
-    const settings = await db.getSettings();
-    settings.language = lang;
-    await db.updateSettings(settings);
+    await updateSettings({ language: lang });
   };
 
   const login = async (pin: string): Promise<boolean> => {
