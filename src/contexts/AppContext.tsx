@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, ShiftTransactions, BackupStatus, GoogleUser, Item } from "@/types";
+import { POSMode, Employee, CartItem, PauseState, Language, AttendanceRecord, Shift, Transaction, DailyItemSales, DailyPaymentSales, DailyShiftSummary, MonthlyItemSales, MonthlySalesSummary, MonthlyAttendanceSummary, CashierSession, Settings, ShiftTransactions, BackupStatus, GoogleUser } from "@/types";
 import { db } from "@/lib/db";
 import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { 
@@ -54,10 +54,6 @@ interface AppContextType {
   hasActiveSession: boolean;
   isInitializing: boolean;
   loadingStatus: string;
-  items: Item[];
-  employees: Employee[];
-  deleteItem: (id: number) => Promise<void>;
-  deleteEmployee: (id: number) => Promise<void>;
   // Google Auth properties
   user: GoogleUser | null;
   isSignedIn: boolean;
@@ -94,8 +90,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState("Initializing system...");
   const [isInitialized, setIsInitialized] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Derived state for language
   const language: Language = (settings?.language as Language) || "en";
@@ -129,60 +123,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       saveSessionState();
     }
   }, [cart, currentUser, currentShift]);
-
-  // Load items and employees from database
-  useEffect(() => {
-    if (isInitialized && settings) {
-      loadItemsAndEmployees();
-    }
-  }, [isInitialized, settings]);
-
-  const loadItemsAndEmployees = async () => {
-    try {
-      const loadedItems = await db.getAll<Item>("items");
-      const loadedEmployees = await db.getAll<Employee>("employees");
-      setItems(loadedItems);
-      setEmployees(loadedEmployees);
-    } catch (error) {
-      console.error("Failed to load items and employees:", error);
-    }
-  };
-
-  const deleteItem = async (id: number) => {
-    try {
-      await db.delete("items", id);
-      setItems(prev => prev.filter(item => item.id !== id));
-      toast({
-        title: "Success",
-        description: "Item deleted successfully",
-      });
-    } catch (error) {
-      console.error("Failed to delete item:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete item",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteEmployee = async (id: number) => {
-    try {
-      await db.delete("employees", id);
-      setEmployees(prev => prev.filter(emp => emp.id !== id));
-      toast({
-        title: "Success",
-        description: "Employee deleted successfully",
-      });
-    } catch (error) {
-      console.error("Failed to delete employee:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete employee",
-        variant: "destructive",
-      });
-    }
-  };
 
   const initializeApp = async () => {
     try {
@@ -834,10 +774,6 @@ PAYMENT BREAKDOWN:
         hasActiveSession,
         isInitializing,
         loadingStatus,
-        items,
-        employees,
-        deleteItem,
-        deleteEmployee,
         ...googleAuth
       }}
     >
