@@ -8,15 +8,12 @@ type TranslationValue = string;
  * Priority: Current Language → English → Key itself
  */
 export function translate(key: TranslationKey, language: Language): string {
-  // 1. Try current language
   const currentLangValue = translations[language]?.[key];
   if (currentLangValue) return currentLangValue;
   
-  // 2. Fallback to English
   const englishValue = translations.en?.[key];
   if (englishValue) return englishValue;
   
-  // 3. Last resort: return the key itself
   return key;
 }
 
@@ -406,8 +403,6 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.taxConfiguration": "Tax Configuration"
   },
   
-  // ===== INDONESIAN - Only include translations that differ from English =====
-  // Missing keys will automatically fallback to English
   id: {
     "admin.dashboard": "Dashboard",
     "admin.employees": "Karyawan",
@@ -793,8 +788,6 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.taxConfiguration": "Konfigurasi Pajak"
   },
   
-  // ===== CHINESE - Only include translations that differ from English =====
-  // Missing keys will automatically fallback to English
   zh: {
     "admin.dashboard": "仪表板",
     "admin.employees": "雇员",
@@ -865,7 +858,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.admin": "行政",
     "employees.allRoles": "所有角色",
     "employees.cashier": "出纳员",
-    "employees.createRole": "创建“{role}”",
+    "employees.createRole": "创建"{role}"",
     "employees.deleteEmployee": "删除员工",
     "employees.editEmployee": "编辑员工",
     "employees.employee": "员工",
@@ -1180,3 +1173,5 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.taxConfiguration": "税务配置"
   },
 };
+
+export { translations };
