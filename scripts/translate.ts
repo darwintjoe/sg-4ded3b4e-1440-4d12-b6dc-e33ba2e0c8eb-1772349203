@@ -4,10 +4,10 @@
  * Usage: npm run translate
  * 
  * This script:
- * 1. Reads translations.ts
- * 2. Finds missing Indonesian (id) and Chinese (zh) translations
+ * 1. Reads all translation files from src/lib/translations/
+ * 2. Finds missing translations in non-English languages (comparing to en.ts)
  * 3. Calls Google Translate API to translate from English
- * 4. Updates translations.ts with new translations
+ * 4. Updates the respective language files with new translations
  * 
  * Setup:
  * 1. Get Google Cloud Translation API key:
@@ -31,8 +31,17 @@ import * as dotenv from "dotenv";
 // Load environment variables
 dotenv.config({ path: ".env.local" });
 
-const TRANSLATIONS_FILE = path.join(__dirname, "../src/lib/translations.ts");
+const TRANSLATIONS_DIR = path.join(__dirname, "../src/lib/translations");
 const API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
+
+// Language codes mapping for Google Translate API
+const GOOGLE_LANG_CODES: Record<string, string> = {
+  id: "id",      // Indonesian
+  zh: "zh-CN",   // Chinese (Simplified)
+  th: "th",      // Thai
+  vi: "vi",      // Vietnamese
+  my: "my",      // Myanmar (Burmese)
+};
 
 interface TranslationResult {
   translatedText: string;
@@ -59,6 +68,7 @@ async function translateText(
     );
   }
 
+  const googleLang = GOOGLE_LANG_CODES[targetLang] || targetLang;
   const url = `https://translation.googleapis.com/language/translate/v2?key=${API_KEY}`;
   
   const response = await fetch(url, {
@@ -69,7 +79,7 @@ async function translateText(
     body: JSON.stringify({
       q: texts,
       source: "en",
-      target: targetLang,
+      target: googleLang,
       format: "text",
     }),
   });
@@ -108,63 +118,25 @@ async function translateInBatches(
   return results;
 }
 
-function parseTranslationsFile(content: string): {
-  en: Record<string, string>;
-  id: Record<string, string>;
-  zh: Record<string, string>;
-} {
-  // Extract the translations object - it's a Record<Language, Record<string, string>>
-  const translationsMatch = content.match(/const translations:\s*Record<Language,\s*Record<TranslationKey,\s*TranslationValue>>\s*=\s*\{([\s\S]*?)\n\};/);
+function parseTranslationFile(filePath: string): Record<string, string> {
+  const content = fs.readFileSync(filePath, "utf-8");
+  const result: Record<string, string> = {};
   
-  if (!translationsMatch) {
-    throw new Error("Could not find translations object in file");
+  // Match "key": "value" patterns
+  const regex = /"([^"]+)":\s*"((?:[^"\\]|\\.)*)"/g;
+  let match;
+  
+  while ((match = regex.exec(content)) !== null) {
+    const [, key, value] = match;
+    result[key] = value
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\\/g, '\\');
   }
-
-  const translationsContent = translationsMatch[1];
-
-  // Extract each language section - more flexible pattern
-  const enMatch = translationsContent.match(/en:\s*\{([\s\S]*?)\n\s*\},\s*\n/);
-  const idMatch = translationsContent.match(/id:\s*\{([\s\S]*?)\n\s*\},\s*\n/);
-  const zhMatch = translationsContent.match(/zh:\s*\{([\s\S]*?)\n\s*\},?\s*\n/);
-
-  if (!enMatch) {
-    throw new Error("Could not find English translations in file");
-  }
-
-  const parseObject = (str: string): Record<string, string> => {
-    const result: Record<string, string> = {};
-    // Match "key": "value" patterns (with proper quote handling and multiline support)
-    const lines = str.split('\n');
-    let currentKey = '';
-    let currentValue = '';
-    let inValue = false;
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
-      
-      // Skip comments and empty lines
-      if (trimmed.startsWith('//') || trimmed === '') continue;
-      
-      // Match key: "value" pattern
-      const match = trimmed.match(/"([^"]+)":\s*"(.*?)"\s*,?$/);
-      if (match) {
-        const [, key, value] = match;
-        result[key] = value
-          .replace(/\\"/g, '"')
-          .replace(/\\n/g, '\n')
-          .replace(/\\r/g, '\r')
-          .replace(/\\t/g, '\t')
-          .replace(/\\\\/g, '\\');
-      }
-    }
-    return result;
-  };
-
-  return {
-    en: parseObject(enMatch[1]),
-    id: idMatch ? parseObject(idMatch[1]) : {},
-    zh: zhMatch ? parseObject(zhMatch[1]) : {},
-  };
+  
+  return result;
 }
 
 function escapeForTypeScript(str: string): string {
@@ -176,16 +148,16 @@ function escapeForTypeScript(str: string): string {
     .replace(/\t/g, "\\t");
 }
 
-function generateTranslationObject(
-  translations: Record<string, string>,
-  indent: string = "  "
+function generateTranslationFile(
+  langCode: string,
+  translations: Record<string, string>
 ): string {
   const entries = Object.entries(translations)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${indent}"${key}": "${escapeForTypeScript(value)}"`)
+    .map(([key, value]) => `  "${key}": "${escapeForTypeScript(value)}"`)
     .join(",\n");
   
-  return entries;
+  return `export const ${langCode} = {\n${entries}\n};\n`;
 }
 
 async function main() {
@@ -205,95 +177,71 @@ async function main() {
     process.exit(1);
   }
 
-  // Read translations file
-  console.log("📖 Reading translations.ts...");
-  const content = fs.readFileSync(TRANSLATIONS_FILE, "utf-8");
-  const translations = parseTranslationsFile(content);
-
-  const enKeys = Object.keys(translations.en);
+  // Read English translations (source of truth)
+  const enPath = path.join(TRANSLATIONS_DIR, "en.ts");
+  console.log("📖 Reading English translations (source of truth)...");
+  const enTranslations = parseTranslationFile(enPath);
+  const enKeys = Object.keys(enTranslations);
   console.log(`   Found ${enKeys.length} English keys\n`);
 
-  // Find missing translations
-  const missingId = enKeys.filter((key) => !translations.id[key]);
-  const missingZh = enKeys.filter((key) => !translations.zh[key]);
+  // Process each target language
+  const targetLanguages = ["id", "zh", "th", "vi", "my"];
+  let totalTranslated = 0;
+  let totalCharacters = 0;
 
-  console.log(`📋 Missing translations:`);
-  console.log(`   Indonesian (id): ${missingId.length} keys`);
-  console.log(`   Chinese (zh): ${missingZh.length} keys\n`);
-
-  if (missingId.length === 0 && missingZh.length === 0) {
-    console.log("✅ All translations are complete! Nothing to do.\n");
-    return;
-  }
-
-  // Calculate characters to translate
-  const idChars = missingId.reduce((sum, key) => sum + translations.en[key].length, 0);
-  const zhChars = missingZh.reduce((sum, key) => sum + translations.en[key].length, 0);
-  const totalChars = idChars + zhChars;
-
-  console.log(`📊 Characters to translate: ${totalChars.toLocaleString()}`);
-  console.log(`   (Free tier: 500,000/month)\n`);
-
-  // Translate Indonesian
-  if (missingId.length > 0) {
-    console.log("🇮🇩 Translating to Indonesian...");
-    const textsToTranslate = missingId.map((key) => translations.en[key]);
-    const translatedTexts = await translateInBatches(textsToTranslate, "id");
+  for (const lang of targetLanguages) {
+    const langPath = path.join(TRANSLATIONS_DIR, `${lang}.ts`);
     
-    missingId.forEach((key, index) => {
-      translations.id[key] = translatedTexts[index];
+    if (!fs.existsSync(langPath)) {
+      console.log(`⚠️  ${lang}.ts not found, creating new file...`);
+      fs.writeFileSync(langPath, `export const ${lang} = {};\n`);
+    }
+
+    const langTranslations = parseTranslationFile(langPath);
+    const missingKeys = enKeys.filter((key) => !langTranslations[key]);
+
+    console.log(`📋 ${lang.toUpperCase()}: ${missingKeys.length} missing keys`);
+
+    if (missingKeys.length === 0) {
+      console.log(`   ✅ All translations complete!\n`);
+      continue;
+    }
+
+    // Calculate characters
+    const chars = missingKeys.reduce((sum, key) => sum + enTranslations[key].length, 0);
+    totalCharacters += chars;
+
+    // Translate missing keys
+    console.log(`   Translating ${missingKeys.length} keys (${chars.toLocaleString()} characters)...`);
+    const textsToTranslate = missingKeys.map((key) => enTranslations[key]);
+    const translatedTexts = await translateInBatches(textsToTranslate, lang);
+
+    // Merge translations
+    missingKeys.forEach((key, index) => {
+      langTranslations[key] = translatedTexts[index];
     });
-    console.log(`   ✅ Translated ${missingId.length} keys\n`);
+
+    // Write updated file
+    const newContent = generateTranslationFile(lang, langTranslations);
+    fs.writeFileSync(langPath, newContent);
+
+    totalTranslated += missingKeys.length;
+    console.log(`   ✅ Updated ${lang}.ts with ${missingKeys.length} new translations\n`);
   }
 
-  // Translate Chinese
-  if (missingZh.length > 0) {
-    console.log("🇨🇳 Translating to Chinese...");
-    const textsToTranslate = missingZh.map((key) => translations.en[key]);
-    const translatedTexts = await translateInBatches(textsToTranslate, "zh");
-    
-    missingZh.forEach((key, index) => {
-      translations.zh[key] = translatedTexts[index];
-    });
-    console.log(`   ✅ Translated ${missingZh.length} keys\n`);
-  }
-
-  // Generate new file content
-  console.log("📝 Updating translations.ts...");
-  
-  // Extract everything before the translations object
-  const beforeMatch = content.match(/^[\s\S]*?(?=const translations:)/);
-  const before = beforeMatch ? beforeMatch[0] : "";
-
-  // Generate the translations object
-  const newContent = `${before}const translations: Record<Language, Record<TranslationKey, TranslationValue>> = {
-  en: {
-${generateTranslationObject(translations.en, "    ")}
-  },
-  
-  // ===== INDONESIAN - Only include translations that differ from English =====
-  // Missing keys will automatically fallback to English
-  id: {
-${generateTranslationObject(translations.id, "    ")}
-  },
-  
-  // ===== CHINESE - Only include translations that differ from English =====
-  // Missing keys will automatically fallback to English
-  zh: {
-${generateTranslationObject(translations.zh, "    ")}
-  },
-};
-`;
-
-  // Write the updated file
-  fs.writeFileSync(TRANSLATIONS_FILE, newContent, "utf-8");
-
-  console.log("✅ translations.ts updated successfully!\n");
+  // Summary
+  console.log("================================");
   console.log("📋 Summary:");
-  console.log(`   - Indonesian: ${Object.keys(translations.id).length}/${enKeys.length} keys`);
-  console.log(`   - Chinese: ${Object.keys(translations.zh).length}/${enKeys.length} keys`);
-  console.log(`   - Characters translated: ${totalChars.toLocaleString()}\n`);
-  console.log("🚀 You can now deploy your app with: vercel deploy\n");
+  console.log(`   - Total keys translated: ${totalTranslated}`);
+  console.log(`   - Total characters: ${totalCharacters.toLocaleString()}`);
+  console.log(`   - Free tier usage: ${((totalCharacters / 500000) * 100).toFixed(2)}% of monthly limit\n`);
+  
+  if (totalTranslated === 0) {
+    console.log("✅ All translations are already complete! Nothing to do.\n");
+  } else {
+    console.log("✅ Translation files updated successfully!\n");
+    console.log("🚀 You can now deploy your app with: vercel deploy\n");
+  }
 }
 
 main().catch((error) => {
