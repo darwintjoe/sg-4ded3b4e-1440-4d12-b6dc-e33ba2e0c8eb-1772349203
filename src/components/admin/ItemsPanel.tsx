@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 
 type SortField = "sku" | "name" | "price";
 type SortDirection = "asc" | "desc" | null;
@@ -51,10 +50,6 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
       </TableCell>
     </TableRow>
   );
-};
-
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value);
 };
 
 export function ItemsPanel() {
