@@ -1,18 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
+import { translations } from "@/lib/translations";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
-    const translationsPath = path.join(process.cwd(), "src", "lib", "translations.ts");
-    const fileContent = fs.readFileSync(translationsPath, "utf-8");
-
-    res.setHeader("Content-Type", "text/plain");
-    res.setHeader("Content-Disposition", "attachment; filename=translations.ts");
-    res.status(200).send(fileContent);
+    // Return all translations as a JSON file
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", "attachment; filename=translations-backup.json");
+    
+    return res.status(200).json(translations);
   } catch (error) {
-    res.status(500).json({ 
-      error: "Failed to read translations file",
+    console.error("Download error:", error);
+    return res.status(500).json({
+      error: "Internal server error",
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }

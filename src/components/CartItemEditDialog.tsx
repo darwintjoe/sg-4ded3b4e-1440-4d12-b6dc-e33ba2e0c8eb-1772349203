@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CartItem } from "@/types";
+import { CartItem, Language } from "@/types";
 import { translate } from "@/lib/translations";
-import { Language } from "@/types";
 import { Minus, Plus, Trash2, AlertCircle, Save } from "lucide-react";
 
 interface CartItemEditDialogProps {

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { translations } from "@/lib/translations";
+import { Language } from "@/types";
 import fs from "fs";
 import path from "path";
 
@@ -8,19 +9,30 @@ function getMissingKeys(
   source: Record<string, string>,
   target: Record<string, string>
 ): string[] {
-  return Object.keys(source).filter((key) => !target[key]);
+  return Object.keys(source).filter((key) => !target || !target[key]);
 }
 
 // Helper to translate text using Google Translate API
 async function translateText(text: string, targetLang: string, apiKey: string): Promise<string> {
   try {
+    // Map internal codes to Google Translate codes
+    const langMap: Record<string, string> = {
+      "zh": "zh-CN",
+      "my": "my", // Myanmar
+      "vi": "vi",
+      "th": "th",
+      "id": "id"
+    };
+    
+    const googleLang = langMap[targetLang] || targetLang;
+
     const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         q: text, 
-        target: targetLang, 
+        target: googleLang, 
         format: "text" 
       })
     });
@@ -51,87 +63,62 @@ export default async function handler(
 
     if (!GOOGLE_API_KEY) {
       return res.status(500).json({
-        error: "GOOGLE_TRANSLATE_API_KEY not configured in environment variables"
+        error: "GOOGLE_TRANSLATE_API_KEY not configured"
       });
     }
 
-    // 2. Identify Missing Translations
+    // 2. Identify Missing Translations across all languages
     const enKeys = translations.en;
-    const idKeys = translations.id || {};
-    const zhKeys = translations.zh || {};
+    const targetLanguages: Language[] = ["id", "zh", "th", "vi", "my"];
+    
+    const updates: Record<string, Record<string, string>> = {};
+    let totalMissing = 0;
+    const missingCounts: Record<string, number> = {};
 
-    const missingId = getMissingKeys(enKeys, idKeys);
-    const missingZh = getMissingKeys(enKeys, zhKeys);
+    for (const lang of targetLanguages) {
+      const currentKeys = translations[lang] || {};
+      const missing = getMissingKeys(enKeys, currentKeys);
+      
+      missingCounts[lang] = missing.length;
 
-    if (missingId.length === 0 && missingZh.length === 0) {
+      if (missing.length > 0) {
+        totalMissing += missing.length;
+        
+        // Prepare new object with existing + new translations
+        const newTrans = { ...currentKeys };
+        
+        // Translate missing keys
+        for (const key of missing) {
+          newTrans[key] = await translateText(enKeys[key], lang, GOOGLE_API_KEY);
+        }
+        
+        updates[lang] = newTrans;
+      }
+    }
+
+    if (totalMissing === 0) {
       return res.status(200).json({ 
         missingCount: 0,
         message: "All translations are up to date." 
       });
     }
 
-    // 3. Translate Missing Keys
-    const newTranslations = {
-      id: { ...idKeys },
-      zh: { ...zhKeys }
-    };
-
-    // Translate Indonesian
-    for (const key of missingId) {
-      newTranslations.id[key] = await translateText(enKeys[key], "id", GOOGLE_API_KEY);
+    // 3. Write Updated Files
+    const translationsDir = path.join(process.cwd(), "src", "lib", "translations");
+    
+    for (const [lang, content] of Object.entries(updates)) {
+      const filePath = path.join(translationsDir, `${lang}.ts`);
+      const fileContent = `export const ${lang} = ${JSON.stringify(content, null, 2)};\n`;
+      fs.writeFileSync(filePath, fileContent, "utf-8");
     }
 
-    // Translate Chinese
-    for (const key of missingZh) {
-      newTranslations.zh[key] = await translateText(enKeys[key], "zh-CN", GOOGLE_API_KEY);
-    }
-
-    // 4. Generate Updated File Content
-    const fileContent = `import type { Language } from "@/types";
-
-type TranslationKey = string;
-type TranslationValue = string;
-
-/**
- * Translation function with English fallback
- * Priority: Current Language → English → Key itself
- */
-export function translate(key: TranslationKey, language: Language): string {
-  const currentLangValue = translations[language]?.[key];
-  if (currentLangValue) return currentLangValue;
-  
-  const englishValue = translations.en?.[key];
-  if (englishValue) return englishValue;
-  
-  return key;
-}
-
-const translations: Record<Language, Record<TranslationKey, TranslationValue>> = {
-  en: ${JSON.stringify(translations.en, null, 2)},
-  
-  id: ${JSON.stringify(newTranslations.id, null, 2)},
-  
-  zh: ${JSON.stringify(newTranslations.zh, null, 2)}
-};
-
-export { translations };
-`;
-
-    // 5. Write to File
-    const translationsPath = path.join(process.cwd(), "src", "lib", "translations.ts");
-    fs.writeFileSync(translationsPath, fileContent, "utf-8");
-
-    // 6. Return Success
+    // 4. Return Success
     return res.status(200).json({
       success: true,
-      missingCount: missingId.length + missingZh.length,
-      translatedCount: missingId.length + missingZh.length,
-      languages: {
-        id: missingId.length,
-        zh: missingZh.length
-      },
-      message: "Translations updated successfully! Restart server to apply changes.",
-      downloadUrl: `/api/download-translations`
+      missingCount: totalMissing,
+      translatedCount: totalMissing,
+      languages: missingCounts,
+      message: `Updated ${Object.keys(updates).length} language files successfully! Restart server to apply.`,
     });
 
   } catch (error) {

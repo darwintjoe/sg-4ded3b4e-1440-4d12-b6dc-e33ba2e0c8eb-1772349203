@@ -1,12 +1,18 @@
-import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { X, Camera, RefreshCw } from "lucide-react";
+import { translate } from "@/lib/translations";
+import { Language } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { playBeepSound } from "@/lib/utils";
 
 interface BarcodeScannerProps {
   isOpen: boolean;
   onScan: (barcode: string) => void;
   onClose: () => void;
-  language: "en" | "id" | "zh";
+  language: Language;
 }
 
 export function BarcodeScanner({ isOpen, onScan, onClose, language }: BarcodeScannerProps) {

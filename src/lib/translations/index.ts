@@ -6,24 +6,7 @@ import { th } from "./th";
 import { vi } from "./vi";
 import { my } from "./my";
 
-type TranslationKey = string;
-type TranslationValue = string;
-
-/**
- * Translation function with English fallback
- * Priority: Current Language → English → Key itself
- */
-export function translate(key: TranslationKey, language: Language): string {
-  const currentLangValue = translations[language]?.[key];
-  if (currentLangValue) return currentLangValue;
-  
-  const englishValue = translations.en?.[key];
-  if (englishValue) return englishValue;
-  
-  return key;
-}
-
-const translations: Record<Language, Record<TranslationKey, TranslationValue>> = {
+export const translations = {
   en,
   id,
   zh,
@@ -32,4 +15,10 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
   my
 };
 
-export { translations };
+export function translate(key: string, language: Language = 'en'): string {
+  const langData = translations[language];
+  if (!langData) return key;
+  
+  // Try target language, fallback to English, then key itself
+  return (langData as any)[key] || (translations.en as any)[key] || key;
+}

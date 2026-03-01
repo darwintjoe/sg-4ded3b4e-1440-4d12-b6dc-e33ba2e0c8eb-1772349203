@@ -22,6 +22,7 @@ import {
 import { appLog } from "@/lib/logger";
 import { playBeepSound } from "@/lib/utils";
 import { pingerService } from "@/lib/pinger-service";
+import { useToast } from "@/hooks/use-toast";
 
 interface AppContextType {
   mode: POSMode;
@@ -29,7 +30,7 @@ interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   settings: Settings;
-  updateSettings: (settings: Settings) => Promise<void>;
+  updateSettings: (settings: Partial<Settings>) => Promise<void>;
   currentUser: Employee | null;
   adminUser: Employee | null;
   login: (pin: string) => Promise<boolean>;
@@ -77,6 +78,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const { toast } = useToast();
   const [mode, setModeState] = useState<POSMode>("retail");
   const [language, setLanguageState] = useState<Language>("en");
   const [settings, setSettingsState] = useState<Settings | null>(null);
@@ -168,14 +170,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateSettings = async (newSettings: Settings) => {
-    await db.updateSettings(newSettings);
-    setSettingsState(newSettings);
-    setModeState(newSettings.mode);
-    setLanguageState(newSettings.language as Language);
+  const updateSettings = async (newSettings: Partial<Settings>) => {
+    if (!settings) return;
     
-    // Update pinger with new business name
-    pingerService.updateBusinessName(newSettings.businessName || "");
+    const updated = { ...settings, ...newSettings };
+    setSettingsState(updated);
+    
+    // Persist to DB
+    try {
+      if (settings.id) {
+        await db.put("settings", updated);
+      } else {
+        await db.add("settings", updated);
+      }
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save settings",
+        variant: "destructive",
+      });
+    }
   };
 
   const saveSessionState = async () => {
