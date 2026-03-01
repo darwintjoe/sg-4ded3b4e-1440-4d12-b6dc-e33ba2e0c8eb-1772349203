@@ -23,6 +23,7 @@ interface GoogleAuthContextType {
   user: GoogleUser | null;
   isSignedIn: boolean;
   isInitialized: boolean;
+  isLoading: boolean;
   signIn: () => Promise<{ success: boolean; user?: GoogleUser; error?: string }>;
   signOut: () => void;
   createCalendarEvent: (event: CalendarEvent) => Promise<{ success: boolean; eventId?: string; error?: string }>;
@@ -46,6 +47,7 @@ const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undef
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [backupStatus, setBackupStatus] = useState<BackupStatus>({
     lastBackupTime: null,
     lastBackupStatus: null,
@@ -174,12 +176,17 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async () => {
-    const result = await googleAuth.signIn();
-    if (result.success && result.user) {
-      setUser(result.user);
-      await refreshBackupStatus();
+    setIsLoading(true);
+    try {
+      const result = await googleAuth.signIn();
+      if (result.success && result.user) {
+        setUser(result.user);
+        await refreshBackupStatus();
+      }
+      return { success: result.success, user: result.user, error: result.error };
+    } finally {
+      setIsLoading(false);
     }
-    return { success: result.success, user: result.user, error: result.error };
   };
 
   const signOut = () => {
@@ -253,6 +260,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         user,
         isSignedIn: user !== null,
         isInitialized,
+        isLoading,
         signIn,
         signOut,
         createCalendarEvent,

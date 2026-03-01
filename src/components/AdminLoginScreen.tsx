@@ -13,7 +13,7 @@ interface AdminLoginScreenProps {
 
 export function AdminLoginScreen({ onBack }: AdminLoginScreenProps) {
   const { loginAdmin, language } = useApp();
-  const { signIn, isGoogleLoading } = useGoogleAuth();
+  const { signIn, isLoading } = useGoogleAuth();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
 
@@ -101,9 +101,9 @@ export function AdminLoginScreen({ onBack }: AdminLoginScreenProps) {
             variant="outline" 
             className="w-full bg-white text-gray-700 hover:bg-gray-100 border-none shadow-md h-10 gap-2 font-medium"
             onClick={handleGoogleLogin}
-            disabled={isGoogleLoading}
+            disabled={isLoading}
           >
-            {isGoogleLoading ? (
+            {isLoading ? (
               <div className="h-4 w-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg">
