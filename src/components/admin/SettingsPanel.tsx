@@ -1016,6 +1016,7 @@ export function SettingsPanel() {
 
           <TabsContent value="backup" className="h-[calc(100vh-150px)] overflow-y-auto space-y-4 p-4 mt-0">
             <BackupSettingsCard
+              language={language}
               isSignedIn={isSignedIn}
               user={user}
               backupStatus={backupStatus}
@@ -1052,7 +1053,7 @@ export function SettingsPanel() {
               backupStatus={backupStatus}
               startPreviewProcess={startPreviewProcess}
             />
-            <AccurateIntegrationSection />
+            <AccurateIntegrationSection language={language} />
           </TabsContent>
         </div>
       </Tabs>
