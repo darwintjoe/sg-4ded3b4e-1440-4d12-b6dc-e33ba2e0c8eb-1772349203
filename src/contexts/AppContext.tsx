@@ -80,7 +80,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [mode, setModeState] = useState<POSMode>("retail");
-  const [language, setLanguageState] = useState<Language>("en");
   const [settings, setSettingsState] = useState<Settings | null>(null);
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [adminUser, setAdminUser] = useState<Employee | null>(null);
@@ -175,6 +174,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
+    
+    // Sync language state if language changed
+    if (newSettings.language) {
+      setLanguageState(newSettings.language as Language);
+    }
+    
+    // Sync mode state if mode changed
+    if (newSettings.mode) {
+      setModeState(newSettings.mode);
+    }
     
     // Persist to DB
     try {
@@ -288,9 +297,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setMode = async (newMode: POSMode) => {
     setModeState(newMode);
-    const settings = await db.getSettings();
-    settings.mode = newMode;
-    await db.updateSettings(settings);
+    await updateSettings({ mode: newMode });
   };
 
   const setLanguage = async (lang: Language) => {
