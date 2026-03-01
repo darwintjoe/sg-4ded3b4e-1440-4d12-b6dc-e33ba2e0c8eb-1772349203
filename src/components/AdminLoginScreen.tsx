@@ -3,8 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
 import { translate } from "@/lib/translations";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Settings } from "lucide-react";
 import { LanguageSelector } from "./LanguageSelector";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 
 interface AdminLoginScreenProps {
   onBack: () => void;
@@ -12,6 +13,7 @@ interface AdminLoginScreenProps {
 
 export function AdminLoginScreen({ onBack }: AdminLoginScreenProps) {
   const { loginAdmin, language } = useApp();
+  const { signIn, isGoogleLoading } = useGoogleAuth();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
 
@@ -36,6 +38,17 @@ export function AdminLoginScreen({ onBack }: AdminLoginScreenProps) {
     if (!success) {
       setError(translate("login.invalid", language));
       setPin("");
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const success = await signIn();
+      if (!success) {
+        setError(translate("login.googleFailed", language));
+      }
+    } catch (error) {
+      setError(translate("login.error", language));
     }
   };
 
