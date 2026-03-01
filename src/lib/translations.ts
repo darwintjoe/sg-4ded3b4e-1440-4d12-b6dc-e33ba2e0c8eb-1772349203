@@ -882,7 +882,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "employees.status": "地位",
     "employees.statusHint": "切换至标记为已辞职",
     "employees.title": "员工管理",
-    "employees.uniquePin": "必须唯一，4-6 位数字",
+    "employees.uniquePin": "必须唯一,4-6 位数字",
     "error.invalid": "无效值",
     "error.networkError": "网络错误",
     "error.notFound": "未找到",
@@ -1145,7 +1145,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.printer.notConnected": "未连接",
     "settings.printer.notSupported": "不支持蓝牙",
     "settings.printer.paperWidth": "纸张宽度",
-    "settings.printer.printing": "Mencetak...",
+    "settings.printer.printing": "打印中...",
     "settings.printer.showFooter": "显示页脚消息",
     "settings.printer.showLogo": "收据上显示徽标",
     "settings.printer.testPrint": "测试打印",
@@ -1171,7 +1171,7 @@ const translations: Record<Language, Record<TranslationKey, TranslationValue>> =
     "settings.tabs.pos": "POS",
     "settings.tabs.store": "店铺",
     "settings.taxConfiguration": "税务配置"
-  },
+  }
 };
 
 export { translations };
