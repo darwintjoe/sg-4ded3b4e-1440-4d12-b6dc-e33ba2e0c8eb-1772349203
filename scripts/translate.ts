@@ -113,10 +113,19 @@ function parseTranslationsFile(content: string): {
   id: Record<string, string>;
   zh: Record<string, string>;
 } {
-  // Extract the translations object using regex
-  const enMatch = content.match(/export const en:\s*Translations\s*=\s*\{([\s\S]*?)\n\};/);
-  const idMatch = content.match(/export const id:\s*Partial<Translations>\s*=\s*\{([\s\S]*?)\n\};/);
-  const zhMatch = content.match(/export const zh:\s*Partial<Translations>\s*=\s*\{([\s\S]*?)\n\};/);
+  // Extract the translations object - it's a Record<Language, Record<string, string>>
+  const translationsMatch = content.match(/const translations:\s*Record<Language,\s*Record<TranslationKey,\s*TranslationValue>>\s*=\s*\{([\s\S]*?)\n\};/);
+  
+  if (!translationsMatch) {
+    throw new Error("Could not find translations object in file");
+  }
+
+  const translationsContent = translationsMatch[1];
+
+  // Extract each language section
+  const enMatch = translationsContent.match(/en:\s*\{([\s\S]*?)\n\s*\},?\s*(?=\n\s*(?:id:|zh:|$))/);
+  const idMatch = translationsContent.match(/id:\s*\{([\s\S]*?)\n\s*\},?\s*(?=\n\s*(?:zh:|$))/);
+  const zhMatch = translationsContent.match(/zh:\s*\{([\s\S]*?)\n\s*\},?\s*$/);
 
   if (!enMatch) {
     throw new Error("Could not find English translations in file");
@@ -124,12 +133,17 @@ function parseTranslationsFile(content: string): {
 
   const parseObject = (str: string): Record<string, string> => {
     const result: Record<string, string> = {};
-    // Match key: "value" or key: 'value' patterns
-    const regex = /(\w+):\s*["'`]((?:[^"'`\\]|\\.)*)["'`]/g;
+    // Match "key": "value" patterns (with proper quote handling)
+    const regex = /"([^"]+)":\s*"((?:[^"\\]|\\.)*)"/g;
     let match;
     while ((match = regex.exec(str)) !== null) {
       // Unescape the value
-      result[match[1]] = match[2].replace(/\\"/g, '"').replace(/\\'/g, "'");
+      result[match[1]] = match[2]
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\\/g, '\\');
     }
     return result;
   };
@@ -235,34 +249,29 @@ async function main() {
   // Generate new file content
   console.log("📝 Updating translations.ts...");
   
-  // Read the original file to preserve the Translations interface
-  const interfaceMatch = content.match(/(\/\*\*[\s\S]*?\*\/\s*)?export interface Translations \{[\s\S]*?\n\}/);
-  const translationsInterface = interfaceMatch ? interfaceMatch[0] : "";
+  // Extract everything before the translations object
+  const beforeMatch = content.match(/^[\s\S]*?(?=const translations:)/);
+  const before = beforeMatch ? beforeMatch[0] : "";
+
+  // Generate the translations object
+  const newContent = `${before}const translations: Record<Language, Record<TranslationKey, TranslationValue>> = {
+  en: {
+${generateTranslationObject(translations.en, "    ")}
+  },
   
-  // Also preserve any imports and the getTranslation function
-  const importMatch = content.match(/^[\s\S]*?(?=export interface Translations)/);
-  const imports = importMatch ? importMatch[0].trim() : "";
+  // ===== INDONESIAN - Only include translations that differ from English =====
+  // Missing keys will automatically fallback to English
+  id: {
+${generateTranslationObject(translations.id, "    ")}
+  },
   
-  const getTranslationMatch = content.match(/export function getTranslation[\s\S]*$/);
-  const getTranslationFunc = getTranslationMatch ? getTranslationMatch[0] : "";
-
-  const newContent = `${imports}
-
-${translationsInterface}
-
-export const en: Translations = {
-${generateTranslationObject(translations.en)}
+  // ===== CHINESE - Only include translations that differ from English =====
+  // Missing keys will automatically fallback to English
+  zh: {
+${generateTranslationObject(translations.zh, "    ")}
+  },
 };
-
-export const id: Partial<Translations> = {
-${generateTranslationObject(translations.id)}
-};
-
-export const zh: Partial<Translations> = {
-${generateTranslationObject(translations.zh)}
-};
-
-${getTranslationFunc}`;
+`;
 
   // Write the updated file
   fs.writeFileSync(TRANSLATIONS_FILE, newContent, "utf-8");
