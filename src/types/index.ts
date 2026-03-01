@@ -48,12 +48,11 @@ export interface Item {
   id?: number;
   sku?: string;
   name: string;
+  category: string;
   price: number;
-  category?: string;
-  image?: string;
+  stock?: number;
   variants?: ItemVariant[];
   modifiers?: ItemModifier[];
-  stock?: number;
   isActive?: boolean;
 }
 
