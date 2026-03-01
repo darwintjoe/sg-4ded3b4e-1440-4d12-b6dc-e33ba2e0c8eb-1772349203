@@ -1,26 +1,46 @@
+import { Globe } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
-import { Language } from "@/types";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const languageLabels: Record<Language, string> = {
-  en: "EN",
-  id: "ID",
-  zh: "CN"
-};
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function LanguageSelector() {
-  const { language, setLanguage } = useApp();
+  const { settings, updateSettings } = useApp();
+
+  const languages = [
+    { code: "en" as const, label: "English", flag: "🇬🇧" },
+    { code: "id" as const, label: "Indonesia", flag: "🇮🇩" },
+    { code: "zh" as const, label: "中文", flag: "🇨🇳" },
+    { code: "th" as const, label: "ไทย", flag: "🇹🇭" },
+    { code: "vi" as const, label: "Tiếng Việt", flag: "🇻🇳" },
+    { code: "my" as const, label: "မြန်မာ", flag: "🇲🇲" },
+  ];
+
+  const currentLanguage = languages.find(lang => lang.code === settings.language) || languages[0];
 
   return (
-    <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
-      <SelectTrigger className="w-[100px] bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600">
-        <SelectValue>{languageLabels[language]}</SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="en">EN</SelectItem>
-        <SelectItem value="id">ID</SelectItem>
-        <SelectItem value="zh">CN</SelectItem>
-      </SelectContent>
-    </Select>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Globe className="h-5 w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {languages.map((lang) => (
+          <DropdownMenuItem
+            key={lang.code}
+            onClick={() => updateSettings({ language: lang.code })}
+            className={settings.language === lang.code ? "bg-accent" : ""}
+          >
+            <span className="mr-2">{lang.flag}</span>
+            {lang.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

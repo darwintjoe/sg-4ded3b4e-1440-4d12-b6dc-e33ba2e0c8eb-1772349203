@@ -2,7 +2,7 @@ export type POSMode = "retail" | "cafe";
 
 export type UserRole = "admin" | "cashier" | "employee";
 
-export type Language = "en" | "id" | "zh";
+export type Language = "en" | "id" | "zh" | "th" | "vi" | "my";
 
 export type PaymentMethod = "cash" | "qris-static" | "qris-dynamic" | "card" | "voucher" | "transfer";
 
