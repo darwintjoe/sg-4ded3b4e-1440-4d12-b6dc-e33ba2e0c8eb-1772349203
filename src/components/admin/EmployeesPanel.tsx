@@ -447,7 +447,7 @@ export function EmployeesPanel() {
                 <div className="px-4 py-3 bg-muted/30 border-t flex justify-between items-center text-xs text-muted-foreground">
                   <span className="flex items-center gap-1.5">
                     <Calendar className="h-3 w-3" />
-                    {new Date(employee.joinedAt).toLocaleDateString()}
+                    {new Date(employee.joinDate).toLocaleDateString()}
                   </span>
                   <span className={`flex items-center gap-1.5 ${!employee.isActive ? 'text-red-500' : 'text-green-600'}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${!employee.isActive ? 'bg-red-500' : 'bg-green-600'}`} />
