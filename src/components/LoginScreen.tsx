@@ -137,7 +137,7 @@ export function LoginScreen({ onAdminClick, onAttendanceClick }: LoginScreenProp
 
         {/* Subtitle */}
         <p className="text-sm text-amber-200/90 font-medium text-center mb-4">
-          {isPaused ? "Session Paused - Re-enter PIN" : translate("login.subtitle", language)}
+          {isPaused ? translate("login.sessionPaused", language) : translate("login.subtitle", language)}
         </p>
 
         {/* PIN Display */}

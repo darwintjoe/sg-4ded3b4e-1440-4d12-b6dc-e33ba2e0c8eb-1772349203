@@ -1,130 +1,104 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { translations } from "@/lib/translations";
-import { Language } from "@/types";
+import { v2 } from "@google-cloud/translate";
 import fs from "fs";
 import path from "path";
 
-// Helper to check for missing keys
-function getMissingKeys(
-  source: Record<string, string>,
-  target: Record<string, string>
-): string[] {
-  return Object.keys(source).filter((key) => !target || !target[key]);
-}
+const GOOGLE_TRANSLATE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
 
-// Helper to translate text using Google Translate API
-async function translateText(text: string, targetLang: string, apiKey: string): Promise<string> {
-  try {
-    // Map internal codes to Google Translate codes
-    const langMap: Record<string, string> = {
-      "zh": "zh-CN",
-      "my": "my", // Myanmar
-      "vi": "vi",
-      "th": "th",
-      "id": "id"
-    };
-    
-    const googleLang = langMap[targetLang] || targetLang;
+const translate = new v2.Translate({
+  key: GOOGLE_TRANSLATE_API_KEY,
+});
 
-    const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        q: text, 
-        target: googleLang, 
-        format: "text" 
-      })
-    });
+const BATCH_SIZE = 30;
 
-    if (!response.ok) {
-      throw new Error(`Translation API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.data.translations[0].translatedText;
-  } catch (e) {
-    console.error(`Translation failed for "${text}" to ${targetLang}`, e);
-    return text; // Return original on error
-  }
-}
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    // 1. Verify API Key
-    const GOOGLE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY;
+    const { targetLanguage, startIndex = 0 } = req.body;
 
-    if (!GOOGLE_API_KEY) {
-      return res.status(500).json({
-        error: "GOOGLE_TRANSLATE_API_KEY not configured"
+    if (!targetLanguage) {
+      return res.status(400).json({ error: "Target language is required" });
+    }
+
+    if (!GOOGLE_TRANSLATE_API_KEY) {
+      return res.status(500).json({ 
+        error: "Google Translate API key not configured",
+        details: "Set GOOGLE_TRANSLATE_API_KEY in environment variables"
       });
     }
 
-    // 2. Identify Missing Translations across all languages
-    const enKeys = translations.en;
-    const targetLanguages: Language[] = ["id", "zh", "th", "vi", "my"];
+    const englishKeys = Object.keys(translations.en);
+    const targetTranslations = translations[targetLanguage as keyof typeof translations] || {};
     
-    const updates: Record<string, Record<string, string>> = {};
-    let totalMissing = 0;
-    const missingCounts: Record<string, number> = {};
-
-    for (const lang of targetLanguages) {
-      const currentKeys = translations[lang] || {};
-      const missing = getMissingKeys(enKeys, currentKeys);
-      
-      missingCounts[lang] = missing.length;
-
-      if (missing.length > 0) {
-        totalMissing += missing.length;
-        
-        // Prepare new object with existing + new translations
-        const newTrans = { ...currentKeys };
-        
-        // Translate missing keys
-        for (const key of missing) {
-          newTrans[key] = await translateText(enKeys[key], lang, GOOGLE_API_KEY);
-        }
-        
-        updates[lang] = newTrans;
-      }
-    }
-
-    if (totalMissing === 0) {
-      return res.status(200).json({ 
-        missingCount: 0,
-        message: "All translations are up to date." 
+    const missingKeys = englishKeys.filter(key => !targetTranslations[key]);
+    
+    if (missingKeys.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `All keys already translated for ${targetLanguage}`,
+        completed: true,
+        totalKeys: englishKeys.length,
+        translatedKeys: englishKeys.length,
+        progress: 100
       });
     }
 
-    // 3. Write Updated Files
-    const translationsDir = path.join(process.cwd(), "src", "lib", "translations");
+    const batchKeys = missingKeys.slice(startIndex, startIndex + BATCH_SIZE);
     
-    for (const [lang, content] of Object.entries(updates)) {
-      const filePath = path.join(translationsDir, `${lang}.ts`);
-      const fileContent = `export const ${lang} = ${JSON.stringify(content, null, 2)};\n`;
-      fs.writeFileSync(filePath, fileContent, "utf-8");
+    if (batchKeys.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `Translation complete for ${targetLanguage}`,
+        completed: true,
+        totalKeys: missingKeys.length,
+        translatedKeys: missingKeys.length,
+        progress: 100
+      });
     }
 
-    // 4. Return Success
+    const textsToTranslate = batchKeys.map(key => translations.en[key]);
+    
+    const [translatedTexts] = await translate.translate(textsToTranslate, targetLanguage);
+    
+    const newTranslations: Record<string, string> = { ...targetTranslations };
+    batchKeys.forEach((key, index) => {
+      newTranslations[key] = Array.isArray(translatedTexts) 
+        ? translatedTexts[index] 
+        : translatedTexts;
+    });
+
+    const sortedKeys = Object.keys(newTranslations).sort();
+    const sortedTranslations = sortedKeys.reduce((acc, key) => {
+      acc[key] = newTranslations[key];
+      return acc;
+    }, {} as Record<string, string>);
+
+    const fileContent = `export const ${targetLanguage} = ${JSON.stringify(sortedTranslations, null, 2)};\n`;
+    
+    const filePath = path.join(process.cwd(), "src", "lib", "translations", `${targetLanguage}.ts`);
+    fs.writeFileSync(filePath, fileContent, "utf-8");
+
+    const totalProcessed = startIndex + batchKeys.length;
+    const progress = Math.round((totalProcessed / missingKeys.length) * 100);
+
     return res.status(200).json({
       success: true,
-      missingCount: totalMissing,
-      translatedCount: totalMissing,
-      languages: missingCounts,
-      message: `Updated ${Object.keys(updates).length} language files successfully! Restart server to apply.`,
+      message: `Translated ${batchKeys.length} keys for ${targetLanguage}`,
+      completed: totalProcessed >= missingKeys.length,
+      totalKeys: missingKeys.length,
+      translatedKeys: totalProcessed,
+      progress,
+      nextStartIndex: totalProcessed
     });
 
   } catch (error) {
     console.error("Translation error:", error);
     return res.status(500).json({
-      error: "Internal server error",
+      error: "Translation failed",
       details: error instanceof Error ? error.message : "Unknown error"
     });
   }

@@ -101,7 +101,7 @@ export function AdminLoginScreen({ onBack }: { onBack: () => void }) {
 
         {/* Title */}
         <h1 className="text-3xl font-black tracking-tight text-white text-center mb-1">
-          Admin Login
+          {translate("login.adminTitle", language)}
         </h1>
         <p className="text-sm text-amber-200 font-medium text-center mb-4">
           {translate("login.adminSubtitle", language)}
