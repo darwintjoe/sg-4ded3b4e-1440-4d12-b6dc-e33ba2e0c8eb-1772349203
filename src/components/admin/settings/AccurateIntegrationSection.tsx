@@ -38,6 +38,7 @@ import {
 import { translate } from "@/lib/translations";
 import { accurateService } from "@/lib/accurate-service";
 import type { Language, AccurateConnectionStatus } from "@/types";
+import { useApp } from "@/contexts/AppContext";
 
 interface AccurateIntegrationSectionProps {
   language: Language;
@@ -49,7 +50,8 @@ interface DatabaseOption {
   hostUrl: string;
 }
 
-export function AccurateIntegrationSection({ language }: AccurateIntegrationSectionProps) {
+export function AccurateIntegrationSection() {
+  const { language } = useApp();
   // Credentials state
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -240,41 +242,41 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
             <Cloud className="h-5 w-5" />
-            <h3 className="font-semibold">Accurate.id Integration</h3>
-            <Badge variant="outline" className="text-xs">Beta</Badge>
+            <h3 className="font-semibold">{translate("accurate.integration", language)}</h3>
+            <Badge variant="outline" className="text-xs">{translate("accurate.beta", language)}</Badge>
           </div>
           {isConnected ? (
             <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Connected
+              {translate("accurate.connected", language)}
             </Badge>
           ) : (
             <Badge variant="secondary">
               <CloudOff className="h-3 w-3 mr-1" />
-              Not Connected
+              {translate("accurate.notConnected", language)}
             </Badge>
           )}
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Sync your POS sales data with Accurate.id accounting software for seamless bookkeeping.
+          {translate("accurate.description", language)}
         </p>
 
         {/* Info Alert */}
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription className="text-xs">
-            Register as a developer at{" "}
+            {translate("accurate.registerInfo", language)}{" "}
             <a 
               href="https://accurate.id/developer" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-blue-600 hover:underline inline-flex items-center gap-1"
             >
-              accurate.id/developer
+              {translate("accurate.registerLink", language)}
               <ExternalLink className="h-3 w-3" />
             </a>
-            {" "}to get your Client ID and Secret.
+            {" "}{translate("accurate.getCredentials", language)}
           </AlertDescription>
         </Alert>
 
@@ -294,10 +296,10 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
 
         {/* Credentials Section */}
         <div className="space-y-3">
-          <h4 className="text-sm font-medium">API Credentials</h4>
+          <h4 className="text-sm font-medium">{translate("accurate.apiCredentials", language)}</h4>
           
           <div className="space-y-2">
-            <Label htmlFor="clientId" className="text-xs">Client ID</Label>
+            <Label htmlFor="clientId" className="text-xs">{translate("accurate.clientId", language)}</Label>
             <Input
               id="clientId"
               type="text"
@@ -310,7 +312,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="clientSecret" className="text-xs">Client Secret</Label>
+            <Label htmlFor="clientSecret" className="text-xs">{translate("accurate.clientSecret", language)}</Label>
             <div className="relative">
               <Input
                 id="clientSecret"
@@ -339,7 +341,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 onClick={handleSaveCredentials}
                 disabled={!clientId || !clientSecret}
               >
-                Save Credentials
+                {translate("accurate.saveCredentials", language)}
               </Button>
               <Button
                 size="sm"
@@ -348,7 +350,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Link2 className="h-4 w-4 mr-2" />
-                Connect to Accurate
+                {translate("accurate.connect", language)}
               </Button>
             </div>
           )}
@@ -363,18 +365,18 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
             {connectionStatus.companyName && (
               <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Company:</span>
+                  <span className="text-muted-foreground">{translate("accurate.company", language)}:</span>
                   <span className="font-medium">{connectionStatus.companyName}</span>
                 </div>
                 {connectionStatus.databaseName && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Database:</span>
+                    <span className="text-muted-foreground">{translate("accurate.database", language)}:</span>
                     <span className="font-medium">{connectionStatus.databaseName}</span>
                   </div>
                 )}
                 {connectionStatus.lastSyncTime && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Last Sync:</span>
+                    <span className="text-muted-foreground">{translate("accurate.lastSync", language)}:</span>
                     <span className="font-medium">
                       {new Date(connectionStatus.lastSyncTime).toLocaleString()}
                     </span>
@@ -386,7 +388,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
             {/* Database Selection */}
             {databases.length > 1 && (
               <div className="space-y-2">
-                <Label className="text-xs">Select Database</Label>
+                <Label className="text-xs">{translate("accurate.selectDatabase", language)}</Label>
                 <Select value={selectedDatabase} onValueChange={handleSelectDatabase}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a database" />
@@ -404,14 +406,14 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
 
             {/* Sync Queue Status */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Sync Queue</h4>
+              <h4 className="text-sm font-medium">{translate("accurate.syncQueue", language)}</h4>
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Pending:</span>
+                  <span className="text-muted-foreground">{translate("accurate.pending", language)}:</span>
                   <Badge variant="secondary">{syncQueueStatus.pending}</Badge>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Failed:</span>
+                  <span className="text-muted-foreground">{translate("accurate.failed", language)}:</span>
                   <Badge variant={syncQueueStatus.failed > 0 ? "destructive" : "secondary"}>
                     {syncQueueStatus.failed}
                   </Badge>
@@ -430,7 +432,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                   ) : (
                     <RefreshCw className="h-4 w-4 mr-2" />
                   )}
-                  Process Queue
+                  {translate("accurate.processQueue", language)}
                 </Button>
               )}
             </div>
@@ -448,7 +450,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 ) : (
                   <Settings className="h-4 w-4 mr-2" />
                 )}
-                Test Connection
+                {translate("accurate.testConnection", language)}
               </Button>
               <Button
                 variant="destructive"
@@ -456,7 +458,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 onClick={handleDisconnect}
               >
                 <Link2Off className="h-4 w-4 mr-2" />
-                Disconnect
+                {translate("accurate.disconnect", language)}
               </Button>
             </div>
           </>
@@ -467,16 +469,16 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
       <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Connect to Accurate</DialogTitle>
+            <DialogTitle>{translate("accurate.authTitle", language)}</DialogTitle>
             <DialogDescription>
-              Complete the OAuth authorization to connect your Accurate account.
+              {translate("accurate.authDescription", language)}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                1. Click the button below to open Accurate authorization page
+                {translate("accurate.authStep1", language)}
               </p>
               <Button
                 variant="outline"
@@ -484,16 +486,16 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 onClick={() => window.open(authUrl, "_blank")}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Open Accurate Authorization
+                {translate("accurate.openAuth", language)}
               </Button>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                2. After authorizing, copy the authorization code and paste it below
+                {translate("accurate.authStep2", language)}
               </p>
               <Input
-                placeholder="Paste authorization code here"
+                placeholder={translate("accurate.pasteCode", language)}
                 value={authCode}
                 onChange={(e) => setAuthCode(e.target.value)}
                 className="font-mono"
@@ -508,7 +510,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                   setAuthCode("");
                 }}
               >
-                Cancel
+                {translate("common.cancel", language)}
               </Button>
               <Button
                 onClick={handleExchangeCode}
@@ -519,7 +521,7 @@ export function AccurateIntegrationSection({ language }: AccurateIntegrationSect
                 ) : (
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                 )}
-                Complete Connection
+                {translate("accurate.completeConnection", language)}
               </Button>
             </div>
           </div>

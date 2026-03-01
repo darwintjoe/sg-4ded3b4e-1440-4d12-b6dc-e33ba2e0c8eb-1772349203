@@ -17,6 +17,8 @@ import { Heatmap } from "@/components/charts/Heatmap";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
 import { useToast } from "@/hooks/use-toast";
 import { shareReportAsImage, downloadReportAsImage, generateExportFilename } from "@/lib/reportExportUtils";
+import { translate } from "@/lib/translations";
+import { useApp } from "@/contexts/AppContext";
 
 interface Message {
   role: "user" | "assistant";
@@ -334,10 +336,10 @@ export function ReportsPanel({ language }: ReportsPanelProps) {
     <Tabs defaultValue="sales" value={activeTab} onValueChange={setActiveTab} className="w-full">
       <div className="flex items-center gap-2">
         <TabsList className="flex-1">
-          <TabsTrigger value="sales" className="flex-1 text-xs">Sales</TabsTrigger>
-          <TabsTrigger value="items" className="flex-1 text-xs">Items</TabsTrigger>
-          <TabsTrigger value="attendance" className="flex-1 text-xs">Attendance</TabsTrigger>
-          <TabsTrigger value="ask" className="flex-1 text-xs">Ask Me</TabsTrigger>
+          <TabsTrigger value="sales" className="flex-1 text-xs">{translate("reports.sales", language)}</TabsTrigger>
+          <TabsTrigger value="items" className="flex-1 text-xs">{translate("reports.items", language)}</TabsTrigger>
+          <TabsTrigger value="attendance" className="flex-1 text-xs">{translate("reports.attendance", language)}</TabsTrigger>
+          <TabsTrigger value="ask" className="flex-1 text-xs">{translate("reports.askMe", language)}</TabsTrigger>
         </TabsList>
         {activeTab !== "ask" && (
           <div className="flex items-center gap-1">

@@ -14,7 +14,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useLongPress } from "@/hooks/use-long-press";
 import { db } from "@/lib/db";
 import { Item } from "@/types";
-import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Plus, Search, Upload, AlertCircle, ArrowUpDown, Trash2, Check, Download, Loader2, ScanBarcode, ArrowDownToLine, ArrowUpFromLine, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { translate } from "@/lib/translations";
@@ -581,159 +581,96 @@ export function ItemsPanel() {
   );
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Importing Progress Overlay */}
-      {importing && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
-              <div className="space-y-1">
-                <h3 className="text-xl font-semibold">Importing Items...</h3>
-                <p className="text-sm text-slate-500">Processing your CSV file</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Progress value={importProgress} className="h-3 w-full" />
-              <div className="flex justify-between text-xs text-slate-500">
-                <span>Processing...</span>
-                <span className="font-medium text-blue-600">{importProgress}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fixed Filters Section - Max 2 Rows */}
-      <div className="flex-shrink-0 p-3 bg-background border-b space-y-2">
-        {/* Row 1: Filters + Import/Export - Dynamic Width */}
-        <div className="flex items-center gap-2 w-full">
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="flex-1 min-w-0 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              <SelectItem value="active">{translate("common.active", language)}</SelectItem>
-              <SelectItem value="inactive">{translate("common.inactive", language)}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="flex-1 min-w-0 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{translate("common.all", language)}</SelectItem>
-              {categories.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 min-w-0 text-sm"
-          >
-            {translate("common.import", language)}
-          </Button>
-
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCSVExport}
-            className="flex-1 min-w-0 text-sm"
-          >
-            {translate("common.export", language)}
-          </Button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="*/*"
-            onChange={handleCSVImport}
-            className="hidden"
+    <div className="h-full flex flex-col bg-muted/20">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 bg-background border-b shadow-sm">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={translate("common.search", language)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-muted/50 border-0 focus-visible:ring-1"
           />
         </div>
-
-        {/* Row 2: Full-width Search */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-            <Input
-              placeholder={translate("common.search", language)}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 text-sm w-full"
-            />
-          </div>
-        </div>
+        <Button onClick={() => { setEditingItem(null); setIsDialogOpen(true); }} className="ml-4 gap-2 shadow-sm">
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">{translate("items.addItem", language)}</span>
+        </Button>
       </div>
 
-      {/* Scrollable Table Section */}
-      <div className="flex-1 overflow-hidden relative">
-        <div className="h-full overflow-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <Card className="m-3 overflow-x-auto">
-            <div className="min-w-[125%]">
-              <Table>
-                <TableHeader className="bg-slate-50 dark:bg-slate-900">
-                  <TableRow>
-                    <TableHead className="w-[30%] min-w-[100px]">
-                      <button
-                        onClick={() => handleSort("sku")}
-                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                      >
-                        {translate("items.sku", language)}
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[50%] min-w-[120px]">
-                      <button
-                        onClick={() => handleSort("name")}
-                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600"
-                      >
-                        {translate("items.name", language)}
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="w-[20%] min-w-[70px] text-right">
-                      <button
-                        onClick={() => handleSort("price")}
-                        className="flex items-center gap-1 text-sm font-semibold hover:text-blue-600 ml-auto"
-                      >
-                        {translate("items.price", language)}
-                        <ArrowUpDown className="h-3 w-3" />
-                      </button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center py-12 text-slate-500 text-sm">
-                        {searchQuery ? translate("items.noResults", language) : translate("items.noItems", language)}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredItems.map((item) => (
-                      <ItemRow key={item.id} item={item} onEdit={handleEditItem} />
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {importing ? (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="bg-white dark:bg-slate-900 rounded-lg p-8 max-w-md w-[90%] space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="text-center space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+                <div className="space-y-1">
+                  <h3 className="text-xl font-semibold">Importing Items...</h3>
+                  <p className="text-sm text-slate-500">Processing your CSV file</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Progress value={importProgress} className="h-3 w-full" />
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Processing...</span>
+                  <span className="font-medium text-blue-600">{importProgress}%</span>
+                </div>
+              </div>
             </div>
-          </Card>
-        </div>
-
-        {/* Floating Add Button */}
-        <button
-          onClick={handleNewItem}
-          className="fixed bottom-24 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg z-20 transition-transform hover:scale-110"
-        >
-          <Plus className="h-6 w-6" />
-        </button>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center p-8">
+            <Package className="h-12 w-12 mb-3 opacity-20" />
+            <p>{items.length === 0 ? translate("items.noItems", language) : translate("items.noResults", language)}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+            {filteredItems.map((item) => (
+              <Card 
+                key={item.id} 
+                className="group overflow-hidden hover:shadow-md transition-all duration-300 border-border/50 bg-background/50 hover:bg-background cursor-pointer"
+                onClick={() => { setEditingItem(item); setIsDialogOpen(true); }}
+              >
+                <div className="relative aspect-[4/3] bg-muted/30 overflow-hidden">
+                  {item.image ? (
+                     <img 
+                       src={item.image} 
+                       alt={item.name} 
+                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                      <Package className="h-12 w-12" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-3">
+                     <span className="text-white text-xs font-medium px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
+                       {translate("items.editItem", language)}
+                     </span>
+                  </div>
+                </div>
+                <div className="p-3 space-y-1">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-sm line-clamp-2 leading-tight">{item.name}</h3>
+                    <span className="font-mono text-xs text-muted-foreground shrink-0 bg-muted px-1.5 py-0.5 rounded">
+                      {item.sku || "---"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="font-bold text-primary">
+                      {formatCurrency(item.price)}
+                    </p>
+                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground">
+                      {item.category || "No Category"}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Edit Dialog */}

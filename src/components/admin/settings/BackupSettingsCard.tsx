@@ -30,9 +30,9 @@ import {
   SubscriptionInfo
 } from "@/lib/subscription-service";
 import type { BackupStatus, Language } from "@/types";
+import { useApp } from "@/contexts/AppContext";
 
 interface BackupSettingsCardProps {
-  language: Language;
   isSignedIn: boolean;
   user: { email: string } | null;
   backupStatus: BackupStatus;
@@ -53,7 +53,6 @@ interface BackupSettingsCardProps {
 }
 
 export function BackupSettingsCard({
-  language,
   isSignedIn,
   user,
   backupStatus,
@@ -71,6 +70,7 @@ export function BackupSettingsCard({
   onConfirmPinChange,
   onChangePinSubmit,
 }: BackupSettingsCardProps) {
+  const { language } = useApp();
   const [subscriptionInfo, setSubscriptionInfo] = useState<SubscriptionInfo>(getSubscriptionInfo());
   const [subscriptionCode, setSubscriptionCode] = useState("");
   const [activating, setActivating] = useState(false);
@@ -107,11 +107,11 @@ export function BackupSettingsCard({
 
   const getStatusLabel = (status: SubscriptionInfo["status"]): string => {
     switch (status) {
-      case "active": return "Active";
-      case "warning": return "Expiring Soon";
-      case "critical": return "Critical";
-      case "expired": return "Expired";
-      case "none": return "No Subscription";
+      case "active": return translate("settings.subscription.active", language);
+      case "warning": return translate("settings.subscription.expiringSoon", language);
+      case "critical": return translate("settings.subscription.critical", language);
+      case "expired": return translate("settings.subscription.expired", language);
+      case "none": return translate("settings.subscription.none", language);
       default: return "Unknown";
     }
   };
@@ -149,7 +149,7 @@ export function BackupSettingsCard({
           {subscriptionInfo.expiryDate && (
             <div className="flex items-center gap-2 text-sm bg-muted/50 rounded-lg px-3 py-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Expires:</span>
+              <span className="text-muted-foreground">{translate("settings.subscription.expires", language)}:</span>
               <span className="font-medium">
                 {subscriptionInfo.expiryDate.toLocaleDateString("en-GB", {
                   day: "numeric",
@@ -159,7 +159,7 @@ export function BackupSettingsCard({
               </span>
               {subscriptionInfo.daysRemaining > 0 && (
                 <span className="text-xs text-muted-foreground ml-auto">
-                  ({subscriptionInfo.daysRemaining} days)
+                  ({subscriptionInfo.daysRemaining} {translate("settings.subscription.days", language)})
                 </span>
               )}
             </div>
@@ -170,7 +170,7 @@ export function BackupSettingsCard({
             <Alert className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20 py-2">
               <AlertTriangle className="h-4 w-4 text-orange-500" />
               <AlertDescription className="text-orange-700 dark:text-orange-400 text-xs">
-                Subscription expiring soon. Renew to avoid service interruption.
+                {translate("settings.subscription.expiringWarning", language)}
               </AlertDescription>
             </Alert>
           )}
@@ -179,7 +179,7 @@ export function BackupSettingsCard({
             <Alert className="border-red-500/50 bg-red-50 dark:bg-red-950/20 py-2">
               <AlertTriangle className="h-4 w-4 text-red-500" />
               <AlertDescription className="text-red-700 dark:text-red-400 text-xs">
-                Subscription expired. Cloud backup is disabled.
+                {translate("settings.subscription.expiredWarning", language)}
               </AlertDescription>
             </Alert>
           )}
@@ -190,8 +190,8 @@ export function BackupSettingsCard({
           <div className="space-y-3">
             <h4 className="font-medium text-sm">
               {subscriptionInfo.status === "none" || subscriptionInfo.status === "expired" 
-                ? "Activate Subscription" 
-                : "Extend Subscription"
+                ? translate("settings.subscription.activate", language)
+                : translate("settings.subscription.extend", language)
               }
             </h4>
 
@@ -199,7 +199,7 @@ export function BackupSettingsCard({
             <div className="space-y-2">
               <Label htmlFor="subscriptionCode" className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Key className="h-3 w-3" />
-                Enter Subscription Code
+                {translate("settings.subscription.enterCode", language)}
               </Label>
               <div className="flex gap-2">
                 <Input
@@ -218,7 +218,7 @@ export function BackupSettingsCard({
                   size="sm"
                   className="h-9 px-4"
                 >
-                  {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Activate"}
+                  {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : translate("settings.subscription.codeButton", language)}
                 </Button>
               </div>
               {activationError && (
@@ -228,7 +228,7 @@ export function BackupSettingsCard({
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="flex-1 h-px bg-border" />
-              <span>or</span>
+              <span>{translate("settings.subscription.or", language)}</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 
@@ -242,7 +242,7 @@ export function BackupSettingsCard({
                   onClick={() => setShowQRIS(true)}
                 >
                   <QrCode className="h-4 w-4" />
-                  Pay with QRIS (1 Year)
+                  {translate("settings.subscription.payQRIS", language)}
                 </Button>
               ) : (
                 <div className="space-y-3">
@@ -253,15 +253,15 @@ export function BackupSettingsCard({
                         <QrCode className="h-20 w-20 text-slate-400" />
                       </div>
                     </div>
-                    <p className="font-semibold text-sm">1 Year Subscription</p>
+                    <p className="font-semibold text-sm">{translate("settings.subscription.oneYear", language)}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Scan to pay via QRIS
+                      {translate("settings.subscription.scanQRIS", language)}
                     </p>
                   </div>
                   <Alert className="py-2">
                     <Info className="h-3 w-3" />
                     <AlertDescription className="text-xs">
-                      After payment, you&apos;ll receive a code via WhatsApp within 24 hours.
+                      {translate("settings.subscription.receiveCode", language)}
                     </AlertDescription>
                   </Alert>
                   <Button 
@@ -270,7 +270,7 @@ export function BackupSettingsCard({
                     className="w-full h-8 text-xs"
                     onClick={() => setShowQRIS(false)}
                   >
-                    Cancel
+                    {translate("settings.subscription.cancel", language)}
                   </Button>
                 </div>
               )}
