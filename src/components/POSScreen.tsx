@@ -1183,6 +1183,85 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Create New Item Dialog */}
+      <Dialog open={createItemOpen} onOpenChange={(open) => {
+        if (!open) {
+          handleCancelCreateItem();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{translate("items.addItem", language)}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* SKU Field - readonly, pre-filled from barcode */}
+            <div className="space-y-2">
+              <Label htmlFor="newItemSku">{translate("items.sku", language)}</Label>
+              <Input
+                id="newItemSku"
+                value={newItemData.sku}
+                readOnly
+                className="bg-slate-100 dark:bg-slate-800 font-mono"
+              />
+            </div>
+            
+            {/* Name Field */}
+            <div className="space-y-2">
+              <Label htmlFor="newItemName">{translate("items.name", language)}</Label>
+              <Input
+                id="newItemName"
+                value={newItemData.name}
+                onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder={translate("items.namePlaceholder", language)}
+                autoCapitalize="words"
+              />
+            </div>
+            
+            {/* Price Field */}
+            <div className="space-y-2">
+              <Label htmlFor="newItemPrice">{translate("items.price", language)}</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Rp</span>
+                <Input
+                  id="newItemPrice"
+                  ref={newItemPriceRef}
+                  type="text"
+                  inputMode="numeric"
+                  value={newItemPriceDisplay}
+                  onChange={(e) => handleNewItemPriceChange(e.target.value)}
+                  placeholder="0"
+                  className="pl-10 text-right font-mono"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={handleCancelCreateItem}
+              disabled={isCreatingItem}
+            >
+              {translate("common.cancel", language)}
+            </Button>
+            <Button
+              onClick={handleSaveNewItem}
+              disabled={isCreatingItem || !newItemData.name.trim() || newItemData.price <= 0}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isCreatingItem ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {translate("common.saving", language)}
+                </>
+              ) : (
+                translate("common.save", language)
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
