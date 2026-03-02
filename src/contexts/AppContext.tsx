@@ -203,7 +203,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Helper: Auto-close a stale shift
+  // Helper: Auto-close a stale shift with full post-close processing
   const autoCloseStaleShift = async (employeeId: number, staleDate: string) => {
     try {
       const shifts = await db.searchByIndex<Shift>("shifts", "cashierId", employeeId);
@@ -221,12 +221,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
         await db.put("shifts", updatedShift);
         console.log(`✅ Auto-closed stale shift ${activeShift.shiftId}`);
+
+        // Trigger all post-close tasks (same as normal close)
+        await performPostCloseActions(updatedShift);
       }
       
       // Clear the cashier session
       await db.delete("cashierSession", 1);
     } catch (error) {
       console.error("Error auto-closing stale shift:", error);
+    }
+  };
+
+  // Shared post-close actions for both normal and auto-close
+  const performPostCloseActions = async (closedShift: Shift) => {
+    try {
+      // Check if month changed, trigger monthly rollup
+      await checkAndRollupMonthly();
+
+      // Trigger backup to Google Drive (fire-and-forget)
+      triggerBackupToGoogleDrive();
+
+      // Delete shift after backup initiation (fire-and-forget)
+      deleteShiftAfterBackup(closedShift.shiftId).catch(() => {
+        // Silent failure - non-critical
+      });
+
+      // Send shift report as calendar event (fire-and-forget)
+      sendShiftReportToCalendar(closedShift);
+
+      // Export transactions to Google Sheets (fire-and-forget)
+      exportTransactionsToSheets(closedShift);
+    } catch (error) {
+      console.error("Error performing post-close actions:", error);
     }
   };
 
