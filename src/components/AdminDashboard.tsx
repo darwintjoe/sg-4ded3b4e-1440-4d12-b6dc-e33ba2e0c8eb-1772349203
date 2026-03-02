@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/contexts/AppContext";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
@@ -9,8 +9,15 @@ import { LogOut, Settings, Package, Users, BarChart3 } from "lucide-react";
 import { translate } from "@/lib/translations";
 
 export function AdminDashboard() {
-  const { logoutAdmin, language } = useApp();
+  const { logoutAdmin, language, pendingNewItemSku } = useApp();
   const [activeTab, setActiveTab] = useState("items");
+
+  // Auto-switch to items tab when there's a pending SKU from POS
+  useEffect(() => {
+    if (pendingNewItemSku) {
+      setActiveTab("items");
+    }
+  }, [pendingNewItemSku]);
 
   const getPageTitle = () => {
     switch(activeTab) {

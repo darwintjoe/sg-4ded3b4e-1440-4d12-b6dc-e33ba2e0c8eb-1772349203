@@ -31,7 +31,7 @@ interface POSScreenProps {
 }
 
 export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POSScreenProps) {
-  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings } = useApp();
+  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings, setPendingNewItemSku } = useApp();
   const { theme, setTheme } = useTheme();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -352,30 +352,20 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
     
     if (pinInput === currentUser.pin) {
-      // Capture the barcode value BEFORE any async operations or state changes
+      // Capture the barcode value BEFORE any state changes
       const scannedBarcode = notFoundBarcode;
       
-      // Blur current input to dismiss keyboard
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-      
+      // Close scanner and PIN dialog
+      setScannerOpen(false);
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
+      setNotFoundBarcode("");
       
-      // Small delay to let keyboard dismiss, then open modal
-      setTimeout(() => {
-        // Open create item dialog with SKU pre-filled using captured value
-        setNewItemData({ name: "", price: 0, sku: scannedBarcode });
-        setNewItemPriceDisplay("");
-        setCreateItemOpen(true);
-        
-        // Try to lookup product name
-        lookupProductName(scannedBarcode);
-      }, 300);
+      // Set pending SKU for ItemsPanel to pick up and navigate to admin
+      setPendingNewItemSku(scannedBarcode);
+      onAdminClick();
     } else {
-      // Don't close modal - just show error
       setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
     }
@@ -1185,70 +1175,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Create New Item Dialog */}
-      <Dialog open={createItemOpen} onOpenChange={(open) => {
-        if (!open) handleCancelCreateItem();
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{translate("items.addItem", language)}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* SKU - Read Only */}
-            <div className="space-y-2">
-              <Label>{translate("items.skuLabel", language)}</Label>
-              <Input
-                value={newItemData.sku}
-                readOnly
-                className="bg-slate-100 dark:bg-slate-800 font-mono"
-              />
-            </div>
-
-            {/* Item Name */}
-            <div className="space-y-2">
-              <Label>
-                {translate("items.itemName", language)} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={newItemData.name}
-                onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder={translate("items.itemNamePlaceholder", language)}
-              />
-            </div>
-
-            {/* Price */}
-            <div className="space-y-2">
-              <Label>
-                {translate("items.sellingPrice", language)} <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                ref={newItemPriceRef}
-                type="text"
-                inputMode="numeric"
-                value={newItemPriceDisplay}
-                onChange={(e) => handleNewItemPriceChange(e.target.value)}
-                placeholder="25,000"
-              />
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={handleCancelCreateItem} className="flex-1">
-              {translate("common.cancel", language)}
-            </Button>
-            <Button 
-              onClick={handleSaveNewItem} 
-              disabled={!newItemData.name.trim() || newItemData.price <= 0 || isCreatingItem}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-            >
-              {isCreatingItem ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              {translate("common.save", language)}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

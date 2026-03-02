@@ -53,7 +53,7 @@ const ItemRow = ({ item, onEdit }: { item: Item; onEdit: (item: Item) => void })
 };
 
 export function ItemsPanel() {
-  const { language } = useApp();
+  const { language, pendingNewItemSku, setPendingNewItemSku } = useApp();
   const [items, setItems] = useState<Item[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchExpanded, setSearchExpanded] = useState(false);
@@ -118,6 +118,34 @@ export function ItemsPanel() {
       setPriceDisplay(formatPrice(editingItem.price));
     }
   }, [editingItem?.id]);
+
+  // Check for pending SKU from POS barcode scan
+  useEffect(() => {
+    if (pendingNewItemSku) {
+      const newItem = {
+        name: "",
+        sku: pendingNewItemSku,
+        price: 0,
+        category: "General",
+        variants: [],
+        modifiers: [],
+        isActive: true
+      };
+      setEditingItem(newItem);
+      setOriginalItem({ ...newItem });
+      setPriceDisplay("");
+      setHasUnsavedChanges(false);
+      setValidationError("");
+      setCanDelete(true);
+      setIsDialogOpen(true);
+      
+      // Lookup product name
+      lookupProductBySKU(pendingNewItemSku);
+      
+      // Clear the pending SKU
+      setPendingNewItemSku(null);
+    }
+  }, [pendingNewItemSku]);
 
   const loadItems = async () => {
     const allItems = await db.getAll<Item>("items");
