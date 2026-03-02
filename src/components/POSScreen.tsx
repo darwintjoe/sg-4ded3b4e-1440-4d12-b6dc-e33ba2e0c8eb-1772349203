@@ -1034,38 +1034,23 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       <AddItemDialog
         open={addItemDialogOpen}
         onClose={() => {
-          // Close dialog first, then clear state after unmount
           setAddItemDialogOpen(false);
         }}
         initialSku={notFoundBarcode}
         onItemCreated={(newItem) => {
-          // Close dialog first
+          addToCart({
+            itemId: newItem.id!,
+            sku: newItem.sku || `ITEM-${newItem.id}`,
+            name: newItem.name,
+            quantity: 1,
+            basePrice: newItem.price,
+            totalPrice: newItem.price,
+            modifiers: [],
+          });
           setAddItemDialogOpen(false);
-          
-          // Delay all other operations to let dialog unmount cleanly
-          setTimeout(() => {
-            // Add new item to cart
-            addToCart({
-              itemId: newItem.id!,
-              sku: newItem.sku || `ITEM-${newItem.id}`,
-              name: newItem.name,
-              quantity: 1,
-              basePrice: newItem.price,
-              totalPrice: newItem.price,
-              modifiers: [],
-            });
-            
-            // Clear SKU state
-            setNotFoundBarcode("");
-            
-            // Refresh items list
-            loadItems();
-            
-            // Play success sound
-            playSuccessSound();
-            
-            toast({ title: translate("pos.itemAddedToCart", language) });
-          }, 50);
+          loadItems();
+          playSuccessSound();
+          toast({ title: translate("pos.itemAddedToCart", language) });
         }}
         language={language}
         categories={categories}
