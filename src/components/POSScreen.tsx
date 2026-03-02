@@ -335,23 +335,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   // Handle "No" on item not found dialog - simply return to POS
   const handleItemNotFoundNo = () => {
     setItemNotFoundOpen(false);
-    setNotFoundBarcode("");
-    // Simply return to POS - no scanner reopen
+    // notFoundBarcode stays as-is, harmless if unused
   };
 
-  // Handle "Yes" on item not found dialog - close scanner, then PIN verification
+  // Handle "Yes" on item not found dialog - proceed to PIN verification
   const handleItemNotFoundYes = () => {
-    // Store barcode before closing dialog
-    const barcodeToUse = notFoundBarcode;
-    
-    // Close item not found dialog
     setItemNotFoundOpen(false);
-    
-    // Scanner should already be closed from handleBarcodeScan
-    // But ensure it's closed
     setScannerOpen(false);
-    
-    // Open PIN dialog
+    // Open PIN dialog - notFoundBarcode already has the SKU
     setPinInput("");
     setPinError("");
     setPinVerifyOpen(true);
@@ -362,14 +353,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     const pin = pinInput.trim();
     if (!pin) return;
 
-    // Validate against ACTIVE CASHIER only (current logged in user)
     if (currentUser && currentUser.pin === pin) {
-      // Close PIN dialog
+      // PIN verified - close PIN dialog and open Add Item dialog
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
-      
-      // Open Add Item dialog - notFoundBarcode already contains the SKU
       setAddItemDialogOpen(true);
     } else {
       setPinError(translate("pos.incorrectPin", language));
@@ -382,8 +370,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     setPinVerifyOpen(false);
     setPinInput("");
     setPinError("");
-    setNotFoundBarcode("");
-    // Simply return to POS - no scanner reopen
+    // notFoundBarcode stays as-is, harmless if unused
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
