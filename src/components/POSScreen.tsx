@@ -968,11 +968,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       </AlertDialog>
 
       {/* Item Not Found Dialog */}
-      <AlertDialog open={itemNotFoundOpen} onOpenChange={(open) => {
-        if (!open) {
-          handleItemNotFoundNo();
-        }
-      }}>
+      <AlertDialog open={itemNotFoundOpen} onOpenChange={setItemNotFoundOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.itemNotFound", language)}</AlertDialogTitle>
