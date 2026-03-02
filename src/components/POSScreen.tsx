@@ -7,16 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { PaymentDialog } from "@/components/PaymentDialog";
-import { ReportsDialog } from "@/components/ReportsDialog";
-import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen";
-import { CreateItemDialog } from "@/components/CreateItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Item, CartItem, Settings, Language, Shift, Employee, Category } from "@/types";
+import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
 import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
@@ -62,8 +58,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
   const [createItemOpen, setCreateItemOpen] = useState(false);
-  const [newItemData, setNewItemData] = useState({ sku: "", name: "", price: "", categoryId: "" });
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [newItemData, setNewItemData] = useState({ sku: "", name: "", price: "", category: "" });
+  const [categories, setCategories] = useState<string[]>([]);
   
   const { toast } = useToast();
 
@@ -202,8 +198,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   const loadCategories = async () => {
     try {
-      const cats = await db.getCategories();
-      setCategories(cats);
+      const allItems = await db.getItems();
+      const uniqueCategories = [...new Set(allItems.map(item => item.category).filter(Boolean))];
+      setCategories(uniqueCategories);
     } catch (error) {
       console.error("Error loading categories:", error);
     }
@@ -374,7 +371,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       setPinError("");
       
       // Open Quick Add dialog with SKU pre-filled
-      setNewItemData({ sku: capturedBarcode, name: "", price: "", categoryId: "" });
+      setNewItemData({ sku: capturedBarcode, name: "", price: "", category: "" });
       setCreateItemOpen(true);
       
       // Clear the stored barcode
@@ -386,7 +383,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   };
 
   const handleQuickAddSave = async () => {
-    const { sku, name, price, categoryId } = newItemData;
+    const { sku, name, price, category } = newItemData;
     
     // Validation
     if (!name.trim()) {
@@ -400,31 +397,31 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     
     try {
       // Create item in DB
-      const newItem: Partial<Item> = {
+      const itemToSave: Omit<Item, "id"> = {
         sku: sku || undefined,
         name: name.trim(),
         price: parseFloat(price),
-        categoryId: categoryId || undefined,
+        category: category || "Uncategorized",
         isActive: true,
       };
       
-      const savedItem = await db.addItem(newItem as Item);
+      const newId = await db.addItem(itemToSave);
       
       // Add to cart
       addToCart({
-        itemId: savedItem.id!,
-        sku: savedItem.sku || `ITEM-${savedItem.id}`,
-        name: savedItem.name,
+        itemId: newId,
+        sku: sku || `ITEM-${newId}`,
+        name: name.trim(),
         quantity: 1,
-        basePrice: savedItem.price,
-        totalPrice: savedItem.price,
+        basePrice: parseFloat(price),
+        totalPrice: parseFloat(price),
         modifiers: [],
       });
       
       // Refresh items list & close dialog
       await loadItems();
       setCreateItemOpen(false);
-      setNewItemData({ sku: "", name: "", price: "", categoryId: "" });
+      setNewItemData({ sku: "", name: "", price: "", category: "" });
       
       // Play success sound
       playSuccessSound();
