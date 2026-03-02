@@ -227,7 +227,11 @@ export function AddItemDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleClose();
+        }
+      }}>
         <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
           {/* Fixed Header */}
           <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
