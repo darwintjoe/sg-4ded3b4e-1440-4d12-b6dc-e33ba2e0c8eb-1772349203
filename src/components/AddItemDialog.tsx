@@ -203,12 +203,11 @@ export function AddItemDialog({
       setCategorySheetOpen(false);
       setScannerOpen(false);
       
-      // Notify parent of created item
+      // Notify parent of created item - parent will close dialog
       onItemCreated(newItem);
     } catch (error) {
       console.error("Error saving item:", error);
       setValidationError("Failed to save item");
-    } finally {
       setIsSaving(false);
     }
   };
@@ -226,7 +225,7 @@ export function AddItemDialog({
     await lookupProductBySKU(barcode);
   };
 
-  // Clean close - ensure nested dialogs are closed first
+  // Handle cancel - close nested dialogs first, then notify parent
   const handleCancel = () => {
     setCategorySheetOpen(false);
     setScannerOpen(false);
@@ -237,19 +236,26 @@ export function AddItemDialog({
     cat.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
-  // Don't render if not open - prevents any stale state issues
+  // Don't render if not open
   if (!open) {
     return null;
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleCancel();
-        }
+      {/* Main Dialog - DO NOT use onOpenChange to call onClose */}
+      <Dialog open={open} onOpenChange={() => {
+        // Ignore onOpenChange - only close via Cancel button or after Save
+        // This prevents timing issues with Dialog cleanup
       }}>
-        <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <DialogContent 
+          className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            handleCancel();
+          }}
+        >
           {/* Fixed Header */}
           <div className="flex-shrink-0 px-6 py-3 border-b bg-background">
             <div className="flex items-center justify-between">
@@ -417,7 +423,7 @@ export function AddItemDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Barcode Scanner */}
+      {/* Barcode Scanner - rendered outside main dialog */}
       {scannerOpen && (
         <BarcodeScanner
           isOpen={true}
