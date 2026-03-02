@@ -53,14 +53,13 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [printerConnected, setPrinterConnected] = useState(false);
   const [autoReconnectAttempted, setAutoReconnectAttempted] = useState(false);
   
-  // Item not found flow states
+  // Item not found flow states - SIMPLE: just track dialog open state and the scanned SKU
   const [itemNotFoundOpen, setItemNotFoundOpen] = useState(false);
   const [notFoundBarcode, setNotFoundBarcode] = useState("");
   const [pinVerifyOpen, setPinVerifyOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
   const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
-  const [addItemSku, setAddItemSku] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   
   const { toast } = useToast();
@@ -375,7 +374,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       setNotFoundBarcode("");
       
       // Open Add Item dialog directly with SKU pre-filled
-      setAddItemSku(capturedBarcode);
       setAddItemDialogOpen(true);
     } else {
       setPinError(translate("pos.incorrectPin", language));
@@ -1042,11 +1040,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         onClose={() => {
           // Close dialog first, then clear state after unmount
           setAddItemDialogOpen(false);
-          setTimeout(() => {
-            setAddItemSku("");
-          }, 0);
         }}
-        initialSku={addItemSku}
+        initialSku={notFoundBarcode}
         onItemCreated={(newItem) => {
           // Close dialog first
           setAddItemDialogOpen(false);
@@ -1065,7 +1060,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             });
             
             // Clear SKU state
-            setAddItemSku("");
+            setNotFoundBarcode("");
             
             // Refresh items list
             loadItems();
