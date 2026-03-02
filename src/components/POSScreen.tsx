@@ -364,16 +364,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
     // Validate against ACTIVE CASHIER only (current logged in user)
     if (currentUser && currentUser.pin === pin) {
-      // Capture barcode before clearing
-      const capturedBarcode = notFoundBarcode;
-      
-      // Close PIN dialog and clear state
+      // Close PIN dialog
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
-      setNotFoundBarcode("");
       
-      // Open Add Item dialog directly with SKU pre-filled
+      // Open Add Item dialog - notFoundBarcode already contains the SKU
       setAddItemDialogOpen(true);
     } else {
       setPinError(translate("pos.incorrectPin", language));
