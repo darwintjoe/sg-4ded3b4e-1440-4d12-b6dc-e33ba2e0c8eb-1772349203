@@ -352,6 +352,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
     
     if (pinInput === currentUser.pin) {
+      // Capture the barcode value BEFORE any async operations or state changes
+      const scannedBarcode = notFoundBarcode;
+      
       // Blur current input to dismiss keyboard
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -363,13 +366,13 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       
       // Small delay to let keyboard dismiss, then open modal
       setTimeout(() => {
-        // Open create item dialog with SKU pre-filled
-        setNewItemData({ name: "", price: 0, sku: notFoundBarcode });
+        // Open create item dialog with SKU pre-filled using captured value
+        setNewItemData({ name: "", price: 0, sku: scannedBarcode });
         setNewItemPriceDisplay("");
         setCreateItemOpen(true);
         
         // Try to lookup product name
-        lookupProductName(notFoundBarcode);
+        lookupProductName(scannedBarcode);
       }, 300);
     } else {
       // Don't close modal - just show error
