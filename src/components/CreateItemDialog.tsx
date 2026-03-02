@@ -6,7 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { db } from "@/lib/db";
-import { Item } from "@/types";
+import { Item, Language } from "@/types";
 import { AlertCircle, ArrowUpDown, Check, Loader2, ScanBarcode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
@@ -16,7 +16,7 @@ interface CreateItemDialogProps {
   isOpen: boolean;
   onClose: () => void;
   initialSku?: string;
-  language: string;
+  language: Language;
   onItemCreated?: (item: Item) => void;
 }
 
