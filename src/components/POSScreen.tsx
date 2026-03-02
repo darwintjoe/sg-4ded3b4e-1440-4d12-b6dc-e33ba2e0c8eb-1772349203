@@ -344,31 +344,33 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   // Verify cashier PIN
   const handlePinVerify = async () => {
-    if (!currentUser?.pin) {
-      setPinError(translate("pos.noPinSet", language));
-      return;
-    }
-    
-    if (pinInput === currentUser.pin) {
-      // CRITICAL: Capture barcode value FIRST, before ANY state changes
+    const pin = pinInput.trim();
+    if (!pin) return;
+
+    const employees = await db.getAll<Employee>("employees");
+    const cashier = employees.find(
+      (e) => e.pin === pin && e.role === "cashier" && e.isActive
+    );
+
+    if (cashier) {
+      // IMPORTANT: Capture the barcode FIRST, before any state changes
       const capturedBarcode = notFoundBarcode;
       
-      // Close all dialogs and scanner immediately
-      setScannerOpen(false);
+      // Close all dialogs
       setPinVerifyOpen(false);
-      setItemNotFoundOpen(false);
       setPinInput("");
-      setPinError("");
-      setNotFoundBarcode("");
+      setItemNotFoundOpen(false);
+      setScannerOpen(false);
       
-      // Set the pending SKU in AppContext - ItemsPanel will pick this up
-      setPendingNewItemSku(capturedBarcode);
+      // Set the pending SKU in context and navigate to Admin
+      if (capturedBarcode) {
+        setPendingNewItemSku(capturedBarcode);
+      }
       
-      // Navigate to Admin panel - AdminDashboard will auto-switch to Items tab
-      // and ItemsPanel will auto-open the add dialog with SKU pre-filled
+      // Navigate to Admin panel - ItemsPanel will detect pendingNewItemSku and open add dialog
       onAdminClick();
     } else {
-      setPinError(translate("pos.incorrectPin", language));
+      setValidationError(translate("pos.incorrectPin", language));
       setPinInput("");
     }
   };
