@@ -624,6 +624,7 @@ export class Database {
         tax2Rate: 5,
         tax2Inclusive: false,
         language: "en",
+        theme: "light",
         printerWidth: 58,
         businessName: "My Store",
         businessLogo: undefined,

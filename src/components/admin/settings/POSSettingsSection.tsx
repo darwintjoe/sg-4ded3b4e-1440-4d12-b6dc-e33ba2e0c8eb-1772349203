@@ -9,6 +9,7 @@ import { HelpTooltip } from "./HelpTooltip";
 import { translate } from "@/lib/translations";
 import { useRef, useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 interface POSSettingsSectionProps {
   settings: Settings;
@@ -185,6 +186,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={getSafeShifts(settings).shift1.enabled}
                 onCheckedChange={(checked) => updateShift('shift1', { enabled: checked })}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             {getSafeShifts(settings).shift1.enabled && (
@@ -216,6 +218,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={getSafeShifts(settings).shift2.enabled}
                 onCheckedChange={(checked) => updateShift('shift2', { enabled: checked })}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             {getSafeShifts(settings).shift2.enabled && (
@@ -247,6 +250,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={getSafeShifts(settings).shift3.enabled}
                 onCheckedChange={(checked) => updateShift('shift3', { enabled: checked })}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             {getSafeShifts(settings).shift3.enabled && (
@@ -291,6 +295,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             <Switch
               checked={getSafePaymentMethods().cash !== false}
               onCheckedChange={(checked) => updatePaymentMethod('cash', checked)}
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
             />
           </div>
 
@@ -304,6 +309,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={getSafePaymentMethods().qrisStatic !== false}
                 onCheckedChange={(checked) => updatePaymentMethod('qrisStatic', checked)}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             
@@ -364,6 +370,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={getSafePaymentMethods().qrisDynamic === true}
                 onCheckedChange={(checked) => updatePaymentMethod('qrisDynamic', checked)}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             
@@ -419,6 +426,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             <Switch
               checked={getSafePaymentMethods().card === true}
               onCheckedChange={(checked) => updatePaymentMethod('card', checked)}
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
             />
           </div>
 
@@ -431,6 +439,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             <Switch
               checked={getSafePaymentMethods().voucher === true}
               onCheckedChange={(checked) => updatePaymentMethod('voucher', checked)}
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
             />
           </div>
 
@@ -443,6 +452,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             <Switch
               checked={getSafePaymentMethods().transfer === true}
               onCheckedChange={(checked) => updatePaymentMethod('transfer', checked)}
+              className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
             />
           </div>
         </div>
@@ -459,6 +469,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
           <Switch
             checked={settings.allowPriceOverride}
             onCheckedChange={(checked) => onUpdate({ allowPriceOverride: checked })}
+            className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
           />
         </div>
       </Card>
@@ -483,6 +494,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={settings.tax1Enabled}
                 onCheckedChange={(checked) => onUpdate({ tax1Enabled: checked })}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             
@@ -500,6 +512,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                 <Switch
                   checked={settings.tax1Inclusive || false}
                   onCheckedChange={(checked) => onUpdate({ tax1Inclusive: checked })}
+                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
                 />
               </div>
             )}
@@ -517,6 +530,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
               <Switch
                 checked={settings.tax2Enabled}
                 onCheckedChange={(checked) => onUpdate({ tax2Enabled: checked })}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
               />
             </div>
             
@@ -534,6 +548,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                 <Switch
                   checked={settings.tax2Inclusive || false}
                   onCheckedChange={(checked) => onUpdate({ tax2Inclusive: checked })}
+                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
                 />
               </div>
             )}
