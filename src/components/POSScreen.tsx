@@ -355,16 +355,24 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       // Capture the barcode value BEFORE any state changes
       const scannedBarcode = notFoundBarcode;
       
-      // Close scanner and PIN dialog
+      // Close scanner and PIN dialog immediately
       setScannerOpen(false);
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
+      
+      // Open create item dialog with SKU pre-filled
+      setNewItemData({ name: "", price: 0, sku: scannedBarcode });
+      setNewItemPriceDisplay("");
+      setCreateItemOpen(true);
+      
+      // Clear the notFoundBarcode
       setNotFoundBarcode("");
       
-      // Set pending SKU for ItemsPanel to pick up and navigate to admin
-      setPendingNewItemSku(scannedBarcode);
-      onAdminClick();
+      // Try to lookup product name
+      if (scannedBarcode && scannedBarcode.trim()) {
+        lookupProductName(scannedBarcode);
+      }
     } else {
       setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
