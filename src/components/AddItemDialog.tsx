@@ -62,6 +62,9 @@ export function AddItemDialog({
       });
       setPriceDisplay("");
       setValidationError("");
+      setCategorySheetOpen(false);
+      setCategorySearch("");
+      setScannerOpen(false);
       
       // Lookup product name if SKU provided
       if (initialSku) {
@@ -179,6 +182,7 @@ export function AddItemDialog({
       const uniqueError = await validateUniqueness(item);
       if (uniqueError) {
         setValidationError(uniqueError);
+        setIsSaving(false);
         return;
       }
 
@@ -194,6 +198,12 @@ export function AddItemDialog({
       };
 
       await db.add("items", newItem);
+      
+      // Close nested dialogs first
+      setCategorySheetOpen(false);
+      setScannerOpen(false);
+      
+      // Notify parent of created item
       onItemCreated(newItem);
     } catch (error) {
       console.error("Error saving item:", error);
@@ -216,8 +226,10 @@ export function AddItemDialog({
     await lookupProductBySKU(barcode);
   };
 
-  const handleClose = () => {
-    // Simply return to POS
+  // Clean close - ensure nested dialogs are closed first
+  const handleCancel = () => {
+    setCategorySheetOpen(false);
+    setScannerOpen(false);
     onClose();
   };
 
@@ -225,11 +237,16 @@ export function AddItemDialog({
     cat.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
+  // Don't render if not open - prevents any stale state issues
+  if (!open) {
+    return null;
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={(isOpen) => {
         if (!isOpen) {
-          handleClose();
+          handleCancel();
         }
       }}>
         <DialogContent className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden">
@@ -238,7 +255,7 @@ export function AddItemDialog({
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
-                onClick={handleClose}
+                onClick={handleCancel}
                 className="text-blue-600 hover:text-blue-700 hover:bg-transparent -ml-3"
               >
                 {translate("common.cancel", language)}
