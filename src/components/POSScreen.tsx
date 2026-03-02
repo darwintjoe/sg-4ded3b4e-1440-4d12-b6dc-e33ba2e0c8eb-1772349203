@@ -10,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen";
+import { PaymentDialog } from "@/components/PaymentDialog";
+import { ReportsDialog } from "@/components/ReportsDialog";
+import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
@@ -1120,6 +1123,86 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Add Item Dialog */}
+      <Dialog open={createItemOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCreateItemOpen(false);
+          setNewItemData({ sku: "", name: "", price: "", category: "" });
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{translate("pos.quickAddItem", language)}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* SKU - readonly, pre-filled */}
+            <div className="space-y-2">
+              <Label htmlFor="quick-sku">{translate("items.sku", language)}</Label>
+              <Input 
+                id="quick-sku"
+                value={newItemData.sku} 
+                readOnly 
+                className="bg-slate-100 dark:bg-slate-800 font-mono" 
+              />
+            </div>
+            
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="quick-name">{translate("items.name", language)} *</Label>
+              <Input 
+                id="quick-name"
+                value={newItemData.name}
+                onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder={translate("items.namePlaceholder", language)}
+              />
+            </div>
+            
+            {/* Price - auto-focus */}
+            <div className="space-y-2">
+              <Label htmlFor="quick-price">{translate("items.price", language)} *</Label>
+              <Input 
+                id="quick-price"
+                ref={newItemPriceRef}
+                type="number"
+                inputMode="numeric"
+                value={newItemData.price}
+                onChange={(e) => setNewItemData(prev => ({ ...prev, price: e.target.value }))}
+                placeholder="0"
+              />
+            </div>
+            
+            {/* Category dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="quick-category">{translate("items.category", language)}</Label>
+              <select
+                id="quick-category"
+                value={newItemData.category}
+                onChange={(e) => setNewItemData(prev => ({ ...prev, category: e.target.value }))}
+                className="w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+              >
+                <option value="">{translate("items.selectCategory", language)}</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              setCreateItemOpen(false);
+              setNewItemData({ sku: "", name: "", price: "", category: "" });
+            }}>
+              {translate("common.cancel", language)}
+            </Button>
+            <Button onClick={handleQuickAddSave} className="bg-green-600 hover:bg-green-700">
+              {translate("common.save", language)}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
