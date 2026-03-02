@@ -60,8 +60,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [pinVerifyOpen, setPinVerifyOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
-  const [createItemOpen, setCreateItemOpen] = useState(false);
-  const [newItemData, setNewItemData] = useState({ sku: "", name: "", price: "", category: "" });
+  const [addItemDialogOpen, setAddItemDialogOpen] = useState(false);
+  const [addItemSku, setAddItemSku] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   
   const { toast } = useToast();
@@ -340,32 +340,27 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const handleItemNotFoundNo = () => {
     setItemNotFoundOpen(false);
     setNotFoundBarcode("");
-    // Reopen scanner after brief delay
-    setTimeout(() => {
-      setScannerOpen(true);
-    }, 500);
+    // Simply return to POS - no scanner reopen
   };
 
   // Handle "Yes" on item not found dialog - start PIN verification
   const handleItemNotFoundYes = () => {
     setItemNotFoundOpen(false);
-    // DO NOT clear notFoundBarcode here - we need it for PIN verification
+    // Close scanner first
+    setScannerOpen(false);
+    // Store barcode and open PIN dialog
     setPinInput("");
     setPinError("");
     setPinVerifyOpen(true);
   };
 
-  // Verify cashier PIN
+  // Verify active cashier PIN only
   const handlePinVerify = async () => {
     const pin = pinInput.trim();
     if (!pin) return;
 
-    const employees = await db.getAll<Employee>("employees");
-    const cashier = employees.find(
-      (e) => e.pin === pin && e.role === "cashier" && e.isActive
-    );
-
-    if (cashier) {
+    // Validate against ACTIVE CASHIER only (current logged in user)
+    if (currentUser && currentUser.role === "cashier" && currentUser.pin === pin) {
       const capturedBarcode = notFoundBarcode;
       
       // Close PIN dialog
@@ -373,9 +368,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       setPinInput("");
       setPinError("");
       
-      // Open Quick Add dialog with SKU pre-filled
-      setNewItemData({ sku: capturedBarcode, name: "", price: "", category: "" });
-      setCreateItemOpen(true);
+      // Open Add Item dialog directly with SKU pre-filled
+      setAddItemSku(capturedBarcode);
+      setAddItemDialogOpen(true);
       
       // Clear the stored barcode
       setNotFoundBarcode("");
@@ -385,55 +380,13 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
   };
 
-  const handleQuickAddSave = async () => {
-    const { sku, name, price, category } = newItemData;
-    
-    // Validation
-    if (!name.trim()) {
-      toast({ title: translate("pos.nameRequired", language), variant: "destructive" });
-      return;
-    }
-    if (!price || parseFloat(price) <= 0) {
-      toast({ title: translate("pos.priceRequired", language), variant: "destructive" });
-      return;
-    }
-    
-    try {
-      // Create item in DB
-      const itemToSave: Omit<Item, "id"> = {
-        sku: sku || undefined,
-        name: name.trim(),
-        price: parseFloat(price),
-        category: category || "Uncategorized",
-        isActive: true,
-      };
-      
-      const newId = await db.addItem(itemToSave);
-      
-      // Add to cart
-      addToCart({
-        itemId: newId,
-        sku: sku || `ITEM-${newId}`,
-        name: name.trim(),
-        quantity: 1,
-        basePrice: parseFloat(price),
-        totalPrice: parseFloat(price),
-        modifiers: [],
-      });
-      
-      // Refresh items list & close dialog
-      await loadItems();
-      setCreateItemOpen(false);
-      setNewItemData({ sku: "", name: "", price: "", category: "" });
-      
-      // Play success sound
-      playSuccessSound();
-      
-      toast({ title: translate("pos.itemAddedToCart", language) });
-    } catch (error) {
-      console.error("Error creating item:", error);
-      toast({ title: translate("common.error", language), variant: "destructive" });
-    }
+  // Handle cancel on PIN dialog
+  const handlePinCancel = () => {
+    setPinVerifyOpen(false);
+    setPinInput("");
+    setPinError("");
+    setNotFoundBarcode("");
+    // Simply return to POS - no scanner reopen
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
@@ -1024,12 +977,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       {/* Item Not Found Dialog */}
       <AlertDialog open={itemNotFoundOpen} onOpenChange={(open) => {
         if (!open) {
-          setItemNotFoundOpen(false);
-          setNotFoundBarcode("");
-          // Reopen scanner after brief delay
-          setTimeout(() => {
-            setScannerOpen(true);
-          }, 500);
+          handleItemNotFoundNo();
         }
       }}>
         <AlertDialogContent>
@@ -1064,13 +1012,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       {/* PIN Verification Dialog */}
       <AlertDialog open={pinVerifyOpen} onOpenChange={(open) => {
         if (!open) {
-          setPinVerifyOpen(false);
-          setPinInput("");
-          setPinError("");
-          // Reopen scanner after brief delay
-          setTimeout(() => {
-            setScannerOpen(true);
-          }, 500);
+          handlePinCancel();
         }
       }}>
         <AlertDialogContent className="pb-36">
@@ -1106,15 +1048,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setPinVerifyOpen(false);
-              setPinInput("");
-              setPinError("");
-              // Reopen scanner after brief delay
-              setTimeout(() => {
-                setScannerOpen(true);
-              }, 500);
-            }}>
+            <AlertDialogCancel onClick={handlePinCancel}>
               {translate("common.cancel", language)}
             </AlertDialogCancel>
             <Button onClick={handlePinVerify} className="bg-blue-600 hover:bg-blue-700">
@@ -1124,85 +1058,42 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Quick Add Item Dialog */}
-      <Dialog open={createItemOpen} onOpenChange={(open) => {
-        if (!open) {
-          setCreateItemOpen(false);
-          setNewItemData({ sku: "", name: "", price: "", category: "" });
-        }
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{translate("pos.quickAddItem", language)}</DialogTitle>
-          </DialogHeader>
+      {/* Add Item Dialog - Reuse from ItemsPanel */}
+      <AddItemDialog
+        open={addItemDialogOpen}
+        onClose={() => {
+          setAddItemDialogOpen(false);
+          setAddItemSku("");
+          // Simply return to POS
+        }}
+        initialSku={addItemSku}
+        onItemCreated={(newItem) => {
+          // Add new item to cart
+          addToCart({
+            itemId: newItem.id!,
+            sku: newItem.sku || `ITEM-${newItem.id}`,
+            name: newItem.name,
+            quantity: 1,
+            basePrice: newItem.price,
+            totalPrice: newItem.price,
+            modifiers: [],
+          });
           
-          <div className="space-y-4 py-4">
-            {/* SKU - readonly, pre-filled */}
-            <div className="space-y-2">
-              <Label htmlFor="quick-sku">{translate("items.sku", language)}</Label>
-              <Input 
-                id="quick-sku"
-                value={newItemData.sku} 
-                readOnly 
-                className="bg-slate-100 dark:bg-slate-800 font-mono" 
-              />
-            </div>
-            
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="quick-name">{translate("items.name", language)} *</Label>
-              <Input 
-                id="quick-name"
-                value={newItemData.name}
-                onChange={(e) => setNewItemData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder={translate("items.namePlaceholder", language)}
-              />
-            </div>
-            
-            {/* Price - auto-focus */}
-            <div className="space-y-2">
-              <Label htmlFor="quick-price">{translate("items.price", language)} *</Label>
-              <Input 
-                id="quick-price"
-                ref={newItemPriceRef}
-                type="number"
-                inputMode="numeric"
-                value={newItemData.price}
-                onChange={(e) => setNewItemData(prev => ({ ...prev, price: e.target.value }))}
-                placeholder="0"
-              />
-            </div>
-            
-            {/* Category dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="quick-category">{translate("items.category", language)}</Label>
-              <select
-                id="quick-category"
-                value={newItemData.category}
-                onChange={(e) => setNewItemData(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-              >
-                <option value="">{translate("items.selectCategory", language)}</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          // Close dialog and return to POS
+          setAddItemDialogOpen(false);
+          setAddItemSku("");
           
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => {
-              setCreateItemOpen(false);
-              setNewItemData({ sku: "", name: "", price: "", category: "" });
-            }}>
-              {translate("common.cancel", language)}
-            </Button>
-            <Button onClick={handleQuickAddSave} className="bg-green-600 hover:bg-green-700">
-              {translate("common.save", language)}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          // Refresh items list
+          loadItems();
+          
+          // Play success sound
+          playSuccessSound();
+          
+          toast({ title: translate("pos.itemAddedToCart", language) });
+        }}
+        language={language}
+        categories={categories}
+      />
     </div>
   );
 }
