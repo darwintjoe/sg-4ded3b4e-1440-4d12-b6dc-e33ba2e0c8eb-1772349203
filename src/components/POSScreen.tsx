@@ -1040,34 +1040,41 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       <AddItemDialog
         open={addItemDialogOpen}
         onClose={() => {
+          // Close dialog first, then clear state after unmount
           setAddItemDialogOpen(false);
-          setAddItemSku("");
-          // Simply return to POS
+          setTimeout(() => {
+            setAddItemSku("");
+          }, 0);
         }}
         initialSku={addItemSku}
         onItemCreated={(newItem) => {
-          // Add new item to cart
-          addToCart({
-            itemId: newItem.id!,
-            sku: newItem.sku || `ITEM-${newItem.id}`,
-            name: newItem.name,
-            quantity: 1,
-            basePrice: newItem.price,
-            totalPrice: newItem.price,
-            modifiers: [],
-          });
-          
-          // Close dialog and return to POS
+          // Close dialog first
           setAddItemDialogOpen(false);
-          setAddItemSku("");
           
-          // Refresh items list
-          loadItems();
-          
-          // Play success sound
-          playSuccessSound();
-          
-          toast({ title: translate("pos.itemAddedToCart", language) });
+          // Delay all other operations to let dialog unmount cleanly
+          setTimeout(() => {
+            // Add new item to cart
+            addToCart({
+              itemId: newItem.id!,
+              sku: newItem.sku || `ITEM-${newItem.id}`,
+              name: newItem.name,
+              quantity: 1,
+              basePrice: newItem.price,
+              totalPrice: newItem.price,
+              modifiers: [],
+            });
+            
+            // Clear SKU state
+            setAddItemSku("");
+            
+            // Refresh items list
+            loadItems();
+            
+            // Play success sound
+            playSuccessSound();
+            
+            toast({ title: translate("pos.itemAddedToCart", language) });
+          }, 50);
         }}
         language={language}
         categories={categories}
