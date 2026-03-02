@@ -527,22 +527,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       await db.put("shifts", updatedShift);
 
-      // Check if month changed, trigger monthly rollup
-      await checkAndRollupMonthly();
-
-      // Trigger backup to Google Drive (fire-and-forget)
-      triggerBackupToGoogleDrive();
-
-      // Delete shift after backup initiation (fire-and-forget)
-      deleteShiftAfterBackup(updatedShift.shiftId).catch(() => {
-        // Silent failure - non-critical
-      });
-
-      // Send shift report as calendar event (fire-and-forget)
-      sendShiftReportToCalendar(updatedShift);
-
-      // Export transactions to Google Sheets (fire-and-forget)
-      exportTransactionsToSheets(updatedShift);
+      // Trigger all post-close actions (shared with auto-close)
+      await performPostCloseActions(updatedShift);
     } catch (error) {
       console.error("Error closing shift:", error);
     }
