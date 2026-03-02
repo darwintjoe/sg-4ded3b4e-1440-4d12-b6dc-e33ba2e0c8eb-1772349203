@@ -4,15 +4,14 @@ import { useApp } from "@/contexts/AppContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen";
 import { PaymentDialog } from "@/components/PaymentDialog";
 import { ReportsDialog } from "@/components/ReportsDialog";
 import { CartItemEditDialog } from "@/components/CartItemEditDialog";
+import { AddItemDialog } from "@/components/AddItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
@@ -31,7 +30,7 @@ interface POSScreenProps {
 }
 
 export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POSScreenProps) {
-  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings, setPendingNewItemSku } = useApp();
+  const { currentUser, logout, cart, setCart, addToCart, removeFromCart, clearCart, cartTotal, pauseSession, lockSession, mode, language, settings } = useApp();
   const { theme, setTheme } = useTheme();
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -67,7 +66,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const { toast } = useToast();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const newItemPriceRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
 
   const router = useRouter();
@@ -319,9 +317,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         }
         
         // Sound is handled by BarcodeScanner for immediate feedback
-        // Return true to indicate item was found - scanner will handle cooldown
       } else {
-        // Item not found - close scanner and show dialog
+        // Item not found - close scanner first, then show dialog
         setScannerOpen(false);
         setNotFoundBarcode(barcode);
         setItemNotFoundOpen(true);
@@ -336,19 +333,26 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
   };
 
-  // Handle "No" on item not found dialog
+  // Handle "No" on item not found dialog - simply return to POS
   const handleItemNotFoundNo = () => {
     setItemNotFoundOpen(false);
     setNotFoundBarcode("");
     // Simply return to POS - no scanner reopen
   };
 
-  // Handle "Yes" on item not found dialog - start PIN verification
+  // Handle "Yes" on item not found dialog - close scanner, then PIN verification
   const handleItemNotFoundYes = () => {
+    // Store barcode before closing dialog
+    const barcodeToUse = notFoundBarcode;
+    
+    // Close item not found dialog
     setItemNotFoundOpen(false);
-    // Close scanner first
+    
+    // Scanner should already be closed from handleBarcodeScan
+    // But ensure it's closed
     setScannerOpen(false);
-    // Store barcode and open PIN dialog
+    
+    // Open PIN dialog
     setPinInput("");
     setPinError("");
     setPinVerifyOpen(true);
@@ -360,27 +364,26 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     if (!pin) return;
 
     // Validate against ACTIVE CASHIER only (current logged in user)
-    if (currentUser && currentUser.role === "cashier" && currentUser.pin === pin) {
+    if (currentUser && currentUser.pin === pin) {
+      // Capture barcode before clearing
       const capturedBarcode = notFoundBarcode;
       
-      // Close PIN dialog
+      // Close PIN dialog and clear state
       setPinVerifyOpen(false);
       setPinInput("");
       setPinError("");
+      setNotFoundBarcode("");
       
       // Open Add Item dialog directly with SKU pre-filled
       setAddItemSku(capturedBarcode);
       setAddItemDialogOpen(true);
-      
-      // Clear the stored barcode
-      setNotFoundBarcode("");
     } else {
       setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
     }
   };
 
-  // Handle cancel on PIN dialog
+  // Handle cancel on PIN dialog - simply return to POS
   const handlePinCancel = () => {
     setPinVerifyOpen(false);
     setPinInput("");
@@ -472,7 +475,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const handleLockScreen = async () => {
     console.log("Lock screen clicked, locking session...");
     await lockSession();
-    onLockScreen(); // Notify parent to switch screen state if needed
+    onLockScreen();
   };
 
   const filteredItems = items
@@ -504,8 +507,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       if (!aStarts && bStarts) return 1;
       
       // Priority 3: Word boundary match (any word starts with query)
-      const aWordBoundary = aName.split(' ').some(word => word.startsWith(query));
-      const bWordBoundary = bName.split(' ').some(word => word.startsWith(query));
+      const aWordBoundary = aName.split(" ").some(word => word.startsWith(query));
+      const bWordBoundary = bName.split(" ").some(word => word.startsWith(query));
       if (aWordBoundary && !bWordBoundary) return -1;
       if (!aWordBoundary && bWordBoundary) return 1;
       
@@ -524,17 +527,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       // Final: Alphabetical by name
       return aName.localeCompare(bName);
     });
-
-  // Focus price input when create item dialog opens
-  useEffect(() => {
-    if (createItemOpen && newItemPriceRef.current) {
-      // Delay to ensure modal is fully rendered and keyboard is dismissed
-      const timer = setTimeout(() => {
-        newItemPriceRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [createItemOpen]);
 
   // Automatically show dropdown when user types
   useEffect(() => {
@@ -692,7 +684,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                       size="sm"
                       onClick={() => {
                         // Use search query as potential SKU
-                        setNotFoundBarcode(searchQuery.trim());
+                        const queryToUse = searchQuery.trim();
+                        setNotFoundBarcode(queryToUse);
                         setShowItemPicker(false);
                         setSearchQuery("");
                         // Go directly to PIN verification (same as barcode flow)
@@ -992,14 +985,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setItemNotFoundOpen(false);
-              setNotFoundBarcode("");
-              // Reopen scanner after brief delay
-              setTimeout(() => {
-                setScannerOpen(true);
-              }, 500);
-            }}>
+            <AlertDialogCancel onClick={handleItemNotFoundNo}>
               {translate("common.no", language)}
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleItemNotFoundYes} className="bg-blue-600 hover:bg-blue-700">
@@ -1058,7 +1044,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Add Item Dialog - Reuse from ItemsPanel */}
+      {/* Add Item Dialog */}
       <AddItemDialog
         open={addItemDialogOpen}
         onClose={() => {
