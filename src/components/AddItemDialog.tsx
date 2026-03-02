@@ -249,7 +249,7 @@ export function AddItemDialog({
         // This prevents timing issues with Dialog cleanup
       }}>
         <DialogContent 
-          className="max-w-md h-[100dvh] max-h-[100dvh] flex flex-col p-0 gap-0 [&>button]:hidden"
+          className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0 [&>button]:hidden"
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => {
             e.preventDefault();
