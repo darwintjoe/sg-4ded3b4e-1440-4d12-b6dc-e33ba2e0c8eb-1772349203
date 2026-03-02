@@ -317,10 +317,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         
         // Sound is handled by BarcodeScanner for immediate feedback
       } else {
-        // Item not found - close scanner first, then show dialog
+        // Item not found - close scanner, open AddItemDialog directly (skip Y/N dialog)
         setScannerOpen(false);
         setNotFoundBarcode(barcode);
-        setItemNotFoundOpen(true);
+        setAddItemDialogOpen(true);
       }
     } catch (error) {
       console.error("Barcode scan error:", error);
