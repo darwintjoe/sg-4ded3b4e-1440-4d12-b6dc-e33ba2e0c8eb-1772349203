@@ -380,6 +380,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
 
   // Lookup product name from external API
   const lookupProductName = async (sku: string) => {
+    if (!sku || !sku.trim()) return;
+    
     try {
       const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
       const data = await response.json();
