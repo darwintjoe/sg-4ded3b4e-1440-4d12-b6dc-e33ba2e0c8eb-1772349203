@@ -345,13 +345,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.log("🌱 Seeding default employees...");
       
       // Check for Admin
-      const admins = await db.searchByIndex<Employee>("employees", "pin", "0000");
+      const admins = await db.searchByIndex<Employee>("employees", "pin", "000000");
       
       if (admins.length === 0) {
         console.log("Creating default admin...");
         await db.add("employees", {
           name: "Admin",
-          pin: "0000",
+          pin: "000000",
           role: "admin",
           createdAt: Date.now(),
           isActive: true
@@ -361,13 +361,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       // Check for Cashier
-      const cashiers = await db.searchByIndex<Employee>("employees", "pin", "1111");
+      const cashiers = await db.searchByIndex<Employee>("employees", "pin", "111111");
       
       if (cashiers.length === 0) {
         console.log("Creating default cashier...");
         await db.add("employees", {
           name: "Cashier 1",
-          pin: "1111",
+          pin: "111111",
           role: "cashier",
           createdAt: Date.now(),
           isActive: true
