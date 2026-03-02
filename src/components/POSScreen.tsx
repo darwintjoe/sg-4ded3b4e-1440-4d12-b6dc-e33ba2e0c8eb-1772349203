@@ -13,6 +13,7 @@ import { CartItemEditDialog } from "@/components/CartItemEditDialog";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen";
+import { CreateItemDialog } from "@/components/CreateItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift } from "@/types";
@@ -61,9 +62,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
   const [createItemOpen, setCreateItemOpen] = useState(false);
-  const [newItemData, setNewItemData] = useState({ name: "", price: 0, sku: "" });
-  const [newItemPriceDisplay, setNewItemPriceDisplay] = useState("");
-  const [isCreatingItem, setIsCreatingItem] = useState(false);
   
   const { toast } = useToast();
 
@@ -362,8 +360,6 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       setPinError("");
       
       // Open create item dialog with SKU pre-filled
-      setNewItemData({ name: "", price: 0, sku: scannedBarcode });
-      setNewItemPriceDisplay("");
       setCreateItemOpen(true);
       
       // Clear the notFoundBarcode
@@ -387,113 +383,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
       const data = await response.json();
       if (data.success && data.productName) {
-        setNewItemData(prev => ({ ...prev, name: data.productName }));
+        setCreateItemOpen(prev => ({ ...prev, name: data.productName }));
       }
     } catch (error) {
       // Silent failure - user can enter name manually
     }
-  };
-
-  // Format price for display
-  const formatPriceInput = (value: string): string => {
-    const numValue = value.replace(/[^\d]/g, "");
-    if (!numValue || numValue === "0") return "";
-    return parseInt(numValue).toLocaleString("id-ID");
-  };
-
-  // Handle new item price change
-  const handleNewItemPriceChange = (value: string) => {
-    const formatted = formatPriceInput(value);
-    setNewItemPriceDisplay(formatted);
-    const numericValue = parseInt(value.replace(/[^\d]/g, "")) || 0;
-    setNewItemData(prev => ({ ...prev, price: numericValue }));
-  };
-
-  // Capitalize words helper
-  const capitalizeWords = (str: string) => {
-    return str.split(" ").map(word => 
-      word.length === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(" ");
-  };
-
-  // Save new item and add to cart
-  const handleSaveNewItem = async () => {
-    if (!newItemData.name.trim() || newItemData.price <= 0) {
-      toast({
-        title: translate("common.error", language),
-        description: translate("items.validationError", language),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsCreatingItem(true);
-    try {
-      const newItem: Item = {
-        id: Date.now(),
-        sku: newItemData.sku,
-        name: capitalizeWords(newItemData.name),
-        price: newItemData.price,
-        category: "General",
-        variants: [],
-        modifiers: [],
-        isActive: true
-      };
-
-      await db.add("items", newItem);
-      
-      // Refresh items list
-      const allItems = await db.getItems();
-      setItems(allItems.filter(item => item.isActive !== false));
-
-      // Add to cart
-      const cartItem: CartItem = {
-        itemId: newItem.id!,
-        sku: newItem.sku || `ITEM-${newItem.id}`,
-        name: newItem.name,
-        quantity: 1,
-        basePrice: newItem.price,
-        totalPrice: newItem.price,
-        variant: undefined,
-        modifiers: []
-      };
-      setCart([...cart, cartItem]);
-
-      toast({
-        title: translate("items.itemCreated", language),
-        description: newItem.name,
-      });
-
-      setCreateItemOpen(false);
-      setNewItemData({ name: "", price: 0, sku: "" });
-      setNotFoundBarcode("");
-
-      // Reopen scanner after brief delay
-      setTimeout(() => {
-        setScannerOpen(true);
-      }, 500);
-
-    } catch (error) {
-      console.error("Error creating item:", error);
-      toast({
-        title: translate("common.error", language),
-        description: translate("items.createError", language),
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreatingItem(false);
-    }
-  };
-
-  // Cancel create item
-  const handleCancelCreateItem = () => {
-    setCreateItemOpen(false);
-    setNewItemData({ name: "", price: 0, sku: "" });
-    setNotFoundBarcode("");
-    // Reopen scanner after brief delay
-    setTimeout(() => {
-      setScannerOpen(true);
-    }, 500);
   };
 
   const handleLongPressStart = (item: CartItem, index: number, clientX: number, clientY: number) => {
@@ -1187,7 +1081,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       {/* Create New Item Dialog */}
       <Dialog open={createItemOpen} onOpenChange={(open) => {
         if (!open) {
-          handleCancelCreateItem();
+          setCreateItemOpen(false);
         }
       }}>
         <DialogContent className="sm:max-w-md">
