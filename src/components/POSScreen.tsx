@@ -337,6 +337,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   // Handle "Yes" on item not found dialog - start PIN verification
   const handleItemNotFoundYes = () => {
     setItemNotFoundOpen(false);
+    // DO NOT clear notFoundBarcode here - we need it for PIN verification
     setPinInput("");
     setPinError("");
     setPinVerifyOpen(true);
