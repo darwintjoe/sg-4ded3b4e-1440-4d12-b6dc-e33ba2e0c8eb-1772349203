@@ -73,6 +73,9 @@ interface AppContextType {
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
   promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
+  // Pending new item from barcode scan (shared between POS and Admin)
+  pendingNewItemSku: string | null;
+  setPendingNewItemSku: (sku: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -90,6 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState("Initializing system...");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [pendingNewItemSku, setPendingNewItemSku] = useState<string | null>(null);
 
   // Derived state for language
   const language: Language = (settings?.language as Language) || "en";
@@ -854,6 +858,8 @@ PAYMENT BREAKDOWN:
         hasActiveSession,
         isInitializing,
         loadingStatus,
+        pendingNewItemSku,
+        setPendingNewItemSku,
         ...googleAuth
       }}
     >
