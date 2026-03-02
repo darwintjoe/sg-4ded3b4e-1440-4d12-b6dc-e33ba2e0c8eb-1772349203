@@ -18,7 +18,7 @@ import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
 import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, playSuccessSound } from "@/lib/utils";
+import { formatCurrency, playSuccessSound, playTiitSound } from "@/lib/utils";
 import Image from "next/image";
 import { getSubscriptionInfo, getSubscriptionBarPercentage, getSubscriptionBarColor } from "@/lib/subscription-service";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
@@ -255,6 +255,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         totalPrice: updatedCart[existingIndex].basePrice * (updatedCart[existingIndex].quantity + 1)
       };
       setCart(updatedCart);
+      playTiitSound();
     } else {
       // New item, add to cart
       const cartItem: CartItem = {
@@ -268,6 +269,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         modifiers: []
       };
       addToCart(cartItem);
+      playTiitSound();
     }
 
     // Clear search text and refocus input to keep keyboard open
@@ -300,6 +302,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             totalPrice: existingItem.basePrice * (existingItem.quantity + 1)
           };
           setCart(updatedCart);
+          playTiitSound();
         } else {
           // New item - add to cart
           const newItem: CartItem = {
@@ -313,6 +316,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             modifiers: []
           };
           setCart([...cart, newItem]);
+          playTiitSound();
         }
         
         // Sound is handled by BarcodeScanner for immediate feedback
@@ -1034,7 +1038,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           });
           setAddItemDialogOpen(false);
           loadItems();
-          playSuccessSound();
+          playTiitSound();
           toast({ title: translate("pos.itemAddedToCart", language) });
         }}
         language={language}
