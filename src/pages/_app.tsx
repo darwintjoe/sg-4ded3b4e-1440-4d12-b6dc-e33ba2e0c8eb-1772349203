@@ -5,6 +5,7 @@ import { AppProvider } from "@/contexts/AppContext";
 import { GoogleAuthProvider } from "@/contexts/GoogleAuthContext";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { SplashScreen } from "@/components/SplashScreen";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState, useEffect } from "react";
 
 // Register service worker for PWA offline support
@@ -71,18 +72,20 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <GoogleAuthProvider>
-        <AppProvider>
-          {showSplash ? (
-            <SplashScreen onComplete={handleSplashComplete} />
-          ) : (
-            <>
-              <Component {...pageProps} />
-              <PWAInstallPrompt />
-            </>
-          )}
-        </AppProvider>
-      </GoogleAuthProvider>
+      <ErrorBoundary>
+        <GoogleAuthProvider>
+          <AppProvider>
+            {showSplash ? (
+              <SplashScreen onComplete={handleSplashComplete} />
+            ) : (
+              <>
+                <Component {...pageProps} />
+                <PWAInstallPrompt />
+              </>
+            )}
+          </AppProvider>
+        </GoogleAuthProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
