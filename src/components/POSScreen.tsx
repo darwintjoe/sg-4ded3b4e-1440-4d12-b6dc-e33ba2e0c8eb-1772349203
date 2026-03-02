@@ -317,10 +317,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         
         // Sound is handled by BarcodeScanner for immediate feedback
       } else {
-        // Item not found - close scanner, open AddItemDialog directly (skip Y/N dialog)
+        // Item not found - close scanner, show Y/N confirmation dialog
         setScannerOpen(false);
         setNotFoundBarcode(barcode);
-        setAddItemDialogOpen(true);
+        setItemNotFoundOpen(true);
       }
     } catch (error) {
       console.error("Barcode scan error:", error);
@@ -944,7 +944,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       </AlertDialog>
 
       {/* Item Not Found Dialog */}
-      <AlertDialog open={itemNotFoundOpen} onOpenChange={setItemNotFoundOpen}>
+      <AlertDialog open={itemNotFoundOpen} onOpenChange={() => {
+        // Ignore onOpenChange - only close via explicit button clicks
+        // This prevents timing issues when transitioning to AddItemDialog
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.itemNotFound", language)}</AlertDialogTitle>
