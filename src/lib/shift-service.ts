@@ -101,10 +101,14 @@ export async function generateShiftId(businessDate: string): Promise<string> {
 }
 
 /**
- * Get the current business date in YYYY-MM-DD format
+ * Get the current business date in YYYY-MM-DD format (local time)
  */
 export function getBusinessDate(): string {
-  return new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
