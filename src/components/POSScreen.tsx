@@ -350,23 +350,23 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     }
     
     if (pinInput === currentUser.pin) {
-      // Capture the barcode value BEFORE any state changes
-      const scannedBarcode = notFoundBarcode;
+      // CRITICAL: Capture barcode value FIRST, before ANY state changes
+      const capturedBarcode = notFoundBarcode;
       
-      // Close scanner and PIN dialog immediately
+      // Close all dialogs and scanner immediately
       setScannerOpen(false);
       setPinVerifyOpen(false);
+      setItemNotFoundOpen(false);
       setPinInput("");
       setPinError("");
-      
-      // Set the SKU for create item dialog BEFORE clearing notFoundBarcode
-      setPendingNewItemSku(scannedBarcode);
-      
-      // Open create item dialog
-      setCreateItemOpen(true);
-      
-      // Clear the notFoundBarcode after we've captured it
       setNotFoundBarcode("");
+      
+      // Set the pending SKU in AppContext - ItemsPanel will pick this up
+      setPendingNewItemSku(capturedBarcode);
+      
+      // Navigate to Admin panel - AdminDashboard will auto-switch to Items tab
+      // and ItemsPanel will auto-open the add dialog with SKU pre-filled
+      onAdminClick();
     } else {
       setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
