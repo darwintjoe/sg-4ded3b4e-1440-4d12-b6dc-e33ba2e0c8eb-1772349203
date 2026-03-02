@@ -338,14 +338,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     // notFoundBarcode stays as-is, harmless if unused
   };
 
-  // Handle "Yes" on item not found dialog - proceed to PIN verification
+  // Handle "Yes" on item not found dialog - open AddItemDialog directly (skip PIN for testing)
   const handleItemNotFoundYes = () => {
     setItemNotFoundOpen(false);
     setScannerOpen(false);
-    // Open PIN dialog - notFoundBarcode already has the SKU
-    setPinInput("");
-    setPinError("");
-    setPinVerifyOpen(true);
+    // Skip PIN, open AddItemDialog directly
+    setAddItemDialogOpen(true);
   };
 
   // Verify active cashier PIN only
@@ -664,12 +662,11 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        // Use search query as potential SKU
-                        const queryToUse = searchQuery.trim();
-                        setNotFoundBarcode(queryToUse);
+                        // Use search query as the SKU to pass to AddItemDialog
+                        setNotFoundBarcode(searchQuery.trim());
                         setShowItemPicker(false);
                         setSearchQuery("");
-                        // Go directly to PIN verification (same as barcode flow)
+                        // Go directly to PIN verification
                         setPinInput("");
                         setPinError("");
                         setPinVerifyOpen(true);
