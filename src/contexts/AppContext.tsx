@@ -144,17 +144,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Check for active cashier session
       const activeSession = await db.getById<CashierSession>("cashierSession", 1);
       if (activeSession && activeSession.shiftActive) {
-        setHasActiveSession(true);
-        console.log("✅ Active session detected");
+        // Check if session is from a different business date (stale shift)
+        const todayBusinessDate = getBusinessDate();
+        const sessionDate = await getSessionBusinessDate(activeSession.employeeId);
+        
+        if (sessionDate && sessionDate !== todayBusinessDate) {
+          console.log(`⚠️ Stale shift detected: ${sessionDate} vs today ${todayBusinessDate}`);
+          await autoCloseStaleShift(activeSession.employeeId, sessionDate);
+          console.log("✅ Stale shift auto-closed");
+        } else {
+          setHasActiveSession(true);
+          console.log("✅ Active session detected");
+        }
       }
 
-      // Check for paused state
+      // Check for paused state - also verify it's not stale
       const pauseState = await db.getById<PauseState>("pauseState", 1);
       if (pauseState) {
-        setIsPaused(true);
-        setCart(pauseState.cart);
-        setModeState(pauseState.mode);
-        console.log("✅ Paused session restored");
+        const todayBusinessDate = getBusinessDate();
+        const pauseSessionDate = await getSessionBusinessDate(pauseState.cashierId);
+        
+        if (pauseSessionDate && pauseSessionDate !== todayBusinessDate) {
+          console.log(`⚠️ Stale paused session detected: ${pauseSessionDate}`);
+          await autoCloseStaleShift(pauseState.cashierId, pauseSessionDate);
+          await db.delete("pauseState", 1);
+          console.log("✅ Stale paused session cleared");
+        } else {
+          setIsPaused(true);
+          setCart(pauseState.cart);
+          setModeState(pauseState.mode);
+          console.log("✅ Paused session restored");
+        }
       }
 
       // Seed default data (non-blocking)
@@ -168,6 +188,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error("❌ App initialization failed:", error);
       setIsInitializing(false);
       throw error;
+    }
+  };
+
+  // Helper: Get business date from an active shift for a given employee
+  const getSessionBusinessDate = async (employeeId: number): Promise<string | null> => {
+    try {
+      const shifts = await db.searchByIndex<Shift>("shifts", "cashierId", employeeId);
+      const activeShift = shifts.find(s => s.status === "active");
+      return activeShift?.businessDate || null;
+    } catch (error) {
+      console.error("Error getting session business date:", error);
+      return null;
+    }
+  };
+
+  // Helper: Auto-close a stale shift
+  const autoCloseStaleShift = async (employeeId: number, staleDate: string) => {
+    try {
+      const shifts = await db.searchByIndex<Shift>("shifts", "cashierId", employeeId);
+      const activeShift = shifts.find(s => s.status === "active");
+      
+      if (activeShift) {
+        // Close the shift - set shiftEnd to end of that business date (23:59:59)
+        const [year, month, day] = staleDate.split("-").map(Number);
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).getTime();
+        
+        const updatedShift: Shift = {
+          ...activeShift,
+          shiftEnd: endOfDay,
+          status: "closed"
+        };
+        await db.put("shifts", updatedShift);
+        console.log(`✅ Auto-closed stale shift ${activeShift.shiftId}`);
+      }
+      
+      // Clear the cashier session
+      await db.delete("cashierSession", 1);
+    } catch (error) {
+      console.error("Error auto-closing stale shift:", error);
     }
   };
 
@@ -231,6 +290,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const activeShift = shifts.find(s => s.status === "active");
       
       if (activeShift) {
+        // Check if shift is from today - if not, don't restore (stale shift)
+        const todayBusinessDate = getBusinessDate();
+        if (activeShift.businessDate !== todayBusinessDate) {
+          console.log(`⚠️ Cannot restore stale shift from ${activeShift.businessDate}`);
+          await autoCloseStaleShift(employee.id!, activeShift.businessDate);
+          return false;
+        }
+        
         setCurrentShift(activeShift);
         setCart(session.cartState);
         setModeState(session.mode);
