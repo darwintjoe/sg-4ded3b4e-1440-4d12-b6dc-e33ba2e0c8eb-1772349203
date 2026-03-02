@@ -992,11 +992,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       </AlertDialog>
 
       {/* PIN Verification Dialog */}
-      <AlertDialog open={pinVerifyOpen} onOpenChange={(open) => {
-        if (!open) {
-          handlePinCancel();
-        }
-      }}>
+      <AlertDialog open={pinVerifyOpen} onOpenChange={setPinVerifyOpen}>
         <AlertDialogContent className="pb-36">
           <AlertDialogHeader>
             <AlertDialogTitle>{translate("pos.enterPin", language)}</AlertDialogTitle>
