@@ -16,7 +16,7 @@ import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen"
 import { CreateItemDialog } from "@/components/CreateItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
+import { Item, CartItem, Settings, Language, Shift, Employee, Category } from "@/types";
 import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
@@ -62,6 +62,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
   const [createItemOpen, setCreateItemOpen] = useState(false);
+  const [newItemData, setNewItemData] = useState({ sku: "", name: "", price: "", categoryId: "" });
+  const [categories, setCategories] = useState<Category[]>([]);
   
   const { toast } = useToast();
 
@@ -122,6 +124,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   useEffect(() => {
     loadItems();
     loadCurrentShift();
+    loadCategories();
   }, []);
 
   // Bluetooth connection management
@@ -194,6 +197,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const cats = await db.getCategories();
+      setCategories(cats);
+    } catch (error) {
+      console.error("Error loading categories:", error);
     }
   };
 
@@ -354,25 +366,73 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     );
 
     if (cashier) {
-      // IMPORTANT: Capture the barcode FIRST, before any state changes
       const capturedBarcode = notFoundBarcode;
       
-      // Close all dialogs
+      // Close PIN dialog
       setPinVerifyOpen(false);
       setPinInput("");
-      setItemNotFoundOpen(false);
-      setScannerOpen(false);
+      setPinError("");
       
-      // Set the pending SKU in context and navigate to Admin
-      if (capturedBarcode) {
-        setPendingNewItemSku(capturedBarcode);
-      }
+      // Open Quick Add dialog with SKU pre-filled
+      setNewItemData({ sku: capturedBarcode, name: "", price: "", categoryId: "" });
+      setCreateItemOpen(true);
       
-      // Navigate to Admin panel - ItemsPanel will detect pendingNewItemSku and open add dialog
-      onAdminClick();
+      // Clear the stored barcode
+      setNotFoundBarcode("");
     } else {
       setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
+    }
+  };
+
+  const handleQuickAddSave = async () => {
+    const { sku, name, price, categoryId } = newItemData;
+    
+    // Validation
+    if (!name.trim()) {
+      toast({ title: translate("pos.nameRequired", language), variant: "destructive" });
+      return;
+    }
+    if (!price || parseFloat(price) <= 0) {
+      toast({ title: translate("pos.priceRequired", language), variant: "destructive" });
+      return;
+    }
+    
+    try {
+      // Create item in DB
+      const newItem: Partial<Item> = {
+        sku: sku || undefined,
+        name: name.trim(),
+        price: parseFloat(price),
+        categoryId: categoryId || undefined,
+        isActive: true,
+      };
+      
+      const savedItem = await db.addItem(newItem as Item);
+      
+      // Add to cart
+      addToCart({
+        itemId: savedItem.id!,
+        sku: savedItem.sku || `ITEM-${savedItem.id}`,
+        name: savedItem.name,
+        quantity: 1,
+        basePrice: savedItem.price,
+        totalPrice: savedItem.price,
+        modifiers: [],
+      });
+      
+      // Refresh items list & close dialog
+      await loadItems();
+      setCreateItemOpen(false);
+      setNewItemData({ sku: "", name: "", price: "", categoryId: "" });
+      
+      // Play success sound
+      playSuccessSound();
+      
+      toast({ title: translate("pos.itemAddedToCart", language) });
+    } catch (error) {
+      console.error("Error creating item:", error);
+      toast({ title: translate("common.error", language), variant: "destructive" });
     }
   };
 
