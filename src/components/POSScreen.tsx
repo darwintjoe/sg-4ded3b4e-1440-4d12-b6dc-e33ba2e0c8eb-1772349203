@@ -16,7 +16,7 @@ import { TransactionHistoryScreen } from "@/components/TransactionHistoryScreen"
 import { CreateItemDialog } from "@/components/CreateItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
-import { Item, CartItem, Settings, Language, Shift } from "@/types";
+import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
 import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
@@ -370,23 +370,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
       // Navigate to Admin panel - ItemsPanel will detect pendingNewItemSku and open add dialog
       onAdminClick();
     } else {
-      setValidationError(translate("pos.incorrectPin", language));
+      setPinError(translate("pos.incorrectPin", language));
       setPinInput("");
-    }
-  };
-
-  // Lookup product name from external API
-  const lookupProductName = async (sku: string) => {
-    if (!sku || !sku.trim()) return;
-    
-    try {
-      const response = await fetch(`/api/lookup-product?sku=${encodeURIComponent(sku)}`);
-      const data = await response.json();
-      if (data.success && data.productName) {
-        setCreateItemOpen(prev => ({ ...prev, name: data.productName }));
-      }
-    } catch (error) {
-      // Silent failure - user can enter name manually
     }
   };
 
