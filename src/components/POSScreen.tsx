@@ -666,10 +666,8 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                         setNotFoundBarcode(searchQuery.trim());
                         setShowItemPicker(false);
                         setSearchQuery("");
-                        // Go directly to PIN verification
-                        setPinInput("");
-                        setPinError("");
-                        setPinVerifyOpen(true);
+                        // Skip PIN, open AddItemDialog directly
+                        setAddItemDialogOpen(true);
                       }}
                       className="text-blue-600 border-blue-300 hover:bg-blue-50"
                     >
