@@ -13,12 +13,16 @@ export function roundTo50(amount: number): number {
   return (cents + (50 - remainder)) / 100;
 }
 
-// Format currency without symbol, with 2 decimal places
+// Format currency without symbol
+// Uses Indonesian format: dot for thousands, comma for decimals
+// Only shows decimals if there are cents after rounding
 export function formatCurrency(amount: number, roundUp = true): string {
   const value = roundUp ? roundTo50(amount) : amount;
+  const hasDecimals = value % 1 !== 0;
+  
   return value.toLocaleString("id-ID", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
   });
 }
 
