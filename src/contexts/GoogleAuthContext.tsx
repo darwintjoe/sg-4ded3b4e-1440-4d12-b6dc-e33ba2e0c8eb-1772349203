@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
 import { db } from "@/lib/db";
-import type { GoogleUser, BackupStatus, BackupData, Shift, Transaction } from "@/types";
+import type { GoogleUser, BackupStatus, BackupData } from "@/types";
 
 interface CalendarEvent {
   summary: string;
@@ -27,22 +27,31 @@ interface GoogleAuthContextType {
   signIn: () => Promise<{ success: boolean; user?: GoogleUser; error?: string }>;
   signOut: () => void;
   createCalendarEvent: (event: CalendarEvent) => Promise<{ success: boolean; eventId?: string; error?: string }>;
-  // Backup methods
   backupStatus: BackupStatus;
-  refreshBackupStatus: () => Promise<void>;
-  createBackup: () => Promise<{ success: boolean; error?: string }>;
-  checkBackupAvailability: () => Promise<{ exists: boolean; info?: BackupAvailabilityInfo; error?: string }>;
-  startRestore: () => Promise<{ success: boolean; backupData?: BackupData; error?: string }>;
+  refreshBackupStatus: (businessName?: string) => Promise<void>;
+  createBackup: (businessName: string) => Promise<{ success: boolean; error?: string }>;
+  checkBackupAvailability: (businessName: string) => Promise<{ exists: boolean; info?: BackupAvailabilityInfo; error?: string }>;
+  startRestore: (businessName: string) => Promise<{ success: boolean; backupData?: BackupData; error?: string }>;
   backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
   loadPreview: (backupData: BackupData) => Promise<{ success: boolean; error?: string }>;
   finalizeRestore: (backupData: BackupData) => Promise<{ success: boolean; error?: string }>;
   cancelRestore: () => Promise<{ success: boolean; error?: string }>;
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
-  promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
+  promoteCandidate: (businessName: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
+
+// Helper to get business name from settings (module-level for use in effects)
+const getBusinessNameFromDb = async (): Promise<string> => {
+  try {
+    const settings = await db.getById("settings", 1);
+    return settings?.businessName || "Store";
+  } catch {
+    return "Store";
+  }
+};
 
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(null);
@@ -65,7 +74,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       setIsInitialized(true);
       
       if (currentUser) {
-        await refreshBackupStatus();
+        const businessName = await getBusinessNameFromDb();
+        const status = await backupService.getBackupStatus(businessName);
+        setBackupStatus(status);
       }
     };
 
@@ -78,7 +89,8 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       if (!user) return;
       
       try {
-        const status = await backupService.getBackupStatus();
+        const businessName = await getBusinessNameFromDb();
+        const status = await backupService.getBackupStatus(businessName);
         setBackupStatus(status);
       } catch (error) {
         console.warn("Backup status check skipped:", error);
@@ -122,7 +134,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
         const isHealthy = await validateSystemHealth();
         
         if (isHealthy) {
-          await promoteCandidate();
+          const businessName = await getBusinessNameFromDb();
+          const result = await backupService.promoteCandidate(businessName);
+          if (result.success) {
+            const updatedStatus = await backupService.getBackupStatus(businessName);
+            setBackupStatus(updatedStatus);
+          }
         } else {
           console.warn("System not healthy, keeping candidate pending");
         }
@@ -170,8 +187,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshBackupStatus = async () => {
-    const status = await backupService.getBackupStatus();
+  const refreshBackupStatus = async (businessName?: string) => {
+    const name = businessName || await getBusinessNameFromDb();
+    const status = await backupService.getBackupStatus(name);
     setBackupStatus(status);
   };
 
@@ -181,7 +199,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       const result = await googleAuth.signIn();
       if (result.success && result.user) {
         setUser(result.user);
-        await refreshBackupStatus();
+        const businessName = await getBusinessNameFromDb();
+        const status = await backupService.getBackupStatus(businessName);
+        setBackupStatus(status);
       }
       return { success: result.success, user: result.user, error: result.error };
     } finally {
@@ -195,9 +215,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     setBackupStatus(prev => ({ ...prev, canRestore: false, message: "Not signed in" }));
   };
 
-  const createBackup = async () => {
-    const result = await backupService.createBackup();
-    await refreshBackupStatus();
+  const createBackup = async (businessName: string) => {
+    const result = await backupService.createBackup(businessName);
+    const status = await backupService.getBackupStatus(businessName);
+    setBackupStatus(status);
     
     if (result.success) {
       localStorage.setItem("candidate_created_at", Date.now().toString());
@@ -208,12 +229,12 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return result;
   };
 
-  const checkBackupAvailability = async () => {
-    return backupService.checkBackupAvailability();
+  const checkBackupAvailability = async (businessName: string) => {
+    return backupService.checkBackupAvailability(businessName);
   };
 
-  const startRestore = async () => {
-    return backupService.startRestore();
+  const startRestore = async (businessName: string) => {
+    return backupService.startRestore(businessName);
   };
 
   const backupCurrentDatabase = async () => {
@@ -225,8 +246,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const finalizeRestore = async (backupData: BackupData) => {
+    const businessName = await getBusinessNameFromDb();
     const result = await backupService.finalizeRestore(backupData);
-    await refreshBackupStatus();
+    const status = await backupService.getBackupStatus(businessName);
+    setBackupStatus(status);
     return result;
   };
 
@@ -235,8 +258,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const revertRestore = async () => {
+    const businessName = await getBusinessNameFromDb();
     const result = await backupService.revertRestore();
-    await refreshBackupStatus();
+    const status = await backupService.getBackupStatus(businessName);
+    setBackupStatus(status);
     return result;
   };
 
@@ -244,9 +269,10 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     return backupService.canRevert();
   };
 
-  const promoteCandidate = async () => {
-    const result = await backupService.promoteCandidate();
-    await refreshBackupStatus();
+  const promoteCandidate = async (businessName: string) => {
+    const result = await backupService.promoteCandidate(businessName);
+    const status = await backupService.getBackupStatus(businessName);
+    setBackupStatus(status);
     return result;
   };
 
