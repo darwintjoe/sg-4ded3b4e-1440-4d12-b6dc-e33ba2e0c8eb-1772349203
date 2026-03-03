@@ -608,11 +608,11 @@ export class Database {
     this.initPromise = null;
   }
 
-  // Settings
+  // Settings - FIXED: Return saved settings AS-IS, no overwriting with defaults
   async getSettings(): Promise<Settings> {
     const saved = await this.getById<Settings>("settings", "settings");
     
-    // Default settings for NEW installations only
+    // Default settings - ONLY used for brand new installations
     const defaultSettings: Settings = {
       key: "settings",
       mode: "retail",
@@ -652,41 +652,41 @@ export class Database {
       },
     };
     
-    // CONDITION 1: No saved settings - new installation, use defaults
+    // CONDITION 1: No saved settings = NEW installation → use defaults
     if (!saved) {
       await this.put("settings", defaultSettings);
       return defaultSettings;
     }
     
-    // CONDITION 2 & 3: Saved settings exist - return AS-IS
-    // User's saved values ALWAYS take precedence, never overwrite with defaults
-    // Only add completely missing top-level keys for schema migrations
+    // CONDITION 2 & 3: Saved settings exist → return AS-IS
+    // User's saved values ALWAYS take precedence
+    // NEVER overwrite existing values with defaults
     
+    // Schema migration ONLY: Add completely missing TOP-LEVEL keys
+    // This handles old DB versions that don't have new fields
     let needsSave = false;
     
-    // Schema migration: add paymentMethods if completely missing (old DB version)
     if (saved.paymentMethods === undefined) {
       saved.paymentMethods = defaultSettings.paymentMethods;
       needsSave = true;
     }
     
-    // Schema migration: add shifts if completely missing (old DB version)
     if (saved.shifts === undefined) {
       saved.shifts = defaultSettings.shifts;
       needsSave = true;
     }
     
-    // Schema migration: add theme if completely missing (old DB version)
     if (saved.theme === undefined) {
       saved.theme = defaultSettings.theme;
       needsSave = true;
     }
     
-    // Save only if schema migration added new keys
+    // Save ONLY if we added missing schema fields
     if (needsSave) {
       await this.put("settings", saved);
     }
     
+    // Return saved settings AS-IS - user changes are preserved
     return saved;
   }
 
