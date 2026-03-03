@@ -62,17 +62,17 @@ interface AppContextType {
   signOut: () => void;
   createCalendarEvent: (event: any) => Promise<{ success: boolean; eventId?: string; error?: string }>;
   backupStatus: BackupStatus;
-  refreshBackupStatus: () => Promise<void>;
-  createBackup: () => Promise<{ success: boolean; error?: string }>;
-  checkBackupAvailability: () => Promise<{ exists: boolean; info?: any; error?: string }>;
-  startRestore: () => Promise<{ success: boolean; backupData?: any; error?: string }>;
+  refreshBackupStatus: (businessName?: string) => Promise<void>;
+  createBackup: (businessName: string) => Promise<{ success: boolean; error?: string }>;
+  checkBackupAvailability: (businessName: string) => Promise<{ exists: boolean; info?: any; error?: string }>;
+  startRestore: (businessName: string) => Promise<{ success: boolean; backupData?: any; error?: string }>;
   backupCurrentDatabase: () => Promise<{ success: boolean; error?: string }>;
   loadPreview: (backupData: any) => Promise<{ success: boolean; error?: string }>;
   finalizeRestore: (backupData: any) => Promise<{ success: boolean; error?: string }>;
   cancelRestore: () => Promise<{ success: boolean; error?: string }>;
   revertRestore: () => Promise<{ success: boolean; error?: string }>;
   canRevert: () => { available: boolean; expiresAt: number | null; hoursRemaining: number | null };
-  promoteCandidate: () => Promise<{ success: boolean; error?: string }>;
+  promoteCandidate: (businessName: string) => Promise<{ success: boolean; error?: string }>;
   // Pending new item from barcode scan (shared between POS and Admin)
   pendingNewItemSku: string | null;
   setPendingNewItemSku: (sku: string | null) => void;
@@ -563,35 +563,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const shiftTransactions = await db.searchByIndex<Transaction>("transactions", "shiftId", shift.shiftId);
       
-      const paymentBreakdown = {
-        cash: 0,
-        qrisStatic: 0,
-        qrisDynamic: 0,
-        voucher: 0,
-        cashCount: 0,
-        qrisStaticCount: 0,
-        qrisDynamicCount: 0,
-        voucherCount: 0
-      };
+      // Track all payment methods dynamically
+      const paymentBreakdown: Record<string, { amount: number; count: number }> = {};
 
       let totalRevenue = 0;
+      let totalTax1 = 0;
+      let totalTax2 = 0;
+      let totalItemQty = 0;
+      const uniqueSkus = new Set<string>();
 
       shiftTransactions.forEach((t) => {
         totalRevenue += t.total;
-        t.payments.forEach((p) => {
-          if (p.method === "cash") {
-            paymentBreakdown.cash += p.amount;
-            paymentBreakdown.cashCount++;
-          } else if (p.method === "qris-static") {
-            paymentBreakdown.qrisStatic += p.amount;
-            paymentBreakdown.qrisStaticCount++;
-          } else if (p.method === "qris-dynamic") {
-            paymentBreakdown.qrisDynamic += p.amount;
-            paymentBreakdown.qrisDynamicCount++;
-          } else if (p.method === "voucher") {
-            paymentBreakdown.voucher += p.amount;
-            paymentBreakdown.voucherCount++;
+        totalTax1 += t.tax1Amount || 0;
+        totalTax2 += t.tax2Amount || 0;
+        
+        // Count items and SKUs
+        t.items.forEach((item) => {
+          totalItemQty += item.quantity;
+          if (item.sku) {
+            uniqueSkus.add(item.sku);
           }
+        });
+        
+        // Track all payment methods
+        t.payments.forEach((p) => {
+          const method = p.method;
+          if (!paymentBreakdown[method]) {
+            paymentBreakdown[method] = { amount: 0, count: 0 };
+          }
+          paymentBreakdown[method].amount += p.amount;
+          paymentBreakdown[method].count++;
         });
       });
 
@@ -599,29 +600,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return `Rp ${amount.toLocaleString("id-ID")}`;
       };
 
-      // Get business name for the event title
+      // Payment method display names and emojis
+      const paymentMethodDisplay: Record<string, { emoji: string; name: string }> = {
+        "cash": { emoji: "💵", name: "Cash" },
+        "qris-static": { emoji: "📱", name: "QRIS Static" },
+        "qris-dynamic": { emoji: "📲", name: "QRIS Dynamic" },
+        "card": { emoji: "💳", name: "Card" },
+        "voucher": { emoji: "🎫", name: "Voucher" },
+        "transfer": { emoji: "🏦", name: "Transfer" }
+      };
+
+      // Build payment breakdown string - only show methods with transactions
+      const paymentLines: string[] = [];
+      Object.entries(paymentBreakdown).forEach(([method, data]) => {
+        if (data.count > 0) {
+          const display = paymentMethodDisplay[method] || { emoji: "💰", name: method };
+          paymentLines.push(`${display.emoji} ${display.name}: ${formatCurrency(data.amount)} (${data.count} txn)`);
+        }
+      });
+
+      // Get business name for the event
       const businessName = settings?.businessName || "My Store";
 
-      const description = `
-━━━━━━━━━━━━━━━━━━━━━━
+      // Build description
+      let description = `━━━━━━━━━━━━━━━━━━━━━━
 💰 SALES SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━
 Store: ${businessName}
 Total Sales: ${formatCurrency(totalRevenue)}
-Transactions: ${shiftTransactions.length}
+Transactions: ${shiftTransactions.length}`;
 
-PAYMENT BREAKDOWN:
-💵 Cash: ${formatCurrency(paymentBreakdown.cash)} (${paymentBreakdown.cashCount} txn)
-📱 QRIS Static: ${formatCurrency(paymentBreakdown.qrisStatic)} (${paymentBreakdown.qrisStaticCount} txn)
-📲 QRIS Dynamic: ${formatCurrency(paymentBreakdown.qrisDynamic)} (${paymentBreakdown.qrisDynamicCount} txn)
-🎫 Voucher: ${formatCurrency(paymentBreakdown.voucher)} (${paymentBreakdown.voucherCount} txn)
+      // Add tax info if any taxes were collected
+      if (totalTax1 > 0 || totalTax2 > 0) {
+        description += `\n\nTAX COLLECTED:`;
+        if (totalTax1 > 0) {
+          description += `\n📋 Tax 1: ${formatCurrency(totalTax1)}`;
+        }
+        if (totalTax2 > 0) {
+          description += `\n📋 Tax 2: ${formatCurrency(totalTax2)}`;
+        }
+      }
 
+      // Add item movement info
+      description += `\n\nITEM MOVEMENT:
+📦 SKUs Sold: ${uniqueSkus.size}
+🔢 Total Qty: ${totalItemQty}`;
+
+      // Add payment breakdown if any payments
+      if (paymentLines.length > 0) {
+        description += `\n\nPAYMENT BREAKDOWN:\n${paymentLines.join("\n")}`;
+      }
+
+      description += `\n
 ━━━━━━━━━━━━━━━━━━━━━━
 👤 Cashier: ${shift.cashierName}
 ⏰ Shift Duration: ${shift.shiftEnd ? ((shift.shiftEnd - shift.shiftStart) / (1000 * 60 * 60)).toFixed(1) : "0"} hours
 📅 Business Date: ${shift.businessDate}
-━━━━━━━━━━━━━━━━━━━━━━
-`.trim();
+━━━━━━━━━━━━━━━━━━━━━━`;
 
       // Include business name in event title for multi-store identification
       const eventTitle = `[${businessName}] 💰 ${totalRevenue.toLocaleString("id-ID")} - ${shift.cashierName}`;
