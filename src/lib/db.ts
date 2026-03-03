@@ -652,43 +652,35 @@ export class Database {
       },
     };
     
-    // No saved settings - return defaults and save them
+    // CONDITION 1: No saved settings - new installation, use defaults
     if (!saved) {
       await this.put("settings", defaultSettings);
       return defaultSettings;
     }
     
-    // Saved settings exist - return them as-is (user's settings persist)
-    // Only fill in missing top-level properties that may have been added in newer versions
-    const merged: Settings = { ...saved };
+    // CONDITION 2 & 3: Saved settings exist - return them AS-IS
+    // User's saved values always take precedence, never overwrite with defaults
+    // Only add missing top-level keys for schema migrations (new features)
     
-    // Ensure paymentMethods object exists and deep-merge with defaults
-    // This preserves user's saved values while filling in any missing keys
-    if (!merged.paymentMethods) {
-      merged.paymentMethods = defaultSettings.paymentMethods;
-    } else {
-      // Deep merge: keep user's saved values, fill missing keys from defaults
-      merged.paymentMethods = {
-        cash: merged.paymentMethods.cash ?? defaultSettings.paymentMethods.cash,
-        qrisStatic: merged.paymentMethods.qrisStatic ?? defaultSettings.paymentMethods.qrisStatic,
-        qrisDynamic: merged.paymentMethods.qrisDynamic ?? defaultSettings.paymentMethods.qrisDynamic,
-        card: merged.paymentMethods.card ?? defaultSettings.paymentMethods.card,
-        voucher: merged.paymentMethods.voucher ?? defaultSettings.paymentMethods.voucher,
-        transfer: merged.paymentMethods.transfer ?? defaultSettings.paymentMethods.transfer,
-      };
+    // Schema migration: add paymentMethods if completely missing (old DB version)
+    if (saved.paymentMethods === undefined) {
+      saved.paymentMethods = defaultSettings.paymentMethods;
+      await this.put("settings", saved);
     }
     
-    // Ensure shifts object exists (for upgrades from older versions)
-    if (!merged.shifts) {
-      merged.shifts = defaultSettings.shifts;
+    // Schema migration: add shifts if completely missing (old DB version)
+    if (saved.shifts === undefined) {
+      saved.shifts = defaultSettings.shifts;
+      await this.put("settings", saved);
     }
     
-    // Ensure theme exists (for upgrades from older versions)
-    if (merged.theme === undefined) {
-      merged.theme = defaultSettings.theme;
+    // Schema migration: add theme if completely missing (old DB version)
+    if (saved.theme === undefined) {
+      saved.theme = defaultSettings.theme;
+      await this.put("settings", saved);
     }
     
-    return merged;
+    return saved;
   }
 
   async updateSettings(settings: Settings): Promise<void> {
