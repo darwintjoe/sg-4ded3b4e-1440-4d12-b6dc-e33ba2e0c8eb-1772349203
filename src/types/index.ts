@@ -350,6 +350,7 @@ export interface BackupStatus {
   message: string;
   canBackup?: boolean;
   canRestore: boolean;
+  fileSize?: string;
   backupInfo?: {
     timestamp: string;
     size: number;
