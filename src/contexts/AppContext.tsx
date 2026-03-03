@@ -623,7 +623,7 @@ PAYMENT BREAKDOWN:
 `.trim();
 
       // Include business name in event title for multi-store identification
-      const eventTitle = `[${businessName}] 💰 ${formatCurrency(totalRevenue)} - ${shift.cashierName}`;
+      const eventTitle = `[${businessName}] 💰 ${totalRevenue.toLocaleString("id-ID")} - ${shift.cashierName}`;
 
       const shiftEndTime = shift.shiftEnd || Date.now();
       const eventStart = new Date(shiftEndTime).toISOString();
