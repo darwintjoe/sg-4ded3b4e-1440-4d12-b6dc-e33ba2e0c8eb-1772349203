@@ -312,10 +312,18 @@ export function PaymentDialog({
     }
     const fullNumber = "62" + cleanNumber;
 
+    // Format receipt number with leading zeros (5 digits)
+    const receiptNumber = lastTransaction.id 
+      ? `#${String(lastTransaction.id).padStart(5, "0")}` 
+      : "";
+
     const lines: string[] = [];
     lines.push(`*${settings.businessName}*`);
     lines.push("");
     lines.push(`Date: ${new Date(lastTransaction.timestamp).toLocaleString()}`);
+    if (receiptNumber) {
+      lines.push(`Receipt: ${receiptNumber}`);
+    }
     lines.push(`Cashier: ${lastTransaction.cashierName}`);
     lines.push("");
     lines.push("*Items:*");
