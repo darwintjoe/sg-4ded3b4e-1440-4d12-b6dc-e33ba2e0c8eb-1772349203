@@ -264,7 +264,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSettings = async (newSettings: Partial<Settings>) => {
     if (!settings) return;
     
-    const updated = { ...settings, ...newSettings };
+    const updated: Settings = { ...settings, ...newSettings };
     setSettingsState(updated);
     
     // Sync mode state if mode changed
@@ -272,13 +272,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setModeState(newSettings.mode);
     }
     
-    // Persist to DB
+    // Persist to DB - Settings uses "key" as keyPath, not "id"
+    // Always use put() which handles both insert and update
     try {
-      if (settings.id) {
-        await db.put("settings", updated);
-      } else {
-        await db.add("settings", updated);
-      }
+      await db.put("settings", updated);
+      console.log("✅ Settings saved to DB");
     } catch (error) {
       console.error("Failed to save settings:", error);
       toast({
