@@ -652,41 +652,14 @@ export class Database {
       },
     };
     
-    // CONDITION 1: No saved settings = NEW installation → use defaults
+    // CONDITION 1: No saved settings = NEW installation → write defaults
     if (!saved) {
       await this.put("settings", defaultSettings);
       return defaultSettings;
     }
     
     // CONDITION 2 & 3: Saved settings exist → return AS-IS
-    // User's saved values ALWAYS take precedence
-    // NEVER overwrite existing values with defaults
-    
-    // Schema migration ONLY: Add completely missing TOP-LEVEL keys
-    // This handles old DB versions that don't have new fields
-    let needsSave = false;
-    
-    if (saved.paymentMethods === undefined) {
-      saved.paymentMethods = defaultSettings.paymentMethods;
-      needsSave = true;
-    }
-    
-    if (saved.shifts === undefined) {
-      saved.shifts = defaultSettings.shifts;
-      needsSave = true;
-    }
-    
-    if (saved.theme === undefined) {
-      saved.theme = defaultSettings.theme;
-      needsSave = true;
-    }
-    
-    // Save ONLY if we added missing schema fields
-    if (needsSave) {
-      await this.put("settings", saved);
-    }
-    
-    // Return saved settings AS-IS - user changes are preserved
+    // User's saved values ALWAYS win. No merging. No looking back to defaults.
     return saved;
   }
 
