@@ -279,7 +279,7 @@ export function BackupSettingsCard({
         </CardContent>
       </Card>
 
-      {/* Admin PIN Card - Compact Design */}
+      {/* Admin PIN Card - Better layout for 4-6 digit PINs */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -287,76 +287,75 @@ export function BackupSettingsCard({
             {translate("settings.changeAdminPIN", language)}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="currentPin" className="text-xs text-muted-foreground">Current</Label>
-              <div className="relative">
-                <Input
-                  id="currentPin"
-                  type={showCurrentPin ? "text" : "password"}
-                  maxLength={6}
-                  placeholder="••••"
-                  value={currentPin}
-                  onChange={(e) => onCurrentPinChange(e.target.value.replace(/\D/g, ""))}
-                  className="h-9 pr-8 text-center font-mono"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPin(!showCurrentPin)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showCurrentPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="currentPin" className="text-xs text-muted-foreground">Current PIN</Label>
+            <div className="relative">
+              <Input
+                id="currentPin"
+                type={showCurrentPin ? "text" : "password"}
+                maxLength={6}
+                placeholder="Enter current PIN"
+                value={currentPin}
+                onChange={(e) => onCurrentPinChange(e.target.value.replace(/\D/g, ""))}
+                className="h-10 pr-10 font-mono tracking-widest"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPin(!showCurrentPin)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showCurrentPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="newPin" className="text-xs text-muted-foreground">New</Label>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="newPin" className="text-xs text-muted-foreground">New PIN</Label>
               <div className="relative">
                 <Input
                   id="newPin"
                   type={showNewPin ? "text" : "password"}
                   maxLength={6}
-                  placeholder="••••"
+                  placeholder="4-6 digits"
                   value={newPin}
                   onChange={(e) => onNewPinChange(e.target.value.replace(/\D/g, ""))}
-                  className="h-9 pr-8 text-center font-mono"
+                  className="h-10 pr-10 font-mono tracking-widest"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPin(!showNewPin)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showNewPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="confirmPin" className="text-xs text-muted-foreground">Confirm</Label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPin" className="text-xs text-muted-foreground">Confirm PIN</Label>
               <div className="relative">
                 <Input
                   id="confirmPin"
                   type={showConfirmPin ? "text" : "password"}
                   maxLength={6}
-                  placeholder="••••"
+                  placeholder="4-6 digits"
                   value={confirmPin}
                   onChange={(e) => onConfirmPinChange(e.target.value.replace(/\D/g, ""))}
-                  className="h-9 pr-8 text-center font-mono"
+                  className="h-10 pr-10 font-mono tracking-widest"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPin(!showConfirmPin)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showConfirmPin ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showConfirmPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
           </div>
           <Button 
             onClick={onChangePinSubmit} 
-            className="w-full mt-3 h-9"
-            size="sm"
+            className="w-full h-10"
             disabled={!currentPin || !newPin || !confirmPin || newPin.length < 4}
           >
             {translate("settings.changePIN", language)}
@@ -408,7 +407,7 @@ export function BackupSettingsCard({
             </>
           ) : (
             <>
-              <div className="bg-muted/50 rounded-lg p-2.5 space-y-1.5 text-xs">
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Account:</span>
                   <span className="font-medium truncate max-w-[180px]">{user?.email}</span>
@@ -416,9 +415,25 @@ export function BackupSettingsCard({
                 {backupStatus.lastBackupTime && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Last Backup:</span>
-                    <span className="font-medium">
-                      {new Date(backupStatus.lastBackupTime).toLocaleDateString()}
+                    <span className="font-medium text-right">
+                      {new Date(backupStatus.lastBackupTime).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric"
+                      })}{" "}
+                      <span className="text-muted-foreground">
+                        {new Date(backupStatus.lastBackupTime).toLocaleTimeString("en-GB", {
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </span>
                     </span>
+                  </div>
+                )}
+                {backupStatus.fileSize && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Backup Size:</span>
+                    <span className="font-medium">{backupStatus.fileSize}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
