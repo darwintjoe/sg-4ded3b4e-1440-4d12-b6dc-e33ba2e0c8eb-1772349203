@@ -96,11 +96,10 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const subscriptionBarPercentage = getSubscriptionBarPercentage();
   const subscriptionBarColor = getSubscriptionBarColor(subscriptionInfo.status);
 
-  // Format bytes to human readable
+  // Format bytes to human readable - always in MB, no label
   const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const mb = bytes / (1024 * 1024);
+    return mb.toFixed(1);
   };
 
   // Screen Wake Lock - Always enabled for POS use
@@ -562,27 +561,13 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             <Button variant="ghost" size="sm" onClick={onAdminClick} className="h-9 w-9 p-0">
               <SettingsIcon className="h-5 w-5" />
             </Button>
-            <h1 className="text-xl font-black tracking-tight">SELL MORE</h1>
-            <Badge variant="outline" className="text-xs">
-              {translate(`pos.mode.${mode}`, language)}
-            </Badge>
+            <h1 className="text-xl font-black tracking-tight whitespace-nowrap">SELL MORE</h1>
             
             {/* Printer Connection LED Indicator */}
             <div
-              className={`w-2.5 h-2.5 rounded-full ml-2 transition-all duration-300 ${printerConnected ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${printerConnected ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
               title={printerConnected ? "Printer connected" : "Printer not connected"}
             />
-            
-            {/* Database Size Odometer */}
-            {dbSize && (
-              <div 
-                className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono text-slate-600 dark:text-slate-300"
-                title={`${dbSize.records.toLocaleString()} records`}
-              >
-                <Database className="h-3 w-3" />
-                <span>{formatBytes(dbSize.bytes)}</span>
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -593,6 +578,15 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               title={translate("pos.testSound", language)}
             >
               <Volume2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogoutClick}
+              className="h-8 w-8 p-0"
+              title={translate("pos.logout", language)}
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -608,47 +602,50 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
           />
         </div>
         
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAttendanceClick}
-            className="flex items-center gap-1.5"
-          >
-            <Clock className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{translate("pos.attendance", language)}</span>
-          </Button>
+        {/* Action Buttons Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAttendanceClick}
+              className="flex items-center gap-1.5"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{translate("pos.attendance", language)}</span>
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(true)}
-            className="flex items-center gap-1.5"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{translate("pos.history", language)}</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowHistory(true)}
+              className="flex items-center gap-1.5"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{translate("pos.history", language)}</span>
+            </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLockScreen}
-            className="flex items-center gap-1.5"
-          >
-            <Lock className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{translate("pos.lockScreen", language)}</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLogoutClick}
-            className="flex items-center gap-1.5"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{translate("pos.logout", language)}</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLockScreen}
+              className="flex items-center gap-1.5"
+            >
+              <Lock className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{translate("pos.lockScreen", language)}</span>
+            </Button>
+          </div>
+          
+          {/* Database Size Odometer - right side of action row */}
+          {dbSize && (
+            <div 
+              className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono text-slate-600 dark:text-slate-300"
+              title={`${dbSize.records.toLocaleString()} records`}
+            >
+              <Database className="h-3 w-3" />
+              <span>{formatBytes(dbSize.bytes)}</span>
+            </div>
+          )}
         </div>
       </div>
 
