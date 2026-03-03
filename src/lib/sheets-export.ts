@@ -24,7 +24,18 @@ const MONTH_NAMES = [
 ];
 
 export class SheetsExportService {
-  private readonly FOLDER_NAME = "SellMore-Reports";
+  private readonly FOLDER_NAME = "SellMore";
+
+  /**
+   * Sanitize business name for use in file names
+   */
+  private sanitizeBusinessName(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
+      .substring(0, 50) || "store";
+  }
 
   /**
    * Export shift transactions to Google Sheets
@@ -46,10 +57,13 @@ export class SheetsExportService {
       const shiftEndTime = shiftData.shiftEnd;
       const year = new Date(shiftEndTime).getFullYear();
       const month = new Date(shiftEndTime).getMonth(); // 0-11
-      const sheetName = `Sell More - ${businessName} ${year}`;
+      
+      // New naming: businessname_2026_transactions
+      const sanitizedName = this.sanitizeBusinessName(businessName);
+      const sheetName = `${sanitizedName}_${year}_transactions`;
 
-      // Get or create sheet for this year
-      const sheet = await this.findOrCreateSheet(sheetName, businessId);
+      // Get or create sheet for this year in SellMore folder
+      const sheet = await this.findOrCreateSheet(sheetName, businessName);
 
       if (!sheet) {
         return { success: false, error: "Failed to create/access sheet" };
@@ -122,17 +136,21 @@ export class SheetsExportService {
   }
 
   /**
-   * Find existing sheet or create new one
+   * Find existing sheet or create new one in SellMore folder
    */
-  private async findOrCreateSheet(sheetName: string, businessId?: string): Promise<SheetInfo | null> {
+  private async findOrCreateSheet(sheetName: string, businessName: string): Promise<SheetInfo | null> {
     try {
       const accessToken = googleAuth.getCurrentUser()?.accessToken;
       if (!accessToken) return null;
 
-      // Search for existing sheet
+      // First, ensure SellMore folder exists
+      const folderId = await this.getOrCreateFolder();
+      if (!folderId) return null;
+
+      // Search for existing sheet in SellMore folder
       const searchResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
-          `name='${sheetName}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
+          `name='${sheetName}' and mimeType='application/vnd.google-apps.spreadsheet' and '${folderId}' in parents and trashed=false`
         )}&fields=files(id,name)`,
         {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -152,7 +170,7 @@ export class SheetsExportService {
         };
       }
 
-      // Create new sheet
+      // Create new sheet in SellMore folder
       const createResponse = await fetch(
         "https://www.googleapis.com/drive/v3/files",
         {
@@ -164,7 +182,7 @@ export class SheetsExportService {
           body: JSON.stringify({
             name: sheetName,
             mimeType: "application/vnd.google-apps.spreadsheet",
-            parents: ["root"],
+            parents: [folderId],
           }),
         }
       );
@@ -183,6 +201,59 @@ export class SheetsExportService {
       };
     } catch (error) {
       console.error("Failed to find/create sheet:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get or create SellMore folder in Google Drive
+   */
+  private async getOrCreateFolder(): Promise<string | null> {
+    try {
+      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      if (!accessToken) return null;
+
+      // Search for existing folder
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
+          `name='${this.FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`
+        )}&fields=files(id,name)`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+
+      if (!searchResponse.ok) return null;
+
+      const searchResult = await searchResponse.json();
+
+      if (searchResult.files && searchResult.files.length > 0) {
+        return searchResult.files[0].id;
+      }
+
+      // Create folder
+      const createResponse = await fetch(
+        "https://www.googleapis.com/drive/v3/files",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: this.FOLDER_NAME,
+            mimeType: "application/vnd.google-apps.folder",
+            parents: ["root"],
+          }),
+        }
+      );
+
+      if (!createResponse.ok) return null;
+
+      const newFolder = await createResponse.json();
+      return newFolder.id;
+    } catch (error) {
+      console.error("Failed to get/create folder:", error);
       return null;
     }
   }
