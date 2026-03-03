@@ -15,7 +15,7 @@ import { AddItemDialog } from "@/components/AddItemDialog";
 import { translate } from "@/lib/translations";
 import { db } from "@/lib/db";
 import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
-import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
+import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2, Database } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound, playTiitSound, roundTo50 } from "@/lib/utils";
@@ -53,6 +53,9 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [printerConnected, setPrinterConnected] = useState(false);
   const [autoReconnectAttempted, setAutoReconnectAttempted] = useState(false);
   
+  // Database size odometer
+  const [dbSize, setDbSize] = useState<{ bytes: number; records: number } | null>(null);
+  
   // Item not found flow states - SIMPLE: just track dialog open state and the scanned SKU
   const [itemNotFoundOpen, setItemNotFoundOpen] = useState(false);
   const [notFoundBarcode, setNotFoundBarcode] = useState("");
@@ -75,9 +78,30 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
     setSubscriptionInfo(info);
   }, []);
 
+  // Load database size on mount
+  useEffect(() => {
+    const loadDbSize = async () => {
+      try {
+        const result = await db.estimateDatabaseSize();
+        const totalRecords = Object.values(result.breakdown).reduce((sum, s) => sum + s.count, 0);
+        setDbSize({ bytes: result.totalBytes, records: totalRecords });
+      } catch (e) {
+        console.error("Failed to estimate DB size:", e);
+      }
+    };
+    loadDbSize();
+  }, []);
+
   // Calculate subscription bar values
   const subscriptionBarPercentage = getSubscriptionBarPercentage();
   const subscriptionBarColor = getSubscriptionBarColor(subscriptionInfo.status);
+
+  // Format bytes to human readable
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   // Screen Wake Lock - Always enabled for POS use
   useEffect(() => {
@@ -548,6 +572,17 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               className={`w-2.5 h-2.5 rounded-full ml-2 transition-all duration-300 ${printerConnected ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
               title={printerConnected ? "Printer connected" : "Printer not connected"}
             />
+            
+            {/* Database Size Odometer */}
+            {dbSize && (
+              <div 
+                className="flex items-center gap-1 ml-2 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs font-mono text-slate-600 dark:text-slate-300"
+                title={`${dbSize.records.toLocaleString()} records`}
+              >
+                <Database className="h-3 w-3" />
+                <span>{formatBytes(dbSize.bytes)}</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button

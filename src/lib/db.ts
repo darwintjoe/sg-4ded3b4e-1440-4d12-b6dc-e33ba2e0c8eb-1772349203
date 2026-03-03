@@ -832,6 +832,57 @@ export class Database {
       return date >= startDate && date <= endDate;
     });
   }
+
+  /**
+   * Estimate database size by counting records and sampling data
+   * Returns size in bytes
+   */
+  async estimateDatabaseSize(): Promise<{ totalBytes: number; breakdown: Record<string, { count: number; bytes: number }> }> {
+    const stores = [
+      "items",
+      "employees", 
+      "transactions",
+      "shifts",
+      "attendance",
+      "dailyItemSales",
+      "dailyPaymentSales",
+      "monthlyItemSales",
+      "monthlyPaymentSales",
+      "monthlySalesSummary",
+      "monthlyAttendanceSummary",
+      "settings"
+    ];
+
+    const breakdown: Record<string, { count: number; bytes: number }> = {};
+    let totalBytes = 0;
+
+    for (const store of stores) {
+      try {
+        const records = await this.getAll<any>(store);
+        const count = records.length;
+        
+        // Estimate size by JSON stringifying a sample
+        let storeBytes = 0;
+        if (count > 0) {
+          // Sample up to 10 records to estimate average size
+          const sampleSize = Math.min(count, 10);
+          let sampleBytes = 0;
+          for (let i = 0; i < sampleSize; i++) {
+            sampleBytes += JSON.stringify(records[i]).length * 2; // UTF-16 = 2 bytes per char
+          }
+          const avgRecordSize = sampleBytes / sampleSize;
+          storeBytes = Math.round(avgRecordSize * count);
+        }
+        
+        breakdown[store] = { count, bytes: storeBytes };
+        totalBytes += storeBytes;
+      } catch (e) {
+        breakdown[store] = { count: 0, bytes: 0 };
+      }
+    }
+
+    return { totalBytes, breakdown };
+  }
 }
 
 export const db = new Database();
