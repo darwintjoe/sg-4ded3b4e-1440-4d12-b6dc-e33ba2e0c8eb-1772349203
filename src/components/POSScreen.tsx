@@ -696,7 +696,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                     </div>
                     <div className="flex-shrink-0 ml-3">
                       <p className="text-base font-bold text-blue-600 text-right">
-                        {formatCurrency(item.price, language)}
+                        {formatCurrency(item.price)}
                       </p>
                     </div>
                   </button>
@@ -761,7 +761,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                         <Badge variant="outline" className="text-xs px-1.5 py-0">
                           {item.quantity}x
                         </Badge>
-                        <span>@ {formatCurrency(item.basePrice, language)}</span>
+                        <span>@ {formatCurrency(item.basePrice)}</span>
                       </div>
                       {item.variant && (
                         <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
@@ -775,7 +775,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                       )}
                     </div>
                     <div className="flex-shrink-0 text-right min-w-[100px]">
-                      <p className="font-bold text-base">{formatCurrency(item.totalPrice, language)}</p>
+                      <p className="font-bold text-base">{formatCurrency(item.totalPrice)}</p>
                     </div>
                   </div>
                 </div>
@@ -791,14 +791,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         <div className="space-y-2 text-sm mb-3 px-3">
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
-            <span className="font-semibold text-right min-w-[120px]">{formatCurrency(subtotal, language)}</span>
+            <span className="font-semibold text-right min-w-[120px]">{formatCurrency(subtotal)}</span>
           </div>
           {settings?.tax1Enabled && tax1Amount > 0 && (
             <div className="flex justify-between items-center">
               <span className="text-slate-600 dark:text-slate-400">
                 {settings.tax1Label} {settings.tax1Rate}%
               </span>
-              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax1Amount, language)}</span>
+              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax1Amount)}</span>
             </div>
           )}
           {settings?.tax2Enabled && tax2Amount > 0 && (
@@ -806,7 +806,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               <span className="text-slate-600 dark:text-slate-400">
                 {settings.tax2Label} {settings.tax2Rate}%
               </span>
-              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax2Amount, language)}</span>
+              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax2Amount)}</span>
             </div>
           )}
           {settings?.tax1Enabled && settings?.tax1Inclusive && (
@@ -820,7 +820,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         <div className="bg-slate-900 dark:bg-slate-950 text-white p-3 rounded-lg mb-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium">{translate("pos.total", language)}</span>
-            <span className="text-2xl font-black text-right">{formatCurrency(total, language)}</span>
+            <span className="text-2xl font-black text-right">{formatCurrency(total)}</span>
           </div>
         </div>
         

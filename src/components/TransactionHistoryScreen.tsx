@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { translate } from "@/lib/translations";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { formatCurrency } from "@/lib/utils";
 import type { Transaction } from "@/types";
 
 const ITEMS_PER_PAGE = 50;
@@ -117,10 +118,6 @@ export function TransactionHistoryScreen({ onBack }: TransactionHistoryScreenPro
     } finally {
       setIsPrinting(false);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `Rp ${amount.toLocaleString("id-ID")}`;
   };
 
   const formatTimestamp = (timestamp: number) => {

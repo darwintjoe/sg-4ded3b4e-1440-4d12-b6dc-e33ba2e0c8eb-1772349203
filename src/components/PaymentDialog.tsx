@@ -528,20 +528,20 @@ export function PaymentDialog({
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg space-y-2">
               <div className="flex justify-between text-sm">
                 <span>{translate("payment.subtotal", language)}</span>
-                <span className="font-bold">Rp {subtotal.toLocaleString()}</span>
+                <span className="font-bold">{formatCurrency(subtotal)}</span>
               </div>
               
               {settings?.tax1Enabled && (
                 <div className="flex justify-between text-sm">
                   <span>{settings.tax1Label} {settings.tax1Rate}%</span>
-                  <span className="font-bold">Rp {tax1Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="font-bold">{formatCurrency(tax1Amount)}</span>
                 </div>
               )}
               
               {settings?.tax2Enabled && (
                 <div className="flex justify-between text-sm">
                   <span>{settings.tax2Label} {settings.tax2Rate}%</span>
-                  <span className="font-bold">Rp {tax2Amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="font-bold">{formatCurrency(tax2Amount)}</span>
                 </div>
               )}
 
@@ -554,7 +554,7 @@ export function PaymentDialog({
 
               <div className="flex justify-between text-base font-bold border-t border-slate-300 dark:border-slate-600 pt-2">
                 <span>{translate("payment.amount", language)}</span>
-                <span>Rp {total.toLocaleString()}</span>
+                <span>{formatCurrency(total)}</span>
               </div>
               
               {payments.length > 0 && (
@@ -566,18 +566,18 @@ export function PaymentDialog({
                     {payments.map((p, idx) => (
                       <div key={idx} className="flex justify-between text-sm text-green-600 dark:text-green-400 pl-2">
                         <span className="capitalize">{p.method.replace("-", " ")}</span>
-                        <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+                        <span className="font-semibold">{formatCurrency(p.amount)}</span>
                       </div>
                     ))}
                   </div>
                   <div className="flex justify-between text-sm border-t border-slate-300 dark:border-slate-600 pt-2">
                     <span>{translate("payment.remaining", language)}</span>
-                    <span className="font-bold">Rp {remaining.toLocaleString()}</span>
+                    <span className="font-bold">{formatCurrency(remaining)}</span>
                   </div>
                   {change > 0 && (
                     <div className="flex justify-between text-lg text-blue-600 dark:text-blue-400 pt-2 border-t">
                       <span>{translate("payment.change", language)}</span>
-                      <span className="font-bold">Rp {change.toLocaleString()}</span>
+                      <span className="font-bold">{formatCurrency(change)}</span>
                     </div>
                   )}
                 </>
@@ -629,7 +629,7 @@ export function PaymentDialog({
                 {payments.map((p, idx) => (
                   <div key={idx} className="flex items-center justify-between text-sm bg-slate-50 dark:bg-slate-900 p-2 rounded">
                     <span className="capitalize">{p.method.replace("-", " ")}</span>
-                    <span className="font-semibold">Rp {p.amount.toLocaleString()}</span>
+                    <span className="font-semibold">{formatCurrency(p.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -645,7 +645,7 @@ export function PaymentDialog({
                 disabled={remaining > 0}
                 className="flex-1 bg-green-600 hover:bg-green-700"
               >
-                {remaining > 0 ? `${translate("payment.remaining", language)}: Rp ${remaining.toLocaleString()}` : translate("payment.complete", language)}
+                {remaining > 0 ? `${translate("payment.remaining", language)}: ${formatCurrency(remaining)}` : translate("payment.complete", language)}
               </Button>
             </div>
           </div>
@@ -673,7 +673,7 @@ export function PaymentDialog({
               </div>
             )}
             <div className="text-center">
-              <p className="text-lg font-bold">Rp {parseFloat(amount || "0").toLocaleString()}</p>
+              <p className="text-lg font-bold">{formatCurrency(parseFloat(amount || "0"))}</p>
               <p className="text-sm text-slate-500">Show this QR code to customer</p>
             </div>
           </div>
@@ -704,7 +704,7 @@ export function PaymentDialog({
                   className="w-64 h-64 object-contain border rounded-lg"
                 />
                 <div className="text-center animate-pulse">
-                  <p className="text-lg font-bold">Rp {parseFloat(amount || "0").toLocaleString()}</p>
+                  <p className="text-lg font-bold">{formatCurrency(parseFloat(amount || "0"))}</p>
                   <p className="text-sm text-blue-600 font-medium">Waiting for payment...</p>
                 </div>
               </>
