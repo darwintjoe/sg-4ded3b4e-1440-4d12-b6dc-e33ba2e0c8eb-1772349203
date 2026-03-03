@@ -18,7 +18,7 @@ import { Item, CartItem, Settings, Language, Shift, Employee } from "@/types";
 import { Search, ShoppingCart, Trash2, Lock, LogOut, Settings as SettingsIcon, Clock, X, Plus, Minus, FileText, Volume2, ScanBarcode, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, playSuccessSound, playTiitSound } from "@/lib/utils";
+import { formatCurrency, playSuccessSound, playTiitSound, roundTo50 } from "@/lib/utils";
 import Image from "next/image";
 import { getSubscriptionInfo, getSubscriptionBarPercentage, getSubscriptionBarColor } from "@/lib/subscription-service";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
@@ -696,7 +696,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                     </div>
                     <div className="flex-shrink-0 ml-3">
                       <p className="text-base font-bold text-blue-600 text-right">
-                        Rp {item.price.toLocaleString("id-ID")}
+                        {formatCurrency(item.price, language)}
                       </p>
                     </div>
                   </button>
@@ -761,7 +761,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                         <Badge variant="outline" className="text-xs px-1.5 py-0">
                           {item.quantity}x
                         </Badge>
-                        <span>@ Rp {item.basePrice.toLocaleString("id-ID")}</span>
+                        <span>@ {formatCurrency(item.basePrice, language)}</span>
                       </div>
                       {item.variant && (
                         <div className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
@@ -775,7 +775,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
                       )}
                     </div>
                     <div className="flex-shrink-0 text-right min-w-[100px]">
-                      <p className="font-bold text-base">Rp {item.totalPrice.toLocaleString("id-ID")}</p>
+                      <p className="font-bold text-base">{formatCurrency(item.totalPrice, language)}</p>
                     </div>
                   </div>
                 </div>
@@ -791,14 +791,14 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         <div className="space-y-2 text-sm mb-3 px-3">
           <div className="flex justify-between items-center">
             <span className="text-slate-600 dark:text-slate-400">{translate("pos.subtotal", language)}</span>
-            <span className="font-semibold text-right min-w-[120px]">Rp {subtotal.toLocaleString("id-ID")}</span>
+            <span className="font-semibold text-right min-w-[120px]">{formatCurrency(subtotal, language)}</span>
           </div>
           {settings?.tax1Enabled && tax1Amount > 0 && (
             <div className="flex justify-between items-center">
               <span className="text-slate-600 dark:text-slate-400">
                 {settings.tax1Label} {settings.tax1Rate}%
               </span>
-              <span className="font-semibold text-right min-w-[120px]">Rp {tax1Amount.toLocaleString("id-ID")}</span>
+              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax1Amount, language)}</span>
             </div>
           )}
           {settings?.tax2Enabled && tax2Amount > 0 && (
@@ -806,7 +806,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
               <span className="text-slate-600 dark:text-slate-400">
                 {settings.tax2Label} {settings.tax2Rate}%
               </span>
-              <span className="font-semibold text-right min-w-[120px]">Rp {tax2Amount.toLocaleString("id-ID")}</span>
+              <span className="font-semibold text-right min-w-[120px]">{formatCurrency(tax2Amount, language)}</span>
             </div>
           )}
           {settings?.tax1Enabled && settings?.tax1Inclusive && (
@@ -820,7 +820,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
         <div className="bg-slate-900 dark:bg-slate-950 text-white p-3 rounded-lg mb-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium">{translate("pos.total", language)}</span>
-            <span className="text-2xl font-black text-right">Rp {total.toLocaleString("id-ID")}</span>
+            <span className="text-2xl font-black text-right">{formatCurrency(total, language)}</span>
           </div>
         </div>
         

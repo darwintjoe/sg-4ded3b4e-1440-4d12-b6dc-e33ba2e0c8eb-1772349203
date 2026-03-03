@@ -5,13 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+// Round up to nearest 50 cents (0.50)
+export function roundTo50(amount: number): number {
+  const cents = amount * 100;
+  const remainder = cents % 50;
+  if (remainder === 0) return amount;
+  return (cents + (50 - remainder)) / 100;
+}
+
+// Format currency without symbol, with 2 decimal places
+export function formatCurrency(amount: number, roundUp = true): string {
+  const value = roundUp ? roundTo50(amount) : amount;
+  return value.toLocaleString("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export const playSuccessSound = () => {

@@ -10,6 +10,7 @@ import { CheckCircle2, DollarSign, QrCode, Ticket, Printer, Bluetooth, CreditCar
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 import { useToast } from "@/hooks/use-toast";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { formatCurrency, roundTo50 } from "@/lib/utils";
 
 // Success sound using audio file
 const playSuccessSound = () => {
