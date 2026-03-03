@@ -45,7 +45,7 @@ export function PaymentDialog({
   const { language, cart, clearCart, currentUser, mode, currentShift } = useApp();
   const { toast } = useToast();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [amount, setAmount] = useState("");
   const [qrisRef, setQrisRef] = useState("");
   const [completed, setCompleted] = useState(false);
@@ -79,7 +79,7 @@ export function PaymentDialog({
       setPayments([]);
       setAmount("");
       setQrisRef("");
-      setSelectedMethod("cash");
+      setSelectedMethod(null);
       setCompleted(false);
       setChange(0);
       setLastTransaction(null);
@@ -153,9 +153,9 @@ export function PaymentDialog({
 
   const addPayment = (paymentAmount: number) => {
     const newPayment: PaymentRecord = {
-      method: selectedMethod,
+      method: selectedMethod!,
       amount: paymentAmount,
-      ...(selectedMethod.includes("qris") && qrisRef ? { qrisRef } : {})
+      ...(selectedMethod!.includes("qris") && qrisRef ? { qrisRef } : {})
     };
 
     setPayments(prev => [...prev, newPayment]);
