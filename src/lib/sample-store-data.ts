@@ -332,6 +332,8 @@ export const BUSINESS_CATALOGS: Record<BusinessType, Record<string, Array<{name:
       { name: "Sambal Merah", price: 5000, barcode: "8991660100013" },
       { name: "Gulai Pakis", price: 9000, barcode: "8991660100014" },
       { name: "Terong Balado", price: 8000, barcode: "8991660100015" },
+      { name: "Ale Ale", price: 3000, barcode: "8991660100016" },
+      { name: "Kopiko Coffee", price: 6000, barcode: "8991660100017" },
     ],
     "Minuman": [
       { name: "Es Teh Manis", price: 5000, barcode: "8991660100020" },

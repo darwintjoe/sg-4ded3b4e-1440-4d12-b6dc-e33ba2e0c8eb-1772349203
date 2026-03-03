@@ -662,9 +662,20 @@ export class Database {
     // Only fill in missing top-level properties that may have been added in newer versions
     const merged: Settings = { ...saved };
     
-    // Ensure paymentMethods object exists (for upgrades from older versions)
+    // Ensure paymentMethods object exists and deep-merge with defaults
+    // This preserves user's saved values while filling in any missing keys
     if (!merged.paymentMethods) {
       merged.paymentMethods = defaultSettings.paymentMethods;
+    } else {
+      // Deep merge: keep user's saved values, fill missing keys from defaults
+      merged.paymentMethods = {
+        cash: merged.paymentMethods.cash ?? defaultSettings.paymentMethods.cash,
+        qrisStatic: merged.paymentMethods.qrisStatic ?? defaultSettings.paymentMethods.qrisStatic,
+        qrisDynamic: merged.paymentMethods.qrisDynamic ?? defaultSettings.paymentMethods.qrisDynamic,
+        card: merged.paymentMethods.card ?? defaultSettings.paymentMethods.card,
+        voucher: merged.paymentMethods.voucher ?? defaultSettings.paymentMethods.voucher,
+        transfer: merged.paymentMethods.transfer ?? defaultSettings.paymentMethods.transfer,
+      };
     }
     
     // Ensure shifts object exists (for upgrades from older versions)
