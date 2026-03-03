@@ -598,10 +598,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return `Rp ${amount.toLocaleString("id-ID")}`;
       };
 
+      // Get business name for the event title
+      const businessName = settings?.businessName || "My Store";
+
       const description = `
 ━━━━━━━━━━━━━━━━━━━━━━
 💰 SALES SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━
+Store: ${businessName}
 Total Sales: ${formatCurrency(totalRevenue)}
 Transactions: ${shiftTransactions.length}
 
@@ -618,7 +622,8 @@ PAYMENT BREAKDOWN:
 ━━━━━━━━━━━━━━━━━━━━━━
 `.trim();
 
-      const eventTitle = `💰 ${formatCurrency(totalRevenue)} - ${shift.cashierName} - Shift Closed`;
+      // Include business name in event title for multi-store identification
+      const eventTitle = `[${businessName}] 💰 ${formatCurrency(totalRevenue)} - ${shift.cashierName}`;
 
       const shiftEndTime = shift.shiftEnd || Date.now();
       const eventStart = new Date(shiftEndTime).toISOString();
