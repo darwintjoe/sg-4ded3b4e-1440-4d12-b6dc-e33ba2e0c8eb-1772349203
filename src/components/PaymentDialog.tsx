@@ -87,8 +87,23 @@ export function PaymentDialog({
       setShowQrisDynamicModal(false);
       setQrisLoading(false);
       setDynamicQrUrl(null);
+    } else {
+      // When dialog opens, auto-select first enabled payment method
+      const getFirstEnabledMethod = (): PaymentMethod | null => {
+        const methods: { method: PaymentMethod; enabled: boolean }[] = [
+          { method: "cash", enabled: settings?.paymentMethods?.cash !== false },
+          { method: "qris-static", enabled: settings?.paymentMethods?.qrisStatic !== false },
+          { method: "qris-dynamic", enabled: settings?.paymentMethods?.qrisDynamic === true },
+          { method: "card", enabled: settings?.paymentMethods?.card !== false },
+          { method: "voucher", enabled: settings?.paymentMethods?.voucher !== false },
+          { method: "transfer", enabled: settings?.paymentMethods?.transfer !== false },
+        ];
+        const first = methods.find(m => m.enabled);
+        return first?.method ?? null;
+      };
+      setSelectedMethod(getFirstEnabledMethod());
     }
-  }, [open]);
+  }, [open, settings]);
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = Math.max(0, total - totalPaid);

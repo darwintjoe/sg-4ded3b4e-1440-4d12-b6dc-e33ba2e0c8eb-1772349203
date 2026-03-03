@@ -973,18 +973,18 @@ export function SettingsPanel() {
       />
       
       <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="store" className="flex-1 flex flex-col">
-        <div className="sticky top-0 z-10 bg-background border-b">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="store">
+        <div className="sticky top-0 z-10 bg-background border-b px-2">
+          <TabsList className="w-full grid grid-cols-4 h-10">
+            <TabsTrigger value="store" className="text-xs px-1">
               {translate("settings.tabs.store", language)}
             </TabsTrigger>
-            <TabsTrigger value="pos" className="w-[120px]">
+            <TabsTrigger value="pos" className="text-xs px-1">
               {translate("settings.tabs.pos", language)}
             </TabsTrigger>
-            <TabsTrigger value="backup">
+            <TabsTrigger value="backup" className="text-xs px-1">
               {translate("settings.tabs.backup", language)}
             </TabsTrigger>
-            <TabsTrigger value="database">
+            <TabsTrigger value="database" className="text-xs px-1">
               {translate("settings.tabs.database", language)}
             </TabsTrigger>
           </TabsList>

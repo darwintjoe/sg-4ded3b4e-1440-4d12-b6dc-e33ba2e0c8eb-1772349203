@@ -524,12 +524,12 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
 
           {/* Tax 2 (Service) - No inclusive option */}
           <div className="space-y-3 p-3 border rounded-lg">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <Input
                 value={settings.tax2Label}
                 onChange={(e) => onUpdate({ tax2Label: e.target.value })}
                 placeholder={translate("settings.pos.tax2Label", language)}
-                className="flex-1 max-w-[200px]"
+                className="flex-1 max-w-[180px]"
               />
               <Switch
                 checked={settings.tax2Enabled}
@@ -548,10 +548,13 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                   className="w-20"
                 />
                 <span className="text-sm">%</span>
-                <span className="text-xs text-muted-foreground ml-2">
-                  ({translate("settings.pos.calculatedOnSubtotalPlusTax1", language)})
-                </span>
               </div>
+            )}
+            
+            {settings.tax2Enabled && (
+              <p className="text-xs text-muted-foreground">
+                {translate("settings.pos.tax2Note", language)}
+              </p>
             )}
           </div>
         </div>
