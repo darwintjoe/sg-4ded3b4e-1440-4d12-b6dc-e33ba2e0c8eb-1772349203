@@ -922,7 +922,7 @@ export function getDefaultSettings(): Settings {
       qrisStatic: true,
       qrisDynamic: false,
       card: false,
-      voucher: true,
+      voucher: false,
       transfer: false
     },
     alwaysOnDisplay: false,

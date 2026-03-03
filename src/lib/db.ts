@@ -610,50 +610,74 @@ export class Database {
 
   // Settings
   async getSettings(): Promise<Settings> {
-    const settings = await this.getById<Settings>("settings", "settings");
-    if (!settings) {
-      const defaultSettings: Settings = {
-        key: "settings",
-        mode: "retail",
-        tax1Enabled: false,
-        tax1Label: "PPN",
-        tax1Rate: 10,
-        tax1Inclusive: false,
-        tax2Enabled: false,
-        tax2Label: "Service",
-        tax2Rate: 5,
-        tax2Inclusive: false,
-        language: "en",
-        theme: "light",
-        printerWidth: 58,
-        businessName: "My Store",
-        businessLogo: undefined,
-        businessAddress: "",
-        businessPhone: "",
-        businessTaxId: "",
-        taxId: undefined,
-        receiptFooter: "Thank you for your purchase!",
-        googleDriveLinked: false,
-        googleAccountEmail: undefined,
-        allowPriceOverride: false,
-        shifts: {
-          shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
-          shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
-          shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
-        },
-        paymentMethods: {
-          cash: true,
-          qrisStatic: true,
-          qrisDynamic: false,
-          card: false,
-          voucher: false,
-          transfer: false
-        },
-      };
+    const saved = await this.getById<Settings>("settings", "settings");
+    
+    // Default settings for NEW installations only
+    const defaultSettings: Settings = {
+      key: "settings",
+      mode: "retail",
+      tax1Enabled: false,
+      tax1Label: "PPN",
+      tax1Rate: 10,
+      tax1Inclusive: false,
+      tax2Enabled: false,
+      tax2Label: "Service",
+      tax2Rate: 5,
+      tax2Inclusive: false,
+      language: "en",
+      theme: "system",
+      printerWidth: 58,
+      businessName: "My Store",
+      businessLogo: undefined,
+      businessAddress: "",
+      businessPhone: "",
+      businessTaxId: "",
+      taxId: undefined,
+      receiptFooter: "Thank you for your purchase!",
+      googleDriveLinked: false,
+      googleAccountEmail: undefined,
+      allowPriceOverride: false,
+      shifts: {
+        shift1: { enabled: true, name: "Morning Shift", startTime: "09:00", endTime: "18:00" },
+        shift2: { enabled: false, name: "Afternoon Shift", startTime: "14:00", endTime: "22:00" },
+        shift3: { enabled: false, name: "Night Shift", startTime: "22:00", endTime: "06:00" },
+      },
+      paymentMethods: {
+        cash: true,
+        qrisStatic: true,
+        qrisDynamic: false,
+        card: false,
+        voucher: false,
+        transfer: false
+      },
+    };
+    
+    // No saved settings - return defaults and save them
+    if (!saved) {
       await this.put("settings", defaultSettings);
       return defaultSettings;
     }
-    return settings;
+    
+    // Saved settings exist - return them as-is (user's settings persist)
+    // Only fill in missing top-level properties that may have been added in newer versions
+    const merged: Settings = { ...saved };
+    
+    // Ensure paymentMethods object exists (for upgrades from older versions)
+    if (!merged.paymentMethods) {
+      merged.paymentMethods = defaultSettings.paymentMethods;
+    }
+    
+    // Ensure shifts object exists (for upgrades from older versions)
+    if (!merged.shifts) {
+      merged.shifts = defaultSettings.shifts;
+    }
+    
+    // Ensure theme exists (for upgrades from older versions)
+    if (merged.theme === undefined) {
+      merged.theme = defaultSettings.theme;
+    }
+    
+    return merged;
   }
 
   async updateSettings(settings: Settings): Promise<void> {
