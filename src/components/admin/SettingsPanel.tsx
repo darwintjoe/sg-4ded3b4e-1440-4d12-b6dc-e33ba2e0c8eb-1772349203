@@ -411,9 +411,10 @@ export function SettingsPanel() {
   const handleBackupNow = async () => {
     setBackupProcessing(true);
     try {
-      const result = await createBackup();
+      const businessName = settings.businessName || "Store";
+      const result = await createBackup(businessName);
       if (result.success) {
-        await refreshBackupStatus();
+        await refreshBackupStatus(businessName);
       } else {
         alert(result.error || "Backup failed");
       }
@@ -498,7 +499,7 @@ export function SettingsPanel() {
         return;
       }
 
-      const restoreResult = await startRestore();
+      const restoreResult = await startRestore(settings.businessName || "Store");
       if (!restoreResult.success || !restoreResult.backupData) {
         throw new Error(restoreResult.error || "Download failed");
       }
@@ -569,7 +570,7 @@ export function SettingsPanel() {
         backupData = manualData;
         setRestoreState(prev => ({ ...prev, progress: 50 }));
       } else {
-        const restoreResult = await startRestore();
+        const restoreResult = await startRestore(settings.businessName || "Store");
         if (!restoreResult.success || !restoreResult.backupData) {
           throw new Error(restoreResult.error || "Download failed");
         }

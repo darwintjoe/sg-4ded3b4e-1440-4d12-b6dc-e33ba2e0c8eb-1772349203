@@ -540,7 +540,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       console.log("Triggering auto-backup...");
       if (googleAuth.isSignedIn) {
-        googleAuth.createBackup().then(result => {
+        const businessName = settings?.businessName || "Store";
+        googleAuth.createBackup(businessName).then(result => {
           if (result.success) {
             console.log("✅ Auto-backup success");
           } else {

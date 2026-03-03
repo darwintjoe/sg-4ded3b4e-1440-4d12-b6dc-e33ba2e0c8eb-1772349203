@@ -46,7 +46,7 @@ const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undef
 // Helper to get business name from settings (module-level for use in effects)
 const getBusinessNameFromDb = async (): Promise<string> => {
   try {
-    const settings = await db.getById("settings", 1);
+    const settings = await db.getById("settings", 1) as { businessName?: string } | undefined;
     return settings?.businessName || "Store";
   } catch {
     return "Store";
