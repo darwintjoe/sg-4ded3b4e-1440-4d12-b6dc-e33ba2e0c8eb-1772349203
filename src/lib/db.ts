@@ -658,25 +658,32 @@ export class Database {
       return defaultSettings;
     }
     
-    // CONDITION 2 & 3: Saved settings exist - return them AS-IS
-    // User's saved values always take precedence, never overwrite with defaults
-    // Only add missing top-level keys for schema migrations (new features)
+    // CONDITION 2 & 3: Saved settings exist - return AS-IS
+    // User's saved values ALWAYS take precedence, never overwrite with defaults
+    // Only add completely missing top-level keys for schema migrations
+    
+    let needsSave = false;
     
     // Schema migration: add paymentMethods if completely missing (old DB version)
     if (saved.paymentMethods === undefined) {
       saved.paymentMethods = defaultSettings.paymentMethods;
-      await this.put("settings", saved);
+      needsSave = true;
     }
     
     // Schema migration: add shifts if completely missing (old DB version)
     if (saved.shifts === undefined) {
       saved.shifts = defaultSettings.shifts;
-      await this.put("settings", saved);
+      needsSave = true;
     }
     
     // Schema migration: add theme if completely missing (old DB version)
     if (saved.theme === undefined) {
       saved.theme = defaultSettings.theme;
+      needsSave = true;
+    }
+    
+    // Save only if schema migration added new keys
+    if (needsSave) {
       await this.put("settings", saved);
     }
     
