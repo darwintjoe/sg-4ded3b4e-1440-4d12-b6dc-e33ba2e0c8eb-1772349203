@@ -95,6 +95,8 @@ export interface Transaction {
   subtotal: number;
   tax1: number;
   tax2: number;
+  tax1Amount?: number;
+  tax2Amount?: number;
   tax: number;
   total: number;
   payments: PaymentRecord[];
