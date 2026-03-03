@@ -482,14 +482,14 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
         </div>
         
         <div className="space-y-4">
-          {/* Tax 1 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
+          {/* Tax 1 (PPN) */}
+          <div className="space-y-3 p-3 border rounded-lg">
+            <div className="flex items-center justify-between">
               <Input
                 value={settings.tax1Label}
                 onChange={(e) => onUpdate({ tax1Label: e.target.value })}
                 placeholder={translate("settings.pos.tax1Label", language)}
-                className="flex-1"
+                className="flex-1 max-w-[200px]"
               />
               <Switch
                 checked={settings.tax1Enabled}
@@ -499,33 +499,37 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             </div>
             
             {settings.tax1Enabled && (
-              <div className="flex items-center gap-3 pl-4">
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxRate", language)}</Label>
-                <Input
-                  type="number"
-                  value={settings.tax1Rate}
-                  onChange={(e) => onUpdate({ tax1Rate: Number(e.target.value) })}
-                  className="w-20"
-                />
-                <span className="text-xs">%</span>
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxInclusive", language)}</Label>
-                <Switch
-                  checked={settings.tax1Inclusive || false}
-                  onCheckedChange={(checked) => onUpdate({ tax1Inclusive: checked })}
-                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                />
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxRate", language)}</Label>
+                  <Input
+                    type="number"
+                    value={settings.tax1Rate}
+                    onChange={(e) => onUpdate({ tax1Rate: Number(e.target.value) })}
+                    className="w-20"
+                  />
+                  <span className="text-sm">%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxInclusive", language)}</Label>
+                  <Switch
+                    checked={settings.tax1Inclusive || false}
+                    onCheckedChange={(checked) => onUpdate({ tax1Inclusive: checked })}
+                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+                  />
+                </div>
               </div>
             )}
           </div>
 
-          {/* Tax 2 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
+          {/* Tax 2 (Service) - No inclusive option */}
+          <div className="space-y-3 p-3 border rounded-lg">
+            <div className="flex items-center justify-between">
               <Input
                 value={settings.tax2Label}
                 onChange={(e) => onUpdate({ tax2Label: e.target.value })}
                 placeholder={translate("settings.pos.tax2Label", language)}
-                className="flex-1"
+                className="flex-1 max-w-[200px]"
               />
               <Switch
                 checked={settings.tax2Enabled}
@@ -535,7 +539,7 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
             </div>
             
             {settings.tax2Enabled && (
-              <div className="flex items-center gap-3 pl-4">
+              <div className="flex items-center gap-2">
                 <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxRate", language)}</Label>
                 <Input
                   type="number"
@@ -543,13 +547,10 @@ export function POSSettingsSection({ settings, onUpdate, language }: POSSettings
                   onChange={(e) => onUpdate({ tax2Rate: Number(e.target.value) })}
                   className="w-20"
                 />
-                <span className="text-xs">%</span>
-                <Label className="text-xs text-muted-foreground whitespace-nowrap">{translate("settings.pos.taxInclusive", language)}</Label>
-                <Switch
-                  checked={settings.tax2Inclusive || false}
-                  onCheckedChange={(checked) => onUpdate({ tax2Inclusive: checked })}
-                  className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                />
+                <span className="text-sm">%</span>
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({translate("settings.pos.calculatedOnSubtotalPlusTax1", language)})
+                </span>
               </div>
             )}
           </div>

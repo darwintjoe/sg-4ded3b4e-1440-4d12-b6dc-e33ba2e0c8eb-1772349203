@@ -213,20 +213,23 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   let tax2Amount = 0;
 
   if (settings) {
-    // Step 1: Extract Tax 1 if inclusive
-    if (settings.tax1Enabled && settings.tax1Inclusive) {
-      subtotal = itemsTotal / (1 + settings.tax1Rate / 100);
-      tax1Amount = itemsTotal - subtotal;
+    // Step 1: Handle Tax1 (PPN)
+    if (settings.tax1Enabled) {
+      if (settings.tax1Inclusive) {
+        // Tax1 is included in price - extract it
+        subtotal = itemsTotal / (1 + settings.tax1Rate / 100);
+        tax1Amount = itemsTotal - subtotal;
+      } else {
+        // Tax1 is exclusive - add it on top
+        tax1Amount = itemsTotal * (settings.tax1Rate / 100);
+      }
     }
 
-    // Step 2: Calculate Tax 1 if exclusive
-    if (settings.tax1Enabled && !settings.tax1Inclusive) {
-      tax1Amount = subtotal * (settings.tax1Rate / 100);
-    }
-
-    // Step 3: Calculate Tax 2 (always exclusive)
+    // Step 2: Calculate Tax2 (Service) on (subtotal + tax1Amount)
+    // Tax2 is always exclusive and calculated on the amount after Tax1
     if (settings.tax2Enabled) {
-      tax2Amount = subtotal * (settings.tax2Rate / 100);
+      const tax2Base = subtotal + tax1Amount;
+      tax2Amount = tax2Base * (settings.tax2Rate / 100);
     }
   }
 
