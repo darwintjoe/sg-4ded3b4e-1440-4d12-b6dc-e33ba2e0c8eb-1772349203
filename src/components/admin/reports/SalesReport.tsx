@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DailyPaymentSales, MonthlySalesSummary } from "@/types";
+import { DailyPaymentSales, MonthlySalesSummary, Transaction } from "@/types";
 import { db } from "@/lib/db";
 import { DollarSign, Receipt, TrendingUp } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
@@ -79,7 +79,47 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
     loadSalesReport();
   }, [salesTimeRange]);
 
-  // Single-pass aggregation helper
+  // Aggregate transactions by business date and payment method
+  const aggregateTransactions = (transactions: Transaction[]): Map<string, AggregatedSalesData> => {
+    const map = new Map<string, AggregatedSalesData>();
+    
+    for (const txn of transactions) {
+      const existing = map.get(txn.businessDate);
+      
+      // Calculate payment amounts for this transaction
+      let cash = 0, qrisStatic = 0, qrisDynamic = 0, voucher = 0;
+      for (const payment of txn.payments) {
+        if (payment.method === "cash") cash += payment.amount;
+        else if (payment.method === "qris-static") qrisStatic += payment.amount;
+        else if (payment.method === "qris-dynamic") qrisDynamic += payment.amount;
+        else if (payment.method === "voucher") voucher += payment.amount;
+      }
+      
+      if (existing) {
+        existing.revenue += txn.total;
+        existing.receipts += 1;
+        existing.cash += cash;
+        existing.qrisStatic += qrisStatic;
+        existing.qrisDynamic += qrisDynamic;
+        existing.voucher += voucher;
+      } else {
+        map.set(txn.businessDate, {
+          key: txn.businessDate.substring(5),
+          fullDate: txn.businessDate,
+          revenue: txn.total,
+          receipts: 1,
+          cash,
+          qrisStatic,
+          qrisDynamic,
+          voucher
+        });
+      }
+    }
+    
+    return map;
+  };
+
+  // Single-pass aggregation helper for daily payment sales (kept for reference but not used for MTD/30D)
   const aggregateDailyData = (daily: DailyPaymentSales[]): Map<string, AggregatedSalesData> => {
     const map = new Map<string, AggregatedSalesData>();
     
@@ -192,25 +232,27 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
       const currentMonth = getYearMonth(new Date());
 
       if (useMonthlySummary) {
-        // YTD, 12M, 5Y - Use monthly summary + current month from daily
+        // YTD, 12M, 5Y - Use monthly summary + current month from transactions
         const startMonth = getYearMonth(startDate);
         const endMonth = getYearMonth(endDate);
 
         // Batch fetch all data upfront
-        const [allMonthly, allDaily] = await Promise.all([
+        const [allMonthly, allTransactions] = await Promise.all([
           db.getAll<MonthlySalesSummary>("monthlySalesSummary"),
-          db.getAll<DailyPaymentSales>("dailyPaymentSales")
+          db.getAll<Transaction>("transactions")
         ]);
 
-        // Filter in single pass
+        // Filter monthly data (exclude current month - will use transactions)
         const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
-        const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
+        
+        // Filter current month transactions
+        const currentMonthTransactions = allTransactions.filter(t => t.businessDate.startsWith(currentMonth));
 
         // Aggregate monthly data
         const dataMap = aggregateMonthlyData(filteredMonthly);
 
-        // Add current month daily data if needed
-        if (endMonth >= currentMonth && currentDaily.length > 0) {
+        // Add current month from transactions if needed
+        if (endMonth >= currentMonth && currentMonthTransactions.length > 0) {
           const currentMonthData: AggregatedSalesData = {
             key: currentMonth.substring(5, 7),
             fullDate: currentMonth,
@@ -222,13 +264,15 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
             voucher: 0
           };
 
-          for (const d of currentDaily) {
-            currentMonthData.revenue += d.totalAmount;
-            currentMonthData.receipts += d.transactionCount;
-            if (d.method === "cash") currentMonthData.cash += d.totalAmount;
-            else if (d.method === "qris-static") currentMonthData.qrisStatic += d.totalAmount;
-            else if (d.method === "qris-dynamic") currentMonthData.qrisDynamic += d.totalAmount;
-            else if (d.method === "voucher") currentMonthData.voucher += d.totalAmount;
+          for (const txn of currentMonthTransactions) {
+            currentMonthData.revenue += txn.total;
+            currentMonthData.receipts += 1;
+            for (const payment of txn.payments) {
+              if (payment.method === "cash") currentMonthData.cash += payment.amount;
+              else if (payment.method === "qris-static") currentMonthData.qrisStatic += payment.amount;
+              else if (payment.method === "qris-dynamic") currentMonthData.qrisDynamic += payment.amount;
+              else if (payment.method === "voucher") currentMonthData.voucher += payment.amount;
+            }
           }
 
           dataMap.set(currentMonth, currentMonthData);
@@ -281,12 +325,12 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
         }
 
       } else {
-        // MTD, 30D - Use daily data only
-        const allDaily = await db.getAll<DailyPaymentSales>("dailyPaymentSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
+        // MTD, 30D - Query directly from transactions table
+        const allTransactions = await db.getAll<Transaction>("transactions");
+        const filtered = allTransactions.filter(t => t.businessDate >= startDateStr && t.businessDate <= endDateStr);
         
-        // Single-pass aggregation
-        const dataMap = aggregateDailyData(filtered);
+        // Single-pass aggregation from transactions
+        const dataMap = aggregateTransactions(filtered);
         const sortedData = Array.from(dataMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
 
         // Prepare chart data

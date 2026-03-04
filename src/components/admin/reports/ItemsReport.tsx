@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DailyItemSales, MonthlyItemSales, Language } from "@/types";
+import { DailyItemSales, MonthlyItemSales, Transaction, Language } from "@/types";
 import { db } from "@/lib/db";
 import { translate } from "@/lib/translations";
 import { Package } from "lucide-react";
@@ -20,6 +20,7 @@ interface ItemsReportProps {
 
 interface AggregatedItemData {
   name: string;
+  sku: string;
   quantity: number;
   revenue: number;
   transactions: number;
@@ -73,7 +74,33 @@ export function ItemsReport({ language, containerRef }: ItemsReportProps) {
     loadItemsReport();
   }, [itemsTimeRange, itemTopN, sortBy]);
 
-  // Single-pass aggregation for item data
+  // Aggregate items from transactions (for 1d, 7d, 1m)
+  const aggregateItemsFromTransactions = (transactions: Transaction[]): Map<number, AggregatedItemData> => {
+    const map = new Map<number, AggregatedItemData>();
+    
+    for (const txn of transactions) {
+      for (const item of txn.items) {
+        const existing = map.get(item.itemId);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.revenue += item.totalPrice;
+          existing.transactions += 1;
+        } else {
+          map.set(item.itemId, {
+            name: item.name,
+            sku: item.sku,
+            quantity: item.quantity,
+            revenue: item.totalPrice,
+            transactions: 1
+          });
+        }
+      }
+    }
+    
+    return map;
+  };
+
+  // Single-pass aggregation for daily/monthly item sales data (for 3m+)
   const aggregateItemData = (items: (DailyItemSales | MonthlyItemSales)[]): Map<number, AggregatedItemData> => {
     const map = new Map<number, AggregatedItemData>();
     
@@ -86,6 +113,7 @@ export function ItemsReport({ language, containerRef }: ItemsReportProps) {
       } else {
         map.set(item.itemId, {
           name: item.itemName,
+          sku: item.sku,
           quantity: item.totalQuantity,
           revenue: item.totalRevenue,
           transactions: item.transactionCount
@@ -96,27 +124,41 @@ export function ItemsReport({ language, containerRef }: ItemsReportProps) {
     return map;
   };
 
+  // Format business date from Date object
+  const formatBusinessDate = (date: Date): string => {
+    return date.toISOString().split("T")[0];
+  };
+
+  // Get year-month from Date object
+  const getYearMonth = (date: Date): string => {
+    return date.toISOString().split("T")[0].substring(0, 7);
+  };
+
   const loadItemsReport = async () => {
     try {
       const today = new Date();
       today.setHours(23, 59, 59, 999);
       let startDate: Date;
-      let useMonthly = false;
+      let useTransactions = false; // For 1d, 7d, 1m - query transactions directly
+      let useMonthly = false; // For 3m+ - use monthly summaries
 
       switch (itemsTimeRange) {
         case "1d":
           startDate = new Date(today);
           startDate.setHours(0, 0, 0, 0);
+          useTransactions = true;
           break;
         case "7d":
           startDate = new Date(today);
           startDate.setDate(startDate.getDate() - 6);
           startDate.setHours(0, 0, 0, 0);
+          useTransactions = true;
           break;
         case "1m":
           startDate = new Date(today);
           startDate.setDate(startDate.getDate() - 29);
           startDate.setHours(0, 0, 0, 0);
+          useTransactions = true;
           break;
         case "3m":
           startDate = new Date(today);
@@ -152,36 +194,69 @@ export function ItemsReport({ language, containerRef }: ItemsReportProps) {
           startDate = new Date(today);
           startDate.setMonth(startDate.getMonth() - 1);
           startDate.setHours(0, 0, 0, 0);
+          useTransactions = true;
       }
 
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = today.toISOString().split('T')[0];
-      const startMonth = startDate.toISOString().split('T')[0].substring(0, 7);
-      const currentMonth = today.toISOString().split('T')[0].substring(0, 7);
+      const startDateStr = formatBusinessDate(startDate);
+      const endDateStr = formatBusinessDate(today);
+      const startMonth = getYearMonth(startDate);
+      const currentMonth = getYearMonth(today);
 
       let itemMap: Map<number, AggregatedItemData>;
 
-      if (useMonthly) {
-        // Batch fetch all data upfront
-        const [allMonthly, allDaily] = await Promise.all([
+      if (useTransactions) {
+        // 1d, 7d, 1m - Query directly from transactions table
+        // This ensures accurate data even after daily rollups are cleared
+        const allTransactions = await db.getAll<Transaction>("transactions");
+        const filtered = allTransactions.filter(t => 
+          t.businessDate >= startDateStr && t.businessDate <= endDateStr
+        );
+        
+        itemMap = aggregateItemsFromTransactions(filtered);
+
+      } else if (useMonthly) {
+        // 3m+ - Use monthly summaries + current month from transactions
+        const [allMonthly, allTransactions] = await Promise.all([
           db.getAll<MonthlyItemSales>("monthlyItemSales"),
-          db.getAll<DailyItemSales>("dailyItemSales")
+          db.getAll<Transaction>("transactions")
         ]);
 
-        // Filter and aggregate in single pass
-        const filteredMonthly = allMonthly.filter(m => m.yearMonth >= startMonth && m.yearMonth < currentMonth);
-        const currentDaily = allDaily.filter(d => d.businessDate.startsWith(currentMonth));
+        // Filter monthly data (exclude current month - will use transactions)
+        const filteredMonthly = allMonthly.filter(m => 
+          m.yearMonth >= startMonth && m.yearMonth < currentMonth
+        );
 
-        // Combine and aggregate
-        itemMap = aggregateItemData([...filteredMonthly, ...currentDaily]);
+        // Filter current month transactions
+        const currentMonthTransactions = allTransactions.filter(t => 
+          t.businessDate.startsWith(currentMonth)
+        );
+
+        // Aggregate monthly data
+        itemMap = aggregateItemData(filteredMonthly);
+
+        // Add current month from transactions
+        for (const txn of currentMonthTransactions) {
+          for (const item of txn.items) {
+            const existing = itemMap.get(item.itemId);
+            if (existing) {
+              existing.quantity += item.quantity;
+              existing.revenue += item.totalPrice;
+              existing.transactions += 1;
+            } else {
+              itemMap.set(item.itemId, {
+                name: item.name,
+                sku: item.sku,
+                quantity: item.quantity,
+                revenue: item.totalPrice,
+                transactions: 1
+              });
+            }
+          }
+        }
 
       } else {
-        // Daily data only
-        const allDaily = await db.getAll<DailyItemSales>("dailyItemSales");
-        const filtered = allDaily.filter(d => d.businessDate >= startDateStr && d.businessDate <= endDateStr);
-        
-        // Single-pass aggregation
-        itemMap = aggregateItemData(filtered);
+        // Fallback - should not reach here
+        itemMap = new Map();
       }
 
       // Convert to array and sort once (single sort operation)
