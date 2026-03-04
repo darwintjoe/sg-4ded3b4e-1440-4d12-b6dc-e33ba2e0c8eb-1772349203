@@ -459,7 +459,14 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
             <div className="space-y-3">
               <div>
                 <div className="h-[320px]">
-                  <StackedBarChart data={salesChartData} activePaymentMethods={activePaymentMethods} />
+                  <StackedBarChart 
+                    data={salesChartData} 
+                    paymentMethods={activePaymentMethods.map(method => ({
+                      key: methodToKey(method),
+                      label: PAYMENT_METHOD_FULL_LABELS[method],
+                      color: PAYMENT_METHOD_COLORS[method]
+                    }))}
+                  />
                 </div>
               </div>
             </div>
