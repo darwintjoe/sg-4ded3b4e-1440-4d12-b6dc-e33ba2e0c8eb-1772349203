@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DailyPaymentSales, MonthlySalesSummary, Transaction } from "@/types";
+import { DailyPaymentSales, MonthlySalesSummary, Transaction, PaymentMethod } from "@/types";
 import { db } from "@/lib/db";
 import { DollarSign, Receipt, TrendingUp } from "lucide-react";
 import { StackedBarChart } from "@/components/charts/StackedBarChart";
@@ -16,16 +16,49 @@ interface SalesReportProps {
   containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+// All possible payment methods
+const ALL_PAYMENT_METHODS: PaymentMethod[] = ["cash", "qris-static", "qris-dynamic", "card", "voucher", "transfer"];
+
+// Display labels for payment methods
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  "cash": "Cash",
+  "qris-static": "QR-S",
+  "qris-dynamic": "QR-D",
+  "card": "Card",
+  "voucher": "Vchr",
+  "transfer": "Trf"
+};
+
+// Convert payment method to safe key for object properties
+const methodToKey = (method: PaymentMethod): string => {
+  return method.replace("-", "");
+};
+
+interface PaymentAmounts {
+  cash: number;
+  qrisstatic: number;
+  qrisdynamic: number;
+  card: number;
+  voucher: number;
+  transfer: number;
+}
+
 interface AggregatedSalesData {
   key: string;
   fullDate: string;
   revenue: number;
   receipts: number;
-  cash: number;
-  qrisStatic: number;
-  qrisDynamic: number;
-  voucher: number;
+  payments: PaymentAmounts;
 }
+
+const emptyPayments = (): PaymentAmounts => ({
+  cash: 0,
+  qrisstatic: 0,
+  qrisdynamic: 0,
+  card: 0,
+  voucher: 0,
+  transfer: 0
+});
 
 export function SalesReport({ language, containerRef }: SalesReportProps) {
   const locale = language === "id" ? "id-ID" : "en-US";
@@ -74,6 +107,7 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
   const [salesData, setSalesData] = useState<AggregatedSalesData[]>([]);
   const [salesDateRange, setSalesDateRange] = useState<string>("");
   const [salesPeriodLabel, setSalesPeriodLabel] = useState<string>("");
+  const [activePaymentMethods, setActivePaymentMethods] = useState<PaymentMethod[]>([]);
 
   useEffect(() => {
     loadSalesReport();
@@ -87,61 +121,29 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
       const existing = map.get(txn.businessDate);
       
       // Calculate payment amounts for this transaction
-      let cash = 0, qrisStatic = 0, qrisDynamic = 0, voucher = 0;
+      const payments = emptyPayments();
       for (const payment of txn.payments) {
-        if (payment.method === "cash") cash += payment.amount;
-        else if (payment.method === "qris-static") qrisStatic += payment.amount;
-        else if (payment.method === "qris-dynamic") qrisDynamic += payment.amount;
-        else if (payment.method === "voucher") voucher += payment.amount;
+        const key = methodToKey(payment.method) as keyof PaymentAmounts;
+        if (key in payments) {
+          payments[key] += payment.amount;
+        }
       }
       
       if (existing) {
         existing.revenue += txn.total;
         existing.receipts += 1;
-        existing.cash += cash;
-        existing.qrisStatic += qrisStatic;
-        existing.qrisDynamic += qrisDynamic;
-        existing.voucher += voucher;
+        // Add payments
+        for (const method of ALL_PAYMENT_METHODS) {
+          const key = methodToKey(method) as keyof PaymentAmounts;
+          existing.payments[key] += payments[key];
+        }
       } else {
         map.set(txn.businessDate, {
           key: txn.businessDate.substring(5),
           fullDate: txn.businessDate,
           revenue: txn.total,
           receipts: 1,
-          cash,
-          qrisStatic,
-          qrisDynamic,
-          voucher
-        });
-      }
-    }
-    
-    return map;
-  };
-
-  // Single-pass aggregation helper for daily payment sales (kept for reference but not used for MTD/30D)
-  const aggregateDailyData = (daily: DailyPaymentSales[]): Map<string, AggregatedSalesData> => {
-    const map = new Map<string, AggregatedSalesData>();
-    
-    for (const d of daily) {
-      const existing = map.get(d.businessDate);
-      if (existing) {
-        existing.revenue += d.totalAmount;
-        existing.receipts += d.transactionCount;
-        if (d.method === "cash") existing.cash += d.totalAmount;
-        else if (d.method === "qris-static") existing.qrisStatic += d.totalAmount;
-        else if (d.method === "qris-dynamic") existing.qrisDynamic += d.totalAmount;
-        else if (d.method === "voucher") existing.voucher += d.totalAmount;
-      } else {
-        map.set(d.businessDate, {
-          key: d.businessDate.substring(5),
-          fullDate: d.businessDate,
-          revenue: d.totalAmount,
-          receipts: d.transactionCount,
-          cash: d.method === "cash" ? d.totalAmount : 0,
-          qrisStatic: d.method === "qris-static" ? d.totalAmount : 0,
-          qrisDynamic: d.method === "qris-dynamic" ? d.totalAmount : 0,
-          voucher: d.method === "voucher" ? d.totalAmount : 0
+          payments
         });
       }
     }
@@ -159,10 +161,14 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
         fullDate: m.yearMonth,
         revenue: m.totalRevenue,
         receipts: m.totalReceipts,
-        cash: m.cashAmount,
-        qrisStatic: m.qrisStaticAmount,
-        qrisDynamic: m.qrisDynamicAmount,
-        voucher: m.voucherAmount
+        payments: {
+          cash: m.cashAmount || 0,
+          qrisstatic: m.qrisStaticAmount || 0,
+          qrisdynamic: m.qrisDynamicAmount || 0,
+          card: (m as any).cardAmount || 0,
+          voucher: m.voucherAmount || 0,
+          transfer: (m as any).transferAmount || 0
+        }
       });
     }
     
@@ -170,30 +176,27 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
   };
 
   // Single-pass yearly aggregation from monthly data
-  const aggregateYearlyData = (monthly: MonthlySalesSummary[]): Map<string, AggregatedSalesData> => {
+  const aggregateYearlyData = (data: AggregatedSalesData[]): Map<string, AggregatedSalesData> => {
     const map = new Map<string, AggregatedSalesData>();
     
-    for (const m of monthly) {
-      const year = m.yearMonth.substring(0, 4);
+    for (const d of data) {
+      const year = d.fullDate.substring(0, 4);
       const existing = map.get(year);
       
       if (existing) {
-        existing.revenue += m.totalRevenue;
-        existing.receipts += m.totalReceipts;
-        existing.cash += m.cashAmount;
-        existing.qrisStatic += m.qrisStaticAmount;
-        existing.qrisDynamic += m.qrisDynamicAmount;
-        existing.voucher += m.voucherAmount;
+        existing.revenue += d.revenue;
+        existing.receipts += d.receipts;
+        for (const method of ALL_PAYMENT_METHODS) {
+          const key = methodToKey(method) as keyof PaymentAmounts;
+          existing.payments[key] += d.payments[key];
+        }
       } else {
         map.set(year, {
           key: year,
           fullDate: year,
-          revenue: m.totalRevenue,
-          receipts: m.totalReceipts,
-          cash: m.cashAmount,
-          qrisStatic: m.qrisStaticAmount,
-          qrisDynamic: m.qrisDynamicAmount,
-          voucher: m.voucherAmount
+          revenue: d.revenue,
+          receipts: d.receipts,
+          payments: { ...d.payments }
         });
       }
     }
@@ -216,6 +219,24 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
       totalReceipts,
       avgTransaction: totalReceipts > 0 ? totalRevenue / totalReceipts : 0
     };
+  };
+
+  // Determine which payment methods have any transactions
+  const findActivePaymentMethods = (data: AggregatedSalesData[]): PaymentMethod[] => {
+    const totals = emptyPayments();
+    
+    for (const d of data) {
+      for (const method of ALL_PAYMENT_METHODS) {
+        const key = methodToKey(method) as keyof PaymentAmounts;
+        totals[key] += d.payments[key];
+      }
+    }
+    
+    // Return only methods with values > 0
+    return ALL_PAYMENT_METHODS.filter(method => {
+      const key = methodToKey(method) as keyof PaymentAmounts;
+      return totals[key] > 0;
+    });
   };
 
   const loadSalesReport = async () => {
@@ -258,20 +279,17 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
             fullDate: currentMonth,
             revenue: 0,
             receipts: 0,
-            cash: 0,
-            qrisStatic: 0,
-            qrisDynamic: 0,
-            voucher: 0
+            payments: emptyPayments()
           };
 
           for (const txn of currentMonthTransactions) {
             currentMonthData.revenue += txn.total;
             currentMonthData.receipts += 1;
             for (const payment of txn.payments) {
-              if (payment.method === "cash") currentMonthData.cash += payment.amount;
-              else if (payment.method === "qris-static") currentMonthData.qrisStatic += payment.amount;
-              else if (payment.method === "qris-dynamic") currentMonthData.qrisDynamic += payment.amount;
-              else if (payment.method === "voucher") currentMonthData.voucher += payment.amount;
+              const key = methodToKey(payment.method) as keyof PaymentAmounts;
+              if (key in currentMonthData.payments) {
+                currentMonthData.payments[key] += payment.amount;
+              }
             }
           }
 
@@ -283,41 +301,39 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
 
         // Handle 5Y - aggregate by year
         if (salesTimeRange === "5Y") {
-          const yearlyMap = aggregateYearlyData([...filteredMonthly, ...(endMonth >= currentMonth ? [{
-            yearMonth: currentMonth,
-            totalRevenue: sortedData.find(d => d.fullDate === currentMonth)?.revenue || 0,
-            totalReceipts: sortedData.find(d => d.fullDate === currentMonth)?.receipts || 0,
-            cashAmount: sortedData.find(d => d.fullDate === currentMonth)?.cash || 0,
-            qrisStaticAmount: sortedData.find(d => d.fullDate === currentMonth)?.qrisStatic || 0,
-            qrisDynamicAmount: sortedData.find(d => d.fullDate === currentMonth)?.qrisDynamic || 0,
-            voucherAmount: sortedData.find(d => d.fullDate === currentMonth)?.voucher || 0
-          }] : [])]);
-
+          const yearlyMap = aggregateYearlyData(sortedData);
           const yearlyData = Array.from(yearlyMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
 
-          // Prepare chart data
-          const chartData = yearlyData.map(d => ({
-            name: d.key,
-            fullDate: d.fullDate,
-            cash: d.cash,
-            qrisStatic: d.qrisStatic,
-            qrisDynamic: d.qrisDynamic,
-            voucher: d.voucher
-          }));
+          // Find active payment methods
+          const activeMethods = findActivePaymentMethods(yearlyData);
+          setActivePaymentMethods(activeMethods);
+
+          // Prepare chart data with only active methods
+          const chartData = yearlyData.map(d => {
+            const chartItem: any = { name: d.key, fullDate: d.fullDate };
+            for (const method of activeMethods) {
+              const key = methodToKey(method) as keyof PaymentAmounts;
+              chartItem[key] = d.payments[key];
+            }
+            return chartItem;
+          });
 
           setSalesChartData(chartData);
           setSalesData(yearlyData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
           setSalesStats(calculateTotals(yearlyData));
         } else {
           // YTD, 12M - show individual months
-          const chartData = sortedData.map(d => ({
-            name: d.key,
-            fullDate: d.fullDate,
-            cash: d.cash,
-            qrisStatic: d.qrisStatic,
-            qrisDynamic: d.qrisDynamic,
-            voucher: d.voucher
-          }));
+          const activeMethods = findActivePaymentMethods(sortedData);
+          setActivePaymentMethods(activeMethods);
+
+          const chartData = sortedData.map(d => {
+            const chartItem: any = { name: d.key, fullDate: d.fullDate };
+            for (const method of activeMethods) {
+              const key = methodToKey(method) as keyof PaymentAmounts;
+              chartItem[key] = d.payments[key];
+            }
+            return chartItem;
+          });
 
           setSalesChartData(chartData);
           setSalesData(sortedData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
@@ -333,15 +349,19 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
         const dataMap = aggregateTransactions(filtered);
         const sortedData = Array.from(dataMap.values()).sort((a, b) => a.fullDate.localeCompare(b.fullDate));
 
-        // Prepare chart data
-        const chartData = sortedData.map(d => ({
-          name: d.key,
-          fullDate: d.fullDate,
-          cash: d.cash,
-          qrisStatic: d.qrisStatic,
-          qrisDynamic: d.qrisDynamic,
-          voucher: d.voucher
-        }));
+        // Find active payment methods
+        const activeMethods = findActivePaymentMethods(sortedData);
+        setActivePaymentMethods(activeMethods);
+
+        // Prepare chart data with only active methods
+        const chartData = sortedData.map(d => {
+          const chartItem: any = { name: d.key, fullDate: d.fullDate };
+          for (const method of activeMethods) {
+            const key = methodToKey(method) as keyof PaymentAmounts;
+            chartItem[key] = d.payments[key];
+          }
+          return chartItem;
+        });
 
         setSalesChartData(chartData);
         setSalesData(sortedData.slice().sort((a, b) => b.fullDate.localeCompare(a.fullDate)));
@@ -352,19 +372,21 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
       setSalesChartData([]);
       setSalesData([]);
       setSalesStats({ totalRevenue: 0, totalReceipts: 0, avgTransaction: 0 });
+      setActivePaymentMethods([]);
     }
   };
 
   const isSalesMonthlyView = ["YTD", "12M", "5Y"].includes(salesTimeRange);
 
-  // Pre-calculate table totals (memoized in render)
+  // Pre-calculate table totals
   const tableTotals = {
     revenue: salesData.reduce((sum, row) => sum + row.revenue, 0),
     receipts: salesData.reduce((sum, row) => sum + row.receipts, 0),
-    cash: salesData.reduce((sum, row) => sum + row.cash, 0),
-    qrisStatic: salesData.reduce((sum, row) => sum + row.qrisStatic, 0),
-    qrisDynamic: salesData.reduce((sum, row) => sum + row.qrisDynamic, 0),
-    voucher: salesData.reduce((sum, row) => sum + row.voucher, 0)
+    payments: ALL_PAYMENT_METHODS.reduce((acc, method) => {
+      const key = methodToKey(method) as keyof PaymentAmounts;
+      acc[key] = salesData.reduce((sum, row) => sum + row.payments[key], 0);
+      return acc;
+    }, emptyPayments())
   };
 
   return (
@@ -453,10 +475,11 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
                         </TableHead>
                         <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rev</TableHead>
                         <TableHead className="text-right text-[10px] font-medium py-1 px-2">Rcpt</TableHead>
-                        <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Cash</TableHead>
-                        <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-S</TableHead>
-                        <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">QR-D</TableHead>
-                        <TableHead className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">Vchr</TableHead>
+                        {activePaymentMethods.map(method => (
+                          <TableHead key={method} className="text-right text-[10px] font-medium py-1 px-2 whitespace-nowrap">
+                            {PAYMENT_METHOD_LABELS[method]}
+                          </TableHead>
+                        ))}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -465,10 +488,14 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
                           <TableCell className="text-[10px] font-medium py-1 px-2 whitespace-nowrap">{row.fullDate}</TableCell>
                           <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.revenue)}</TableCell>
                           <TableCell className="text-right text-[10px] py-1 px-2">{row.receipts}</TableCell>
-                          <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.cash)}</TableCell>
-                          <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisStatic)}</TableCell>
-                          <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.qrisDynamic)}</TableCell>
-                          <TableCell className="text-right text-[10px] py-1 px-2 whitespace-nowrap">{formatCurrency(row.voucher)}</TableCell>
+                          {activePaymentMethods.map(method => {
+                            const key = methodToKey(method) as keyof PaymentAmounts;
+                            return (
+                              <TableCell key={method} className="text-right text-[10px] py-1 px-2 whitespace-nowrap">
+                                {formatCurrency(row.payments[key])}
+                              </TableCell>
+                            );
+                          })}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -477,10 +504,14 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
                         <TableCell className="text-[10px] font-bold py-1 px-2">Total</TableCell>
                         <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.revenue)}</TableCell>
                         <TableCell className="text-right text-[10px] font-bold py-1 px-2">{tableTotals.receipts}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.cash)}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.qrisStatic)}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.qrisDynamic)}</TableCell>
-                        <TableCell className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">{formatCurrency(tableTotals.voucher)}</TableCell>
+                        {activePaymentMethods.map(method => {
+                          const key = methodToKey(method) as keyof PaymentAmounts;
+                          return (
+                            <TableCell key={method} className="text-right text-[10px] font-bold py-1 px-2 whitespace-nowrap">
+                              {formatCurrency(tableTotals.payments[key])}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     </TableFooter>
                   </Table>
