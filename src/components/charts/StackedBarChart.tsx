@@ -34,6 +34,34 @@ const CustomCursor = (props: any) => {
   );
 };
 
+// Custom legend renderer to ensure proper centering
+const renderCenteredLegend = (props: any) => {
+  const { payload } = props;
+  return (
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "center", 
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: "12px",
+      paddingTop: "8px",
+      fontSize: "9px"
+    }}>
+      {payload.map((entry: any, index: number) => (
+        <div key={`legend-${index}`} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          <div style={{ 
+            width: "8px", 
+            height: "8px", 
+            borderRadius: "50%", 
+            backgroundColor: entry.color 
+          }} />
+          <span style={{ color: entry.color }}>{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export function StackedBarChart({ data, paymentMethods }: StackedBarChartProps) {
   const methods = paymentMethods || DEFAULT_PAYMENT_METHODS;
   
@@ -83,16 +111,7 @@ export function StackedBarChart({ data, paymentMethods }: StackedBarChartProps) 
           cursor={<CustomCursor />}
         />
         <Legend 
-          wrapperStyle={{ 
-            fontSize: "9px", 
-            paddingTop: "8px",
-            display: "flex",
-            justifyContent: "center",
-            width: "100%"
-          }}
-          iconSize={8}
-          iconType="circle"
-          align="center"
+          content={renderCenteredLegend}
           verticalAlign="bottom"
         />
         {methods.map((method, index) => (
