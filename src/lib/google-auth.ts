@@ -29,6 +29,7 @@ class GoogleAuthService {
   private config: GoogleAuthConfig;
   private currentUser: GoogleUser | null = null;
   private tokenClient: any = null;
+  private initializationPromise: Promise<boolean> | null = null;
 
   constructor() {
     this.config = {
@@ -44,8 +45,19 @@ class GoogleAuthService {
 
   /**
    * Initialize Google Identity Services
+   * If user was previously connected, attempts silent re-authentication
    */
   async initialize(): Promise<boolean> {
+    // Prevent multiple simultaneous initializations
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = this._doInitialize();
+    return this.initializationPromise;
+  }
+
+  private async _doInitialize(): Promise<boolean> {
     try {
       if (typeof window === "undefined") return false;
 
@@ -62,8 +74,27 @@ class GoogleAuthService {
       // Check if user was previously signed in
       const savedUser = this.loadSavedUser();
       if (savedUser) {
-        this.currentUser = savedUser;
-        return true;
+        // Check if token is still valid
+        if (savedUser.expiresAt && Date.now() < savedUser.expiresAt) {
+          // Token still valid, use it
+          this.currentUser = savedUser;
+          console.log("Google Auth: Restored valid session for", savedUser.email);
+          return true;
+        }
+        
+        // Token expired - attempt silent re-authentication
+        console.log("Google Auth: Token expired, attempting silent re-auth for", savedUser.email);
+        const silentResult = await this.attemptSilentReauth(savedUser.email);
+        
+        if (silentResult.success) {
+          console.log("Google Auth: Silent re-auth successful");
+          return true;
+        } else {
+          console.log("Google Auth: Silent re-auth failed, user will need to reconnect manually");
+          // Clear the expired session
+          this.clearSavedUser();
+          return true; // Initialization succeeded, just not connected
+        }
       }
 
       return true;
@@ -71,6 +102,72 @@ class GoogleAuthService {
       console.error("Failed to initialize Google Auth:", error);
       return false;
     }
+  }
+
+  /**
+   * Attempt silent re-authentication without user interaction
+   * Uses Google's session to get a new token if user is still logged into Google
+   */
+  private async attemptSilentReauth(previousEmail?: string): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      // Set a timeout for silent auth (5 seconds)
+      const timeout = setTimeout(() => {
+        console.log("Google Auth: Silent re-auth timed out");
+        resolve({ success: false, error: "Silent auth timed out" });
+      }, 5000);
+
+      this.tokenClient.callback = async (response: any) => {
+        clearTimeout(timeout);
+
+        if (response.error) {
+          // Silent auth failed - this is expected if user logged out of Google
+          console.log("Google Auth: Silent re-auth returned error:", response.error);
+          resolve({ success: false, error: response.error });
+          return;
+        }
+
+        const accessToken = response.access_token;
+
+        // Get user info to verify token
+        const userInfo = await this.fetchUserInfo(accessToken);
+        if (!userInfo) {
+          resolve({ success: false, error: "Failed to verify token" });
+          return;
+        }
+
+        // If we had a previous email, verify it's the same account
+        if (previousEmail && userInfo.email !== previousEmail) {
+          console.log("Google Auth: Different account detected, clearing previous session");
+          // Different account - let user know they need to reconnect with correct account
+          resolve({ success: false, error: "Different Google account" });
+          return;
+        }
+
+        // Success! Update current user with new token
+        this.currentUser = {
+          email: userInfo.email,
+          name: userInfo.name,
+          picture: userInfo.picture,
+          accessToken: accessToken,
+          expiresAt: Date.now() + (3500 * 1000), // 58 minutes
+        };
+
+        // Save updated token
+        this.saveUser(this.currentUser);
+
+        resolve({ success: true });
+      };
+
+      // Request new token WITHOUT prompt (silent)
+      // This only works if user is logged into Google and previously consented
+      try {
+        this.tokenClient.requestAccessToken({ prompt: "" });
+      } catch (error) {
+        clearTimeout(timeout);
+        console.error("Google Auth: Silent re-auth request failed:", error);
+        resolve({ success: false, error: "Request failed" });
+      }
+    });
   }
 
   /**
@@ -94,7 +191,7 @@ class GoogleAuthService {
   }
 
   /**
-   * Sign in with Google (OAuth flow)
+   * Sign in with Google (OAuth flow with user interaction)
    */
   async signIn(): Promise<{ success: boolean; user?: GoogleUser; error?: string }> {
     try {
@@ -138,7 +235,7 @@ class GoogleAuthService {
           resolve({ success: true, user: this.currentUser });
         };
 
-        // Request access token
+        // Request access token with consent prompt
         console.log("Google OAuth: Requesting access token...");
         this.tokenClient.requestAccessToken({ prompt: "consent" });
       });
@@ -170,9 +267,7 @@ class GoogleAuthService {
    */
   signOut(): void {
     this.currentUser = null;
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("google_user");
-    }
+    this.clearSavedUser();
   }
 
   /**
@@ -199,7 +294,16 @@ class GoogleAuthService {
   }
 
   /**
-   * Load saved user from localStorage
+   * Clear saved user from localStorage
+   */
+  private clearSavedUser(): void {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("google_user");
+    }
+  }
+
+  /**
+   * Load saved user from localStorage (without expiry check - handled by caller)
    */
   private loadSavedUser(): GoogleUser | null {
     if (typeof window === "undefined") return null;
@@ -207,17 +311,7 @@ class GoogleAuthService {
     try {
       const saved = localStorage.getItem("google_user");
       if (!saved) return null;
-
-      const user = JSON.parse(saved);
-      
-      // Check if token is expired (or missing expiry which means it's an old format token)
-      // If expired or no expiry date, treat as invalid to prevent 401 errors
-      if (!user.expiresAt || Date.now() > user.expiresAt) {
-        this.signOut(); // Clean up invalid session
-        return null;
-      }
-
-      return user;
+      return JSON.parse(saved);
     } catch (error) {
       return null;
     }
@@ -233,43 +327,16 @@ class GoogleAuthService {
         await this.initialize();
       }
 
-      return new Promise((resolve) => {
-        this.tokenClient.callback = async (response: any) => {
-          if (response.error) {
-            // If refresh fails, sign out to force re-authentication
-            this.signOut();
-            resolve({ success: false, error: response.error });
-            return;
-          }
+      // First try silent refresh
+      const silentResult = await this.attemptSilentReauth(this.currentUser?.email);
+      
+      if (silentResult.success) {
+        return { success: true };
+      }
 
-          const accessToken = response.access_token;
-
-          // Get user info to verify token
-          const userInfo = await this.fetchUserInfo(accessToken);
-          if (!userInfo) {
-            this.signOut();
-            resolve({ success: false, error: "Failed to verify refreshed token" });
-            return;
-          }
-
-          // Update current user with new token
-          this.currentUser = {
-            email: userInfo.email,
-            name: userInfo.name,
-            picture: userInfo.picture,
-            accessToken: accessToken,
-            expiresAt: Date.now() + (3500 * 1000), // 58 minutes
-          };
-
-          // Save updated token
-          this.saveUser(this.currentUser);
-
-          resolve({ success: true });
-        };
-
-        // Request new token without prompt (silent refresh)
-        this.tokenClient.requestAccessToken({ prompt: "" });
-      });
+      // Silent refresh failed - user needs to reconnect manually
+      this.signOut();
+      return { success: false, error: "Session expired. Please reconnect to Google." };
     } catch (error) {
       console.error("Token refresh failed:", error);
       this.signOut();
@@ -288,7 +355,7 @@ class GoogleAuthService {
 
   /**
    * Ensure valid token before API calls
-   * Automatically refreshes if needed
+   * Automatically refreshes if needed (silently if possible)
    */
   async ensureValidToken(): Promise<boolean> {
     if (!this.currentUser) return false;
@@ -313,7 +380,7 @@ class GoogleAuthService {
       // Ensure token is valid before upload
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       // Get or create folder from path
@@ -437,7 +504,7 @@ class GoogleAuthService {
       // Ensure token is valid before listing
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       let parentQuery = "'root' in parents";
@@ -465,8 +532,14 @@ class GoogleAuthService {
       if (!response.ok) {
         // Handle token expiration/revocation
         if (response.status === 401) {
+          // Try silent re-auth
+          const reauth = await this.attemptSilentReauth(this.currentUser.email);
+          if (reauth.success) {
+            // Retry the request
+            return this.listBackups(folderPath);
+          }
           this.signOut();
-          return { success: false, error: "Session expired. Please sign in again." };
+          return { success: false, error: "Session expired. Please reconnect to Google." };
         }
         return { success: false, error: "Failed to list backups" };
       }
@@ -491,7 +564,7 @@ class GoogleAuthService {
       // Ensure token is valid before download
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
@@ -547,7 +620,7 @@ class GoogleAuthService {
       // Ensure token is valid before rename
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
@@ -590,7 +663,7 @@ class GoogleAuthService {
       // Ensure token is valid before delete
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
@@ -634,7 +707,7 @@ class GoogleAuthService {
       // Ensure token is valid before creating event
       const tokenValid = await this.ensureValidToken();
       if (!tokenValid) {
-        return { success: false, error: "Session expired. Please sign in again." };
+        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const calendarEvent = {
