@@ -1,16 +1,23 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-interface DataPoint {
-  name: string;
-  cash: number;
-  qrisStatic: number;
-  qrisDynamic: number;
-  voucher: number;
+interface StackedBarChartProps {
+  data: Record<string, any>[];
+  paymentMethods?: {
+    key: string;
+    label: string;
+    color: string;
+  }[];
 }
 
-interface StackedBarChartProps {
-  data: DataPoint[];
-}
+// Default payment method configuration (for backward compatibility)
+const DEFAULT_PAYMENT_METHODS = [
+  { key: "cash", label: "Cash", color: "#22c55e" },
+  { key: "qrisstatic", label: "QRIS Static", color: "#3b82f6" },
+  { key: "qrisdynamic", label: "QRIS Dynamic", color: "#a855f7" },
+  { key: "card", label: "Card", color: "#ec4899" },
+  { key: "voucher", label: "Voucher", color: "#f59e0b" },
+  { key: "transfer", label: "Transfer", color: "#06b6d4" },
+];
 
 // Custom cursor that shows a subtle highlight instead of black border
 const CustomCursor = (props: any) => {
@@ -27,7 +34,9 @@ const CustomCursor = (props: any) => {
   );
 };
 
-export function StackedBarChart({ data }: StackedBarChartProps) {
+export function StackedBarChart({ data, paymentMethods }: StackedBarChartProps) {
+  const methods = paymentMethods || DEFAULT_PAYMENT_METHODS;
+  
   const formatValue = (value: number) => {
     if (value >= 1_000_000) {
       return (value / 1_000_000).toFixed(1) + "M";
@@ -79,10 +88,16 @@ export function StackedBarChart({ data }: StackedBarChartProps) {
           iconType="circle"
           align="center"
         />
-        <Bar dataKey="cash" stackId="a" fill="#22c55e" name="Cash" radius={[0, 0, 0, 0]} />
-        <Bar dataKey="qrisStatic" stackId="a" fill="#3b82f6" name="QRIS Static" />
-        <Bar dataKey="qrisDynamic" stackId="a" fill="#a855f7" name="QRIS Dynamic" />
-        <Bar dataKey="voucher" stackId="a" fill="#f59e0b" name="Voucher" radius={[2, 2, 0, 0]} />
+        {methods.map((method, index) => (
+          <Bar 
+            key={method.key}
+            dataKey={method.key} 
+            stackId="a" 
+            fill={method.color} 
+            name={method.label}
+            radius={index === methods.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );

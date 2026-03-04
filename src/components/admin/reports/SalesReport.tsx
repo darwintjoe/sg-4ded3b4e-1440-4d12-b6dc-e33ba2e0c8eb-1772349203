@@ -29,6 +29,26 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   "transfer": "Trf"
 };
 
+// Full labels for chart legend
+const PAYMENT_METHOD_FULL_LABELS: Record<PaymentMethod, string> = {
+  "cash": "Cash",
+  "qris-static": "QRIS Static",
+  "qris-dynamic": "QRIS Dynamic",
+  "card": "Card",
+  "voucher": "Voucher",
+  "transfer": "Transfer"
+};
+
+// Colors for each payment method
+const PAYMENT_METHOD_COLORS: Record<PaymentMethod, string> = {
+  "cash": "#22c55e",
+  "qris-static": "#3b82f6",
+  "qris-dynamic": "#a855f7",
+  "card": "#ec4899",
+  "voucher": "#f59e0b",
+  "transfer": "#06b6d4"
+};
+
 // Convert payment method to safe key for object properties
 const methodToKey = (method: PaymentMethod): string => {
   return method.replace("-", "");
@@ -439,7 +459,7 @@ export function SalesReport({ language, containerRef }: SalesReportProps) {
             <div className="space-y-3">
               <div>
                 <div className="h-[320px]">
-                  <StackedBarChart data={salesChartData} />
+                  <StackedBarChart data={salesChartData} activePaymentMethods={activePaymentMethods} />
                 </div>
               </div>
             </div>
