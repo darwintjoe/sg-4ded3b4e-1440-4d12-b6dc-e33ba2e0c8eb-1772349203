@@ -83,10 +83,17 @@ export function StackedBarChart({ data, paymentMethods }: StackedBarChartProps) 
           cursor={<CustomCursor />}
         />
         <Legend 
-          wrapperStyle={{ fontSize: "9px", paddingTop: "8px", textAlign: "center" }}
+          wrapperStyle={{ 
+            fontSize: "9px", 
+            paddingTop: "8px",
+            display: "flex",
+            justifyContent: "center",
+            width: "100%"
+          }}
           iconSize={8}
           iconType="circle"
           align="center"
+          verticalAlign="bottom"
         />
         {methods.map((method, index) => (
           <Bar 
