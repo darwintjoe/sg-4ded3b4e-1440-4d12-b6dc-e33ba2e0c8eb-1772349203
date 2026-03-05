@@ -20,6 +20,25 @@ import { translate } from "@/lib/translations";
 type SortField = "name" | "pin" | "joinDate";
 type SortDirection = "asc" | "desc";
 
+// Generate a random 6-digit PIN that's not already in use
+const generateUniquePIN = (existingPINs: string[]): string => {
+  const usedPINs = new Set(existingPINs);
+  let attempts = 0;
+  const maxAttempts = 1000;
+  
+  while (attempts < maxAttempts) {
+    // Generate random 6-digit number (100000-999999)
+    const pin = String(Math.floor(100000 + Math.random() * 900000));
+    if (!usedPINs.has(pin)) {
+      return pin;
+    }
+    attempts++;
+  }
+  
+  // Fallback: return empty string if somehow all PINs are taken
+  return "";
+};
+
 const EmployeeRow = ({ employee, onEdit }: { employee: Employee; onEdit: (e: Employee) => void }) => {
   const longPressHandlers = useLongPress({
     onLongPress: () => onEdit(employee),
@@ -192,10 +211,18 @@ export function EmployeesPanel() {
     setEditingEmployee(null);
   };
 
-  const handleNewEmployee = () => {
+  const handleNewEmployee = async () => {
+    // Get all existing PINs to ensure uniqueness
+    const allEmployees = await db.getAll<Employee>("employees");
+    const existingPINs = allEmployees
+      .filter(e => e.isActive !== false)
+      .map(e => e.pin);
+    
+    const uniquePIN = generateUniquePIN(existingPINs);
+    
     const newEmployee: Employee = {
       name: "",
-      pin: "",
+      pin: uniquePIN,
       role: "employee",
       joinDate: Date.now(),
       createdAt: Date.now(),
