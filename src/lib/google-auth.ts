@@ -1,22 +1,8 @@
 /**
- * Google Authentication & API Integration
- * FREE - Uses user's personal Google account (15GB free storage)
- * No paid services, no backend needed
+ * Google API Service
+ * Handles Google Drive and Calendar API calls
+ * Authentication is managed by NextAuth - this service only uses the access token
  */
-
-interface GoogleAuthConfig {
-  clientId: string;
-  scopes: string[];
-}
-
-interface GoogleUser {
-  email: string;
-  name: string;
-  picture: string;
-  accessToken: string;
-  refreshToken?: string;
-  expiresAt?: number; // Timestamp when token expires
-}
 
 interface BackupMetadata {
   id: string;
@@ -26,27 +12,10 @@ interface BackupMetadata {
 }
 
 class GoogleAuthService {
-  private config: GoogleAuthConfig;
-  private currentUser: GoogleUser | null = null;
   private accessToken: string | null = null;
-  private tokenClient: any = null;
-  private initializationPromise: Promise<boolean> | null = null;
-
-  constructor() {
-    this.config = {
-      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-      scopes: [
-        "https://www.googleapis.com/auth/drive.file", // Create files in Drive
-        "https://www.googleapis.com/auth/calendar.events", // Create calendar events
-        "https://www.googleapis.com/auth/userinfo.profile", // Get user info
-        "https://www.googleapis.com/auth/userinfo.email", // Get email
-      ],
-    };
-  }
 
   /**
    * Set access token from NextAuth session
-   * This allows the service to make Google API calls using NextAuth's token
    */
   setAccessToken(token: string): void {
     this.accessToken = token;
@@ -57,339 +26,20 @@ class GoogleAuthService {
    */
   clearAccessToken(): void {
     this.accessToken = null;
-    this.currentUser = null;
   }
 
   /**
-   * Get the current access token (from NextAuth or legacy flow)
+   * Check if we have an access token
+   */
+  hasAccessToken(): boolean {
+    return this.accessToken !== null;
+  }
+
+  /**
+   * Get the current access token
    */
   private getAccessToken(): string | null {
-    return this.accessToken || this.currentUser?.accessToken || null;
-  }
-
-  /**
-   * Initialize Google Identity Services
-   * If user was previously connected, attempts silent re-authentication
-   */
-  async initialize(): Promise<boolean> {
-    // Prevent multiple simultaneous initializations
-    if (this.initializationPromise) {
-      return this.initializationPromise;
-    }
-
-    this.initializationPromise = this._doInitialize();
-    return this.initializationPromise;
-  }
-
-  private async _doInitialize(): Promise<boolean> {
-    try {
-      if (typeof window === "undefined") return false;
-
-      // Load Google Identity Services library
-      await this.loadGoogleScript();
-
-      // Initialize token client for OAuth
-      this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
-        client_id: this.config.clientId,
-        scope: this.config.scopes.join(" "),
-        callback: "", // Will be set during signIn
-      });
-
-      // Check if user was previously signed in
-      const savedUser = this.loadSavedUser();
-      if (savedUser) {
-        // Check if token is still valid
-        if (savedUser.expiresAt && Date.now() < savedUser.expiresAt) {
-          // Token still valid, use it
-          this.currentUser = savedUser;
-          console.log("Google Auth: Restored valid session for", savedUser.email);
-          return true;
-        }
-        
-        // Token expired - attempt silent re-authentication
-        console.log("Google Auth: Token expired, attempting silent re-auth for", savedUser.email);
-        const silentResult = await this.attemptSilentReauth(savedUser.email);
-        
-        if (silentResult.success) {
-          console.log("Google Auth: Silent re-auth successful");
-          return true;
-        } else {
-          console.log("Google Auth: Silent re-auth failed, user will need to reconnect manually");
-          // Clear the expired session
-          this.clearSavedUser();
-          return true; // Initialization succeeded, just not connected
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Failed to initialize Google Auth:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Attempt silent re-authentication without user interaction
-   * Uses Google's session to get a new token if user is still logged into Google
-   */
-  private async attemptSilentReauth(previousEmail?: string): Promise<{ success: boolean; error?: string }> {
-    return new Promise((resolve) => {
-      // Set a timeout for silent auth (5 seconds)
-      const timeout = setTimeout(() => {
-        console.log("Google Auth: Silent re-auth timed out");
-        resolve({ success: false, error: "Silent auth timed out" });
-      }, 5000);
-
-      this.tokenClient.callback = async (response: any) => {
-        clearTimeout(timeout);
-
-        if (response.error) {
-          // Silent auth failed - this is expected if user logged out of Google
-          console.log("Google Auth: Silent re-auth returned error:", response.error);
-          resolve({ success: false, error: response.error });
-          return;
-        }
-
-        const accessToken = response.access_token;
-
-        // Get user info to verify token
-        const userInfo = await this.fetchUserInfo(accessToken);
-        if (!userInfo) {
-          resolve({ success: false, error: "Failed to verify token" });
-          return;
-        }
-
-        // If we had a previous email, verify it's the same account
-        if (previousEmail && userInfo.email !== previousEmail) {
-          console.log("Google Auth: Different account detected, clearing previous session");
-          // Different account - let user know they need to reconnect with correct account
-          resolve({ success: false, error: "Different Google account" });
-          return;
-        }
-
-        // Success! Update current user with new token
-        this.currentUser = {
-          email: userInfo.email,
-          name: userInfo.name,
-          picture: userInfo.picture,
-          accessToken: accessToken,
-          expiresAt: Date.now() + (3500 * 1000), // 58 minutes
-        };
-
-        // Save updated token
-        this.saveUser(this.currentUser);
-
-        resolve({ success: true });
-      };
-
-      // Request new token WITHOUT prompt (silent)
-      // This only works if user is logged into Google and previously consented
-      try {
-        this.tokenClient.requestAccessToken({ prompt: "" });
-      } catch (error) {
-        clearTimeout(timeout);
-        console.error("Google Auth: Silent re-auth request failed:", error);
-        resolve({ success: false, error: "Request failed" });
-      }
-    });
-  }
-
-  /**
-   * Load Google Identity Services script
-   */
-  private loadGoogleScript(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if ((window as any).google?.accounts) {
-        resolve();
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error("Failed to load Google script"));
-      document.head.appendChild(script);
-    });
-  }
-
-  /**
-   * Sign in with Google (OAuth flow with user interaction)
-   */
-  async signIn(): Promise<{ success: boolean; user?: GoogleUser; error?: string }> {
-    try {
-      if (!this.tokenClient) {
-        await this.initialize();
-      }
-
-      return new Promise((resolve) => {
-        this.tokenClient.callback = async (response: any) => {
-          if (response.error) {
-            console.error("Google OAuth error:", response.error);
-            resolve({ success: false, error: response.error });
-            return;
-          }
-
-          const accessToken = response.access_token;
-          console.log("Google OAuth: Access token received");
-
-          // Get user info
-          const userInfo = await this.fetchUserInfo(accessToken);
-          if (!userInfo) {
-            console.error("Google OAuth: Failed to get user info");
-            resolve({ success: false, error: "Failed to get user info" });
-            return;
-          }
-
-          console.log("Google OAuth: User info received", userInfo.email);
-
-          this.currentUser = {
-            email: userInfo.email,
-            name: userInfo.name,
-            picture: userInfo.picture,
-            accessToken: accessToken,
-            expiresAt: Date.now() + (3500 * 1000), // Set expiry to 58 minutes (safety margin)
-          };
-
-          // Save to localStorage
-          this.saveUser(this.currentUser);
-          console.log("Google OAuth: User saved, sign-in complete");
-
-          resolve({ success: true, user: this.currentUser });
-        };
-
-        // Request access token with consent prompt
-        console.log("Google OAuth: Requesting access token...");
-        this.tokenClient.requestAccessToken({ prompt: "consent" });
-      });
-    } catch (error) {
-      console.error("Sign in failed:", error);
-      return { success: false, error: error instanceof Error ? error.message : "Sign in failed" };
-    }
-  }
-
-  /**
-   * Fetch user profile info
-   */
-  private async fetchUserInfo(accessToken: string): Promise<any> {
-    try {
-      const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-
-      if (!response.ok) return null;
-      return await response.json();
-    } catch (error) {
-      console.error("Failed to fetch user info:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Sign out
-   */
-  signOut(): void {
-    this.currentUser = null;
-    this.clearSavedUser();
-  }
-
-  /**
-   * Get current user
-   */
-  getCurrentUser(): GoogleUser | null {
-    return this.currentUser;
-  }
-
-  /**
-   * Check if user is signed in
-   */
-  isSignedIn(): boolean {
-    return this.currentUser !== null;
-  }
-
-  /**
-   * Save user to localStorage
-   */
-  private saveUser(user: GoogleUser): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("google_user", JSON.stringify(user));
-    }
-  }
-
-  /**
-   * Clear saved user from localStorage
-   */
-  private clearSavedUser(): void {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("google_user");
-    }
-  }
-
-  /**
-   * Load saved user from localStorage (without expiry check - handled by caller)
-   */
-  private loadSavedUser(): GoogleUser | null {
-    if (typeof window === "undefined") return null;
-
-    try {
-      const saved = localStorage.getItem("google_user");
-      if (!saved) return null;
-      return JSON.parse(saved);
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * Refresh access token using Google Identity Services
-   * Called automatically when token is near expiry or expired
-   */
-  async refreshAccessToken(): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (!this.tokenClient) {
-        await this.initialize();
-      }
-
-      // First try silent refresh
-      const silentResult = await this.attemptSilentReauth(this.currentUser?.email);
-      
-      if (silentResult.success) {
-        return { success: true };
-      }
-
-      // Silent refresh failed - user needs to reconnect manually
-      this.signOut();
-      return { success: false, error: "Session expired. Please reconnect to Google." };
-    } catch (error) {
-      console.error("Token refresh failed:", error);
-      this.signOut();
-      return { success: false, error: error instanceof Error ? error.message : "Refresh failed" };
-    }
-  }
-
-  /**
-   * Check if token needs refresh (within 5 minutes of expiry)
-   */
-  isTokenExpiringSoon(): boolean {
-    if (!this.currentUser?.expiresAt) return true;
-    const fiveMinutes = 5 * 60 * 1000;
-    return Date.now() > (this.currentUser.expiresAt - fiveMinutes);
-  }
-
-  /**
-   * Ensure valid token before API calls
-   * Automatically refreshes if needed (silently if possible)
-   */
-  async ensureValidToken(): Promise<boolean> {
-    if (!this.currentUser) return false;
-    
-    if (this.isTokenExpiringSoon()) {
-      const result = await this.refreshAccessToken();
-      return result.success;
-    }
-    
-    return true;
+    return this.accessToken;
   }
 
   /**
@@ -397,14 +47,9 @@ class GoogleAuthService {
    */
   async uploadBackup(data: Blob, filename: string, folderPath?: string): Promise<{ success: boolean; fileId?: string; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before upload
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       // Get or create folder from path
@@ -434,7 +79,7 @@ class GoogleAuthService {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${this.currentUser.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
           body: form,
         }
@@ -458,6 +103,11 @@ class GoogleAuthService {
    */
   private async getOrCreateFolder(folderPath: string): Promise<{ success: boolean; folderId?: string; error?: string }> {
     try {
+      const token = this.getAccessToken();
+      if (!token) {
+        return { success: false, error: "Not signed in" };
+      }
+
       const parts = folderPath.split("/").filter(p => p);
       let currentParentId = "root";
       
@@ -468,7 +118,7 @@ class GoogleAuthService {
           `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
           {
             headers: {
-              Authorization: `Bearer ${this.currentUser!.accessToken}`,
+              Authorization: `Bearer ${token}`,
             },
           }
         );
@@ -489,7 +139,7 @@ class GoogleAuthService {
             {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${this.currentUser!.accessToken}`,
+                Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
@@ -521,14 +171,9 @@ class GoogleAuthService {
    */
   async listBackups(folderPath?: string): Promise<{ success: boolean; backups?: BackupMetadata[]; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before listing
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       let parentQuery = "'root' in parents";
@@ -548,21 +193,13 @@ class GoogleAuthService {
         `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime,size)&orderBy=createdTime desc`,
         {
           headers: {
-            Authorization: `Bearer ${this.currentUser.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       if (!response.ok) {
-        // Handle token expiration/revocation
         if (response.status === 401) {
-          // Try silent re-auth
-          const reauth = await this.attemptSilentReauth(this.currentUser.email);
-          if (reauth.success) {
-            // Retry the request
-            return this.listBackups(folderPath);
-          }
-          this.signOut();
           return { success: false, error: "Session expired. Please reconnect to Google." };
         }
         return { success: false, error: "Failed to list backups" };
@@ -579,23 +216,18 @@ class GoogleAuthService {
   /**
    * Download backup from Google Drive
    */
-  async downloadBackup(fileId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  async downloadBackup(fileId: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before download
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
         {
           headers: {
-            Authorization: `Bearer ${this.currentUser.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -613,7 +245,7 @@ class GoogleAuthService {
         if ("DecompressionStream" in window) {
           const stream = blob.stream();
           const decompressedStream = stream.pipeThrough(
-            new (window as any).DecompressionStream("gzip")
+            new (window as unknown as { DecompressionStream: new (format: string) => TransformStream }).DecompressionStream("gzip")
           );
           jsonString = await new Response(decompressedStream).text();
         } else {
@@ -637,14 +269,9 @@ class GoogleAuthService {
    */
   async renameBackup(fileId: string, newName: string): Promise<{ success: boolean; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before rename
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
@@ -652,7 +279,7 @@ class GoogleAuthService {
         {
           method: "PATCH",
           headers: {
-            "Authorization": `Bearer ${this.currentUser.accessToken}`,
+            "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
@@ -680,14 +307,9 @@ class GoogleAuthService {
    */
   async deleteBackup(fileId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before delete
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const response = await fetch(
@@ -695,7 +317,7 @@ class GoogleAuthService {
         {
           method: "DELETE",
           headers: {
-            Authorization: `Bearer ${this.currentUser.accessToken}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -724,14 +346,9 @@ class GoogleAuthService {
     end: string;
   }): Promise<{ success: boolean; eventId?: string; error?: string }> {
     try {
-      if (!this.currentUser) {
+      const token = this.getAccessToken();
+      if (!token) {
         return { success: false, error: "Not signed in" };
-      }
-
-      // Ensure token is valid before creating event
-      const tokenValid = await this.ensureValidToken();
-      if (!tokenValid) {
-        return { success: false, error: "Session expired. Please reconnect to Google." };
       }
 
       const calendarEvent = {
@@ -752,7 +369,7 @@ class GoogleAuthService {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${this.currentUser.accessToken}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(calendarEvent),

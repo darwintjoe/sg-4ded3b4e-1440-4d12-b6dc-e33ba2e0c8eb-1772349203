@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "next-auth/react";
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
@@ -44,7 +44,7 @@ interface GoogleAuthContextType {
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
 
-// Helper to get business name from settings (module-level for use in effects)
+// Helper to get business name from settings
 const getBusinessNameFromDb = async (): Promise<string> => {
   try {
     const settings = await db.getById("settings", 1) as { businessName?: string } | undefined;
@@ -73,6 +73,16 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       if (status === "loading") return;
       
       if (session?.user && session.accessToken) {
+        // Check for token refresh errors
+        if (session.error === "RefreshAccessTokenError") {
+          // Token refresh failed - user needs to re-authenticate
+          console.warn("Token refresh failed, user needs to re-authenticate");
+          setUser(null);
+          googleAuth.clearAccessToken();
+          setIsInitialized(true);
+          return;
+        }
+        
         // Create GoogleUser from NextAuth session
         const googleUser: GoogleUser = {
           id: session.user.id || session.user.email || "",
@@ -108,8 +118,8 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       
       try {
         const businessName = await getBusinessNameFromDb();
-        const status = await backupService.getBackupStatus(businessName);
-        setBackupStatus(status);
+        const newStatus = await backupService.getBackupStatus(businessName);
+        setBackupStatus(newStatus);
       } catch (error) {
         console.warn("Backup status check skipped:", error);
       }
@@ -173,7 +183,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   const checkIfOperational = async (): Promise<boolean> => {
     try {
       const allShifts = await db.getAll("shifts");
-      const activeShift = allShifts.find((s: any) => s.status === "active");
+      const activeShift = allShifts.find((s: { status?: string }) => s.status === "active");
       
       if (activeShift) {
         return true;
@@ -182,7 +192,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
       const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
       const allTransactions = await db.getAll("transactions");
       const recentTransactions = allTransactions.filter(
-        (t: any) => t.timestamp >= thirtyMinutesAgo
+        (t: { timestamp?: number }) => (t.timestamp || 0) >= thirtyMinutesAgo
       );
       
       return recentTransactions.length > 0;
@@ -205,19 +215,19 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshBackupStatus = async (businessName?: string) => {
+  const refreshBackupStatus = useCallback(async (businessName?: string) => {
     const name = businessName || await getBusinessNameFromDb();
-    const status = await backupService.getBackupStatus(name);
-    setBackupStatus(status);
-  };
+    const newStatus = await backupService.getBackupStatus(name);
+    setBackupStatus(newStatus);
+  }, []);
 
-  const signIn = async () => {
+  const signIn = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Use NextAuth's signIn which will redirect to Google
+      // Use NextAuth's signIn which redirects to Google
+      // The redirect will come back to the current page
       await nextAuthSignIn("google", { callbackUrl: window.location.href });
-      // Note: This will redirect, so we won't reach here immediately
-      // The session will be available after redirect back
+      // Note: This redirects, so code below won't execute immediately
       return { success: true };
     } catch (error) {
       console.error("Sign in error:", error);
@@ -225,19 +235,19 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     googleAuth.clearAccessToken();
     setUser(null);
     setBackupStatus(prev => ({ ...prev, canRestore: false, message: "Not signed in" }));
     await nextAuthSignOut({ callbackUrl: window.location.href });
-  };
+  }, []);
 
-  const createBackup = async (businessName: string) => {
+  const createBackup = useCallback(async (businessName: string) => {
     const result = await backupService.createBackup(businessName);
-    const status = await backupService.getBackupStatus(businessName);
-    setBackupStatus(status);
+    const newStatus = await backupService.getBackupStatus(businessName);
+    setBackupStatus(newStatus);
     
     if (result.success) {
       localStorage.setItem("candidate_created_at", Date.now().toString());
@@ -246,58 +256,58 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     }
     
     return result;
-  };
+  }, []);
 
-  const checkBackupAvailability = async (businessName: string) => {
+  const checkBackupAvailability = useCallback(async (businessName: string) => {
     return backupService.checkBackupAvailability(businessName);
-  };
+  }, []);
 
-  const startRestore = async (businessName: string) => {
+  const startRestore = useCallback(async (businessName: string) => {
     return backupService.startRestore(businessName);
-  };
+  }, []);
 
-  const backupCurrentDatabase = async () => {
+  const backupCurrentDatabase = useCallback(async () => {
     return backupService.backupCurrentDatabase();
-  };
+  }, []);
 
-  const loadPreview = async (backupData: BackupData) => {
+  const loadPreview = useCallback(async (backupData: BackupData) => {
     return backupService.loadPreview(backupData);
-  };
+  }, []);
 
-  const finalizeRestore = async (backupData: BackupData) => {
+  const finalizeRestore = useCallback(async (backupData: BackupData) => {
     const businessName = await getBusinessNameFromDb();
     const result = await backupService.finalizeRestore(backupData);
-    const status = await backupService.getBackupStatus(businessName);
-    setBackupStatus(status);
+    const newStatus = await backupService.getBackupStatus(businessName);
+    setBackupStatus(newStatus);
     return result;
-  };
+  }, []);
 
-  const cancelRestore = async () => {
+  const cancelRestore = useCallback(async () => {
     return backupService.cancelRestore();
-  };
+  }, []);
 
-  const revertRestore = async () => {
+  const revertRestore = useCallback(async () => {
     const businessName = await getBusinessNameFromDb();
     const result = await backupService.revertRestore();
-    const status = await backupService.getBackupStatus(businessName);
-    setBackupStatus(status);
+    const newStatus = await backupService.getBackupStatus(businessName);
+    setBackupStatus(newStatus);
     return result;
-  };
+  }, []);
 
-  const canRevert = () => {
+  const canRevert = useCallback(() => {
     return backupService.canRevert();
-  };
+  }, []);
 
-  const promoteCandidate = async (businessName: string) => {
+  const promoteCandidate = useCallback(async (businessName: string) => {
     const result = await backupService.promoteCandidate(businessName);
-    const status = await backupService.getBackupStatus(businessName);
-    setBackupStatus(status);
+    const newStatus = await backupService.getBackupStatus(businessName);
+    setBackupStatus(newStatus);
     return result;
-  };
+  }, []);
 
-  const createCalendarEvent = async (event: CalendarEvent) => {
+  const createCalendarEvent = useCallback(async (event: CalendarEvent) => {
     return googleAuth.createCalendarEvent(event);
-  };
+  }, []);
 
   return (
     <GoogleAuthContext.Provider
