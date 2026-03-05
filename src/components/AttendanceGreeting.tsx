@@ -16,7 +16,6 @@ interface AttendanceGreetingProps {
   isLate?: boolean;
   isEarly?: boolean;
   onComplete: () => void;
-  variant?: "toast" | "fullscreen" | "card";
 }
 
 function getTimeOfDay(): "morning" | "afternoon" | "evening" | "night" {
@@ -186,88 +185,19 @@ function getClockOutGreeting(name: string, isEarly: boolean, isLate: boolean): G
   };
 }
 
-// ============ OPTION A: Toast (slides up from bottom) ============
-function ToastGreeting({ data, onComplete }: { data: GreetingData; onComplete: () => void }) {
+export function AttendanceGreeting({ 
+  type, 
+  employeeName, 
+  isLate = false, 
+  isEarly = false, 
+  onComplete 
+}: AttendanceGreetingProps) {
   const [visible, setVisible] = useState(false);
-  const Icon = data.icon;
   
-  useEffect(() => {
-    setVisible(true);
-    const timer = setTimeout(() => {
-      setVisible(false);
-      setTimeout(onComplete, 300);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
+  const data = type === "clockIn" 
+    ? getClockInGreeting(employeeName, isLate, isEarly)
+    : getClockOutGreeting(employeeName, isEarly, isLate);
   
-  return (
-    <div 
-      className={`fixed bottom-6 left-4 right-4 z-50 transition-all duration-300 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-      }`}
-    >
-      <div className={`max-w-md mx-auto bg-gradient-to-r ${data.bgGradient} backdrop-blur-lg rounded-2xl p-4 shadow-2xl border border-white/20`}>
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            <Icon className={`w-7 h-7 ${data.color}`} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className={`font-bold text-lg ${data.color}`}>{data.greeting}</p>
-            <p className="text-white/90 text-sm">{data.message}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============ OPTION B: Fullscreen (dramatic overlay) ============
-function FullscreenGreeting({ data, onComplete }: { data: GreetingData; onComplete: () => void }) {
-  const [phase, setPhase] = useState<"enter" | "show" | "exit">("enter");
-  const Icon = data.icon;
-  
-  useEffect(() => {
-    const enterTimer = setTimeout(() => setPhase("show"), 50);
-    const exitTimer = setTimeout(() => setPhase("exit"), 2800);
-    const completeTimer = setTimeout(onComplete, 3200);
-    return () => {
-      clearTimeout(enterTimer);
-      clearTimeout(exitTimer);
-      clearTimeout(completeTimer);
-    };
-  }, [onComplete]);
-  
-  return (
-    <div 
-      className={`fixed inset-0 z-50 flex items-center justify-center transition-all duration-400 ${
-        phase === "enter" ? "opacity-0" : phase === "exit" ? "opacity-0" : "opacity-100"
-      }`}
-    >
-      <div className={`absolute inset-0 bg-gradient-to-br ${data.bgGradient}`} />
-      <div 
-        className={`relative text-center px-8 transition-all duration-500 ${
-          phase === "enter" ? "scale-50 opacity-0" : phase === "exit" ? "scale-110 opacity-0" : "scale-100 opacity-100"
-        }`}
-      >
-        <div className="mb-6 flex justify-center">
-          <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center animate-pulse">
-            <Icon className={`w-12 h-12 ${data.color}`} />
-          </div>
-        </div>
-        <h1 className={`text-3xl font-black mb-3 ${data.color} drop-shadow-lg`}>
-          {data.greeting}
-        </h1>
-        <p className="text-xl text-white/90 font-medium max-w-sm mx-auto">
-          {data.message}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ============ OPTION C: Card (centered glassmorphism popup) ============
-function CardGreeting({ data, onComplete }: { data: GreetingData; onComplete: () => void }) {
-  const [visible, setVisible] = useState(false);
   const Icon = data.icon;
   
   useEffect(() => {
@@ -310,28 +240,4 @@ function CardGreeting({ data, onComplete }: { data: GreetingData; onComplete: ()
       </div>
     </div>
   );
-}
-
-// ============ Main Component ============
-export function AttendanceGreeting({ 
-  type, 
-  employeeName, 
-  isLate = false, 
-  isEarly = false, 
-  onComplete,
-  variant = "fullscreen" 
-}: AttendanceGreetingProps) {
-  const data = type === "clockIn" 
-    ? getClockInGreeting(employeeName, isLate, isEarly)
-    : getClockOutGreeting(employeeName, isEarly, isLate);
-  
-  if (variant === "toast") {
-    return <ToastGreeting data={data} onComplete={onComplete} />;
-  }
-  
-  if (variant === "card") {
-    return <CardGreeting data={data} onComplete={onComplete} />;
-  }
-  
-  return <FullscreenGreeting data={data} onComplete={onComplete} />;
 }

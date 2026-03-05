@@ -18,12 +18,11 @@ interface GreetingState {
 }
 
 export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
-  const { clockIn, clockOut, language, settings } = useApp();
+  const { clockIn, clockOut, language } = useApp();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"clockIn" | "clockOut">("clockIn");
   const [greeting, setGreeting] = useState<GreetingState | null>(null);
-  const [greetingVariant, setGreetingVariant] = useState<"toast" | "fullscreen" | "card">("fullscreen");
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -49,12 +48,10 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
       : await clockOut(pin);
 
     if (result.success) {
-      // Extract employee name and timing info from result
       const employeeName = result.employeeName || "Team Member";
       const isLate = result.isLate || false;
       const isEarly = result.isEarly || false;
       
-      // Show greeting instead of simple success message
       setGreeting({
         show: true,
         type: mode,
@@ -83,7 +80,6 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
           isLate={greeting.isLate}
           isEarly={greeting.isEarly}
           onComplete={handleGreetingComplete}
-          variant={greetingVariant}
         />
       )}
 
@@ -96,23 +92,6 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm font-medium">{translate("common.back", language)}</span>
         </button>
-        
-        {/* Variant Toggle - Temporary for testing */}
-        <div className="flex gap-1 bg-white/10 backdrop-blur rounded-lg p-1 border border-white/20">
-          {(["toast", "fullscreen", "card"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setGreetingVariant(v)}
-              className={`px-2 py-1 text-xs font-medium rounded transition-all ${
-                greetingVariant === v
-                  ? "bg-white/30 text-white"
-                  : "text-white/60 hover:text-white/80"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
         
         <LanguageSelector />
       </div>
