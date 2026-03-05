@@ -339,10 +339,12 @@ export interface Translations {
 // ==========================================
 
 export interface GoogleUser {
+  id?: string;
   email: string;
   name: string;
-  picture: string;
-  accessToken: string;
+  picture?: string;
+  imageUrl?: string;
+  accessToken?: string;
 }
 
 export interface BackupStatus {

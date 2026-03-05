@@ -28,6 +28,7 @@ interface BackupMetadata {
 class GoogleAuthService {
   private config: GoogleAuthConfig;
   private currentUser: GoogleUser | null = null;
+  private accessToken: string | null = null;
   private tokenClient: any = null;
   private initializationPromise: Promise<boolean> | null = null;
 
@@ -41,6 +42,29 @@ class GoogleAuthService {
         "https://www.googleapis.com/auth/userinfo.email", // Get email
       ],
     };
+  }
+
+  /**
+   * Set access token from NextAuth session
+   * This allows the service to make Google API calls using NextAuth's token
+   */
+  setAccessToken(token: string): void {
+    this.accessToken = token;
+  }
+
+  /**
+   * Clear access token (on sign out)
+   */
+  clearAccessToken(): void {
+    this.accessToken = null;
+    this.currentUser = null;
+  }
+
+  /**
+   * Get the current access token (from NextAuth or legacy flow)
+   */
+  private getAccessToken(): string | null {
+    return this.accessToken || this.currentUser?.accessToken || null;
   }
 
   /**

@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
+import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/contexts/ThemeProvider";
 import { AppProvider } from "@/contexts/AppContext";
 import { GoogleAuthProvider } from "@/contexts/GoogleAuthContext";
@@ -51,7 +52,7 @@ function registerServiceWorker() {
   }
 }
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const [showSplash, setShowSplash] = useState(true);
   const [isClient, setIsClient] = useState(false);
 
@@ -71,21 +72,23 @@ export default function App({ Component, pageProps }: AppProps) {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <ErrorBoundary>
-        <GoogleAuthProvider>
-          <AppProvider>
-            {showSplash ? (
-              <SplashScreen onComplete={handleSplashComplete} />
-            ) : (
-              <>
-                <Component {...pageProps} />
-                <PWAInstallPrompt />
-              </>
-            )}
-          </AppProvider>
-        </GoogleAuthProvider>
-      </ErrorBoundary>
-    </ThemeProvider>
+    <SessionProvider session={session}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ErrorBoundary>
+          <GoogleAuthProvider>
+            <AppProvider>
+              {showSplash ? (
+                <SplashScreen onComplete={handleSplashComplete} />
+              ) : (
+                <>
+                  <Component {...pageProps} />
+                  <PWAInstallPrompt />
+                </>
+              )}
+            </AppProvider>
+          </GoogleAuthProvider>
+        </ErrorBoundary>
+      </ThemeProvider>
+    </SessionProvider>
   );
 }

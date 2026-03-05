@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from "next-auth/react";
 import { googleAuth } from "@/lib/google-auth";
 import { backupService } from "@/lib/backup-service";
 import { db } from "@/lib/db";
@@ -54,6 +55,7 @@ const getBusinessNameFromDb = async (): Promise<string> => {
 };
 
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<GoogleUser | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,23 +67,39 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
     canRestore: false
   });
 
+  // Sync NextAuth session to GoogleUser and google-auth service
   useEffect(() => {
-    const init = async () => {
-      await googleAuth.initialize();
-      const currentUser = googleAuth.getCurrentUser();
+    const syncSession = async () => {
+      if (status === "loading") return;
       
-      setUser(currentUser);
-      setIsInitialized(true);
-      
-      if (currentUser) {
+      if (session?.user && session.accessToken) {
+        // Create GoogleUser from NextAuth session
+        const googleUser: GoogleUser = {
+          id: session.user.id || session.user.email || "",
+          name: session.user.name || "",
+          email: session.user.email || "",
+          imageUrl: session.user.image || "",
+        };
+        
+        // Sync access token to google-auth service for API calls
+        googleAuth.setAccessToken(session.accessToken);
+        
+        setUser(googleUser);
+        
+        // Check backup status
         const businessName = await getBusinessNameFromDb();
-        const status = await backupService.getBackupStatus(businessName);
-        setBackupStatus(status);
+        const backupStat = await backupService.getBackupStatus(businessName);
+        setBackupStatus(backupStat);
+      } else {
+        setUser(null);
+        googleAuth.clearAccessToken();
       }
+      
+      setIsInitialized(true);
     };
-
-    init();
-  }, []);
+    
+    syncSession();
+  }, [session, status]);
 
   // Check backup status periodically
   useEffect(() => {
@@ -107,9 +125,9 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const trackOperationalTime = async () => {
       const candidateTime = localStorage.getItem("candidate_created_at");
-      const status = localStorage.getItem("last_backup_status");
+      const localStatus = localStorage.getItem("last_backup_status");
       
-      if (!candidateTime || status !== "pending") {
+      if (!candidateTime || localStatus !== "pending") {
         return;
       }
       
@@ -196,23 +214,24 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
   const signIn = async () => {
     setIsLoading(true);
     try {
-      const result = await googleAuth.signIn();
-      if (result.success && result.user) {
-        setUser(result.user);
-        const businessName = await getBusinessNameFromDb();
-        const status = await backupService.getBackupStatus(businessName);
-        setBackupStatus(status);
-      }
-      return { success: result.success, user: result.user, error: result.error };
+      // Use NextAuth's signIn which will redirect to Google
+      await nextAuthSignIn("google", { callbackUrl: window.location.href });
+      // Note: This will redirect, so we won't reach here immediately
+      // The session will be available after redirect back
+      return { success: true };
+    } catch (error) {
+      console.error("Sign in error:", error);
+      return { success: false, error: String(error) };
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signOut = () => {
-    googleAuth.signOut();
+  const signOut = async () => {
+    googleAuth.clearAccessToken();
     setUser(null);
     setBackupStatus(prev => ({ ...prev, canRestore: false, message: "Not signed in" }));
+    await nextAuthSignOut({ callbackUrl: window.location.href });
   };
 
   const createBackup = async (businessName: string) => {
