@@ -136,11 +136,18 @@ export class SheetsExportService {
   }
 
   /**
+   * Get access token from googleAuth service
+   */
+  private getAccessToken(): string | null {
+    return googleAuth.getToken();
+  }
+
+  /**
    * Find existing sheet or create new one in SellMore folder
    */
   private async findOrCreateSheet(sheetName: string, businessName: string): Promise<SheetInfo | null> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken) return null;
 
       // First, ensure SellMore folder exists
@@ -210,7 +217,7 @@ export class SheetsExportService {
    */
   private async getOrCreateFolder(): Promise<string | null> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken) return null;
 
       // Search for existing folder
@@ -263,7 +270,7 @@ export class SheetsExportService {
    */
   private async initializeMonthlyTabs(spreadsheetId: string): Promise<boolean> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken) return false;
 
       // Get current sheets
@@ -337,7 +344,7 @@ export class SheetsExportService {
    */
   private async ensureTabExists(spreadsheetId: string, tabName: string, monthIndex: number): Promise<number | null> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken) return null;
 
       // Get sheet info
@@ -416,7 +423,7 @@ export class SheetsExportService {
    */
   private async addHeaderRow(spreadsheetId: string, sheetId: number, tabName: string): Promise<boolean> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken) return false;
 
       // Header labels row 2
@@ -531,7 +538,7 @@ export class SheetsExportService {
     transactions: TransactionRow[]
   ): Promise<boolean> {
     try {
-      const accessToken = googleAuth.getCurrentUser()?.accessToken;
+      const accessToken = this.getAccessToken();
       if (!accessToken || transactions.length === 0) return false;
 
       // Find next empty row

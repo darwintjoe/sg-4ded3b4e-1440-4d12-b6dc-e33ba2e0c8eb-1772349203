@@ -13,6 +13,7 @@ interface BackupMetadata {
 
 class GoogleAuthService {
   private accessToken: string | null = null;
+  private currentUserEmail: string | null = null;
 
   /**
    * Set access token from NextAuth session
@@ -22,17 +23,49 @@ class GoogleAuthService {
   }
 
   /**
+   * Set current user email from NextAuth session
+   */
+  setCurrentUser(email: string): void {
+    this.currentUserEmail = email;
+  }
+
+  /**
    * Clear access token (on sign out)
    */
   clearAccessToken(): void {
     this.accessToken = null;
+    this.currentUserEmail = null;
   }
 
   /**
-   * Check if we have an access token
+   * Check if we have an access token (backward compatibility)
    */
   hasAccessToken(): boolean {
     return this.accessToken !== null;
+  }
+
+  /**
+   * Check if signed in (backward compatibility for backup-service.ts)
+   */
+  isSignedIn(): boolean {
+    return this.accessToken !== null;
+  }
+
+  /**
+   * Get current user email (backward compatibility for sheets-export.ts)
+   */
+  getCurrentUser(): { email: string } | null {
+    if (this.currentUserEmail) {
+      return { email: this.currentUserEmail };
+    }
+    return null;
+  }
+
+  /**
+   * Get access token for API calls (used by sheets-export.ts)
+   */
+  getToken(): string | null {
+    return this.accessToken;
   }
 
   /**
