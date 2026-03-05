@@ -78,6 +78,18 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1a1a1a] via-[#1a2f2a] to-[#1a1a1a] p-4 overflow-hidden relative">
+      {/* Greeting Overlay */}
+      {greeting && (
+        <AttendanceGreeting
+          type={greeting.type}
+          employeeName={greeting.employeeName}
+          isLate={greeting.isLate}
+          isEarly={greeting.isEarly}
+          onComplete={handleGreetingComplete}
+          variant={greetingVariant}
+        />
+      )}
+
       {/* Top Bar */}
       <div className="absolute top-4 left-0 right-0 flex items-center justify-between px-4 z-10">
         <button
@@ -96,17 +108,6 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
           <div className="bg-red-500/20 border-2 border-red-500 rounded-xl px-4 py-2 max-w-md mx-auto">
             <p className="text-center text-sm text-red-300 font-semibold">
               {error}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Success Message */}
-      {success && (
-        <div className="absolute top-20 left-4 right-4 z-20 animate-in fade-in slide-in-from-top-2">
-          <div className="bg-green-500/20 border-2 border-green-500 rounded-xl px-4 py-2 max-w-md mx-auto">
-            <p className="text-center text-sm text-green-300 font-semibold">
-              {success}
             </p>
           </div>
         </div>

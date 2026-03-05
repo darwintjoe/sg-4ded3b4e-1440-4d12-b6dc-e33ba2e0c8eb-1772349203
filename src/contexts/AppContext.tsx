@@ -48,8 +48,8 @@ interface AppContextType {
   removeFromCart: (index: number) => void;
   clearCart: () => void;
   cartTotal: number;
-  clockIn: (pin: string) => Promise<{ success: boolean; message: string }>;
-  clockOut: (pin: string) => Promise<{ success: boolean; message: string }>;
+  clockIn: (pin: string) => Promise<{ success: boolean; message: string; employeeName?: string; isLate?: boolean; isEarly?: boolean }>;
+  clockOut: (pin: string) => Promise<{ success: boolean; message: string; employeeName?: string; isLate?: boolean; isEarly?: boolean }>;
   currentShift: Shift | null;
   hasActiveSession: boolean;
   isInitializing: boolean;
@@ -730,7 +730,7 @@ Transactions: ${shiftTransactions.length}`;
     }
   };
 
-  const clockIn = async (pin: string): Promise<{ success: boolean; message: string }> => {
+  const clockIn = async (pin: string): Promise<{ success: boolean; message: string; employeeName?: string; isLate?: boolean; isEarly?: boolean }> => {
     const employees = await db.getAll<Employee>("employees");
     const employee = employees.find(emp => emp.pin === pin);
     
@@ -751,8 +751,9 @@ Transactions: ${shiftTransactions.length}`;
     // Smart shift detection using current settings
     const detectedShift = detectShift(clockInTime, settings);
 
-    // Calculate if late at clock-in time
+    // Calculate if late or early at clock-in time
     let isLate = false;
+    let isEarly = false;
     let lateMinutes = 0;
 
     if (detectedShift?.start) {
@@ -761,9 +762,15 @@ Transactions: ${shiftTransactions.length}`;
       const scheduledStartTime = new Date(clockInDate);
       scheduledStartTime.setHours(scheduledHour, scheduledMin, 0, 0);
 
-      if (clockInTime > scheduledStartTime.getTime()) {
+      const diffMinutes = Math.round((clockInTime - scheduledStartTime.getTime()) / (1000 * 60));
+      
+      if (diffMinutes > 5) {
+        // More than 5 minutes late
         isLate = true;
-        lateMinutes = Math.round((clockInTime - scheduledStartTime.getTime()) / (1000 * 60));
+        lateMinutes = diffMinutes;
+      } else if (diffMinutes < -15) {
+        // More than 15 minutes early
+        isEarly = true;
       }
     }
 
@@ -782,10 +789,10 @@ Transactions: ${shiftTransactions.length}`;
     // Play clock-in beep sound
     playBeepSound("clockIn");
 
-    return { success: true, message: "attendance.clockedIn" };
+    return { success: true, message: "attendance.clockedIn", employeeName: employee.name, isLate, isEarly };
   };
 
-  const clockOut = async (pin: string): Promise<{ success: boolean; message: string }> => {
+  const clockOut = async (pin: string): Promise<{ success: boolean; message: string; employeeName?: string; isLate?: boolean; isEarly?: boolean }> => {
     const employees = await db.getAll<Employee>("employees");
     const employee = employees.find(emp => emp.pin === pin);
     
@@ -802,6 +809,27 @@ Transactions: ${shiftTransactions.length}`;
     }
 
     const clockOutTime = Date.now();
+    
+    // Calculate if leaving early or late
+    let isEarly = false;
+    let isLate = false;
+    
+    if (activeRecord.scheduledEnd) {
+      const [scheduledHour, scheduledMin] = activeRecord.scheduledEnd.split(":").map(Number);
+      const clockOutDate = new Date(clockOutTime);
+      const scheduledEndTime = new Date(clockOutDate);
+      scheduledEndTime.setHours(scheduledHour, scheduledMin, 0, 0);
+      
+      const diffMinutes = Math.round((clockOutTime - scheduledEndTime.getTime()) / (1000 * 60));
+      
+      if (diffMinutes < -15) {
+        // Leaving more than 15 minutes early
+        isEarly = true;
+      } else if (diffMinutes > 30) {
+        // Staying more than 30 minutes overtime
+        isLate = true;
+      }
+    }
 
     // Update the attendance record with clock out time
     activeRecord.clockOut = clockOutTime;
@@ -810,7 +838,7 @@ Transactions: ${shiftTransactions.length}`;
     // Play clock-out beep sound
     playBeepSound("clockOut");
 
-    return { success: true, message: "attendance.clockedOut" };
+    return { success: true, message: "attendance.clockedOut", employeeName: employee.name, isLate, isEarly };
   };
 
   const pauseSession = async () => {
