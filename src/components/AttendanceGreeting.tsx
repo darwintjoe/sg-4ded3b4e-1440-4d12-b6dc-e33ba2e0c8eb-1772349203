@@ -196,7 +196,7 @@ function ToastGreeting({ data, onComplete }: { data: GreetingData; onComplete: (
     const timer = setTimeout(() => {
       setVisible(false);
       setTimeout(onComplete, 300);
-    }, 2000);
+    }, 3000);
     return () => clearTimeout(timer);
   }, [onComplete]);
   
@@ -228,8 +228,8 @@ function FullscreenGreeting({ data, onComplete }: { data: GreetingData; onComple
   
   useEffect(() => {
     const enterTimer = setTimeout(() => setPhase("show"), 50);
-    const exitTimer = setTimeout(() => setPhase("exit"), 1800);
-    const completeTimer = setTimeout(onComplete, 2200);
+    const exitTimer = setTimeout(() => setPhase("exit"), 2800);
+    const completeTimer = setTimeout(onComplete, 3200);
     return () => {
       clearTimeout(enterTimer);
       clearTimeout(exitTimer);
@@ -275,7 +275,7 @@ function CardGreeting({ data, onComplete }: { data: GreetingData; onComplete: ()
     const timer = setTimeout(() => {
       setVisible(false);
       setTimeout(onComplete, 300);
-    }, 2000);
+    }, 3000);
     return () => clearTimeout(timer);
   }, [onComplete]);
   

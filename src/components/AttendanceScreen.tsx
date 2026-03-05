@@ -23,10 +23,7 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
   const [error, setError] = useState("");
   const [mode, setMode] = useState<"clockIn" | "clockOut">("clockIn");
   const [greeting, setGreeting] = useState<GreetingState | null>(null);
-  
-  // Variant options: "toast" | "fullscreen" | "card"
-  // Change this to try different styles!
-  const greetingVariant: "toast" | "fullscreen" | "card" = "fullscreen";
+  const [greetingVariant, setGreetingVariant] = useState<"toast" | "fullscreen" | "card">("fullscreen");
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -99,6 +96,24 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm font-medium">{translate("common.back", language)}</span>
         </button>
+        
+        {/* Variant Toggle - Temporary for testing */}
+        <div className="flex gap-1 bg-white/10 backdrop-blur rounded-lg p-1 border border-white/20">
+          {(["toast", "fullscreen", "card"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setGreetingVariant(v)}
+              className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                greetingVariant === v
+                  ? "bg-white/30 text-white"
+                  : "text-white/60 hover:text-white/80"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        
         <LanguageSelector />
       </div>
 
