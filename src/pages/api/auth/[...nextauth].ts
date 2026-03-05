@@ -2,12 +2,23 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { NextApiRequest, NextApiResponse } from "next";
 
-export function getAuthOptions(req: NextApiRequest): NextAuthOptions {
-  // Auto-detect the base URL from the request
-  const protocol = req.headers["x-forwarded-proto"] || "http";
-  const host = req.headers["x-forwarded-host"] || req.headers.host;
-  const baseUrl = `${protocol}://${host}`;
+// Helper to get the base URL from request headers
+function getBaseUrl(req: NextApiRequest): string {
+  // Check for forwarded headers (used by proxies like Vercel, Cloudflare, etc.)
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const forwardedHost = req.headers["x-forwarded-host"];
+  
+  // Use forwarded values if available, otherwise fall back to request headers
+  const protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto || "https";
+  const host = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost || req.headers.host;
+  
+  return `${protocol}://${host}`;
+}
 
+// Create auth options dynamically based on request
+function createAuthOptions(req: NextApiRequest): NextAuthOptions {
+  const baseUrl = getBaseUrl(req);
+  
   return {
     providers: [
       GoogleProvider({
@@ -31,10 +42,16 @@ export function getAuthOptions(req: NextApiRequest): NextAuthOptions {
     ],
     
     callbacks: {
-      async redirect({ url, baseUrl: callbackBaseUrl }) {
-        // Use the detected baseUrl for redirects
+      async redirect({ url, baseUrl: _defaultBaseUrl }) {
+        // Use dynamically detected baseUrl for redirects
         if (url.startsWith("/")) return `${baseUrl}${url}`;
-        else if (new URL(url).origin === baseUrl) return url;
+        // Allow redirects to the same origin
+        try {
+          const urlOrigin = new URL(url).origin;
+          if (urlOrigin === baseUrl) return url;
+        } catch {
+          // Invalid URL, redirect to base
+        }
         return baseUrl;
       },
       
@@ -46,10 +63,12 @@ export function getAuthOptions(req: NextApiRequest): NextAuthOptions {
           token.id = user.id;
         }
 
+        // Return token if not expired
         if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
           return token;
         }
 
+        // Refresh the token if expired
         return refreshAccessToken(token);
       },
       
@@ -65,7 +84,7 @@ export function getAuthOptions(req: NextApiRequest): NextAuthOptions {
 
     session: {
       strategy: "jwt",
-      maxAge: 30 * 24 * 60 * 60,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     },
 
     pages: {
@@ -73,7 +92,9 @@ export function getAuthOptions(req: NextApiRequest): NextAuthOptions {
       error: "/",
     },
 
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET || "sellmore-pos-default-secret-key",
+    
+    debug: process.env.NODE_ENV === "development",
   };
 }
 
@@ -107,6 +128,7 @@ async function refreshAccessToken(token: any) {
       refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
     };
   } catch (error) {
+    console.error("Error refreshing access token:", error);
     return {
       ...token,
       error: "RefreshAccessTokenError",
@@ -115,5 +137,13 @@ async function refreshAccessToken(token: any) {
 }
 
 export default async function auth(req: NextApiRequest, res: NextApiResponse) {
-  return await NextAuth(req, res, getAuthOptions(req));
+  // Dynamically set NEXTAUTH_URL based on the incoming request
+  // This allows the app to work on any domain without manual configuration
+  const baseUrl = getBaseUrl(req);
+  process.env.NEXTAUTH_URL = baseUrl;
+  
+  return await NextAuth(req, res, createAuthOptions(req));
 }
+
+// Export for use in other parts of the app if needed
+export { createAuthOptions, getBaseUrl };
