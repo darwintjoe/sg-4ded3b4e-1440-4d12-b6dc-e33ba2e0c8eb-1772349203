@@ -67,6 +67,7 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
   const [categories, setCategories] = useState<string[]>([]);
   
   const { toast } = useToast();
+  const { isSignedIn: isGoogleConnected } = useGoogleAuth();
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -568,6 +569,12 @@ export function POSScreen({ onAdminClick, onAttendanceClick, onLockScreen }: POS
             <div
               className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${printerConnected ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
               title={printerConnected ? "Printer connected" : "Printer not connected"}
+            />
+            
+            {/* Google Connection LED Indicator */}
+            <div
+              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${isGoogleConnected ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" : "bg-slate-300 dark:bg-slate-600"}`}
+              title={isGoogleConnected ? "Google connected" : "Google not connected"}
             />
           </div>
           <div className="flex items-center gap-2">
