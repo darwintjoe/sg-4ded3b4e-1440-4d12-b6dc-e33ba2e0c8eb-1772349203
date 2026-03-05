@@ -3,17 +3,30 @@ import { useApp } from "@/contexts/AppContext";
 import { translate } from "@/lib/translations";
 import { ArrowLeft, Clock } from "lucide-react";
 import { LanguageSelector } from "./LanguageSelector";
+import { AttendanceGreeting } from "./AttendanceGreeting";
 
 interface AttendanceScreenProps {
   onBack: () => void;
 }
 
+interface GreetingState {
+  show: boolean;
+  type: "clockIn" | "clockOut";
+  employeeName: string;
+  isLate: boolean;
+  isEarly: boolean;
+}
+
 export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
-  const { clockIn, clockOut, language } = useApp();
+  const { clockIn, clockOut, language, settings } = useApp();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [mode, setMode] = useState<"clockIn" | "clockOut">("clockIn");
+  const [greeting, setGreeting] = useState<GreetingState | null>(null);
+  
+  // Variant options: "toast" | "fullscreen" | "card"
+  // Change this to try different styles!
+  const greetingVariant: "toast" | "fullscreen" | "card" = "fullscreen";
 
   const handlePinInput = (digit: string) => {
     if (pin.length < 6) {
@@ -33,20 +46,34 @@ export function AttendanceScreen({ onBack }: AttendanceScreenProps) {
     }
 
     setError("");
-    setSuccess("");
 
     const result = mode === "clockIn" 
       ? await clockIn(pin)
       : await clockOut(pin);
 
     if (result.success) {
-      setSuccess(translate(result.message, language));
+      // Extract employee name and timing info from result
+      const employeeName = result.employeeName || "Team Member";
+      const isLate = result.isLate || false;
+      const isEarly = result.isEarly || false;
+      
+      // Show greeting instead of simple success message
+      setGreeting({
+        show: true,
+        type: mode,
+        employeeName,
+        isLate,
+        isEarly
+      });
       setPin("");
-      setTimeout(() => setSuccess(""), 3000);
     } else {
       setError(translate(result.message, language));
       setPin("");
     }
+  };
+
+  const handleGreetingComplete = () => {
+    setGreeting(null);
   };
 
   return (
