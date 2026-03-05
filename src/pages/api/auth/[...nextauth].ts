@@ -13,36 +13,54 @@ const SCOPES = [
 ];
 
 /**
- * Dynamically detect the base URL from request headers
- * This allows the app to work on any domain without manual configuration
+ * Get the base URL for NextAuth callbacks
+ * Priority: NEXTAUTH_URL env var > request headers > fallback
  */
 function getBaseUrl(req: NextApiRequest): string {
-  // Check for forwarded headers (used by proxies/load balancers)
-  const forwardedHost = req.headers["x-forwarded-host"];
-  const forwardedProto = req.headers["x-forwarded-proto"];
-  
-  // Get the host header
-  const host = forwardedHost || req.headers.host;
-  
-  if (!host) {
-    // Fallback to environment variable or localhost
-    return process.env.NEXTAUTH_URL || "http://localhost:3000";
+  // 1. If NEXTAUTH_URL is explicitly set, use it
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
   }
-  
-  // Determine protocol
-  let protocol = "https";
-  if (forwardedProto) {
-    protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
-  } else if (typeof host === "string" && host.includes("localhost")) {
-    protocol = "http";
+
+  // 2. Try to construct from request headers
+  try {
+    // Check for forwarded headers (used by proxies/load balancers)
+    const forwardedHost = req.headers["x-forwarded-host"];
+    const forwardedProto = req.headers["x-forwarded-proto"];
+    const host = req.headers.host;
+
+    // Get the host value
+    const hostValue = forwardedHost 
+      ? (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost)
+      : host;
+
+    if (!hostValue) {
+      console.warn("[NextAuth] No host header found, using fallback");
+      return "http://localhost:3000";
+    }
+
+    // Determine protocol
+    let protocol = "https";
+    if (forwardedProto) {
+      protocol = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    } else if (hostValue.includes("localhost") || hostValue.startsWith("127.")) {
+      protocol = "http";
+    }
+
+    const url = `${protocol}://${hostValue}`;
+    
+    // Validate the URL
+    new URL(url);
+    
+    return url;
+  } catch (error) {
+    console.error("[NextAuth] Error constructing URL from headers:", error);
+    return "http://localhost:3000";
   }
-  
-  const hostString = Array.isArray(host) ? host[0] : host;
-  return `${protocol}://${hostString}`;
 }
 
 /**
- * Create auth options with dynamic URL
+ * NextAuth configuration
  */
 function createAuthOptions(baseUrl: string): NextAuthOptions {
   return {
@@ -73,13 +91,13 @@ function createAuthOptions(baseUrl: string): NextAuthOptions {
           token.expiresAt = account.expires_at;
           token.scope = account.scope;
         }
-        
-        // Check if token needs refresh
+
+        // Check if token is still valid
         if (token.expiresAt && Date.now() < (token.expiresAt as number) * 1000) {
           return token;
         }
-        
-        // Refresh the token
+
+        // Try to refresh the token
         if (token.refreshToken) {
           try {
             const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -106,11 +124,11 @@ function createAuthOptions(baseUrl: string): NextAuthOptions {
               refreshToken: tokens.refresh_token ?? token.refreshToken,
             };
           } catch (error) {
-            console.error("Error refreshing access token:", error);
+            console.error("[NextAuth] Error refreshing access token:", error);
             return { ...token, error: "RefreshAccessTokenError" };
           }
         }
-        
+
         return token;
       },
       async session({ session, token }) {
@@ -133,17 +151,23 @@ function createAuthOptions(baseUrl: string): NextAuthOptions {
 }
 
 /**
- * Dynamic NextAuth handler that sets NEXTAUTH_URL based on request
+ * NextAuth API handler
  */
 export default async function auth(req: NextApiRequest, res: NextApiResponse) {
-  // Dynamically set NEXTAUTH_URL from request headers
+  // Get base URL and set it for NextAuth
   const baseUrl = getBaseUrl(req);
+  
+  // Set NEXTAUTH_URL for this request
   process.env.NEXTAUTH_URL = baseUrl;
-  
-  // Log for debugging
+
   if (process.env.NODE_ENV === "development") {
-    console.log("[NextAuth] Dynamic URL:", baseUrl);
+    console.log("[NextAuth] Using URL:", baseUrl);
+    console.log("[NextAuth] Headers:", {
+      host: req.headers.host,
+      forwardedHost: req.headers["x-forwarded-host"],
+      forwardedProto: req.headers["x-forwarded-proto"],
+    });
   }
-  
-  return await NextAuth(req, res, createAuthOptions(baseUrl));
+
+  return NextAuth(req, res, createAuthOptions(baseUrl));
 }
