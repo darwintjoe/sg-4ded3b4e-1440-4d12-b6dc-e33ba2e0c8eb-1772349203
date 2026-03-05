@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, playSuccessSound, playTiitSound, roundTo50 } from "@/lib/utils";
 import Image from "next/image";
 import { getSubscriptionInfo, getSubscriptionBarPercentage, getSubscriptionBarColor } from "@/lib/subscription-service";
+import { useGoogleAuth } from "@/contexts/GoogleAuthContext";
 import { bluetoothPrinter } from "@/lib/bluetooth-printer";
 
 interface POSScreenProps {
