@@ -282,7 +282,7 @@ export function BackupSettingsCard({
                   onClick={() => setShowQRIS(true)}
                 >
                   <QrCode className="h-4 w-4" />
-                  Pay with QRIS (1 Year - {formatPriceIDR(pricing[12])})
+                  Pay with QRIS (1 Year subscription)
                 </Button>
               ) : paymentSuccess ? (
                 // Success State
