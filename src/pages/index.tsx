@@ -1,3 +1,4 @@
+<![CDATA[
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { LoginScreen } from "@/components/LoginScreen";
@@ -212,3 +213,4 @@ export default function Home() {
     </>
   );
 }
+]]></![CDATA[
