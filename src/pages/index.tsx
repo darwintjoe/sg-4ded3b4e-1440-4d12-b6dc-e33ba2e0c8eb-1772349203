@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { LoginScreen } from "@/components/LoginScreen";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
@@ -6,99 +6,21 @@ import { AttendanceScreen } from "@/components/AttendanceScreen";
 import { POSScreen } from "@/components/POSScreen";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { SEO } from "@/components/SEO";
-import { useToast } from "@/hooks/use-toast";
 
 type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 
-// Screen hierarchy for back navigation
-const SCREEN_HIERARCHY: Record<Screen, Screen | null> = {
-  login: null,
-  adminLogin: "login",
-  attendance: "login",
-  pos: "login",
-  adminDashboard: "pos",
-};
-
 export default function Home() {
-  const { currentUser, adminUser, isInitializing, loadingStatus, logoutAdmin, logout } = useApp();
-  const { toast } = useToast();
+  const { currentUser, adminUser, isInitializing, loadingStatus } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
-  const lastBackPressRef = useRef<number>(0);
-  const historyInitializedRef = useRef<boolean>(false);
 
-  // Helper to get active screen value
-  const getActiveScreenValue = useCallback((): Screen => {
-    if (adminUser) return "adminDashboard";
-    if (screen === "adminLogin") return "adminLogin";
-    if (screen === "attendance") return "attendance";
-    if (!currentUser) return "login";
-    return "pos";
-  }, [adminUser, screen, currentUser]);
-
-  // Handle back navigation logic
-  const handleBackNavigation = useCallback((): boolean => {
-    const activeScreen = getActiveScreenValue();
-    
-    // If on login screen, handle exit confirmation
-    if (activeScreen === "login") {
-      const now = Date.now();
-      if (now - lastBackPressRef.current < 2000) {
-        // Double back press - allow exit by not pushing new state
-        return true;
-      } else {
-        lastBackPressRef.current = now;
-        toast({
-          title: "Press back again to exit",
-          duration: 2000,
-        });
-        return false;
-      }
-    }
-
-    // Handle admin dashboard - logout admin
-    if (activeScreen === "adminDashboard") {
-      logoutAdmin();
-      return false;
-    }
-
-    // Handle POS - logout user
-    if (activeScreen === "pos") {
-      logout();
-      return false;
-    }
-
-    // Navigate to previous screen for other screens
-    const previousScreen = SCREEN_HIERARCHY[activeScreen];
-    if (previousScreen) {
-      setScreen(previousScreen);
-    }
-    
-    return false;
-  }, [getActiveScreenValue, toast, logoutAdmin, logout]);
-
-  // Initialize and manage browser history for back button support
+  // Disable browser back button - prevent accidental app closure
   useEffect(() => {
-    if (isInitializing) return;
-
-    // Initialize history with two entries so back button works within app
-    if (!historyInitializedRef.current) {
-      historyInitializedRef.current = true;
-      // Replace current state
-      window.history.replaceState({ page: 1 }, "");
-      // Push a second state so we have room to go "back"
-      window.history.pushState({ page: 2 }, "");
-    }
+    // Push initial state
+    window.history.pushState(null, "", window.location.href);
 
     const handlePopState = () => {
-      // User pressed back, handle navigation
-      const shouldExit = handleBackNavigation();
-      
-      if (!shouldExit) {
-        // Push state again to maintain history buffer
-        // This keeps user in the app
-        window.history.pushState({ page: 2 }, "");
-      }
-      // If shouldExit is true, we don't push state, allowing actual exit
+      // Immediately push state again to prevent navigation
+      window.history.pushState(null, "", window.location.href);
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -106,7 +28,7 @@ export default function Home() {
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [isInitializing, handleBackNavigation]);
+  }, []);
 
   // Auto-reset screen when admin logs out
   useEffect(() => {
@@ -162,7 +84,15 @@ export default function Home() {
   }
 
   // Determine which screen to show
-  const activeScreen = getActiveScreenValue();
+  const getActiveScreen = (): Screen => {
+    if (adminUser) return "adminDashboard";
+    if (screen === "adminLogin") return "adminLogin";
+    if (screen === "attendance") return "attendance";
+    if (!currentUser) return "login";
+    return "pos";
+  };
+
+  const activeScreen = getActiveScreen();
 
   const handleAdminClick = () => {
     setScreen("adminLogin");
