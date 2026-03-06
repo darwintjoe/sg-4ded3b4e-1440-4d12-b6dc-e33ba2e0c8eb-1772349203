@@ -13,7 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import { 
   generateSubscriptionCode, 
   formatPriceIDR,
-  DEVELOPER_QRIS 
+  getPricingConfig,
+  savePricingConfig,
+  getPaymentTransactions,
+  type PricingConfig,
+  type PaymentTransaction
 } from "@/lib/subscription-service";
 import { 
   Copy, 
@@ -105,7 +109,25 @@ export default function SubscriptionAdminPage() {
   const [paymentRef, setPaymentRef] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  
+  // Pricing state
+  const [pricing, setPricing] = useState<PricingConfig>(getPricingConfig());
+  const [editingPricing, setEditingPricing] = useState(false);
+  const [tempPricing, setTempPricing] = useState<PricingConfig>(pricing);
+  
+  // Payment transactions
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
+  
   const { toast } = useToast();
+
+  // Load transactions on mount
+  useEffect(() => {
+    setTransactions(getPaymentTransactions());
+    const interval = setInterval(() => {
+      setTransactions(getPaymentTransactions());
+    }, 5000); // Poll every 5 seconds for new transactions
+    return () => clearInterval(interval);
+  }, []);
 
   // Load Google API scripts
   useEffect(() => {
@@ -643,19 +665,112 @@ export default function SubscriptionAdminPage() {
         {/* Pricing Reference */}
         <Card className="bg-gray-800 border-gray-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-white text-sm">Pricing Reference</CardTitle>
+            <CardTitle className="text-white text-sm flex items-center justify-between">
+              <span>Pricing Configuration</span>
+              {!editingPricing ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTempPricing(pricing);
+                    setEditingPricing(true);
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Edit
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingPricing(false)}
+                    className="h-7 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      savePricingConfig(tempPricing);
+                      setPricing(tempPricing);
+                      setEditingPricing(false);
+                      toast({ title: "Pricing updated" });
+                    }}
+                    className="h-7 text-xs"
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-4">
-              {Object.entries(DEVELOPER_QRIS.pricing).map(([months, price]) => (
-                <div key={months} className="text-center">
-                  <div className="text-lg font-bold text-white">{months} mo</div>
-                  <div className="text-sm text-green-400">{formatPriceIDR(price)}</div>
-                </div>
-              ))}
-            </div>
+            {!editingPricing ? (
+              <div className="flex flex-wrap gap-4">
+                {Object.entries(pricing).map(([months, price]) => (
+                  <div key={months} className="text-center">
+                    <div className="text-lg font-bold text-white">{months} mo</div>
+                    <div className="text-sm text-green-400">{formatPriceIDR(price as number)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {([1, 3, 6, 12] as const).map((months) => (
+                  <div key={months} className="space-y-1">
+                    <Label className="text-gray-400 text-xs">{months} Month{months > 1 ? "s" : ""}</Label>
+                    <Input
+                      type="number"
+                      value={tempPricing[months]}
+                      onChange={(e) => setTempPricing({ ...tempPricing, [months]: parseInt(e.target.value) || 0 })}
+                      className="bg-gray-700 border-gray-600 text-white h-8"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Live Transactions */}
+        {transactions.length > 0 && (
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Recent Payment Transactions
+                <Badge variant="outline" className="ml-auto text-green-400 border-green-400">
+                  {transactions.filter(t => t.status === "completed").length} completed
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[150px]">
+                <div className="space-y-2">
+                  {transactions.slice(0, 10).map((txn) => (
+                    <div 
+                      key={txn.id} 
+                      className="flex items-center justify-between text-sm p-2 rounded bg-gray-700/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          className={txn.status === "completed" ? "bg-green-600" : "bg-yellow-600"}
+                        >
+                          {txn.status}
+                        </Badge>
+                        <span className="font-mono text-white">{txn.code}</span>
+                      </div>
+                      <div className="text-gray-400 text-xs">
+                        {new Date(txn.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs defaultValue="batch" className="space-y-4">
           <TabsList className="bg-gray-800">
