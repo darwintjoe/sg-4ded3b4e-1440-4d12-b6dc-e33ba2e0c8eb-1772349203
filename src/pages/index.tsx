@@ -13,21 +13,15 @@ export default function Home() {
   const { currentUser, adminUser, isInitializing, loadingStatus } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
 
-  // Disable browser back button - prevent accidental app closure
+  // Disable browser back button completely
   useEffect(() => {
-    // Push initial state
-    window.history.pushState(null, "", window.location.href);
-
-    const handlePopState = () => {
-      // Immediately push state again to prevent navigation
-      window.history.pushState(null, "", window.location.href);
+    const blockBack = (e: PopStateEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.history.forward();
     };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
+    window.addEventListener("popstate", blockBack);
+    return () => window.removeEventListener("popstate", blockBack);
   }, []);
 
   // Auto-reset screen when admin logs out
@@ -42,15 +36,12 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center space-y-6 p-8">
-          {/* Animated Logo/Icon */}
           <div className="flex justify-center">
             <div className="relative">
               <div className="w-20 h-20 border-4 border-blue-200 dark:border-blue-900 rounded-full"></div>
               <div className="w-20 h-20 border-4 border-blue-600 dark:border-blue-400 rounded-full absolute top-0 left-0 animate-spin border-t-transparent"></div>
             </div>
           </div>
-
-          {/* App Title */}
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               SELL MORE
@@ -59,22 +50,16 @@ export default function Home() {
               Mobile POS System
             </p>
           </div>
-
-          {/* Loading Status */}
           <div className="space-y-2">
             <div className="inline-block px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                 {loadingStatus}
               </p>
             </div>
-            
-            {/* Progress bar */}
             <div className="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mx-auto">
               <div className="h-full bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ width: "60%" }}></div>
             </div>
           </div>
-
-          {/* Helper text */}
           <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
             Please wait while we prepare your system. This usually takes 5-10 seconds.
           </p>
@@ -83,7 +68,6 @@ export default function Home() {
     );
   }
 
-  // Determine which screen to show
   const getActiveScreen = (): Screen => {
     if (adminUser) return "adminDashboard";
     if (screen === "adminLogin") return "adminLogin";
@@ -94,17 +78,9 @@ export default function Home() {
 
   const activeScreen = getActiveScreen();
 
-  const handleAdminClick = () => {
-    setScreen("adminLogin");
-  };
-
-  const handleAttendanceClick = () => {
-    setScreen("attendance");
-  };
-
-  const handleBackToLogin = () => {
-    setScreen("login");
-  };
+  const handleAdminClick = () => setScreen("adminLogin");
+  const handleAttendanceClick = () => setScreen("attendance");
+  const handleBackToLogin = () => setScreen("login");
 
   return (
     <>
@@ -136,9 +112,7 @@ export default function Home() {
         />
       )}
       
-      {activeScreen === "adminDashboard" && (
-        <AdminDashboard />
-      )}
+      {activeScreen === "adminDashboard" && <AdminDashboard />}
     </>
   );
 }
