@@ -13,18 +13,22 @@ export default function Home() {
   const { currentUser, adminUser, isInitializing, loadingStatus } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
 
-  // Block back button by always replenishing history
+  // Disable back button by maintaining deep history buffer
   useEffect(() => {
-    // Push initial state
-    window.history.pushState(null, "", window.location.href);
+    // Push multiple history entries to create a buffer
+    for (let i = 0; i < 10; i++) {
+      window.history.pushState({ page: i }, "", window.location.href);
+    }
     
-    const onPopState = () => {
-      // Immediately push state again to replenish
+    const onBack = (e: PopStateEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Replenish the history buffer
       window.history.pushState(null, "", window.location.href);
     };
     
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    window.addEventListener("popstate", onBack);
+    return () => window.removeEventListener("popstate", onBack);
   }, []);
 
   // Auto-reset screen when admin logs out
