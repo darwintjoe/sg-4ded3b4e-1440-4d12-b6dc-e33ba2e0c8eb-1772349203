@@ -13,24 +13,6 @@ export default function Home() {
   const { currentUser, adminUser, isInitializing, loadingStatus } = useApp();
   const [screen, setScreen] = useState<Screen>("login");
 
-  // Disable back button by maintaining deep history buffer
-  useEffect(() => {
-    // Push multiple history entries to create a buffer
-    for (let i = 0; i < 10; i++) {
-      window.history.pushState({ page: i }, "", window.location.href);
-    }
-    
-    const onBack = (e: PopStateEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // Replenish the history buffer
-      window.history.pushState(null, "", window.location.href);
-    };
-    
-    window.addEventListener("popstate", onBack);
-    return () => window.removeEventListener("popstate", onBack);
-  }, []);
-
   // Auto-reset screen when admin logs out
   useEffect(() => {
     if (!adminUser && screen === "adminDashboard") {
