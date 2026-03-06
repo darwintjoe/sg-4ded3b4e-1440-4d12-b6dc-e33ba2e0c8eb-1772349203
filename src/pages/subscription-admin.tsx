@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { 
   generateSubscriptionCode, 
@@ -24,7 +25,12 @@ import {
   Check,
   Clock,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Cloud,
+  LogOut,
+  Loader2,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 
 // Types
@@ -38,12 +44,59 @@ interface GeneratedCode {
   paymentRef: string | null;
 }
 
-const STORAGE_KEY = "sellmore_generated_codes";
-const ADMIN_PASSWORD = "sellmore2026"; // Simple password protection
+// Google Sheets configuration
+const SPREADSHEET_NAME = "SellMore Codes";
+const SHEET_NAME = "Codes";
+
+// Google API helpers
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        oauth2: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            callback: (response: { access_token?: string; error?: string }) => void;
+          }) => { requestAccessToken: () => void };
+        };
+      };
+    };
+    gapi?: {
+      load: (api: string, callback: () => void) => void;
+      client: {
+        init: (config: { apiKey?: string; discoveryDocs: string[] }) => Promise<void>;
+        setToken: (token: { access_token: string }) => void;
+        sheets: {
+          spreadsheets: {
+            get: (params: { spreadsheetId: string }) => Promise<{ result: { sheets: Array<{ properties: { title: string } }> } }>;
+            create: (params: { resource: { properties: { title: string }; sheets: Array<{ properties: { title: string } }> } }) => Promise<{ result: { spreadsheetId: string } }>;
+            values: {
+              get: (params: { spreadsheetId: string; range: string }) => Promise<{ result: { values?: string[][] } }>;
+              append: (params: { spreadsheetId: string; range: string; valueInputOption: string; resource: { values: string[][] } }) => Promise<void>;
+              update: (params: { spreadsheetId: string; range: string; valueInputOption: string; resource: { values: string[][] } }) => Promise<void>;
+              clear: (params: { spreadsheetId: string; range: string }) => Promise<void>;
+            };
+            batchUpdate: (params: { spreadsheetId: string; resource: { requests: Array<{ addSheet?: { properties: { title: string } } }> } }) => Promise<void>;
+          };
+        };
+      };
+    };
+  }
+}
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+const SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file";
 
 export default function SubscriptionAdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [spreadsheetId, setSpreadsheetId] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  
   const [generatedCodes, setGeneratedCodes] = useState<GeneratedCode[]>([]);
   const [batchDuration, setBatchDuration] = useState<string>("1");
   const [batchCount, setBatchCount] = useState<string>("10");
@@ -54,72 +107,261 @@ export default function SubscriptionAdminPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Load codes from localStorage
+  // Load Google API scripts
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        setGeneratedCodes(JSON.parse(stored));
-      } catch {
-        setGeneratedCodes([]);
+    const loadGoogleScripts = () => {
+      // Load GIS (Google Identity Services)
+      if (!document.getElementById("google-gis")) {
+        const gisScript = document.createElement("script");
+        gisScript.id = "google-gis";
+        gisScript.src = "https://accounts.google.com/gsi/client";
+        gisScript.async = true;
+        gisScript.defer = true;
+        document.body.appendChild(gisScript);
       }
+
+      // Load GAPI
+      if (!document.getElementById("google-gapi")) {
+        const gapiScript = document.createElement("script");
+        gapiScript.id = "google-gapi";
+        gapiScript.src = "https://apis.google.com/js/api.js";
+        gapiScript.async = true;
+        gapiScript.defer = true;
+        gapiScript.onload = () => {
+          window.gapi?.load("client", async () => {
+            await window.gapi?.client.init({
+              discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+            });
+          });
+        };
+        document.body.appendChild(gapiScript);
+      }
+    };
+
+    loadGoogleScripts();
+    
+    // Check for existing session
+    const savedSpreadsheetId = localStorage.getItem("sellmore_admin_spreadsheet_id");
+    const savedToken = localStorage.getItem("sellmore_admin_google_token");
+    if (savedSpreadsheetId && savedToken) {
+      setSpreadsheetId(savedSpreadsheetId);
+      // Token will be validated on first API call
     }
   }, []);
 
-  // Save codes to localStorage
-  const saveCodes = (codes: GeneratedCode[]) => {
-    setGeneratedCodes(codes);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(codes));
-  };
+  // Connect to Google
+  const connectGoogle = useCallback(() => {
+    if (!window.google) {
+      toast({ title: "Google API not loaded", variant: "destructive" });
+      return;
+    }
 
-  // Check used codes from subscription service
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    
-    const checkUsedCodes = () => {
-      const usedCodesStr = localStorage.getItem("sellmore_used_codes");
-      const subscriptionStr = localStorage.getItem("sellmore_subscription");
-      
-      if (!usedCodesStr && !subscriptionStr) return;
-      
-      const usedCodes: string[] = usedCodesStr ? JSON.parse(usedCodesStr) : [];
-      
-      setGeneratedCodes(prev => {
-        let updated = false;
-        const newCodes = prev.map(code => {
-          if (!code.usedAt && usedCodes.includes(code.code)) {
-            updated = true;
-            return {
-              ...code,
-              usedAt: new Date().toISOString(),
-              usedBy: code.usedBy || "Unknown"
-            };
-          }
-          return code;
-        });
-        
-        if (updated) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newCodes));
+    setIsLoading(true);
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: SCOPES,
+      callback: async (response) => {
+        if (response.error) {
+          setIsLoading(false);
+          toast({ title: "Google sign-in failed", description: response.error, variant: "destructive" });
+          return;
         }
-        return newCodes;
-      });
-    };
-    
-    checkUsedCodes();
-    const interval = setInterval(checkUsedCodes, 5000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
 
-  const handleLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      toast({ title: "Authenticated", description: "Welcome to Subscription Admin" });
-    } else {
-      toast({ title: "Invalid password", variant: "destructive" });
+        if (response.access_token) {
+          localStorage.setItem("sellmore_admin_google_token", response.access_token);
+          window.gapi?.client.setToken({ access_token: response.access_token });
+          setIsGoogleConnected(true);
+          
+          // Find or create spreadsheet
+          await findOrCreateSpreadsheet(response.access_token);
+          setIsLoading(false);
+        }
+      },
+    });
+
+    tokenClient.requestAccessToken();
+  }, [toast]);
+
+  // Find or create the spreadsheet
+  const findOrCreateSpreadsheet = async (token: string) => {
+    try {
+      // Search for existing spreadsheet
+      const searchResponse = await fetch(
+        `https://www.googleapis.com/drive/v3/files?q=name='${SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const searchData = await searchResponse.json();
+
+      let sheetId: string;
+
+      if (searchData.files && searchData.files.length > 0) {
+        // Use existing spreadsheet
+        sheetId = searchData.files[0].id;
+        toast({ title: "Connected to existing spreadsheet" });
+      } else {
+        // Create new spreadsheet
+        const createResponse = await fetch(
+          "https://sheets.googleapis.com/v4/spreadsheets",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              properties: { title: SPREADSHEET_NAME },
+              sheets: [{ properties: { title: SHEET_NAME } }],
+            }),
+          }
+        );
+        const createData = await createResponse.json();
+        sheetId = createData.spreadsheetId;
+
+        // Add headers
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A1:H1?valueInputOption=RAW`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              values: [["Code", "Duration (Months)", "Created At", "Used At", "Used By", "Payment Method", "Payment Ref", "Status"]],
+            }),
+          }
+        );
+
+        toast({ title: "Created new spreadsheet", description: SPREADSHEET_NAME });
+      }
+
+      setSpreadsheetId(sheetId);
+      localStorage.setItem("sellmore_admin_spreadsheet_id", sheetId);
+
+      // Load existing codes
+      await loadCodesFromSheet(token, sheetId);
+    } catch (error) {
+      console.error("Spreadsheet error:", error);
+      toast({ title: "Failed to setup spreadsheet", variant: "destructive" });
     }
   };
 
-  const generateBatchCodes = () => {
+  // Load codes from Google Sheet
+  const loadCodesFromSheet = async (token: string, sheetId: string) => {
+    try {
+      setIsSyncing(true);
+      setSyncError(null);
+
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${SHEET_NAME}!A2:H1000`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch codes");
+      }
+
+      const data = await response.json();
+      const rows = data.values || [];
+
+      const codes: GeneratedCode[] = rows.map((row: string[]) => ({
+        code: row[0] || "",
+        durationMonths: parseInt(row[1], 10) || 1,
+        createdAt: row[2] || new Date().toISOString(),
+        usedAt: row[3] || null,
+        usedBy: row[4] || null,
+        paymentMethod: (row[5] as "batch" | "qris" | "card") || "batch",
+        paymentRef: row[6] || null,
+      })).filter((c: GeneratedCode) => c.code);
+
+      setGeneratedCodes(codes);
+      setLastSyncTime(new Date());
+      setIsGoogleConnected(true);
+    } catch (error) {
+      console.error("Load error:", error);
+      setSyncError("Failed to load codes from Google Sheet");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Save codes to Google Sheet
+  const saveCodesToSheet = async (codes: GeneratedCode[]) => {
+    const token = localStorage.getItem("sellmore_admin_google_token");
+    if (!token || !spreadsheetId) return;
+
+    try {
+      setIsSyncing(true);
+      setSyncError(null);
+
+      // Clear existing data (except header)
+      await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${SHEET_NAME}!A2:H1000:clear`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (codes.length > 0) {
+        // Write all codes
+        const values = codes.map((c) => [
+          c.code,
+          c.durationMonths.toString(),
+          c.createdAt,
+          c.usedAt || "",
+          c.usedBy || "",
+          c.paymentMethod,
+          c.paymentRef || "",
+          c.usedAt ? "Used" : "Available",
+        ]);
+
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${SHEET_NAME}!A2:H${codes.length + 1}?valueInputOption=RAW`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ values }),
+          }
+        );
+      }
+
+      setLastSyncTime(new Date());
+    } catch (error) {
+      console.error("Save error:", error);
+      setSyncError("Failed to save to Google Sheet");
+      toast({ title: "Sync failed", description: "Changes saved locally only", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Refresh from sheet
+  const refreshFromSheet = async () => {
+    const token = localStorage.getItem("sellmore_admin_google_token");
+    if (!token || !spreadsheetId) {
+      toast({ title: "Not connected to Google", variant: "destructive" });
+      return;
+    }
+    await loadCodesFromSheet(token, spreadsheetId);
+    toast({ title: "Refreshed from Google Sheet" });
+  };
+
+  // Disconnect Google
+  const disconnectGoogle = () => {
+    localStorage.removeItem("sellmore_admin_google_token");
+    localStorage.removeItem("sellmore_admin_spreadsheet_id");
+    setIsGoogleConnected(false);
+    setSpreadsheetId(null);
+    setGeneratedCodes([]);
+    toast({ title: "Disconnected from Google" });
+  };
+
+  // Generate batch codes
+  const generateBatchCodes = async () => {
     const count = parseInt(batchCount, 10);
     const duration = parseInt(batchDuration, 10);
     
@@ -142,14 +384,18 @@ export default function SubscriptionAdminPage() {
       });
     }
     
-    saveCodes([...newCodes, ...generatedCodes]);
+    const updatedCodes = [...newCodes, ...generatedCodes];
+    setGeneratedCodes(updatedCodes);
+    await saveCodesToSheet(updatedCodes);
+    
     toast({ 
       title: "Codes generated", 
       description: `${count} x ${duration}-month codes created` 
     });
   };
 
-  const generateSingleCode = () => {
+  // Generate single code
+  const generateSingleCode = async () => {
     if (!paymentRef.trim()) {
       toast({ title: "Payment reference required", variant: "destructive" });
       return;
@@ -168,7 +414,9 @@ export default function SubscriptionAdminPage() {
       paymentRef: paymentRef.trim()
     };
     
-    saveCodes([newCode, ...generatedCodes]);
+    const updatedCodes = [newCode, ...generatedCodes];
+    setGeneratedCodes(updatedCodes);
+    await saveCodesToSheet(updatedCodes);
     
     // Copy to clipboard
     navigator.clipboard.writeText(code);
@@ -185,6 +433,19 @@ export default function SubscriptionAdminPage() {
     setCustomerName("");
   };
 
+  // Mark code as used
+  const markAsUsed = async (code: string) => {
+    const updatedCodes = generatedCodes.map((c) =>
+      c.code === code
+        ? { ...c, usedAt: new Date().toISOString(), usedBy: c.usedBy || "Manual" }
+        : c
+    );
+    setGeneratedCodes(updatedCodes);
+    await saveCodesToSheet(updatedCodes);
+    toast({ title: "Marked as used" });
+  };
+
+  // Copy code
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -192,6 +453,7 @@ export default function SubscriptionAdminPage() {
     toast({ title: "Copied!", description: code });
   };
 
+  // Export codes
   const exportCodes = (filter: "all" | "unused" | "used") => {
     let codes = generatedCodes;
     if (filter === "unused") codes = codes.filter(c => !c.usedAt);
@@ -219,19 +481,15 @@ export default function SubscriptionAdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  const deleteCode = (code: string) => {
+  // Delete code
+  const deleteCode = async (code: string) => {
     const updated = generatedCodes.filter(c => c.code !== code);
-    saveCodes(updated);
+    setGeneratedCodes(updated);
+    await saveCodesToSheet(updated);
     toast({ title: "Code deleted" });
   };
 
-  const clearAllCodes = () => {
-    if (confirm("Delete ALL codes? This cannot be undone.")) {
-      saveCodes([]);
-      toast({ title: "All codes cleared" });
-    }
-  };
-
+  // Format date
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("en-US", {
       month: "short",
@@ -247,6 +505,7 @@ export default function SubscriptionAdminPage() {
   const usedCodes = generatedCodes.filter(c => c.usedAt).length;
   const unusedCodes = totalCodes - usedCodes;
 
+  // Not authenticated - simple password check
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
@@ -259,14 +518,26 @@ export default function SubscriptionAdminPage() {
               <Label className="text-gray-300">Password</Label>
               <Input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.target as HTMLInputElement).value === "sellmore2026") {
+                    setIsAuthenticated(true);
+                  }
+                }}
                 className="bg-gray-700 border-gray-600 text-white"
                 placeholder="Enter admin password"
               />
             </div>
-            <Button onClick={handleLogin} className="w-full">
+            <Button 
+              onClick={(e) => {
+                const input = (e.target as HTMLElement).parentElement?.querySelector("input") as HTMLInputElement;
+                if (input?.value === "sellmore2026") {
+                  setIsAuthenticated(true);
+                } else {
+                  toast({ title: "Invalid password", variant: "destructive" });
+                }
+              }} 
+              className="w-full"
+            >
               Login
             </Button>
           </CardContent>
@@ -279,9 +550,9 @@ export default function SubscriptionAdminPage() {
     <div className="min-h-screen bg-gray-900 p-4">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <h1 className="text-2xl font-bold text-white">Subscription Admin</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Badge variant="outline" className="text-green-400 border-green-400">
               {unusedCodes} unused
             </Badge>
@@ -293,6 +564,81 @@ export default function SubscriptionAdminPage() {
             </Badge>
           </div>
         </div>
+
+        {/* Google Connection Card */}
+        <Card className="bg-gray-800 border-gray-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Cloud className="h-4 w-4" />
+              Google Sheets Storage
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!isGoogleConnected ? (
+              <div className="space-y-3">
+                <p className="text-gray-400 text-sm">
+                  Connect to Google Sheets to store and sync your subscription codes securely.
+                </p>
+                <Button 
+                  onClick={connectGoogle} 
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Cloud className="h-4 w-4 mr-2" />
+                  )}
+                  Connect Google Account
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-400" />
+                    <span className="text-green-400 text-sm">Connected to Google Sheets</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={refreshFromSheet}
+                      disabled={isSyncing}
+                    >
+                      {isSyncing ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={disconnectGoogle}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <LogOut className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                {lastSyncTime && (
+                  <p className="text-xs text-gray-500">
+                    Last synced: {lastSyncTime.toLocaleTimeString()}
+                  </p>
+                )}
+                {syncError && (
+                  <Alert className="bg-red-900/20 border-red-700">
+                    <AlertCircle className="h-4 w-4 text-red-400" />
+                    <AlertDescription className="text-red-400 text-sm">
+                      {syncError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Pricing Reference */}
         <Card className="bg-gray-800 border-gray-700">
@@ -364,10 +710,23 @@ export default function SubscriptionAdminPage() {
                     </Select>
                   </div>
                 </div>
-                <Button onClick={generateBatchCodes} className="w-full">
-                  <Package className="w-4 h-4 mr-2" />
+                <Button 
+                  onClick={generateBatchCodes} 
+                  className="w-full"
+                  disabled={!isGoogleConnected || isSyncing}
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Package className="w-4 h-4 mr-2" />
+                  )}
                   Generate {batchCount} Codes
                 </Button>
+                {!isGoogleConnected && (
+                  <p className="text-xs text-yellow-500 text-center">
+                    Connect Google Sheets first to generate codes
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -438,9 +797,13 @@ export default function SubscriptionAdminPage() {
                 <Button 
                   onClick={generateSingleCode} 
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={!paymentRef.trim()}
+                  disabled={!paymentRef.trim() || !isGoogleConnected || isSyncing}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  {isSyncing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4 mr-2" />
+                  )}
                   Generate & Copy Code
                 </Button>
               </CardContent>
@@ -451,9 +814,9 @@ export default function SubscriptionAdminPage() {
           <TabsContent value="history">
             <Card className="bg-gray-800 border-gray-700">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-white">Code History</CardTitle>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -471,15 +834,6 @@ export default function SubscriptionAdminPage() {
                     >
                       <Download className="w-3 h-3 mr-1" />
                       Unused
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      onClick={clearAllCodes}
-                      className="text-xs"
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Clear
                     </Button>
                   </div>
                 </div>
@@ -501,7 +855,7 @@ export default function SubscriptionAdminPage() {
                       {generatedCodes.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                            No codes generated yet
+                            {isGoogleConnected ? "No codes generated yet" : "Connect Google Sheets to view codes"}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -561,14 +915,25 @@ export default function SubscriptionAdminPage() {
                                   )}
                                 </Button>
                                 {!code.usedAt && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => deleteCode(code.code)}
-                                    className="h-7 w-7 p-0 text-red-400 hover:text-red-300"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => markAsUsed(code.code)}
+                                      className="h-7 w-7 p-0 text-blue-400 hover:text-blue-300"
+                                      title="Mark as used"
+                                    >
+                                      <CheckCircle2 className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => deleteCode(code.code)}
+                                      className="h-7 w-7 p-0 text-red-400 hover:text-red-300"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </TableCell>
@@ -583,8 +948,8 @@ export default function SubscriptionAdminPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Recently Generated (Quick Access) */}
-        {generatedCodes.filter(c => !c.usedAt).slice(0, 5).length > 0 && (
+        {/* Quick Copy - Recent Unused */}
+        {isGoogleConnected && generatedCodes.filter(c => !c.usedAt).slice(0, 5).length > 0 && (
           <Card className="bg-gray-800 border-gray-700">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-sm flex items-center gap-2">
