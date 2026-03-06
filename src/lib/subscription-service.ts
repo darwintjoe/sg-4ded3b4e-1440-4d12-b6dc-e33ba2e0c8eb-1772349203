@@ -26,8 +26,29 @@ export interface DecodedCode {
   error?: string;
 }
 
+export interface PaymentTransaction {
+  id: string;
+  timestamp: string;
+  durationMonths: number;
+  amount: number;
+  keyword: string;
+  code: string;
+  status: "pending" | "completed";
+  deviceId: string;
+}
+
+export interface PricingConfig {
+  1: number;
+  3: number;
+  6: number;
+  12: number;
+}
+
 const STORAGE_KEY = "sellmore_subscription";
+const PRICING_STORAGE_KEY = "sellmore_pricing";
+const TRANSACTIONS_STORAGE_KEY = "sellmore_payment_transactions";
 const SECRET_SALT = "SM2026SELLMORE"; // Used for checksum generation
+const TEST_KEYWORD = "keren"; // Test payment keyword
 
 // Duration mapping
 const DURATION_MAP: Record<string, number> = {
@@ -350,14 +371,6 @@ export const DEVELOPER_QRIS = {
   merchantName: "SELL MORE DEV",
   merchantId: "ID1234567890", // Replace with actual merchant ID
   
-  // Pricing in IDR
-  pricing: {
-    1: 50000,   // 1 month
-    3: 135000,  // 3 months (10% discount)
-    6: 255000,  // 6 months (15% discount)
-    12: 480000, // 12 months (20% discount)
-  } as Record<number, number>,
-  
   // Generate QRIS content for dynamic QRIS
   // This should be replaced with actual QRIS API integration
   generateQRISContent(amount: number, orderId: string): string {
@@ -366,6 +379,125 @@ export const DEVELOPER_QRIS = {
     return `00020101021226610014ID.CO.SELLMORE0118${this.merchantId}5204123453033605802ID5913${this.merchantName}6007Jakarta61051234562070703${orderId}5303360540${amount}6304`;
   },
 };
+
+/**
+ * Get pricing configuration (from localStorage or defaults)
+ */
+export function getPricingConfig(): PricingConfig {
+  try {
+    const stored = localStorage.getItem(PRICING_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Use defaults
+  }
+  return {
+    1: 50000,
+    3: 135000,
+    6: 255000,
+    12: 480000,
+  };
+}
+
+/**
+ * Save pricing configuration
+ */
+export function savePricingConfig(pricing: PricingConfig): void {
+  localStorage.setItem(PRICING_STORAGE_KEY, JSON.stringify(pricing));
+}
+
+/**
+ * Get payment transactions
+ */
+export function getPaymentTransactions(): PaymentTransaction[] {
+  try {
+    const stored = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save payment transaction
+ */
+export function savePaymentTransaction(transaction: PaymentTransaction): void {
+  const transactions = getPaymentTransactions();
+  transactions.unshift(transaction);
+  localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(transactions));
+}
+
+/**
+ * Update transaction status
+ */
+export function updateTransactionStatus(id: string, status: "completed"): void {
+  const transactions = getPaymentTransactions();
+  const updated = transactions.map(t => 
+    t.id === id ? { ...t, status } : t
+  );
+  localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(updated));
+}
+
+/**
+ * Process test payment with keyword
+ * Returns generated code if successful
+ */
+export function processTestPayment(keyword: string, durationMonths: number = 12): { 
+  success: boolean; 
+  code?: string; 
+  error?: string;
+  transaction?: PaymentTransaction;
+} {
+  if (keyword.toLowerCase() !== TEST_KEYWORD) {
+    return { success: false, error: "Invalid payment keyword" };
+  }
+
+  // Generate code
+  const code = generateSubscriptionCode(durationMonths);
+  const pricing = getPricingConfig();
+  const amount = pricing[durationMonths as keyof PricingConfig] || pricing[12];
+  
+  // Create transaction record
+  const transaction: PaymentTransaction = {
+    id: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+    timestamp: new Date().toISOString(),
+    durationMonths,
+    amount,
+    keyword,
+    code,
+    status: "pending",
+    deviceId: getDeviceId(),
+  };
+  
+  // Save transaction
+  savePaymentTransaction(transaction);
+  
+  // Auto-activate the subscription
+  const activationResult = activateSubscriptionCode(code);
+  
+  if (activationResult.success) {
+    // Mark transaction as completed
+    updateTransactionStatus(transaction.id, "completed");
+    transaction.status = "completed";
+    
+    return { success: true, code, transaction };
+  }
+  
+  return { success: false, error: activationResult.error };
+}
+
+/**
+ * Get unique device ID
+ */
+function getDeviceId(): string {
+  let deviceId = localStorage.getItem("sellmore_device_id");
+  if (!deviceId) {
+    deviceId = `DEV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+    localStorage.setItem("sellmore_device_id", deviceId);
+  }
+  return deviceId;
+}
 
 /**
  * Format price to IDR

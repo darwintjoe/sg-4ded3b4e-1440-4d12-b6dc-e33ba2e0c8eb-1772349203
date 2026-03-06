@@ -21,12 +21,15 @@ import {
   AlertTriangle,
   Eye,
   EyeOff,
+  Sparkles,
 } from "lucide-react";
 import { translate } from "@/lib/translations";
 import { 
   getSubscriptionInfo, 
-  activateSubscriptionCode, 
-  DEVELOPER_QRIS,
+  activateSubscriptionCode,
+  processTestPayment,
+  getPricingConfig,
+  formatPriceIDR,
   SubscriptionInfo
 } from "@/lib/subscription-service";
 import type { BackupStatus, Language } from "@/types";
@@ -76,11 +79,17 @@ export function BackupSettingsCard({
   const [activating, setActivating] = useState(false);
   const [activationError, setActivationError] = useState("");
   const [showQRIS, setShowQRIS] = useState(false);
+  const [paymentKeyword, setPaymentKeyword] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
   
   // PIN visibility states
   const [showCurrentPin, setShowCurrentPin] = useState(false);
   const [showNewPin, setShowNewPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
+
+  const pricing = getPricingConfig();
 
   const handleActivateCode = async () => {
     if (!subscriptionCode.trim()) return;
@@ -103,6 +112,37 @@ export function BackupSettingsCard({
     } finally {
       setActivating(false);
     }
+  };
+
+  const handleQRISPayment = async () => {
+    if (!paymentKeyword.trim()) return;
+    
+    setPaymentProcessing(true);
+    setActivationError("");
+    
+    // Simulate payment processing delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const result = processTestPayment(paymentKeyword.trim(), 12);
+    
+    if (result.success && result.code) {
+      setGeneratedCode(result.code);
+      setPaymentSuccess(true);
+      setSubscriptionInfo(getSubscriptionInfo());
+      setPaymentKeyword("");
+    } else {
+      setActivationError(result.error || "Payment failed");
+    }
+    
+    setPaymentProcessing(false);
+  };
+
+  const resetQRISFlow = () => {
+    setShowQRIS(false);
+    setPaymentSuccess(false);
+    setGeneratedCode("");
+    setPaymentKeyword("");
+    setActivationError("");
   };
 
   const getStatusLabel = (status: SubscriptionInfo["status"]): string => {
@@ -221,7 +261,7 @@ export function BackupSettingsCard({
                   {activating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Activate"}
                 </Button>
               </div>
-              {activationError && (
+              {activationError && !showQRIS && (
                 <p className="text-xs text-red-500">{activationError}</p>
               )}
             </div>
@@ -232,7 +272,7 @@ export function BackupSettingsCard({
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            {/* Option 2: Pay with QRIS - 1 Year Only */}
+            {/* Option 2: Pay with QRIS */}
             <div className="space-y-2">
               {!showQRIS ? (
                 <Button
@@ -242,11 +282,35 @@ export function BackupSettingsCard({
                   onClick={() => setShowQRIS(true)}
                 >
                   <QrCode className="h-4 w-4" />
-                  Pay with QRIS (1 Year)
+                  Pay with QRIS (1 Year - {formatPriceIDR(pricing[12])})
                 </Button>
-              ) : (
+              ) : paymentSuccess ? (
+                // Success State
                 <div className="space-y-3">
-                  <div className="bg-white p-4 rounded-lg border text-center">
+                  <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-4 rounded-lg text-center">
+                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                    <p className="font-semibold text-green-700 dark:text-green-400">Payment Successful!</p>
+                    <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                      Your subscription has been extended by 1 year
+                    </p>
+                    <div className="mt-3 p-2 bg-white dark:bg-gray-800 rounded border">
+                      <p className="text-xs text-muted-foreground">Your activation code:</p>
+                      <p className="font-mono text-sm font-bold">{generatedCode}</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full h-8 text-xs"
+                    onClick={resetQRISFlow}
+                  >
+                    Done
+                  </Button>
+                </div>
+              ) : (
+                // QRIS Payment Flow
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-lg border text-center">
                     <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-3 mb-2">
                       {/* Placeholder for QRIS - In production, generate actual QR */}
                       <div className="w-40 h-40 mx-auto bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center">
@@ -254,21 +318,56 @@ export function BackupSettingsCard({
                       </div>
                     </div>
                     <p className="font-semibold text-sm">1 Year Subscription</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Scan to pay via QRIS
-                    </p>
+                    <p className="text-lg font-bold text-green-600">{formatPriceIDR(pricing[12])}</p>
                   </div>
+                  
+                  {/* Test Payment Input */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Enter payment confirmation keyword
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter keyword..."
+                        value={paymentKeyword}
+                        onChange={(e) => {
+                          setPaymentKeyword(e.target.value);
+                          setActivationError("");
+                        }}
+                        className="h-9 text-sm"
+                        disabled={paymentProcessing}
+                      />
+                      <Button 
+                        onClick={handleQRISPayment}
+                        disabled={!paymentKeyword.trim() || paymentProcessing}
+                        size="sm"
+                        className="h-9 px-4 bg-green-600 hover:bg-green-700"
+                      >
+                        {paymentProcessing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Verify"
+                        )}
+                      </Button>
+                    </div>
+                    {activationError && (
+                      <p className="text-xs text-red-500">{activationError}</p>
+                    )}
+                  </div>
+
                   <Alert className="py-2">
                     <Info className="h-3 w-3" />
                     <AlertDescription className="text-xs">
-                      After payment, you&apos;ll receive a code via WhatsApp within 24 hours.
+                      Scan QRIS above, then enter the confirmation keyword after payment.
                     </AlertDescription>
                   </Alert>
+                  
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     className="w-full h-8 text-xs"
-                    onClick={() => setShowQRIS(false)}
+                    onClick={resetQRISFlow}
                   >
                     Cancel
                   </Button>
@@ -279,7 +378,7 @@ export function BackupSettingsCard({
         </CardContent>
       </Card>
 
-      {/* Admin PIN Card - Better layout for 4-6 digit PINs */}
+      {/* Admin PIN Card */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
