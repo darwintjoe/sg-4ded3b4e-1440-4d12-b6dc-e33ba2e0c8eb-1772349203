@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { LoginScreen } from "@/components/LoginScreen";
 import { AdminLoginScreen } from "@/components/AdminLoginScreen";
@@ -6,14 +6,116 @@ import { AttendanceScreen } from "@/components/AttendanceScreen";
 import { POSScreen } from "@/components/POSScreen";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { SEO } from "@/components/SEO";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 type Screen = "login" | "adminLogin" | "attendance" | "pos" | "adminDashboard";
 
+// Screen hierarchy for back navigation
+const SCREEN_HIERARCHY: Record<Screen, Screen | null> = {
+  login: null, // No back from login (exit app)
+  adminLogin: "login",
+  attendance: "login",
+  pos: "login",
+  adminDashboard: "pos", // Admin goes back to POS if logged in as cashier, otherwise login
+};
+
 export default function Home() {
-  const { currentUser, adminUser, isInitializing, loadingStatus } = useApp();
+  const { currentUser, adminUser, isInitializing, loadingStatus, logoutAdmin } = useApp();
+  const { toast } = useToast();
   const [screen, setScreen] = useState<Screen>("login");
+  const lastBackPressRef = useRef<number>(0);
+  const isNavigatingRef = useRef<boolean>(false);
+
+  // Handle back navigation
+  const handleBackNavigation = useCallback(() => {
+    const activeScreen = getActiveScreenValue();
+    
+    // If on login screen, show exit confirmation
+    if (activeScreen === "login") {
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        // Double back press within 2 seconds - allow exit
+        // Push a state to allow the actual exit
+        return true; // Allow default behavior (exit)
+      } else {
+        lastBackPressRef.current = now;
+        toast({
+          title: "Press back again to exit",
+          duration: 2000,
+        });
+        // Push state to prevent exit
+        window.history.pushState({ screen: "login" }, "", window.location.pathname);
+        return false;
+      }
+    }
+
+    // Handle admin dashboard - logout admin and go to appropriate screen
+    if (activeScreen === "adminDashboard") {
+      logoutAdmin();
+      return false;
+    }
+
+    // Navigate to previous screen
+    const previousScreen = SCREEN_HIERARCHY[activeScreen];
+    if (previousScreen) {
+      isNavigatingRef.current = true;
+      setScreen(previousScreen);
+      // Don't push new state, we're going back
+      setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 100);
+    }
+    
+    return false;
+  }, [toast, logoutAdmin]);
+
+  // Helper to get active screen value (same logic as getActiveScreen but returns value)
+  const getActiveScreenValue = useCallback((): Screen => {
+    if (adminUser) return "adminDashboard";
+    if (screen === "adminLogin") return "adminLogin";
+    if (screen === "attendance") return "attendance";
+    if (!currentUser) return "login";
+    return "pos";
+  }, [adminUser, screen, currentUser]);
+
+  // Initialize history state and set up popstate listener
+  useEffect(() => {
+    if (isInitializing) return;
+
+    // Set initial history state
+    const initialScreen = getActiveScreenValue();
+    window.history.replaceState({ screen: initialScreen }, "", window.location.pathname);
+
+    // Handle popstate (back button)
+    const handlePopState = (event: PopStateEvent) => {
+      // Prevent default and handle our own navigation
+      const shouldExit = handleBackNavigation();
+      
+      if (!shouldExit) {
+        // We handled it, prevent actual navigation
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isInitializing, getActiveScreenValue, handleBackNavigation]);
+
+  // Push history state when screen changes (but not during back navigation)
+  useEffect(() => {
+    if (isInitializing || isNavigatingRef.current) return;
+
+    const activeScreen = getActiveScreenValue();
+    const currentState = window.history.state;
+    
+    // Only push if screen changed
+    if (currentState?.screen !== activeScreen) {
+      window.history.pushState({ screen: activeScreen }, "", window.location.pathname);
+    }
+  }, [screen, currentUser, adminUser, isInitializing, getActiveScreenValue]);
 
   // Auto-reset screen when admin logs out (only when coming from adminDashboard)
   useEffect(() => {
@@ -45,7 +147,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Loading Status - THIS IS THE KEY ADDITION */}
+          {/* Loading Status */}
           <div className="space-y-2">
             <div className="inline-block px-4 py-2 bg-blue-100 dark:bg-blue-900 rounded-full">
               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
@@ -55,7 +157,7 @@ export default function Home() {
             
             {/* Progress bar */}
             <div className="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mx-auto">
-              <div className="h-full bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              <div className="h-full bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ width: "60%" }}></div>
             </div>
           </div>
 
